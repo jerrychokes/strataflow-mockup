@@ -28,3 +28,14 @@ viewer-chrome item for the next wave's tooling pass rather than fixed silently.
 guard, partition, link graph, dead hrefs) · `CHROMIUM=… node verify.mjs` exit 0 (66
 screens × 3 widths, all seven check families) · rebuild byte-identical · evidence
 screenshots in the auditor's scratch area under `…/scratchpad/fixes/`.
+
+## Round 2 — closed
+
+The auditor re-measured everything, accepted the min-content correction against its own
+round-1 instrument, proved both new guards bite in a scratch copy, and **passed the
+gate: zero P0/P1 open**. Two non-blocking items carry forward to Wave 2's tooling pass,
+committed here rather than left loose: **W1-A-10** (P3 — the touch hit-walk measures
+the vertical run only and its threshold is 43 against the claimed 44; tighten both),
+and the **viewer-chrome exclusion** (rail filter 31px, top-bar search 23px under a
+coarse pointer — and the auditor is right that the top bar is drawn as product chrome,
+so it returns to scope rather than staying excluded).
