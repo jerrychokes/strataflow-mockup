@@ -740,17 +740,29 @@ ${palette()}
  * "no route" is banned only in the present-tense forms that make a claim.
  */
 {
-  const banned = [/engine-only/i, /renders nowhere/i, /tested library code with no route/i, /no route (?:exists|imports|renders)/i, /nothing renders/i];
+  /*
+   * W3-A-2: "no route" is banned in every phrasing now, not only the three
+   * present-tense forms the first version listed — the chain-of-custody
+   * screen's "there is no route for one" slipped past on wording alone. A
+   * `proposed` screen is exempt from the route phrases only: its argument
+   * *requires* stating what the product lacks, and the exemption dissolves
+   * the day the register flips the screen to shipped, which is exactly when
+   * that sentence starts to rot.
+   */
+  const banned = [/engine-only/i, /renders nowhere/i, /tested library code with no route/i, /no (?:product )?route\b/i, /nothing renders/i];
+  const routeOnly = new Set([3]);
+  const proposed = new Set(ALL.filter((s) => (s.now ?? s.state) === 'proposed').map((s) => s.id));
   const chunks = html.split('<section class="mk-screen"').slice(1);
   const offences = [];
   for (const chunk of chunks) {
     const id = chunk.match(/^ id="([^"]+)"/)?.[1] ?? '(unidentified screen)';
     const body = chunk.slice(0, chunk.lastIndexOf('</section>'));
     const text = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-    for (const re of banned) {
+    banned.forEach((re, i) => {
+      if (routeOnly.has(i) && proposed.has(id)) return;
       const hit = text.match(re);
       if (hit) offences.push(`#${id}: body prose carries a state claim: “${hit[0]}”`);
-    }
+    });
   }
   if (chunks.length !== ALL.length) offences.push(`screen prose check saw ${chunks.length} sections, not ${ALL.length}`);
   if (offences.length) {

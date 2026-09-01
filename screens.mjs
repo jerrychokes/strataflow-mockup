@@ -52,6 +52,15 @@ function head(title, lede, { route, toolbar } = {}) {
   );
 }
 
+/**
+ * W3-A-1: every register the staged amendment would rewrite says so, not only
+ * the preview surfaces. Two surfaces disagreeing about whether a number is
+ * settled is the custody failure again, one register over — and the counts
+ * come from AMENDMENT so this line and the decision table cannot drift.
+ */
+const stagedNote = (would) =>
+  `<p class="mk-tight mk-muted">An amendment is <a class="mk-ref" href="#certificate">staged on ${esc(AMENDMENT.certificate)}</a> against the locked 2026 Q1 period. Nothing here has moved — a locked period refuses the write — but ${would} if it is accepted.</p>`;
+
 const btn = (label, kind = '') => `<button class="sf-button${kind ? ` sf-button--${kind}` : ''}" type="button">${esc(label)}</button>`;
 const stat = (value, label, tone = 'neutral') =>
   `<div class="mk-stat mk-stat--${tone}"><span class="mk-stat__value">${esc(value)}</span><span class="mk-stat__label">${esc(label)}</span></div>`;
@@ -836,6 +845,7 @@ const exceedances = () =>
       WINDOW_CONDITION.series.filter((w) => w.outcome === 'triggered').length,
     ),
   ]) +
+  stagedNote(`${AMENDMENT.counts.outcomesChanged} of ${AMENDMENT.counts.resultsPreviewed} previewed outcomes on this register would change`) +
   C.filterBar({
     onView: 'All open exceedances',
     saved: true,
@@ -1109,6 +1119,7 @@ const tarpBoard = () =>
     route: '/projects/:projectId/tarp',
     toolbar: btn('Acknowledge', 'primary'),
   }) +
+  stagedNote(`${AMENDMENT.counts.tarpMoved} of ${AMENDMENT.counts.tarpLevels} trigger levels would move — Level 2 would hold on arsenic rather than copper`) +
   '<h2 class="mk-h2">Trigger levels in force</h2>' +
   `<div class="mk-tarp">${TARP.map((t) => `<article class="mk-tarp__card mk-tarp__card--${t.state === 'active' ? (t.level === 'Level 3' ? 'bad' : 'warn') : 'good'}">
       <header><span class="mk-tarp__level">${esc(t.level)}</span>${tag(t.state, t.state === 'active' ? 'bad' : 'good')}</header>
@@ -2120,6 +2131,7 @@ const supersession = () =>
   head('Supersession', 'What a re-issued certificate changed, and everything that followed it.', {
     route: '/projects/:projectId/supersessions',
   }) +
+  stagedNote(`${AMENDMENT.counts.resultsAmended} supersessions would append here, each carrying its reason`) +
   `<p class="sf-lede mk-tight">${esc(SUPERSESSION.subject)}</p>` +
   cols(
     panel('Before', facts([
