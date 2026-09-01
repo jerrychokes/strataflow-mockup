@@ -48,14 +48,18 @@ and `/help`, and `ia.ts` parents every workspace. The view now mirrors that
 architecture — ten groups exactly partitioning the 66 screens — and the build
 fails if the partition ever breaks.
 
-**Sixteen screens measurably overflowed the document** (eleven at 375 px, three at
-1000, two at 1280 — the 1000 px cases found only when `verify.mjs` made three
-widths permanent). Four distinct mechanisms, none findable by reading: a
-containing-block escape inside the product's own scroll regions (fixed with
-`contain: layout`, which a labelled scroll region should declare anyway), grid
-tracks sized by nowrap sentences (`min-width: 0`, and sentences now wrap), eight
-record lists wider than their column (they pan now, in the same focusable region a
-matrix gets), and a stacked cell's `::before` label that refused to shrink —
+**Fourteen screens measurably overflowed the document, in seventeen screen-width
+instances** (eleven at 375 px, four at 1000, two at 1280 — the 1000 px cases found
+only when `verify.mjs` made three widths permanent). "Sixteen" was a count of
+instances that had missed `crosstab`'s 1000 px one; the numbers here are the
+wave-1 audit's re-measurement of the pre-wave build, distinct screens and
+instances stated separately because they are different numbers. Four distinct
+mechanisms, none findable by reading: a containing-block escape inside the
+product's own scroll regions (fixed with `contain: layout`, which a labelled
+scroll region should declare anyway), grid tracks sized by nowrap sentences
+(`min-width: 0`, and sentences now wrap), eight record lists wider than their
+column (they pan now, in the same focusable region a matrix gets), and a
+stacked cell's `::before` label that refused to shrink —
 invisible to every element query, found through `td.scrollWidth`.
 
 **The route lines stopped asserting states.** Thirty-five of them still said

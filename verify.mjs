@@ -17,6 +17,10 @@
  * - the sticky matrix column — `contain: layout` on the scroll regions is
  *   what fixed the worst overflow, and this asserts it did not cost the one
  *   thing the region exists for.
+ * - figure text collisions, coarse-pointer touch targets and stacked-label
+ *   legibility — the wave-1 audit's W1-A-4: two of EXPANSION_BRIEF §10's five
+ *   check families were run by hand and by nobody afterwards, and the third
+ *   is the meter that would have caught W1-A-1 on the day it was written.
  *
  * Run: `npm install` once, then `node verify.mjs`. Set CHROMIUM to a Chromium
  * binary if playwright-core has no browser of its own (e.g.
@@ -119,6 +123,219 @@ for (const width of widths) {
   await page.close();
 }
 
+/*
+ * §10's figure layout check: lay out every generated figure and compare every
+ * `<text>` box against every other.
+ *
+ * Scoped to `svg.mk-fig, svg.sf-map`, which is every figure `figures.mjs`
+ * emits — not to `mk-fig` alone. The class was the scope in §10's wording, in
+ * pass 3's check and in the auditor's own first run, and the one figure
+ * outside it was the one with the collision: the site map's legend printed
+ * "compliant" through the tail of "indeterminate — LOR above criterion"
+ * (W1-A-6). A check whose scope is a class name only measures the figures
+ * somebody remembered to name.
+ *
+ * 1px of tolerance: adjacent boxes share a rounded edge, and glyph boxes carry
+ * side bearings that touch without a mark ever touching.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(url);
+  await page.waitForTimeout(600);
+  const ids = await page.evaluate(() => [...document.querySelectorAll('.mk-screen')].map((s) => s.id));
+  let figures = 0;
+  let nodes = 0;
+  for (const id of ids) {
+    const r = await page.evaluate((sid) => {
+      document.querySelectorAll('.mk-screen').forEach((p) => p.setAttribute('data-active', String(p.id === sid)));
+      const scope = `#${CSS.escape(sid)}`;
+      const collisions = [];
+      let figs = 0;
+      let texts = 0;
+      for (const svg of document.querySelectorAll(`${scope} svg.mk-fig, ${scope} svg.sf-map`)) {
+        figs++;
+        const boxes = [...svg.querySelectorAll('text')]
+          .map((t) => ({ text: t.textContent, box: t.getBoundingClientRect() }))
+          .filter((n) => n.box.width > 0 && n.box.height > 0);
+        texts += boxes.length;
+        const name = svg.querySelector('title')?.textContent ?? svg.getAttribute('class');
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i].box, b = boxes[j].box;
+            const over = Math.min(
+              Math.min(a.right, b.right) - Math.max(a.left, b.left),
+              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top),
+            );
+            if (over > 1) {
+              collisions.push(
+                `“${boxes[i].text.slice(0, 44)}” and “${boxes[j].text.slice(0, 44)}” overlap by ${over.toFixed(1)}px in “${name}”`,
+              );
+            }
+          }
+        }
+      }
+      return { collisions, figs, texts };
+    }, id);
+    figures += r.figs;
+    nodes += r.texts;
+    for (const c of r.collisions) failures.push(`1280px #${id}: figure text collision — ${c}`);
+  }
+  console.log(`figures: ${figures} drawn, ${nodes} text nodes compared pairwise at 1280px`);
+  await page.close();
+}
+
+/*
+ * §10's touch-target check, by hit-testing under an emulated coarse pointer.
+ *
+ * `hasTouch: true` on the context is what makes `(pointer: coarse)` match —
+ * the media query, not `navigator.maxTouchPoints`, is what the rules in
+ * chrome.mjs are written against, so a run where it does not match measures
+ * the desktop stylesheet and reports a green that means nothing. It is
+ * asserted rather than assumed, below.
+ *
+ * The measure is the *hit* area and not the box: `.mk-why__btn` keeps a 15px
+ * glyph on purpose — growing it would push apart the sentence it sits in —
+ * and gains its 45px target from an inset `::after`, which no element query
+ * can see. So a control whose own box (or whose enclosing check/radio/switch
+ * label, since tapping the label activates the control) is short enough to
+ * matter is probed with `elementFromPoint` up and down its centre line, and
+ * what counts is the run of points that actually reach it.
+ *
+ * Inline text links are exempt and that is WCAG 2.5.5's own exception, not a
+ * local convenience: `a.mk-ref` and `.mk-linkbtn` sit in flowing prose, where
+ * a 44px target either breaks the line box or spaces the paragraph to nothing.
+ * chrome.mjs floors the ones that are navigation rather than sentences.
+ *
+ * Scoped to the active screen, which leaves the catalogue's own furniture out:
+ * the rail's filter box and the top bar's search are how this document is
+ * browsed, not surfaces the product ships, and on 1 Sep 2026 they measure 31px
+ * and 23px under a coarse pointer. That is a stated exclusion rather than a
+ * silent one — W1-A-6 is the standing lesson about a check whose scope is
+ * where the defect lives.
+ */
+{
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto(url);
+  await page.waitForTimeout(600);
+  const coarse = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
+  if (!coarse) failures.push('touch targets: (pointer: coarse) does not match — the check would measure the desktop stylesheet');
+  const ids = await page.evaluate(() => [...document.querySelectorAll('.mk-screen')].map((s) => s.id));
+  let measured = 0;
+  if (coarse) {
+    for (const id of ids) {
+      const r = await page.evaluate((sid) => {
+        document.querySelectorAll('.mk-screen').forEach((p) => p.setAttribute('data-active', String(p.id === sid)));
+        const scope = `#${CSS.escape(sid)}`;
+        const parts = ['button', 'select', 'textarea', 'input:not([type=hidden])', 'label.mk-check', 'label.mk-radio', 'label.mk-switch'];
+        const small = [];
+        let seen = 0;
+        for (const el of document.querySelectorAll(parts.map((p) => `${scope} ${p}`).join(', '))) {
+          if (el.closest('[hidden]')) continue;
+          if (el.matches('a.mk-ref, .mk-linkbtn') || el.closest('.mk-linkbtn')) continue;
+          const own = el.getBoundingClientRect();
+          if (own.width === 0 && own.height === 0) continue;
+          seen++;
+          const label = el.closest('label.mk-check, label.mk-radio, label.mk-switch');
+          const box = Math.max(own.height, label ? label.getBoundingClientRect().height : 0);
+          if (box >= 43) continue;
+          // Only now is a hit test worth its cost.
+          const target = label ?? el;
+          target.scrollIntoView({ block: 'center' });
+          const rect = target.getBoundingClientRect();
+          const cx = Math.round(rect.left + rect.width / 2);
+          const cy = Math.round(rect.top + rect.height / 2);
+          // The target itself, or something inside it — never an ancestor.
+          // Counting an ancestor as a hit makes every target as tall as the
+          // panel behind it, and the check passes with the floors deleted.
+          const reaches = (y) => {
+            const hit = document.elementFromPoint(cx, y);
+            return hit === target || target.contains(hit);
+          };
+          let top = cy, bottom = cy;
+          while (top > 0 && reaches(top - 1)) top--;
+          while (bottom < window.innerHeight - 1 && reaches(bottom + 1)) bottom++;
+          const hit = reaches(cy) ? bottom - top + 1 : 0;
+          if (hit < 43) {
+            small.push(`${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 30)}” — ${hit}px`);
+          }
+        }
+        return { small, seen };
+      }, id);
+      measured += r.seen;
+      for (const s of new Set(r.small)) failures.push(`#${id}: coarse-pointer target under 44px: ${s}`);
+    }
+    console.log(`touch: ${measured} controls hit-tested at 375px under (pointer: coarse)`);
+  }
+  await context.close();
+}
+
+/*
+ * The meter W1-A-1 was missing: a stacked cell's label may not be squeezed
+ * narrower than the text inside it.
+ *
+ * On a phone a record row becomes a block and each cell's `data-label` is
+ * drawn by a `::before` beside the value. Wave 1 let that box shrink with
+ * `min-width: 0`, and 85 labels across ~30 screens then printed *through*
+ * their values — "Consequ**Cadm**ence" — while every meter stayed green,
+ * because glyphs spilling out of a shrunk box extend neither `td.scrollWidth`
+ * nor the document's.
+ *
+ * The floor is the label's min-content width, which is the widest run of it
+ * that cannot be broken — measured, not counted, because CSS breaks at more
+ * places than a space: "Re-run by" may break after its hyphen, so its floor is
+ * "run" and not "Re-run". Splitting on whitespace instead reported the three
+ * `#coverage` cells that wrap to three lines as defects while they were
+ * rendering correctly. What the box may never be is narrower than a run the
+ * browser cannot break, because that is the case where the glyphs leave it.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
+  await page.goto(url);
+  await page.waitForTimeout(600);
+  const ids = await page.evaluate(() => [...document.querySelectorAll('.mk-screen')].map((s) => s.id));
+  let cells = 0;
+  for (const id of ids) {
+    const r = await page.evaluate((sid) => {
+      document.querySelectorAll('.mk-screen').forEach((p) => p.setAttribute('data-active', String(p.id === sid)));
+      const ruler = document.createElement('span');
+      // min-content on the ruler is the whole measurement: it reports the
+      // widest unbreakable run under this exact font, hyphens and all.
+      ruler.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;width:min-content';
+      const floors = new Map();
+      const tight = [];
+      let stacked = 0;
+      for (const td of document.querySelectorAll(`#${CSS.escape(sid)} .sf-table--records tbody td[data-label]`)) {
+        if (getComputedStyle(td).display !== 'flex') continue; // not stacked at this width
+        stacked++;
+        const before = getComputedStyle(td, '::before');
+        const label = td.getAttribute('data-label');
+        const font = `${before.fontStyle} ${before.fontWeight} ${before.fontSize}/${before.lineHeight} ${before.fontFamily}`;
+        const key = `${font}|${before.letterSpacing}|${before.textTransform}|${label}`;
+        if (!floors.has(key)) {
+          ruler.style.font = font;
+          ruler.style.letterSpacing = before.letterSpacing;
+          ruler.style.textTransform = before.textTransform;
+          ruler.textContent = label;
+          td.appendChild(ruler);
+          floors.set(key, ruler.getBoundingClientRect().width);
+          ruler.remove();
+        }
+        const floor = floors.get(key);
+        const used = parseFloat(before.width);
+        if (used + 2 < floor) {
+          tight.push(`“${label}” drawn in ${used.toFixed(1)}px, needs ${floor.toFixed(1)}px — the label prints over its value`);
+        }
+      }
+      return { tight, stacked };
+    }, id);
+    cells += r.stacked;
+    for (const t of new Set(r.tight)) failures.push(`375px #${id}: stacked label squeezed below its text: ${t}`);
+  }
+  console.log(`stacked labels: ${cells} labelled cells measured against their own min-content at 375px`);
+  await page.close();
+}
+
 await browser.close();
 
 if (failures.length) {
@@ -126,4 +343,8 @@ if (failures.length) {
   for (const f of failures) console.error('  ' + f);
   process.exit(1);
 }
-console.log('verify: no document overflow at any width, no duplicate ids, no unnamed controls, no heading skips, matrix panning intact');
+console.log(
+  'verify: no document overflow at any width, no duplicate ids, no unnamed controls, no heading skips, ' +
+    'matrix panning intact, no figure text collisions, every coarse-pointer target ≥44px, no stacked label ' +
+    'squeezed below its own text',
+);

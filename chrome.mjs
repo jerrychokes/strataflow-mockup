@@ -107,6 +107,10 @@ html, body { background: var(--mk-chrome); }
 .mk-dot--new { background: #3f9dbd; }
 .mk-rail__key { margin: 1.4rem 1rem 0; padding-top: .8rem; border-top: 1px solid var(--mk-chrome-rule); font-size: 10.5px; color: var(--mk-chrome-muted); }
 .mk-rail__key div { display: flex; gap: .5em; align-items: center; margin-bottom: .35rem; line-height: 1.35; }
+/* Two classes, and after: the entry rule above is (0,1,1) and would otherwise
+   keep this sentence in a flex row with the dots. */
+.mk-rail__key .mk-rail__keynote { display: block; margin-top: .7rem; padding-top: .5rem;
+  border-top: 1px dotted var(--mk-chrome-rule); line-height: 1.4; }
 .mk-rail__empty { padding: 1.5rem 1rem; font-size: 11.5px; color: var(--mk-chrome-muted); line-height: 1.5; }
 .mk-rail__empty[hidden] { display: none; }
 
@@ -344,6 +348,8 @@ html, body { background: var(--mk-chrome); }
 .mk-select--sm { min-height: 24px; padding: .1rem 1.4rem .1rem .35rem; font-size: 11px; width: auto;
   background-position: calc(100% - 12px) 10px, calc(100% - 7px) 10px; }
 @media (pointer: coarse) { .mk-input, .mk-select, .mk-textarea { min-height: 44px; } }
+/* W1-A-5: check, radio and switch are form controls too, not inline links. */
+@media (pointer: coarse) { label.mk-check, label.mk-radio, label.mk-switch { min-height: 44px; display: inline-flex; align-items: center; } }
 
 .mk-inputgroup { display: flex; align-items: stretch; }
 .mk-inputgroup .mk-input { border-radius: var(--sf-radius-sm) 0 0 var(--sf-radius-sm); border-right: 0; }
@@ -897,9 +903,15 @@ html, body { background: var(--mk-chrome); }
    * The stacked cell's ::before label is flex: 0 0 auto in app.css, which is
    * right until a label is a sentence — "Consequence for the assessment" made
    * three DQA cells 73px wider than their row, invisibly (a pseudo-element
-   * shows up in no element query; found via td.scrollWidth). Letting it
-   * shrink lets it wrap.
+   * shows up in no element query; found via td.scrollWidth). flex-shrink: 1
+   * lets it wrap. The first version also set min-width: 0, and the wave-1
+   * audit (W1-A-1) measured what that bought: 85 labels shrunk below their
+   * longest word and overprinting their values, invisible to every overflow
+   * meter. min-width stays at its flex default (auto), which floors the
+   * shrink at min-content: the widest run of the label the browser cannot
+   * break — "Consequence", but only "run" in "Re-run by", because a hyphen is
+   * a break opportunity. verify.mjs measures that floor, not a word count.
    */
-  .sf-table--records tbody td::before { flex-shrink: 1; min-width: 0; }
+  .sf-table--records tbody td::before { flex-shrink: 1; }
 }
 `;

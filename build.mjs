@@ -207,14 +207,41 @@ function rail() {
     `<p class="mk-rail__who">${azItems.length} screens</p>` +
     `<ul class="mk-rail__list">${azItems.map(screenButton).join('')}</ul></div>`;
 
-  const key = Object.entries({
+  /*
+   * The legend lists what the dots can currently show, and nothing else. It
+   * was a hand-kept list of four states, two of which ("engine-only", "not
+   * built") the dots stopped rendering when they moved to `now` on 1 Sep and
+   * one of which ("shipped (CLI)") they render and it never listed (W1-A-8).
+   * Derived from the register's own values, in STATE_MEANING's order, so a
+   * state that appears or disappears in a later pass takes the legend with it;
+   * a value with no meaning written for it fails the build rather than
+   * rendering unexplained. The two historical states are one hover away, which
+   * the closing line says.
+   */
+  const STATE_MEANING = {
     shipped: 'shipped — works in a browser today',
+    'shipped (CLI)': 'shipped (CLI) — operated from a terminal today',
     'engine-only': 'engine-only — tested code, no screen',
     'not built': 'not built at all',
     proposed: 'proposed — not in the requirements',
-  })
-    .map(([state, label]) => `<div><span class="mk-dot mk-dot--${STATE_TONE[state]}"></span><span>${esc(label)}</span></div>`)
-    .join('');
+  };
+  const present = new Set(ALL.map((s) => s.now ?? s.state));
+  const unexplained = [...present].filter((state) => !STATE_MEANING[state]);
+  if (unexplained.length) {
+    console.error(`rail legend: no meaning written for state(s): ${unexplained.join(', ')}`);
+    process.exit(1);
+  }
+  const legendStates = Object.keys(STATE_MEANING).filter((state) => present.has(state));
+  // Two states can wear one tone, and today two do: a legend that lists them
+  // as separate keys while drawing the same dot is a legend that lies quietly.
+  const shared = legendStates.filter((s) => legendStates.some((o) => o !== s && STATE_TONE[o] === STATE_TONE[s]));
+  const hover = 'over any dot for its state, and for the 23 August state where that differs.';
+  const note = shared.length > 1 ? `${shared.slice(0, -1).join(', ')} and ${shared.at(-1)} share a dot — h${hover}` : `H${hover}`;
+  const key =
+    legendStates
+      .map((state) => `<div><span class="mk-dot mk-dot--${STATE_TONE[state]}"></span><span>${esc(STATE_MEANING[state])}</span></div>`)
+      .join('') +
+    `<div class="mk-rail__keynote">${esc(note)}</div>`;
 
   return (
     '<nav class="mk-rail" aria-label="Screens">' +
@@ -492,10 +519,30 @@ ${palette()}
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
-    // Twice: once now, and once after the browser has finished its own jump to
-    // the anchor, which runs after this handler on a cold load with a hash.
-    window.scrollTo({ top: 0 });
-    requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+    /*
+     * Where the top of the document is depends on the layout. Above 900px the
+     * rail is a column beside the canvas and scrollY 0 shows the screen. At or
+     * below it the rail is a 100vh block stacked *above* the canvas, so
+     * scrollY 0 shows the catalogue and the screen you asked for sits ~1185px
+     * below the fold — every hop of the 375px journey walk landed on the rail
+     * (W1-A-3). Narrow, scroll to the screen; wide, scroll to the top.
+     *
+     * Twice either way: once now, and once after the browser has finished its
+     * own jump to the anchor, which runs after this handler on a cold load
+     * with a hash and would otherwise undo this.
+     */
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const bring = () => {
+      if (!narrow) { window.scrollTo({ top: 0 }); return; }
+      const panel = panels.find((p) => p.id === id);
+      if (!panel) return;
+      // Less the sticky chrome, or the screen's own title lands underneath it.
+      const head = $('.mk-chrome-head');
+      const under = head && getComputedStyle(head).position === 'sticky' ? head.getBoundingClientRect().height : 0;
+      window.scrollTo({ top: window.scrollY + panel.getBoundingClientRect().top - under - 8 });
+    };
+    bring();
+    requestAnimationFrame(bring);
     closeOverlays();
   }
   document.addEventListener('click', (e) => {
@@ -626,9 +673,64 @@ ${palette()}
   });
 
   const initial = location.hash.slice(1);
-  show(ids.has(initial) ? initial : ${JSON.stringify(first)});
+  const initialId = ids.has(initial) ? initial : ${JSON.stringify(first)};
+  show(initialId);
+  /*
+   * And once more when the document is done. Traced on a cold load at 375px:
+   * both scrolls in show() run while readyState is "loading", and the
+   * browser's own jump to the anchor lands at "complete" — after them — so it
+   * is the last word and it puts the section's top under the sticky chrome.
+   * A third pass, only for the screen the URL asked for, is what makes the
+   * screen's own heading the first thing read.
+   */
+  if (document.readyState !== 'complete') {
+    window.addEventListener('load', () => { if (location.hash.slice(1) === initialId) show(initialId); }, { once: true });
+  }
 })();
 </script>`;
+
+/*
+ * The same ban, applied to what a reader actually sees.
+ *
+ * The route-line check at the top of this file reads `screens.mjs` source, and
+ * the wave-1 audit found the one sentence it could never reach: a present-tense
+ * "most of what is drawn here is tested library code with no route" inside a
+ * panel on `#coverage`, still being rendered eight days after the register
+ * stopped saying it (W1-A-2). Prose rots exactly where the check is not.
+ *
+ * So the rendered document is split on screen boundaries and read as text.
+ * Stripping the tags takes the attributes with them, which is the point: the
+ * rail's dated hover titles — `title="shipped — was “engine-only” on 23 Aug
+ * 2026"` — are the third pass's finding kept deliberately (§5.2) and are not
+ * body prose. Each chunk is cut at its own closing tag, so the inline script is
+ * out of scope; were something to close a `<section>` after the canvas, the cut
+ * would over-include and this check would fail loudly rather than quietly stop
+ * covering a screen.
+ *
+ * The list holds phrases that can only assert a *current* state. A dated
+ * sentence about August is the record this project keeps on purpose, so
+ * "engine-only" is banned bare and survives in a hover title; a phrase like
+ * "no route" is banned only in the present-tense forms that make a claim.
+ */
+{
+  const banned = [/engine-only/i, /renders nowhere/i, /tested library code with no route/i, /no route (?:exists|imports|renders)/i, /nothing renders/i];
+  const chunks = html.split('<section class="mk-screen"').slice(1);
+  const offences = [];
+  for (const chunk of chunks) {
+    const id = chunk.match(/^ id="([^"]+)"/)?.[1] ?? '(unidentified screen)';
+    const body = chunk.slice(0, chunk.lastIndexOf('</section>'));
+    const text = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+    for (const re of banned) {
+      const hit = text.match(re);
+      if (hit) offences.push(`#${id}: body prose carries a state claim: “${hit[0]}”`);
+    }
+  }
+  if (chunks.length !== ALL.length) offences.push(`screen prose check saw ${chunks.length} sections, not ${ALL.length}`);
+  if (offences.length) {
+    for (const o of offences) console.error(o);
+    process.exit(1);
+  }
+}
 
 writeFileSync(OUT, html, 'utf8');
 

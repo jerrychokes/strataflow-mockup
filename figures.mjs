@@ -138,9 +138,38 @@ function provenance(x, y, lines) {
     .join('')}</g>`;
 }
 
+/**
+ * The advance width of a `.mk-annot` string, in user units.
+ *
+ * SVG offers no text metrics before layout, so anything generated beside text
+ * either guesses its slots or estimates its glyphs. These advances were read
+ * off the rendered figure at the 10 px annotation size; the sum carries 6%
+ * headroom because the reader's font stack is not the measuring one. The
+ * pairwise `<text>` collision check in verify.mjs is the meter that says
+ * whether an estimate held — this table is not the authority, it is the input.
+ */
+const ANNOT_ADVANCE = {
+  a: 6.12, b: 6.34, c: 5.49, d: 6.34, e: 6.14, f: 3.49, g: 6.34, h: 6.33, i: 2.77, j: 2.82,
+  k: 5.8, l: 2.77, m: 9.73, n: 6.33, o: 6.11, p: 6.34, q: 6.34, r: 3.95, s: 5.21, t: 3.94,
+  u: 6.33, v: 5.92, w: 8.17, x: 5.92, y: 5.92, z: 5.24,
+  A: 7.1, B: 6.85, C: 6.97, D: 7.7, E: 6.31, F: 5.74, G: 7.74, H: 7.51, I: 2.95, J: 2.99,
+  K: 6.57, L: 5.59, M: 8.61, N: 7.47, O: 7.86, P: 6.03, Q: 7.86, R: 6.94, S: 6.34, T: 5.98,
+  U: 7.31, V: 6.84, W: 9.87, X: 6.85, Y: 6.15, Z: 6.85,
+  0: 6.35, 1: 6.35, 2: 6.35, 3: 6.35, 4: 6.35, 5: 6.35, 6: 6.35, 7: 6.35, 8: 6.35, 9: 6.35,
+  ' ': 3.13, '—': 9.98, '-': 3.6, '.': 3.17, ',': 3.17, '(': 3.9, ')': 3.9, '·': 3.17,
+  '/': 3.37, '%': 9.5, µ: 6.35,
+};
+const annotWidth = (text) => [...text].reduce((sum, ch) => sum + (ANNOT_ADVANCE[ch] ?? 6.4), 0) * 1.06;
+
+/*
+ * No `aria-labelledby`. It was hardcoded empty on all eleven figures, and an
+ * empty reference list names nothing — dead markup reading as a broken
+ * reference (W1-A-9). The `<title>` child is what the accessible name comes
+ * from, and every figure passes one.
+ */
 function svgOpen(w, h, title, desc, cls = 'mk-fig') {
   return (
-    `<svg class="${cls}" viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-labelledby="">` +
+    `<svg class="${cls}" viewBox="0 0 ${w} ${h}" width="100%" role="img">` +
     `<title>${esc(title)}</title><desc>${esc(desc)}</desc>`
   );
 }
@@ -702,20 +731,55 @@ export function siteMap({ print = false } = {}) {
     `<line x1="${round(bx + barLen)}" y1="${by - 4}" x2="${round(bx + barLen)}" y2="${by + 4}"/></g>` +
     `<text class="mk-annot" x="${round(bx + barLen + 8)}" y="${by + 3.5}" fill="${MUTED}">1 km</text>`;
 
+  /*
+   * The legend, laid out from each label's own width rather than on equal
+   * slots. `x + i * 168` gave every entry 168 units whatever it carried, and
+   * "indeterminate — LOR above criterion" needs 186: it printed 34 units
+   * through the start of "compliant" at 1280 px (W1-A-6), which reads as
+   * "…LOR above cr eriompliant". Entries take the width they need, the space
+   * left over is shared between them, and an entry that will not fit starts a
+   * new line — a legend may grow downwards into its own margin; it may never
+   * grow across the map.
+   */
   const ly = y + h + 22;
-  body += ['exceedance', 'indeterminate', 'compliant', 'not_evaluated']
-    .map((s, i) => {
-      const lx = x + i * 168;
-      const glyph =
-        s === 'exceedance'
-          ? `<rect x="${lx}" y="${ly - 8}" width="10" height="10" fill="${RED}"/>`
-          : s === 'indeterminate'
-            ? `<rect x="${lx}" y="${ly - 8}" width="10" height="10" fill="url(#sf-hatch-indeterminate)" stroke="${INK}" stroke-width="1"/>`
-            : s === 'not_evaluated'
-              ? `<rect x="${lx + 1}" y="${ly - 7}" width="8" height="8" fill="none" stroke="#7d8b98" stroke-width="1" stroke-dasharray="2 1.6"/>`
-              : `<rect x="${lx}" y="${ly - 8}" width="10" height="10" fill="#fff" stroke="#6b7885" stroke-width="1"/>`;
-      const label = { exceedance: 'exceedance this round', indeterminate: 'indeterminate — LOR above criterion', compliant: 'compliant', not_evaluated: 'not evaluated' }[s];
-      return glyph + `<text class="mk-annot" x="${lx + 16}" y="${ly}" fill="${INK}">${label}</text>`;
+  const LEGEND_LABEL = {
+    exceedance: 'exceedance this round',
+    indeterminate: 'indeterminate — LOR above criterion',
+    compliant: 'compliant',
+    not_evaluated: 'not evaluated',
+  };
+  const GLYPH_SLOT = 16; // the 10-unit mark plus its gap to the label
+  const MIN_GAP = 24; // between one label's end and the next mark
+  const MAX_GAP = 80; // beyond this a row reads as four unrelated things
+  const rows = [[]];
+  for (const s of ['exceedance', 'indeterminate', 'compliant', 'not_evaluated']) {
+    const width = GLYPH_SLOT + annotWidth(LEGEND_LABEL[s]);
+    const row = rows.at(-1);
+    const used = row.reduce((t, e) => t + e.width + MIN_GAP, 0);
+    if (row.length && used + width > w) rows.push([{ s, width }]);
+    else row.push({ s, width });
+  }
+  body += rows
+    .map((row, ri) => {
+      const natural = row.reduce((t, e) => t + e.width, 0);
+      const gap = row.length > 1 ? Math.min(MAX_GAP, Math.max(MIN_GAP, (w - natural) / (row.length - 1))) : 0;
+      const ry = ly + ri * 16;
+      let lx = x;
+      return row
+        .map(({ s, width }) => {
+          const glyph =
+            s === 'exceedance'
+              ? `<rect x="${round(lx)}" y="${ry - 8}" width="10" height="10" fill="${RED}"/>`
+              : s === 'indeterminate'
+                ? `<rect x="${round(lx)}" y="${ry - 8}" width="10" height="10" fill="url(#sf-hatch-indeterminate)" stroke="${INK}" stroke-width="1"/>`
+                : s === 'not_evaluated'
+                  ? `<rect x="${round(lx + 1)}" y="${ry - 7}" width="8" height="8" fill="none" stroke="#7d8b98" stroke-width="1" stroke-dasharray="2 1.6"/>`
+                  : `<rect x="${round(lx)}" y="${ry - 8}" width="10" height="10" fill="#fff" stroke="#6b7885" stroke-width="1"/>`;
+          const mark = glyph + `<text class="mk-annot" x="${round(lx + GLYPH_SLOT)}" y="${ry}" fill="${INK}">${LEGEND_LABEL[s]}</text>`;
+          lx += width + gap;
+          return mark;
+        })
+        .join('');
     })
     .join('');
 

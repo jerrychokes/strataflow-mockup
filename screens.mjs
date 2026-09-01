@@ -3720,6 +3720,29 @@ const assistance = () => (
 );
 
 /**
+ * What the rail's dots currently say, counted from the register.
+ *
+ * The sentence this replaces was written on 23 August and read, in the present
+ * tense, "most of what is drawn here is tested library code with no route, and
+ * four screens are proposals" — on the one screen whose subject is honesty
+ * about coverage, and eight days after the register said otherwise (W1-A-2).
+ * A count that is typed is a count that rots, so this one is derived: `JOBS`
+ * is in scope because screen bodies run at assembly, long after the module
+ * has evaluated.
+ */
+function stateSentence() {
+  const now = JOBS.flatMap((j) => j.screens).map((s) => s.now ?? s.state);
+  const count = (state) => now.filter((v) => v === state).length;
+  return (
+    '<p class="mk-tight">The state dots in the rail are the other half of the honesty: as of the ' +
+    `1 September derivation, ${count('shipped')} of ${now.length} screens are route-backed in the ` +
+    `product, ${count('shipped (CLI)')} operate from the CLI, and ${count('proposed')} are proposals ` +
+    'against no requirement at all — counted from the register as this page was assembled, with each ' +
+    'dot’s 23 August state one hover away.</p>'
+  );
+}
+
+/**
  * The coverage matrix.
  *
  * The request behind this rebuild was "every gap and every expectation is in
@@ -4140,7 +4163,7 @@ const coverage = () => {
               ['Journeys', 'EXPANSION_BRIEF.md §8', 'Every step renders as a link, or is flagged unowned'],
             ],
           }) +
-          '<p class="mk-tight">The state dots in the rail are the other half of the honesty: most of what is drawn here is tested library code with no route, and four screens are proposals against no requirement at all.</p>',
+          stateSentence(),
       ),
     )
   );
