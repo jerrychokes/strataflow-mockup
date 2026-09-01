@@ -13,10 +13,11 @@ and date the rebuild.
 ```sh
 node build.mjs      # writes index.html; checks the link graph, the section partition,
                     # dead hrefs and the route-line contract — and fails, not warns
-node verify.mjs     # the driven-browser sweep, seven families: overflow at
+node verify.mjs     # the driven-browser sweep, nine families: overflow at
                     # 375/1000/1280, duplicate ids, accessible names, heading order,
                     # matrix panning, figure text collisions, coarse-pointer touch
-                    # targets and stacked-label legibility (npm install first;
+                    # targets, stacked-label legibility and captions measured against
+                    # the region they caption (npm install first;
                     # CHROMIUM=<binary> if playwright-core has no browser)
 ```
 
@@ -92,6 +93,36 @@ touch check measures **both axes at a true 44px**, and the viewer's own chrome i
 its scope rather than excluded — which found the top-bar search at 24px, the project
 switcher at 27px, the rail's filter box at 32px, an icon button shrinking to 42px wide
 inside a flex row, and the eight bundle-contents checkboxes whose whole tap target was a 15px box.
+
+**Wave 3 — one amendment, traced end to end** (1 Sep 2026). No new screens; six were
+deepened and the seed gained the thing they all read. A laboratory re-issued a certificate
+for a round that had **already gone to DWER** — `PAS2026-01884 rev B`, three results at MW05
+in `2026-Q1-GW` — and the whole wave is that one amendment followed to its far end:
+a hardness cross-check that had been failing since February reconciles, three
+hardness-modified criteria recompute, two exceedances are withdrawn, two of the four
+windowed series change outcome and the licence condition 12(c) trip is withdrawn with an
+obligation already lodged against it, no TARP level moves and each says why, and one of
+four issued submissions is affected. Nothing is written: `#qualifiers` records 2025 Q1 –
+2026 Q1 as a **locked period**, so the amended values are staged and what is drawn is the
+decision, not its result — which is why the exceedance register, the TARP board and the
+licence still read exactly as they did. Every count in that chain is computed in
+`seed.mjs` from the values either side of the amendment, re-running the evaluation's own
+window function rather than a second copy of the rule.
+
+Beside it, a **criteria version pair one field apart** — the non-detect rule, `exclude`
+against `half the LOR` — run against the committed record: seven derived PFAS totals, six
+of which change outcome, and the four treatments drawn side by side so the same seven
+results can be read as indeterminate, compliant, 15× or 31× depending on a field that
+belongs to the criteria set. `zero` is the column that turns six unassessable results into
+passes, which is claim B5 arriving through a different door.
+
+The wave also found a defect no existing check could see: **a `<caption>` lays out at the
+table's width**, so inside a panning region the sentence is cut at the visible edge and the
+rest is only reachable by scrolling the table sideways — 7 captions clipped at 1280px, 44
+at 1000 and 41 at 375, the worst by 2397px. The document never overflowed and every element
+query said the caption was exactly as wide as its table, which was true and was the defect.
+It is fixed in `chrome.mjs` and the meter is now the ninth family in `verify.mjs`; deleting
+the rule reproduces exactly 92 failures.
 
 What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
 exists, loads, is scoped and renders — not that the product screen matches this
@@ -467,7 +498,7 @@ compositing.
 | `figures.mjs` | Eleven figure generators, drawn to the approved grammar |
 | `screens.mjs` | The 67 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
-| `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility. `npm install`, then `node verify.mjs` |
+| `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |
 | `EXPANSION_BRIEF.md` | What governs the expansion: authority order, conventions, phases, the audit loop |
 | `audits/` | The dated passes: findings, wave plan, audit rounds |

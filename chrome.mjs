@@ -964,4 +964,48 @@ html, body { background: var(--mk-chrome); }
  * identifier. Codes in a register cell say so.
  */
 .mk-file--id { white-space: nowrap; overflow-wrap: normal; }
+
+/*
+ * A caption belongs to the region, not to the row of columns inside it.
+ *
+ * A <caption> lays out at the *table's* width. Inside a panning region that
+ * width is routinely two or three times the region's, so the sentence is cut
+ * at the visible edge and the rest of it is only reachable by scrolling the
+ * table sideways. Measured on the built document: 7 captions clipped at
+ * 1280px, 44 at 1000px and 41 at 375px, the worst by 2397px — every one of
+ * them a caption that reads as a complete sentence and is not one.
+ *
+ * The overflow meter could never see this. The document does not overflow; the
+ * region pans, which is what it is for. What is wrong is that the caption pans
+ * with it, and a caption you have to pan to read has stopped being a caption.
+ *
+ * 100cqw is the region's own inline size, so the caption wraps to the width
+ * a reader can see while the table keeps its natural width and keeps panning.
+ * left: 0 holds it still while the columns move under it.
+ */
+/*
+ * A qualifier under a value reads as a second line in a row header and as a
+ * run-on in a data cell.
+ *
+ * app.css blocks <small> inside th and not inside td, so "R. Whitmore" and
+ * "Environmental Lead" print as one word in the sign-off register while the
+ * identical idiom stacks correctly one column to the left. Seven cells in the
+ * built document are affected and all seven are data cells; nothing else in
+ * the catalogue puts a <small> in a td, so this is the inconsistency removed
+ * rather than a screen special-cased.
+ */
+.sf-table tbody td small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sf-ink-muted);
+}
+
+.sf-table-scroll { container-type: inline-size; }
+.sf-table-scroll > table > caption {
+  position: sticky;
+  left: 0;
+  width: 100cqw;
+  box-sizing: border-box;
+}
 `;

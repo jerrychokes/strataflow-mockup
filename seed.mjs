@@ -420,6 +420,31 @@ export const EXCEEDANCES = [
  * Electrical conductivity reads its four values out of `EC_MW05`, the same
  * array `#qc` measures the outlier against. One series, two questions.
  */
+/**
+ * The condition, as one function, so a re-run cannot use a second rule.
+ *
+ * An amended certificate re-runs this window over a changed value, and the
+ * before-and-after is only evidence if both sides came out of the same
+ * arithmetic. A second copy of the rule written beside the preview is how a
+ * preview comes to disagree with the evaluation it is previewing.
+ */
+export function evaluateWindow(values, limit, rounds) {
+  let run = 0;
+  for (let i = values.length - 1; i >= 0 && values[i] > limit; i -= 1) run += 1;
+  let trippedAt = null;
+  let streak = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    streak = values[i] > limit ? streak + 1 : 0;
+    if (streak === 3 && !trippedAt) trippedAt = rounds[i];
+  }
+  return {
+    run,
+    above: values.map((v) => v > limit),
+    trippedAt,
+    outcome: run >= 3 ? 'triggered' : run === 2 ? 'one round short' : 'not triggered',
+  };
+}
+
 export const WINDOW_CONDITION = (() => {
   const rounds = ['2025-Q3-GW', '2025-Q4-GW', '2026-Q1-GW', '2026-Q2-GW'];
   const ecByRound = Object.fromEntries(EC_MW05.map((r) => [r.round, r.value]));
@@ -449,23 +474,7 @@ export const WINDOW_CONDITION = (() => {
       values: rounds.map((r) => ecByRound[r]),
       says: 'One round short, on the licence limit rather than a guideline value. The same four numbers are the tail of the record the QA/QC outlier check measured this round’s value against — one series, two questions, and they do not have the same answer.',
     },
-  ].map((s) => {
-    let run = 0;
-    for (let i = s.values.length - 1; i >= 0 && s.values[i] > s.limit; i -= 1) run += 1;
-    let trippedAt = null;
-    let streak = 0;
-    for (let i = 0; i < s.values.length; i += 1) {
-      streak = s.values[i] > s.limit ? streak + 1 : 0;
-      if (streak === 3 && !trippedAt) trippedAt = rounds[i];
-    }
-    return {
-      ...s,
-      run,
-      above: s.values.map((v) => v > s.limit),
-      trippedAt,
-      outcome: run >= 3 ? 'triggered' : run === 2 ? 'one round short' : 'not triggered',
-    };
-  });
+  ].map((s) => ({ ...s, ...evaluateWindow(s.values, s.limit, rounds) }));
   return {
     condition: 'L8842/2019/1 condition 12(c)',
     rule: 'Three consecutive quarterly rounds above the criterion, at the same location, for the same parameter',
@@ -1238,7 +1247,7 @@ export const BATCHES = [
       { kind: 'Matrix spike duplicate', id: 'MSD-268841', result: 'Zinc recovery 64% · RPD 3.2%', outcome: 'fail' },
     ],
     consequence:
-      'Zinc matrix-spike recovery of 62% is below the 70% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely *higher*, so the exceedance stands and is if anything understated.',
+      'Zinc matrix-spike recovery of 62% is below the 70% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely higher, so the exceedance stands and is if anything understated.',
   },
   {
     id: 'YAR-B-118420', lab: 'Yarra Regional Analytical', method: 'USEPA 1633 — PFAS',
@@ -1407,3 +1416,639 @@ export const TREND = {
   why:
     'The hydrograph on this bore shows textbook wet-season recovery, so the series is seasonal and the plain test treats that structure as trend. Both agree here — the increase is real and survives deseasonalising — but the plain test overstates its significance, and on a shorter series it can manufacture one. Reporting only the plain result on a seasonal series is a defensible-looking answer to the wrong question.',
 };
+
+/* ==================================================================== *
+ * The amendment, and everything downstream of it
+ *
+ * One re-issued certificate for a round that has already been reported to
+ * DWER. It is the case the whole supersession model exists for, and it is
+ * different in kind from the amendment already in `SUPERSESSION`: that one
+ * landed on an open round and was absorbed, so every screen shows its
+ * result. This one lands on **2026 Q1, which `#qualifiers` records as a
+ * locked period** — reported, and therefore closed to a write. A locked
+ * period refuses a write rather than warning about one, so the amended
+ * values are *staged*: computed, previewed, and standing nowhere until a
+ * named person decides. That is why the exceedance register, the TARP board
+ * and the licence still read as they do, and it is what makes the impact
+ * below a preview rather than a description.
+ * ==================================================================== */
+
+/** The round the amendment reaches back into. */
+export const Q1_ROUND = {
+  code: '2026-Q1-GW',
+  label: '2026 Q1 groundwater',
+  collected: '3–5 February 2026',
+  laboratory: 'Pilbara Analytical Services',
+  certificate: 'PAS2026-01884',
+  workOrder: 'PAS-WO-261188',
+  issued: '2026-02-12',
+  received: '2026-02-12 08:52 AWST',
+  evaluated: '2026-02-14 11:02 AWST',
+  period: '2026 Q1',
+  lock: '2025 Q1 – 2026 Q1 — locked, reported to DWER',
+};
+
+/**
+ * A hardness-modified criterion, on the relationship the derivation screen
+ * states, anchored where the criteria set publishes its value for this site.
+ *
+ * `#hardness` publishes the criterion at the capped hardness of 400 mg/L and
+ * demonstrates the scaling on the same anchor — 120 mg/L against 400 moves the
+ * zinc criterion from 8.0 to 2.9 µg/L. Anchoring anywhere else would give two
+ * screens two answers for one rule, which is the failure this file exists to
+ * prevent. The cap is applied here as it is there: above 400 the relationship
+ * is not extrapolated.
+ */
+export function hardnessCriterion(at400, hardness, slope) {
+  return at400 * (Math.min(hardness, 400) / 400) ** slope;
+}
+
+/**
+ * The re-issued certificate, its two findings, and the impact of each.
+ *
+ * Every number below is computed from the values either side of the
+ * amendment — the criteria from `hardnessCriterion`, the window runs from
+ * `evaluateWindow`, the counts from the arrays. Nothing about the impact is
+ * typed, because a hand-kept impact statement is exactly the thing that reads
+ * as reassuring while being wrong.
+ */
+export const AMENDMENT = (() => {
+  const hardnessIssued = 268;
+  const hardnessAmended = 335; // 268 × 1.25 — the dilution factor, applied
+  const calcium = 79.8;
+  const magnesium = 33.6;
+  const computed = 2.497 * calcium + 4.118 * magnesium;
+  // A typographic minus, not a hyphen — the same sign the ionic-balance
+  // figures on `#consistency` carry, for one number read on two screens.
+  const pct = (v) => `${(((v - computed) / computed) * 100).toFixed(1).replace('-', '−')}%`;
+
+  /** Value against criterion, with the LOR-above-criterion state kept apart. */
+  const outcomeOf = (value, censored, lor, criterion) => {
+    if (criterion === null) return 'not evaluated';
+    if (censored) return lor > criterion ? 'indeterminate' : 'compliant';
+    return value > criterion ? 'exceedance' : 'compliant';
+  };
+  const factor = (value, criterion, censored) =>
+    censored || criterion === null || value <= criterion ? '—' : `${(value / criterion).toFixed(1)}×`;
+
+  const rows = [
+    {
+      analyte: 'Copper (filtered)', unit: 'µg/L', slope: null, at400: 1.4,
+      issued: 4.7, amended: 1.2, censored: false, lor: 0.5,
+      why: 'Re-analysed. The calibration blank carried copper, so the reported value was high.',
+    },
+    {
+      analyte: 'Zinc (filtered)', unit: 'µg/L', slope: 0.85, at400: 8.0,
+      issued: 18.2, amended: 4.6, censored: false, lor: 1.0,
+      why: 'Re-analysed on the same finding. Both the result and its criterion move, and they move in opposite directions.',
+    },
+    {
+      analyte: 'Nickel (filtered)', unit: 'µg/L', slope: 0.85, at400: 11,
+      issued: 6.9, amended: 6.9, censored: false, lor: 0.5,
+      why: 'Not re-analysed — nickel was not in the contaminated blank. Its criterion still moves, because hardness did.',
+    },
+    {
+      analyte: 'Cadmium (filtered)', unit: 'µg/L', slope: 0.89, at400: 0.54,
+      issued: null, amended: null, censored: true, lor: 1.0,
+      why: 'Reported below the limit of reporting either way. The limit sits above the criterion at both hardnesses, so the amendment cannot rescue it.',
+    },
+  ].map((r) => {
+    const cIssued = r.slope === null ? r.at400 : hardnessCriterion(r.at400, hardnessIssued, r.slope);
+    const cAmended = r.slope === null ? r.at400 : hardnessCriterion(r.at400, hardnessAmended, r.slope);
+    const before = outcomeOf(r.issued, r.censored, r.lor, cIssued);
+    const after = outcomeOf(r.amended, r.censored, r.lor, cAmended);
+    return {
+      ...r,
+      issuedText: r.censored ? `< ${r.lor.toFixed(1)}` : String(r.issued),
+      amendedText: r.censored ? `< ${r.lor.toFixed(1)}` : String(r.amended),
+      valueMoved: r.issued !== r.amended,
+      criterionIssued: cIssued.toFixed(2),
+      criterionAmended: cAmended.toFixed(2),
+      criterionMoved: cIssued !== cAmended,
+      before, after,
+      changed: before !== after,
+      factorBefore: factor(r.issued, cIssued, r.censored),
+      factorAfter: factor(r.amended, cAmended, r.censored),
+    };
+  });
+
+  /* The same rule, re-run over the amended round. `evaluateWindow` is the
+   * evaluation's own function, not a copy of it. */
+  const amendedAt = { 'Zinc (filtered)|MW05': 4.6, 'Copper (filtered)|MW05': 1.2 };
+  const windows = WINDOW_CONDITION.series.map((s) => {
+    const key = `${s.analyte}|${s.location}`;
+    const q1 = WINDOW_CONDITION.rounds.indexOf(Q1_ROUND.code);
+    const values = s.values.map((v, i) => (i === q1 && key in amendedAt ? amendedAt[key] : v));
+    const after = evaluateWindow(values, s.limit, WINDOW_CONDITION.rounds);
+    return {
+      location: s.location, analyte: s.analyte, unit: s.unit, limit: s.limit, criterion: s.criterion,
+      before: { values: s.values, run: s.run, outcome: s.outcome, trippedAt: s.trippedAt, above: s.above },
+      after: { values, ...after },
+      touched: key in amendedAt,
+      changed: after.outcome !== s.outcome,
+      whyNot: key in amendedAt
+        ? null
+        : s.location === 'MW07'
+          ? 'MW07 was analysed in a different position on the run and is not covered by either finding. Its values do not move, so its run does not.'
+          : 'Electrical conductivity is read on a conductivity cell, not out of the metals digest. Neither finding reaches it.',
+    };
+  });
+
+  const changedResults = rows.filter((r) => r.valueMoved).length + 1; // + the hardness result itself
+  const affected = SUBMISSIONS.filter((s) => s.snapshot === 'SNAP-0117');
+
+  return {
+    certificate: `${Q1_ROUND.certificate} rev B`,
+    supersedes: Q1_ROUND.certificate,
+    round: Q1_ROUND.code,
+    laboratory: Q1_ROUND.laboratory,
+    workOrder: Q1_ROUND.workOrder,
+    issued: '2026-08-27',
+    received: '2026-08-27 10:41 AWST',
+    stagedBy: 'D. Okafor',
+    file: 'PAS2026-01884_revB_Wandalup_2026Q1.zip · 0.8 MB · retained',
+    state: 'staged — the decision is open',
+    naming:
+      'Pilbara Analytical Services numbers a whole re-issue afresh and suffixes a partial one: PAS2026-04398 became PAS2026-04417 because every result on it was re-reported, and this one keeps its reference with a revision because three results on it did. Which document stands is a supersession either way.',
+    findings: [
+      {
+        n: 1,
+        what: 'Calibration blank contamination — dissolved metals, ICP-MS run of 2026-02-10',
+        detail:
+          'The laboratory’s own quarterly review of its calibration records found the blank used to standardise positions 7 to 12 of batch PAS-WO-261188 carried copper and zinc above its acceptance limit. Copper and zinc on the samples in those positions were reported high. Nickel, cadmium and the major cations were unaffected — they were not in the contaminated blank.',
+        remedy:
+          'Re-analysed on 2026-07-28 from the retained, acid-preserved aliquots. The samples were collected on 2026-02-04, so the re-analysis sits inside the six-month holding time for dissolved metals, which closes on 2026-08-04. Outside that window the amendment would not have been analytically defensible and the laboratory says so on the certificate.',
+      },
+      {
+        n: 2,
+        what: 'Dilution factor — EDTA hardness titration, same batch',
+        detail:
+          'The titration was performed at a 1-in-5 dilution, recorded as such on the bench sheet, and reported against a 1-in-4 factor. The reported hardness is 25% low.',
+        remedy:
+          'No re-analysis: the titration reading is on the bench sheet and only the factor applied to it was wrong, so the correction is arithmetic and exact — 268 × 1.25 = 335 mg/L as CaCO₃.',
+      },
+    ],
+    hardness: {
+      analyte: 'Total hardness as CaCO₃', unit: 'mg/L as CaCO₃',
+      issued: hardnessIssued, amended: hardnessAmended,
+      calcium, magnesium,
+      formula: '2.497 × Ca + 4.118 × Mg',
+      computed: computed.toFixed(1),
+      agreementIssued: pct(hardnessIssued),
+      agreementAmended: pct(hardnessAmended),
+      limit: '±10%',
+      says:
+        'The cross-check is the reason this finding is credible rather than merely claimed. Reported and computed hardness disagreed by 20.6% in February — outside the ±10% reconciliation limit, raised as a review item at the time and never closed. The amended value agrees with the same two cations to within 0.8%, from the same calcium and magnesium results, which were not re-analysed and did not move.',
+    },
+    rows,
+    windows,
+    counts: {
+      resultsAmended: changedResults,
+      resultsPreviewed: rows.length + 1,
+      outcomesChanged: rows.filter((r) => r.changed).length,
+      criteriaRecomputed: rows.filter((r) => r.criterionMoved).length,
+      windowsChanged: windows.filter((w) => w.changed).length,
+      windowsUnchanged: windows.filter((w) => !w.changed).length,
+      tarpLevels: TARP.length,
+      tarpMoved: 0,
+      submissionsTotal: SUBMISSIONS.length,
+      submissionsAffected: affected.length,
+      q2ResultsTouched: 0,
+    },
+    affectedSubmission: affected[0],
+    /* Why each TARP level does not move. A trigger that stays put for a stated
+     * reason is a finding; a trigger that is simply not mentioned is a gap. */
+    tarp: TARP.map((t) => ({
+      level: t.level, label: t.label, locations: t.locations, state: t.state,
+      moves: false,
+      why:
+        t.trigger.startsWith('Arsenic')
+          ? 'Level 2 was raised on 2026-02-14 on two consecutive rounds above a guideline value. Copper and zinc no longer supply them — arsenic does, and has since 2025 Q4. The level holds, on a different analyte from the one that raised it, and the monthly programme at MW05 holds with it.'
+          : t.trigger === 'Any DGV exceedance'
+            ? 'Level 1 rests on the 2026 Q2 exceedances, which this certificate does not reach.'
+            : t.locations === 'MW05'
+              ? 'Level 3 rests on PFOS + PFHxS, reported by Yarra Regional on YAR-26-0881. A Pilbara certificate cannot amend it.'
+              : 'The embankment trigger is instrumentation, not chemistry, and was cleared in April.',
+    })),
+    decision: {
+      asks: 'Accept the amendment into a locked period, record it as no material impact, or hold it and ask the laboratory.',
+      ways: [
+        {
+          label: 'Accept the amendment',
+          detail:
+            'Writes 3 supersessions against a locked period with the reason on each, re-evaluates 2026-Q1-GW, withdraws 2 exceedances, recomputes 2 window runs, withdraws the condition 12(c) trip, and flags snapshot SNAP-0117 and the 2026 Q2 draft as stale. It does not delete anything and it does not reissue anything: the reissue is its own decision, on its own screen.',
+        },
+        {
+          label: 'Record as no material impact',
+          detail:
+            'Writes a decision record with a stated reason and leaves the standing values where they are. The amended certificate stays attached to the round and findable. A blank reason is refused — “no impact” with nothing behind it is the judgement this record exists to hold.',
+        },
+        {
+          label: 'Hold, and ask the laboratory',
+          detail:
+            'Writes a query against the certificate and nothing else. The amendment stays staged and the round stays locked. Use it where the re-analysis itself is in question rather than the arithmetic.',
+        },
+      ],
+      refused:
+        'Replacing the three values in place. The period is locked because it has been reported to DWER, and a locked period refuses the write rather than warning about it — a number that has gone to a regulator is superseded with a reason or it is not changed.',
+      irreversible:
+        'Accepting appends supersessions, and an appended supersession is never deleted. A decision made in error is corrected by a further supersession that names what it corrects, and both stay readable. What is reversible is the evaluation rather than the record: outcomes are recomputed from the values that stand, so a correction moves them back.',
+    },
+  };
+})();
+
+/**
+ * What was issued, as an object rather than as a claim.
+ *
+ * The register is joined to `SUBMISSIONS` on the snapshot reference, so the
+ * date a report went out and the snapshot it went out on cannot drift apart:
+ * they are one row read twice. `supersededSince` is what a regulator asks
+ * about, and it is deliberately not the same number as `staged` — one has
+ * been written and the other has not.
+ */
+export const SNAPSHOTS = (() => {
+  const extra = {
+    'SNAP-0117': { results: 228, digest: 'sha256:c41f…0b93', template: 'v4', supersededSince: 0, staged: AMENDMENT.counts.resultsAmended, note: 'The amendment on PAS2026-01884 rev B reaches three of these results. None of it is written.' },
+    'SNAP-0121': { results: 14, digest: 'sha256:9a70…4d18', template: 'v4', supersededSince: 0, staged: 0, note: 'PFOS + PFHxS at MW05 and the eleven results that framed it.' },
+    'SNAP-0114': { results: 36, digest: 'sha256:2e58…b7c1', template: 'v4', supersededSince: 0, staged: 0, note: 'Surface water at SW01. Groundwater amendments do not reach it.' },
+    'SNAP-0088': { results: 912, digest: 'sha256:6b19…f204', template: 'v3', supersededSince: 11, staged: 0, note: 'Eleven values were superseded by the 2026-04-02 legacy reconciliation. Regenerating this report against today’s record would differ from what was lodged; regenerating it from its own snapshot would not.' },
+  };
+  return SUBMISSIONS.map((s) => ({ ...s, ...extra[s.snapshot] }));
+})();
+
+/**
+ * The Q1 report regenerated, two ways, because they are different questions.
+ *
+ * Regenerating **from the snapshot** reproduces the lodged document byte for
+ * byte and always will — that is what a snapshot is (FR-7.3, QB-3).
+ * Regenerating **against today's record** answers the other question a
+ * regulator asks, which is how the data has moved since. Today those two
+ * answers agree, because the amendment is staged and nothing has been
+ * written; the third column is what the second would say if it were accepted.
+ */
+export const REGENERATION = (() => {
+  const snap = SNAPSHOTS.find((s) => s.snapshot === 'SNAP-0117');
+  const values = [
+    { where: '§4 Table 4.1', subject: `Copper (filtered) · MW05 · ${Q1_ROUND.code}`, issued: '4.7 µg/L', staged: '1.2 µg/L' },
+    { where: '§4 Table 4.1', subject: `Zinc (filtered) · MW05 · ${Q1_ROUND.code}`, issued: '18.2 µg/L', staged: '4.6 µg/L' },
+    { where: '§4 Table 4.1', subject: `Total hardness as CaCO₃ · MW05 · ${Q1_ROUND.code}`, issued: '268 mg/L', staged: '335 mg/L' },
+    { where: '§5 Table 5.1', subject: 'Exceedance — copper at MW05, 3.4× the guideline value', issued: 'on the register', staged: 'withdrawn' },
+    { where: '§5 Table 5.1', subject: 'Exceedance — zinc at MW05, 3.2× the guideline value', issued: 'on the register', staged: 'withdrawn' },
+    { where: '§5.3', subject: 'Licence condition 12(c) — copper at MW05', issued: 'triggered at 2026-Q1-GW', staged: 'not triggered' },
+    { where: '§6.1', subject: 'Sentence citing the copper trip as the basis for the investigation programme', issued: 'cites a trip', staged: 'flagged for the author — not rewritten' },
+  ];
+  return {
+    snapshot: snap,
+    fromSnapshot: {
+      question: 'Does the issued document still exist exactly as it was lodged?',
+      answer: 'Identical, byte for byte',
+      evidence: `Regenerated 2026-09-01 from ${snap.snapshot} · digest ${snap.digest} · matches the digest recorded at issue`,
+      always: 'This answer cannot change. The snapshot holds the bytes and every value they stood on, and it is append-only.',
+    },
+    againstRecord: {
+      question: 'Does the record it was built from still say the same thing?',
+      answer: 'Identical today',
+      evidence: `${snap.supersededSince} of ${snap.results} results superseded since issue · ${snap.staged} staged and unwritten`,
+      caveat: 'Identical today because the amendment has not been accepted. The column beside shows what this answer becomes if it is — and that is the whole reason the two questions are asked separately.',
+    },
+    values,
+    reissue: {
+      writes: [
+        { what: 'New snapshot taken', n: '1 — SNAP-0124, with its own digest' },
+        { what: 'Results it would stand on', n: `${snap.results} — ${AMENDMENT.counts.resultsAmended} at amended values` },
+        { what: 'Sign-offs required again', n: '3 — prepared, reviewed, approved' },
+        { what: 'The issued document SNAP-0117', n: '0 changes — it is what was lodged and stays so' },
+        { what: 'Submission record', n: '1 new · the accepted 2026 Q1 submission is superseded, not replaced' },
+        { what: 'Sections needing an author before it can go', n: '1 — §6.1 cites a trip that would no longer stand' },
+      ],
+      reversible:
+        'A reissue is reversible up to lodgement and not after: the new snapshot can be discarded while it is a draft, and a document that has gone to DWER is withdrawn by writing to DWER. The product records which of those happened; it cannot do the second one for you.',
+      blocked: 'Not available while the amendment is staged. A reissue that regenerated against values nobody has accepted would put an undecided number into a regulatory submission.',
+    },
+  };
+})();
+
+/**
+ * Sign-off, bound to the snapshot and to nothing else.
+ *
+ * Three capacities because that is the chain a submission goes through and
+ * because *who signed it* and *who checked it* are different questions
+ * (`SigningCapacity`: prepared · reviewed · approved). Every signature below
+ * is dated before the submission it covers went out, which is a property of
+ * the record rather than a coincidence — a signature after lodgement is a
+ * signature on something already gone.
+ */
+export const SIGNOFFS = [
+  { subject: 'Quarterly Groundwater Monitoring Report — 2026 Q2', snapshot: null, capacity: 'approved', by: 'R. Whitmore', role: 'Environmental Lead', at: '—', state: 'awaiting' },
+  { subject: 'Quarterly Groundwater Monitoring Report — 2026 Q1', snapshot: 'SNAP-0117', capacity: 'prepared', by: 'A. Nakamura', role: 'Hydrogeologist', at: '2026-04-24 15:40 AWST', state: 'signed' },
+  { subject: 'Quarterly Groundwater Monitoring Report — 2026 Q1', snapshot: 'SNAP-0117', capacity: 'reviewed', by: 'D. Okafor', role: 'Environmental Officer', at: '2026-04-27 09:18 AWST', state: 'signed' },
+  { subject: 'Quarterly Groundwater Monitoring Report — 2026 Q1', snapshot: 'SNAP-0117', capacity: 'approved', by: 'R. Whitmore', role: 'Environmental Lead', at: '2026-04-27 16:12 AWST', state: 'signed' },
+  { subject: 'Statutory notification — PFOS + PFHxS at MW05', snapshot: 'SNAP-0121', capacity: 'approved', by: 'R. Whitmore', role: 'Environmental Lead', at: '2026-05-22 14:12 AWST', state: 'signed' },
+  { subject: 'Quarterly discharge return — 2026 Q1', snapshot: 'SNAP-0114', capacity: 'approved', by: 'D. Okafor', role: 'Environmental Officer', at: '2026-04-23 14:05 AWST', state: 'signed' },
+  { subject: 'Annual Environmental Report — 2025', snapshot: 'SNAP-0088', capacity: 'approved', by: 'R. Whitmore', role: 'Environmental Lead', at: '2025-09-25 11:30 AWST', state: 'signed' },
+];
+
+/** The data release, which is a validation judgement and not a sign-off. */
+export const DATA_RELEASE = {
+  what: '2026 Q2 data released to reporting',
+  by: 'A. Nakamura — Hydrogeologist',
+  at: '2026-05-22 16:20 AWST',
+  covering: '231 results · validation state screened',
+  says:
+    'Made result by result, about data. It is on this screen only so the two can be told apart: it authorises nothing to leave the building and it binds to no document.',
+};
+
+/**
+ * Figures and tables, numbered by the section they appear in.
+ *
+ * The number is derived from position, never stored, because a stored number
+ * and a moved figure are how a submission acquires a “see Figure 6” that
+ * points at a table. `cites` is the other direction — where in the document
+ * the item is referred to — and it is what makes a renumbering answerable
+ * before it happens rather than after it has shipped.
+ */
+export const REPORT_ITEMS = (() => {
+  const items = [
+    { kind: 'Figure', section: '2', title: 'Monitoring network', source: 'Location register', cites: ['§2.1'], state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Groundwater elevation — MW05, MW07, MW01A', source: 'Saved view · TSF downgradient', cites: ['§4.2', '§6.1'], state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Arsenic at MW05, with censoring', source: 'Saved view · TSF downgradient', cites: ['§4.3', '§5.1'], state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Piper trilinear diagram', source: '2026-Q2-GW major ions', cites: ['§6.2'], prose: true, state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Stiff diagrams by location', source: '2026-Q2-GW major ions', cites: ['§6.2'], state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Sulfate by location — box plot', source: '2026-Q2-GW results', cites: ['§4.4'], state: 'current' },
+    { kind: 'Figure', section: '4', title: 'Arsenic trend at MW05', source: 'services/stats · Mann–Kendall, Sen’s slope', cites: ['§5.2', '§6.1'], prose: true, state: 'current' },
+    { kind: 'Figure', section: '5', title: 'Condition 12(c) — four rounds, four series', source: 'Evaluation · consecutive-window v2', cites: ['§5.3'], state: 'stale — the staged amendment reaches two of its four series' },
+    { kind: 'Figure', section: '6', title: 'Potentiometric surface, May 2026', source: 'Water levels · planar fit', cites: ['§6.1'], state: 'current' },
+    { kind: 'Table', section: '3', title: 'QA/QC summary', source: 'Validation run 2026-05-21', cites: ['§3.2'], state: 'current' },
+    { kind: 'Table', section: '3', title: 'Data quality assessment against objectives', source: 'DQA · six dimensions', cites: ['§3.3'], state: 'current' },
+    { kind: 'Table', section: '4', title: 'Results by analyte and location', source: '2026-Q2-GW crosstab', cites: ['§4.1'], state: 'current' },
+    { kind: 'Table', section: '4', title: 'Field parameters and purge records', source: 'Purge and stabilisation log', cites: ['§4.5'], state: 'current' },
+    { kind: 'Table', section: '5', title: 'Exceedance register', source: 'Evaluation · 2 criteria sets', cites: ['§5.1'], state: 'stale — MW03B superseded' },
+    { kind: 'Table', section: '5', title: 'Results that could not be assessed', source: 'Evaluation · LOR above criterion', cites: ['§5.4'], state: 'current' },
+  ];
+  const seq = {};
+  const number = (list) =>
+    list.map((it) => {
+      const key = `${it.kind}|${it.section}`;
+      seq[key] = (seq[key] ?? 0) + 1;
+      return { ...it, n: `${it.kind} ${it.section}.${seq[key]}` };
+    });
+  const numbered = number(items);
+
+  /* The insertion, and what it costs — computed by numbering the list again
+   * with the new item in place rather than by counting on somebody's fingers. */
+  const insertAfter = 'Figure 4.2';
+  const inserted = {
+    kind: 'Figure', section: '4', title: 'Copper at MW05 across four rounds',
+    source: 'Evaluation · condition 12(c) window', cites: [], state: 'new',
+  };
+  const at = items.findIndex((_, i) => numbered[i].n === insertAfter) + 1;
+  for (const k of Object.keys(seq)) delete seq[k];
+  const after = number([...items.slice(0, at), inserted, ...items.slice(at)]);
+  const byTitle = Object.fromEntries(after.map((it) => [it.title, it.n]));
+  const renumbered = numbered.filter((it) => byTitle[it.title] !== it.n)
+    .map((it) => ({ from: it.n, to: byTitle[it.title], title: it.title, cites: it.cites, prose: it.prose === true }));
+
+  return {
+    items: numbered,
+    figures: numbered.filter((it) => it.kind === 'Figure').length,
+    tables: numbered.filter((it) => it.kind === 'Table').length,
+    insert: {
+      item: inserted,
+      after: insertAfter,
+      becomes: byTitle[inserted.title],
+      renumbered,
+      liveRefs: renumbered.reduce((n, r) => n + r.cites.length, 0),
+      proseRefs: renumbered.filter((r) => r.prose).length,
+      why:
+        'The copper series is what the staged amendment turns on, and §5.3 asserts a trip that a reader cannot check without seeing four rounds beside each other.',
+    },
+  };
+})();
+
+/**
+ * The corporate template, versioned independently of the application (OM-5).
+ *
+ * A template version is not a preference. It decides the numbering scheme, the
+ * caption format and the cross-reference style of every document generated
+ * under it, and an issued report regenerates against **the version recorded in
+ * its own snapshot** — never against whatever is current — or last year's
+ * submission would come back numbered differently from the copy the regulator
+ * holds.
+ */
+export const TEMPLATE = {
+  current: 'v4',
+  file: 'Wandalup Resources — corporate report template v4 (.dotx)',
+  settings: [
+    { what: 'Figure numbering', value: 'Figure <section>.<n> — restarts at each section', why: 'The corporate standard. A document-wide sequence puts Figure 27 in section 2.' },
+    { what: 'Table numbering', value: 'Table <section>.<n> — restarts at each section', why: 'Figures and tables number independently, so Table 4.1 and Figure 4.1 coexist.' },
+    { what: 'Caption format', value: '<Kind> <n>. <Title> — <source>', why: 'The source clause is the customer’s own rule and it is why a plate is defensible without the report body.' },
+    { what: 'Caption position', value: 'Below figures, above tables', why: 'The ISO convention the customer’s document controller enforces.' },
+    { what: 'Cross-reference style', value: '<Kind> <n> (page <p>)', why: 'Page numbers survive printing, which is how a DWER assessor reads a submission.' },
+    { what: 'Heading numbering', value: 'Decimal, to three levels', why: 'Licence conditions are cited by section number in correspondence.' },
+    { what: 'Page setup', value: 'A4 portrait · 25 mm margins · figures at 180 mm', why: '180 mm is the printable width the figure grammar is drawn to.' },
+    { what: 'Branding', value: 'Wandalup Resources. Strataflow attribution is document metadata only', why: 'FR-7.4 — a Strataflow-branded regulatory submission is a hard anti-pattern.' },
+  ],
+  versions: [
+    { version: 'v5', effective: 'draft — not effective', changed: 'Adds a prescribed §0 executive summary. Not adopted; the document controller has it.', state: 'draft' },
+    { version: 'v4', effective: '2026-07-01 →', changed: 'Caption position moved above tables; cross-references gained the page number.', state: 'active' },
+    { version: 'v3', effective: '2024-02-01 – 2026-06-30', changed: 'The version SNAP-0088 was issued under, and the version it still regenerates under.', state: 'historic' },
+  ],
+  note:
+    'Changing the active version renumbers nothing that has been issued. Every snapshot records the template version it was produced with, so the 2025 Annual Environmental Report regenerates under v3 in 2029 exactly as it was lodged in 2025.',
+};
+
+/**
+ * The golden-output comparison (FR-7.5).
+ *
+ * The assembled document is compared against an approved reference for this
+ * report kind and content version, and the comparison gates issue rather than
+ * warning about it. Two of the checks below read their outcome out of
+ * `REPORT.sections`: a report with an unwritten section fails its own
+ * structural check, which is what makes this a gate and not a formality.
+ */
+export const GOLDEN = (() => {
+  const unwritten = REPORT.sections.filter((s) => s.state === 'not started');
+  const refs = REPORT_ITEMS.items.reduce((n, it) => n + it.cites.length, 0);
+  const censored = CROSSTAB.reduce((n, r) => n + r.cells.filter((c) => c.censored).length, 0);
+  const checks = [
+    { check: 'Prescribed section structure, present and in order', expects: '§1 – §7 per the DWER quarterly groundwater form', found: 'All seven present, in order', outcome: 'pass' },
+    { check: '§3 carries the QA/QC summary as a table', expects: 'Table 3.1', found: `Table 3.1 · ${QAQC.length} checks`, outcome: 'pass' },
+    { check: '§3 carries the data quality assessment', expects: `Table 3.2, ${DQA.length} dimensions`, found: `Table 3.2 · ${DQA.length} dimensions`, outcome: 'pass' },
+    { check: '§4 carries the crosstab', expects: 'Table 4.1, analyte × location', found: `Table 4.1 · ${CROSSTAB.length} × ${CROSSTAB_COLUMNS.length}`, outcome: 'pass' },
+    { check: '§5 carries the exceedance register', expects: 'Table 5.1, one row per result per criterion', found: `Table 5.1 · ${EXCEEDANCES.length} rows`, outcome: 'pass' },
+    { check: '§5 carries the results that could not be assessed', expects: 'Table 5.2, with the reason on each', found: `Table 5.2 · ${INDETERMINATE.length} rows`, outcome: 'pass' },
+    { check: 'Figure captions match the template', expects: 'Figure <n>. <Title> — <source>', found: `All ${REPORT_ITEMS.figures} figures`, outcome: 'pass' },
+    { check: 'Table captions match the template', expects: 'Table <n>. <Title> — <source>', found: `All ${REPORT_ITEMS.tables} tables`, outcome: 'pass' },
+    { check: 'Every cross-reference resolves', expects: 'No reference to a number the document does not carry', found: `${refs} references, all resolving`, outcome: 'pass' },
+    { check: 'Every reported value carries its unit', expects: 'Unit on the value or in the column head', found: 'No bare numbers', outcome: 'pass' },
+    { check: 'Censored values in the laboratory’s own notation', expects: '< LOR, never zero and never a substituted half-limit', found: `${censored} censored values, notation intact`, outcome: 'pass' },
+    ...unwritten.map((s) => ({
+      check: `§${s.n} ${s.title}, present with content`,
+      expects: 'At least one authored subsection',
+      found: `${s.words} words — ${s.state}`,
+      outcome: 'fail',
+    })),
+  ];
+  return {
+    reference: 'Approved reference output · quarterly groundwater · content version v4.1',
+    approved: 'R. Whitmore, 2026-07-14 — the reference is an oracle and it is approved once, not per run',
+    ran: '2026-09-01 08:12 AWST · 3.4 s',
+    checks,
+    passed: checks.filter((c) => c.outcome === 'pass').length,
+    failed: checks.filter((c) => c.outcome === 'fail').length,
+    gate:
+      'A failing comparison blocks the snapshot, not the draft. Writing continues; issuing does not — which is the only point in the loop where the check is worth anything.',
+    lastDrift: {
+      at: '2026-08-19 16:40 AWST',
+      where: '§3.2 — QA/QC summary table',
+      what: 'The golden reference carries seven columns and the assembled table carried six: <em>Action taken</em> was dropped when the QA/QC generator changed.',
+      why: 'Nothing in the document looked wrong. Every check that reads the document’s own structure passed, and a reader who had never seen the reference would have found §3.2 unremarkable — which is exactly why the comparison is against an approved copy rather than against a rule.',
+      done: 'The generator was corrected and §3.2 regenerated the same afternoon. The failing run is kept; a gate with no record of what it caught is indistinguishable from one that has never fired.',
+    },
+  };
+})();
+
+/**
+ * The components behind the derived PFAS total, per location.
+ *
+ * The total on the crosstab is a **sum**, and what a non-detect contributes to
+ * a sum is a property of the criteria set rather than of the instance
+ * (FR-2.2). Six of these seven locations have both components below the limit
+ * of reporting, which is what makes the rule decisive rather than academic:
+ * the same seven results read as indeterminate, compliant or 31× a guideline
+ * value depending on a field on the set.
+ */
+export const PFAS_COMPONENTS = [
+  { location: 'MW01A', pfos: null, pfhxs: null },
+  { location: 'MW03B', pfos: null, pfhxs: null },
+  { location: 'MW05', pfos: 3.1, pfhxs: 1.7 },
+  { location: 'MW07', pfos: null, pfhxs: null },
+  { location: 'MW09', pfos: null, pfhxs: null },
+  { location: 'MW11', pfos: null, pfhxs: null },
+  { location: 'MW12', pfos: null, pfhxs: null },
+];
+
+/**
+ * The four treatments, run over the real record.
+ *
+ * `exclude` is what the active set binds, and it is why the crosstab shows
+ * `< 2.0` and an indeterminate mark at six bores: with every component
+ * excluded there is no sum to form, so the total is reported censored at the
+ * limit and the limit sits above the criterion. `zero` is the treatment that
+ * turns all six into passes, which is the direction this product exists to
+ * refuse silently.
+ */
+export const NON_DETECT = (() => {
+  const LOR = 2.0;
+  const CRITERION = 0.13;
+  const treatments = [
+    { rule: 'exclude', label: 'exclude from the sum', contributes: () => null },
+    { rule: 'zero', label: 'zero', contributes: () => 0 },
+    { rule: 'half-lor', label: 'half the limit of reporting', contributes: () => LOR / 2 },
+    { rule: 'lor', label: 'the limit of reporting', contributes: () => LOR },
+  ];
+  const evaluate = (t) =>
+    PFAS_COMPONENTS.map((p) => {
+      const parts = [p.pfos, p.pfhxs].map((v) => (v === null ? t.contributes() : v));
+      const kept = parts.filter((v) => v !== null);
+      if (kept.length === 0) {
+        return { location: p.location, total: `< ${LOR.toFixed(1)}`, censored: true, outcome: 'indeterminate', factor: '—' };
+      }
+      const total = kept.reduce((a, b) => a + b, 0);
+      const outcome = total > CRITERION ? 'exceedance' : 'compliant';
+      return {
+        location: p.location,
+        total: total.toFixed(1),
+        censored: false,
+        outcome,
+        factor: outcome === 'exceedance' ? `${Math.round(total / CRITERION)}×` : '—',
+      };
+    });
+  const active = evaluate(treatments[0]);
+  return {
+    lor: LOR,
+    criterion: CRITERION,
+    analyte: 'PFOS + PFHxS',
+    rule: 'sum-pfas-anzg v2.1',
+    activeRule: 'exclude',
+    treatments: treatments.map((t) => {
+      const rows = evaluate(t);
+      return {
+        ...t,
+        rows,
+        changes: rows.filter((r, i) => r.outcome !== active[i].outcome).length,
+        outcomes: ['exceedance', 'indeterminate', 'compliant'].map((o) => ({ o, n: rows.filter((r) => r.outcome === o).length })).filter((x) => x.n),
+      };
+    }),
+    active,
+    says:
+      'MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. Every other bore moves, and the six of them are the whole of the difference between the four columns.',
+  };
+})();
+
+/**
+ * A criteria set version pair — one field apart, and that field decides.
+ *
+ * The version is this instance's configuration of the set, not a new edition
+ * of ANZG: the guideline values, the analyte list, the protection level and
+ * the applicability are identical in both. What moves is the non-detect rule
+ * bound to the set, which is the whole of FR-2.2 and the reason a criteria set
+ * is versioned independently of the application it runs in (OM-5).
+ */
+export const CRITERIA_DRAFT = (() => {
+  const half = NON_DETECT.treatments.find((t) => t.rule === 'half-lor');
+  const changed = half.rows
+    .map((r, i) => ({ ...r, was: NON_DETECT.active[i] }))
+    .filter((r) => r.outcome !== r.was.outcome);
+  return {
+    set: 'ANZG 2018 — 95% species protection',
+    active: { version: '2018.1', effective: '2018-08-01 →', nonDetect: 'exclude from the sum', state: 'active', by: 'Loaded with the shipped reference content', at: '2024-02-19' },
+    draft: { version: '2026.1', effective: '2026-09-01 → if activated', nonDetect: 'half the limit of reporting', state: 'draft', by: 'D. Okafor', at: '2026-08-24' },
+    same: [
+      ['Guideline values', '58 analytes, unchanged — no value moves'],
+      ['Protection level', '95% species protection, unchanged'],
+      ['Applicability', 'All groundwater locations, Superficial unit — unchanged'],
+      ['Hardness relationship', 'hardness-modified-tv v3, unchanged'],
+    ],
+    differs: ['Non-detect rule', 'exclude from the sum', 'half the limit of reporting'],
+    rationale:
+      'The site’s DWER-facing assessment method statement adopts half-limit substitution for PFAS sums, and the criteria set is where that belongs — not in a preference, and not in whichever spreadsheet the assessor happened to use.',
+    test: {
+      scope: `Every committed result the rule can reach: ${NON_DETECT.active.length} derived totals of ${NON_DETECT.analyte} across ${NON_DETECT.active.length} locations, round ${ROUND.code}.`,
+      reaches: NON_DETECT.active.length,
+      changes: changed.length,
+      unchanged: NON_DETECT.active.length - changed.length,
+      rows: changed,
+      unchangedWhy: 'MW05 does not change: both of its components were detected, so no substitution applies to it.',
+      nothingElse:
+        'There are no PFAS results on this project before 2026 Q2 and no other derived sum in the analyte dictionary, so the rule reaches nothing else. That is a fact about this seed rather than a property of the rule, and the test says which.',
+    },
+    activation: {
+      writes: [
+        { what: 'Criteria set versions written', n: '1 — 2018.1 is superseded, not deleted' },
+        { what: 'Derived totals re-evaluated', n: '7' },
+        { what: 'Outcomes that change', n: '6 — indeterminate becomes exceedance' },
+        { what: 'Exceedances raised', n: '6, at six locations' },
+        { what: 'Notification obligations raised under condition 21', n: '6 — became-aware set at activation, immutable' },
+        { what: 'TARP levels that extend automatically', n: '0 — Level 3 names MW05 and extending it is a separate decision' },
+        { what: 'Locked periods re-evaluated', n: '0 — a rule change evaluates forward' },
+        { what: 'Issued reports changed', n: '0 — a snapshot is what was issued' },
+      ],
+      says:
+        'Condition 21 obliges notification as soon as practicable on becoming aware of an exceedance, and the moment of awareness would be this activation. Six statutory clocks, started by a configuration change and running from a timestamp nobody can afterwards move. That is why activating a criteria set is an approval rather than a save.',
+      reversible:
+        'Reversible as an evaluation and not as a consequence. Rolling back re-evaluates the seven totals and withdraws the six exceedances; it does not un-lodge a notification that has gone to DWER.',
+    },
+    rollback: {
+      writes: [
+        { what: 'Set version deactivated', n: '1 — superseded, and both stay readable' },
+        { what: 'Derived totals re-evaluated', n: '7' },
+        { what: 'Exceedances withdrawn', n: '6 — withdrawn, never deleted' },
+        { what: 'Notifications un-lodged', n: '0 — a lodgement is withdrawn by writing to the regulator' },
+        { what: 'Audit records written', n: 'One per change, appended, attributed' },
+      ],
+      says:
+        'Rollback is drawn as a control rather than left to a database restore, because the question it answers — “we activated the wrong rule on Friday” — is asked on a Monday by somebody who is not a DBA.',
+    },
+  };
+})();

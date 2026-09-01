@@ -388,6 +388,51 @@ for (const width of widths) {
   await page.close();
 }
 
+/*
+ * A caption inside a panning region, measured against the region rather than
+ * against the table.
+ *
+ * A `<caption>` lays out at the *table's* width, and inside a scroll region
+ * that width is routinely two or three times what a reader can see — so the
+ * sentence is cut at the visible edge and the rest of it is only reachable by
+ * scrolling the table sideways. Wave 3 measured 7 clipped at 1280px, 44 at
+ * 1000 and 41 at 375, the worst by 2397px.
+ *
+ * No existing check could see it. The document does not overflow — the region
+ * pans, which is what it is for — and every element query says the caption is
+ * exactly as wide as its table, which is true and is the defect. The meter is
+ * the caption's own box against the region's client width, at all three
+ * widths, because the ratio is worst where the region is narrowest.
+ */
+{
+  for (const width of widths) {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    await page.goto(url);
+    const ids = await page.evaluate(() => [...document.querySelectorAll('.mk-screen')].map((n) => n.id));
+    let seen = 0;
+    for (const id of ids) {
+      await page.evaluate((i) => (window.location.hash = '#' + i), id);
+      await page.waitForTimeout(15);
+      const r = await page.evaluate((i) => {
+        const wide = [];
+        let n = 0;
+        for (const reg of document.querySelectorAll(`#${i} .sf-table-scroll`)) {
+          const cap = reg.querySelector('caption');
+          if (!cap) continue;
+          n += 1;
+          const over = Math.round(cap.getBoundingClientRect().width - reg.clientWidth);
+          if (over > 2) wide.push(`+${over}px — “${cap.innerText.trim().slice(0, 60)}…”`);
+        }
+        return { wide, n };
+      }, id);
+      seen += r.n;
+      for (const w of r.wide) failures.push(`${width}px #${id}: caption wider than the region it captions: ${w}`);
+    }
+    console.log(`captions: ${seen} in panning regions measured against their region at ${width}px`);
+    await page.close();
+  }
+}
+
 await browser.close();
 
 if (failures.length) {
@@ -398,5 +443,5 @@ if (failures.length) {
 console.log(
   'verify: no document overflow at any width, no duplicate ids, no unnamed controls, no heading skips, ' +
     'matrix panning intact, no figure text collisions, every coarse-pointer target ≥44px, no stacked label ' +
-    'squeezed below its own text',
+    'squeezed below its own text, no caption wider than the region it captions',
 );

@@ -24,6 +24,8 @@ import {
   ASSIGNMENT, BACKGROUND, BATCHES, CUSTODY, DQA, HARDNESS, INDETERMINATE, NEST, PURGE, QC_LIMITS,
   RECEIPT, STATUTORY, STYGOFAUNA, TREND,
   CUSTODY_CHAIN, EC_MW05, EC_MW05_OUTLIER, LAB_QC, WINDOW_CONDITION,
+  AMENDMENT, CRITERIA_DRAFT, DATA_RELEASE, GOLDEN, NON_DETECT, PFAS_COMPONENTS, Q1_ROUND,
+  REGENERATION, REPORT_ITEMS, SIGNOFFS, SNAPSHOTS, TEMPLATE,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -313,7 +315,260 @@ const certificate = () =>
       head: ['What followed the amendment', 'Outcome'],
       rows: SUPERSESSION.cascade.map((c) => [esc(c.what), `<span class="mk-muted">${esc(c.outcome)}</span>`]),
     })),
+  ) +
+  amendmentDecision();
+
+/** A value as it was issued, beside the value that would stand. Never a deletion. */
+const struck = (was, now) =>
+  '<span class="sf-result">' +
+  `<span class="sf-visually-hidden">${esc(`${was} as issued, amended to ${now}`)}</span>` +
+  `<span class="sf-result__superseded" aria-hidden="true">${esc(was)}</span>` +
+  '<span class="sf-result__arrow" aria-hidden="true">→</span>' +
+  `<span class="sf-result__value" aria-hidden="true">${esc(now)}</span></span>`;
+
+/** An outcome as the product draws it everywhere: a shape, then the word. */
+const outcomeCell = (outcome, set = 'ANZG 2018 · 95%') =>
+  outcome === 'not evaluated'
+    ? '<span class="mk-num mk-num--nil">—</span>'
+    : `<span class="sf-result">${mark(outcome.replace(' ', '_'), set)}<span style="margin-left:.4rem">${esc(outcome)}</span></span>`;
+
+/**
+ * An amendment on a round that has already been reported, drawn as one chain.
+ *
+ * The supersession above was absorbed the day it arrived, because the round it
+ * touched was open. This one is not: `#qualifiers` records 2025 Q1 – 2026 Q1 as
+ * **locked**, reported to DWER, and a locked period refuses a write rather than
+ * warning about one. So the amended values are staged — computed, previewed and
+ * standing nowhere — and what is drawn below is what accepting them would do.
+ * That is why the exceedance register, the TARP board and the licence still read
+ * as they do while this screen says two of their entries are in question.
+ *
+ * The chain is one chain deliberately. Six panels each true on their own let a
+ * reader decide an amendment on the first of them; a reader who can see from
+ * “three results moved” to “an obligation already lodged rests on one of them”
+ * is deciding the thing they are actually deciding. Every count in it is
+ * computed in `seed.mjs` from the values either side of the amendment, using
+ * the evaluation's own window function rather than a second copy of the rule.
+ */
+const amendmentDecision = () => {
+  const A = AMENDMENT;
+  const H = A.hardness;
+  const c = A.counts;
+  const hop = (n, kind, label, what, detail) =>
+    `<li class="mk-chain__step mk-chain__step--${kind}">` +
+    `<span class="mk-chain__n">${n}</span>` +
+    `<div class="mk-chain__text"><span class="mk-chain__label">${esc(label)}</span>` +
+    `<span class="mk-chain__what">${what}</span>` +
+    `<span class="mk-chain__detail">${detail}</span></div></li>`;
+  const fmt = (v, unit) => (unit === 'µS/cm' ? String(v) : Number(v).toFixed(1));
+
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.6rem">An amendment on a round that has already been reported</h2>' +
+    notice(
+      'warning',
+      `${esc(A.certificate)} re-reports ${c.resultsAmended} results on ${esc(A.round)}, and that round is inside a locked period.`,
+      `The period <strong>${esc(Q1_ROUND.lock)}</strong> was closed to writes when the 2026 Q1 report went to DWER, and a locked period <a class="mk-ref" href="#qualifiers">refuses a write rather than warning about one</a>. The amended values are staged: computed, previewed, and standing nowhere. Nothing on the exceedance register, the TARP board or the licence has moved, and nothing will until somebody decides. What follows is what accepting would do.`,
+    ) +
+    cols(
+      facts([
+        ['Amended certificate', `<code>${esc(A.certificate)}</code>`],
+        ['Amends', `<code>${esc(A.supersedes)}</code> · round <span class="mk-file">${esc(A.round)}</span> · collected ${esc(Q1_ROUND.collected)}`],
+        ['Laboratory', `${esc(A.laboratory)} · work order <span class="mk-file">${esc(A.workOrder)}</span>`],
+        ['Issued', `<span class="sf-instant">${esc(A.issued)}</span> — ${esc(String(Math.round((Date.parse(A.issued) - Date.parse(Q1_ROUND.issued)) / 86400000)))} days after the original`],
+        ['Received', `<span class="sf-instant">${esc(A.received)}</span> · staged by ${esc(A.stagedBy)}`],
+        ['Original file', `<span class="mk-file">${esc(A.file)}</span>`],
+        ['Results re-reported', `<span class="mk-num mk-num--warn">${c.resultsAmended}</span> of the <span class="mk-num">${esc(String(SNAPSHOTS[0].results))}</span> the issued 2026 Q1 report stands on`],
+        ['State', C.status(A.state, 'warn')],
+      ]),
+      panel(
+        'Why the laboratory re-issued',
+        A.findings
+          .map(
+            (f) =>
+              `<h3 class="mk-h3">Finding ${f.n} — ${esc(f.what)}</h3>` +
+              `<p class="mk-tight">${esc(f.detail)}</p>` +
+              `<p class="mk-tight mk-muted">${esc(f.remedy)}</p>`,
+          )
+          .join('') +
+          `<p class="mk-tight mk-muted"><strong>On the numbering:</strong> ${esc(A.naming)}</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.2rem">The chain, hop by hop</h2>' +
+    `<ol class="mk-chain">${[
+      hop(1, 'source', 'What the amendment changed',
+        `<strong>${c.resultsAmended} results</strong> at ${loc('MW05')} re-reported — copper, zinc and total hardness. ${ref('supersession', 'The supersession record')}`,
+        `Copper ${A.rows[0].issuedText} → ${A.rows[0].amendedText} µg/L · zinc ${A.rows[1].issuedText} → ${A.rows[1].amendedText} µg/L · hardness ${H.issued} → ${H.amended} mg/L. Nothing is overwritten; the issued values stay readable beside the amended ones.`),
+      hop(2, 'rule', 'Recalculated derivations',
+        `The hardness cross-check reconciles for the first time, and <strong>${c.criteriaRecomputed} hardness-modified criteria</strong> at this bore are recomputed. ${ref('hardness', 'How this criterion was calculated')}`,
+        `${esc(H.formula)} over the same calcium and magnesium — which were not re-analysed — gives ${esc(H.computed)} mg/L. Against the issued hardness that is ${esc(H.agreementIssued)}, outside the ${esc(H.limit)} limit; against the amended one, ${esc(H.agreementAmended)}.`),
+      hop(3, 'evaluation', 'Changed exceedance outcomes',
+        `<strong>${c.outcomesChanged} of ${c.resultsPreviewed - 1}</strong> assessed outcomes change — both from exceedance to compliant. ${ref('exceedances', 'The exceedance register')}`,
+        `Copper and zinc at ${'MW05'} in ${esc(A.round)} come off the register. Nickel and cadmium do not change although their criteria move, and the table below says why.`),
+      hop(4, 'evaluation', 'Changed condition outcomes',
+        `<strong>${c.windowsChanged} of ${A.windows.length}</strong> windowed series change, and the condition 12(c) trip is withdrawn. ${ref('licence', 'Licence L8842/2019/1')}`,
+        `The trip at ${esc(A.round)} is what raised the groundwater investigation programme lodged on 2026-02-27 — an obligation ${ref('obligations', 'already discharged')} that would rest on a value no longer standing.`),
+      hop(5, 'consequence', 'Trigger states',
+        `<strong>${c.tarpMoved} of ${c.tarpLevels}</strong> TARP levels move. ${ref('tarp', 'The TARP board')}`,
+        'Level 2 holds on arsenic rather than on copper, so the monthly programme at MW05 holds with it. Each level is stated below with the reason it stays, because a trigger that is simply not mentioned reads as a trigger nobody checked.'),
+      hop(6, 'consequence', 'Affected reports',
+        `<strong>${c.submissionsAffected} of ${c.submissionsTotal}</strong> issued submissions, and one item in the 2026 Q2 draft. ${ref('snapshot', 'Snapshot and regeneration')}`,
+        `${esc(A.affectedSubmission.what)} was lodged on ${esc(A.affectedSubmission.submitted)} against snapshot ${esc(A.affectedSubmission.snapshot)}. The lodged document does not change; what changes is whether the record still says what it said. Figure 5.1 in the ${ref('report-figures', 'draft figure list')} is already flagged stale on this.`),
+      hop(7, 'derived', 'The decision',
+        'Accept, record as no material impact, or hold — <strong>and it is the decision, not the data, that is outstanding</strong>.',
+        `The ${c.q2ResultsTouched === 0 ? 'entire 2026 Q2 round is untouched' : ''}: this certificate reports the February round, so nothing on the ${ref('crosstab', 'results crosstab')} moves either way.`),
+    ].join('')}</ol>` +
+    '<h2 class="mk-h2">The three results, and the two that did not move</h2>' +
+    table({
+      caption: `As issued beside as amended. A superseded value is struck, never removed — a reader holding last quarter's printed report has to be able to find the number it contains.`,
+      head: ['Analyte', 'Result', 'Criterion here', 'Outcome as issued', 'Outcome if accepted', 'Why'],
+      kind: 'matrix',
+      label: 'Results re-reported on PAS2026-01884 rev B',
+      rows: [
+        [
+          `${esc(H.analyte)}<small>${esc(H.unit)}</small>`,
+          struck(H.issued, H.amended),
+          '<span class="mk-num mk-num--nil">— not a criterion</span>',
+          outcomeCell('not evaluated'),
+          outcomeCell('not evaluated'),
+          `<span class="mk-muted">An input to three criteria rather than a result with one. The correction is arithmetic and exact: ${esc(String(H.issued))} × 1.25 = ${esc(String(H.amended))}.</span>`,
+        ],
+        ...A.rows.map((r) => [
+          `${esc(r.analyte)}<small>${esc(r.unit)}</small>`,
+          r.valueMoved ? struck(r.issuedText, r.amendedText) : `<span class="mk-num">${esc(r.issuedText)}</span> <span class="mk-muted">unchanged</span>`,
+          r.criterionMoved
+            ? struck(r.criterionIssued, r.criterionAmended)
+            : `<span class="mk-num">${esc(r.criterionIssued)}</span> <span class="mk-muted">flat</span>`,
+          outcomeCell(r.before) + (r.factorBefore === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factorBefore)}</span>`),
+          outcomeCell(r.after) + (r.factorAfter === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factorAfter)}</span>`),
+          `<span class="mk-muted">${esc(r.why)}</span>`,
+        ]),
+      ],
+    }) +
+    `<p class="mk-tight">Zinc is the row worth reading twice. <strong>Both the result and its criterion move, and they move in opposite directions</strong> — the amended hardness makes the criterion less strict, from ${esc(A.rows[1].criterionIssued)} to ${esc(A.rows[1].criterionAmended)} µg/L, while the amended result falls from ${esc(A.rows[1].issuedText)} to ${esc(A.rows[1].amendedText)}. The outcome changes because the result moved further than the criterion did, and a screen that showed only one of the two would look like it had shown the working.</p>` +
+    cols(
+      panel(
+        'The cross-check that had been failing since February',
+        facts([
+          ['Calcium (filtered)', `<span class="mk-num">${esc(String(H.calcium))} mg/L</span> <span class="mk-muted">not re-analysed</span>`],
+          ['Magnesium (filtered)', `<span class="mk-num">${esc(String(H.magnesium))} mg/L</span> <span class="mk-muted">not re-analysed</span>`],
+          ['Formula', `<code class="mk-file">${esc(H.formula)}</code>`],
+          ['Computed hardness', `<span class="mk-num">${esc(H.computed)} mg/L</span>`],
+          ['Reported, as issued', `<span class="mk-num">${esc(String(H.issued))} mg/L</span> · ${C.status(`${H.agreementIssued} against ${H.limit}`, 'bad')}`],
+          ['Reported, as amended', `<span class="mk-num">${esc(String(H.amended))} mg/L</span> · ${C.status(`${H.agreementAmended} against ${H.limit}`, 'good')}`],
+        ]) +
+          `<p class="mk-tight">${esc(H.says)}</p>`,
+      ),
+      panel(
+        'Every trigger level, and the reason it stays where it is',
+        table({
+          caption: `${c.tarpMoved} of ${c.tarpLevels} levels move.`,
+          head: ['Level', 'Where', 'Moves', 'Because'],
+          scroll: true,
+          label: 'TARP levels against the staged amendment',
+          rows: A.tarp.map((t) => [
+            `<strong>${esc(t.level)}</strong><small>${esc(t.label)}</small>`,
+            `<span class="mk-muted">${esc(t.locations)}</span>`,
+            C.status(t.moves ? 'moves' : 'holds', t.moves ? 'bad' : 'good'),
+            `<span class="mk-muted">${esc(t.why)}</span>`,
+          ]),
+        }),
+      ),
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2">Condition 12(c), re-run over the amended round</h2>' +
+    table({
+      caption: 'The same rule and the same four rounds, run twice. ▲ marks a round above the criterion and · one below it, so the run reads across the row without reading the numbers.',
+      head: ['Location', 'Parameter', 'Criterion', ...WINDOW_CONDITION.rounds, 'Run', 'Outcome'],
+      kind: 'matrix',
+      label: 'Condition 12(c) before and after the staged amendment',
+      rows: A.windows.map((w) => [
+        loc(w.location),
+        esc(w.analyte),
+        `<span class="mk-muted">${esc(w.criterion)}</span>`,
+        ...w.before.values.map((v, i) => {
+          const moved = v !== w.after.values[i];
+          const glyph = (above) => (above ? '▲ ' : '· ');
+          return moved
+            ? `<span class="sf-result"><span class="sf-visually-hidden">${esc(`${fmt(v, w.unit)} as issued, amended to ${fmt(w.after.values[i], w.unit)}`)}</span>` +
+              `<span class="sf-result__superseded" aria-hidden="true">${glyph(w.before.above[i])}${esc(fmt(v, w.unit))}</span>` +
+              '<span class="sf-result__arrow" aria-hidden="true">→</span>' +
+              `<span class="mk-num${w.after.above[i] ? ' mk-num--bad' : ''}" aria-hidden="true">${glyph(w.after.above[i])}${esc(fmt(w.after.values[i], w.unit))}</span></span>`
+            : `<span class="mk-num${w.before.above[i] ? ' mk-num--bad' : ''}">${glyph(w.before.above[i])}${esc(fmt(v, w.unit))}</span>`;
+        }),
+        w.changed
+          ? struck(`${w.before.run} of 3`, `${w.after.run} of 3`)
+          : `<span class="mk-num">${w.before.run} of 3</span>`,
+        w.changed
+          ? `${C.status(w.before.outcome, w.before.outcome === 'triggered' ? 'bad' : 'warn')}<br>${C.status(w.after.outcome, 'neutral')}`
+          : C.status(w.before.outcome, w.before.outcome === 'triggered' ? 'bad' : w.before.outcome === 'one round short' ? 'warn' : 'neutral'),
+      ]),
+    }) +
+    cols(
+      panel(
+        'What the withdrawn trip reaches',
+        `<p class="mk-tight">Copper at ${loc('MW05')} tripped on <span class="mk-file">${esc(WINDOW_CONDITION.series[2].trippedAt)}</span>, and that trip is what raised the groundwater investigation programme lodged with DWER on 2026-02-27. Accepting the amendment does not un-lodge it: a document that has gone to a regulator is withdrawn by writing to the regulator, and the product records which of those happened rather than doing the second one.</p>` +
+          `<p class="mk-tight">The 2026 Q2 exceedance register would also read differently. <strong>Copper at MW05 would read <em>first</em> rather than <em>4th consecutive quarter</em></strong>, and zinc <em>first</em> rather than <em>2nd consecutive quarter</em> — the run column is counted from the rounds, so it moves when a round does.</p>` +
+          `<p class="mk-tight mk-muted">${esc(WINDOW_CONDITION.frozen)}</p>`,
+      ),
+      panel(
+        'The two series that do not move, and why not',
+        A.windows
+          .filter((w) => !w.changed)
+          .map(
+            (w) =>
+              `<p class="mk-tight">${C.status('holds', 'good')} <strong>${esc(w.analyte)} at ${esc(w.location)}</strong> — ${esc(w.whyNot)}</p>`,
+          )
+          .join('') +
+          '<p class="mk-tight mk-muted">Stating why a series did not change is the half of an impact preview that is usually left out, and it is the half a reader needs in order to trust the half that did.</p>',
+      ),
+    ) +
+    '<h2 class="mk-h2">The decision</h2>' +
+    `<p class="mk-tight">${esc(A.decision.asks)}</p>` +
+    C.blastRadius({
+      lede: 'Accepting the amendment into a locked period would write:',
+      rows: [
+        { what: 'Supersessions appended, with a reason on each', n: `${c.resultsAmended}` },
+        { what: 'Results whose value is replaced in place', n: '0 — a superseded value stays readable' },
+        { what: 'Assessed outcomes recomputed', n: `${c.resultsPreviewed - 1}` },
+        { what: 'Outcomes that change', n: `${c.outcomesChanged}` },
+        { what: 'Windowed series re-evaluated', n: `${A.windows.length}, of which ${c.windowsChanged} change` },
+        { what: 'Licence conditions whose outcome moves', n: '1 — 12(c), from triggered to not triggered' },
+        { what: 'Obligations already lodged that this puts in question', n: '1' },
+        { what: 'Issued documents altered', n: '0 — a snapshot is what was issued' },
+        { what: 'Snapshots flagged for reissue review', n: `${c.submissionsAffected}` },
+        { what: '2026 Q2 results touched', n: `${c.q2ResultsTouched}` },
+      ],
+      action: 'Accept the amendment',
+      cancel: 'Not yet — keep it staged',
+      danger: true,
+      reversible: A.decision.irreversible,
+    }) +
+    cols(
+      panel(
+        'The ways out, each with what it writes',
+        table({
+          caption: 'Three options and a refusal. None of them deletes anything, and none is the default (PP4, QB-7).',
+          head: ['Option', 'What it does', ''],
+          scroll: true,
+          label: 'Ways to decide the amendment',
+          rows: A.decision.ways.map((w) => [
+            esc(w.label),
+            `<span class="mk-muted">${esc(w.detail)}</span>`,
+            C.btn('Take this'),
+          ]),
+        }),
+      ),
+      panel(
+        'What is refused, and what cannot be undone',
+        `<p class="mk-tight"><strong>Refused:</strong> ${esc(A.decision.refused)}</p>` +
+          `<p class="mk-tight"><strong>Irreversible:</strong> ${esc(A.decision.irreversible)}</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#supersession">The supersession record</a><a class="mk-btn" href="#snapshot">What it would do to the issued report</a><a class="mk-btn" href="#audit">Who staged it, and when</a></div>`,
+      ),
+      '3fr 2fr',
+    )
   );
+};
 
 const migration = () =>
   head('Legacy migration — reconciliation', 'Proof that what came out of the old system matches what went into this one.', {
@@ -1129,66 +1384,268 @@ const savedViews = () =>
  * J5 — Produce the submission
  * ================================================================== */
 
-const reportBuilder = () =>
-  head('Quarterly Groundwater Monitoring Report — 2026 Q2', 'Assembled from the data as it stands, into the customer’s own template.', {
-    route: '/projects/:projectId/reports',
-    toolbar: btn('Preview') + btn('Take snapshot and issue', 'primary'),
-  }) +
-  stats([
-    stat('7', 'sections'),
-    stat('9', 'figures', 'good'),
-    stat('6', 'tables', 'good'),
-    stat('2', 'sections not started', 'warn'),
-  ]) +
-  cols(
-    table({
-      caption: 'Sections. What the product generates is marked; the rest is written by a person.',
-      head: ['§', 'Section', 'Words', 'Generated content', 'State'],
-      rows: REPORT.sections.map((s) => [
-        `<code>${esc(s.n)}</code>`,
-        esc(s.title),
-        s.words ? `<span class="mk-num">${s.words}</span>` : '<span class="mk-num mk-num--nil">—</span>',
-        s.auto ? `<span class="mk-muted">${esc(s.auto)}</span>` : '<span class="mk-num mk-num--nil">—</span>',
-        tag(s.state, toneFor(s.state)),
+/**
+ * The composer, its template configuration, and the gate between them and
+ * issue.
+ *
+ * Three tabs, drawn one under the other because this catalogue is one
+ * document: what the report says, what shapes it, and whether it matches the
+ * approved reference. The order is the order they bind — a section is written
+ * under a template version, and the comparison is run over the result.
+ */
+const reportBuilder = () => {
+  const G = GOLDEN;
+  const unwritten = REPORT.sections.filter((x) => x.state === 'not started');
+  return (
+    head('Quarterly Groundwater Monitoring Report — 2026 Q2', 'Assembled from the data as it stands, into the customer’s own template.', {
+      route: '/projects/:projectId/reports',
+      toolbar: btn('Preview') + btn('Take snapshot and issue', 'primary'),
+    }) +
+    C.tabs([
+      { label: 'Sections', current: true, count: REPORT.sections.length },
+      { label: 'Template and numbering', count: TEMPLATE.current },
+      { label: 'Golden comparison', count: `${G.passed}/${G.checks.length}`, dot: G.failed ? 'bad' : 'good' },
+    ]) +
+    stats([
+      stat(String(REPORT.sections.length), 'sections'),
+      stat(String(REPORT_ITEMS.figures), 'figures', 'good'),
+      stat(String(REPORT_ITEMS.tables), 'tables', 'good'),
+      stat(String(unwritten.length), 'sections not started', 'warn'),
+      stat(`${G.passed} / ${G.checks.length}`, 'golden checks passing', G.failed ? 'bad' : 'good'),
+    ]) +
+    cols(
+      table({
+        caption: 'Sections. What the product generates is marked; the rest is written by a person.',
+        head: ['§', 'Section', 'Words', 'Generated content', 'State'],
+        rows: REPORT.sections.map((x) => [
+          `<code>${esc(x.n)}</code>`,
+          esc(x.title),
+          x.words ? `<span class="mk-num">${x.words}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+          x.auto ? `<span class="mk-muted">${esc(x.auto)}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+          tag(x.state, toneFor(x.state)),
+        ]),
+      }),
+      panel('Output', facts([
+        ['Template', esc(REPORT.template)],
+        ['Primary output', 'Word (.docx) — figures embedded as true vector'],
+        ['Also produced', 'PDF — a render of the Word file, not a second authoring path'],
+        ['Data export', 'Excel — the register, not the report layout'],
+        ['Branding', 'Wandalup Resources. Strataflow attribution is metadata only'],
+        ['Snapshot', `<span class="mk-num mk-num--warn">${esc(REPORT.snapshot)}</span>`],
+      ]) + '<p class="mk-tight mk-muted">A Strataflow-branded regulatory submission is a hard anti-pattern (FR-7.4). The customer’s logo, the customer’s template, the customer’s numbering.</p>'),
+      '3fr 2fr',
+    ) +
+    /* FR-7.2. Configuration, with versions and an effective date, because the
+     * numbering scheme of a document already lodged is not a preference
+     * somebody may change on a Tuesday. */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Template and numbering</h2>' +
+    `<p class="sf-lede mk-tight">${esc(TEMPLATE.file)} · <strong>version ${esc(TEMPLATE.current)}</strong> in force · configuration, versioned independently of the application (OM-5).</p>` +
+    cols(
+      table({
+        caption: 'What the template decides, and why the customer decided it that way. Every row is configuration rather than code.',
+        head: ['Setting', 'In force', 'Because'],
+        scroll: true,
+        label: 'Corporate template configuration',
+        rows: TEMPLATE.settings.map((x) => [
+          esc(x.what),
+          `<code class="mk-file">${esc(x.value)}</code>`,
+          `<span class="mk-muted">${esc(x.why)}</span>`,
+        ]),
+      }),
+      panel(
+        'Versions, and what an issued report regenerates under',
+        // Three columns and the prose beneath, not four: a sentence-long column
+        // in a 2fr panel pans off the region and reads as cut-off words.
+        table({
+          head: ['Version', 'Effective', 'State'],
+          scroll: true,
+          label: 'Template versions',
+          rows: TEMPLATE.versions.map((v) => [
+            `<code>${esc(v.version)}</code>`,
+            `<span class="sf-instant">${esc(v.effective)}</span>`,
+            C.status(v.state, v.state === 'active' ? 'good' : v.state === 'draft' ? 'warn' : 'neutral'),
+          ]),
+        }) +
+          TEMPLATE.versions
+            .map((v) => `<p class="mk-tight"><code>${esc(v.version)}</code> — ${esc(v.changed)}</p>`)
+            .join('') +
+          `<p class="mk-tight">${esc(TEMPLATE.note)}</p>` +
+          `<p class="mk-tight mk-muted">The <a class="mk-ref" href="#snapshot">snapshot register</a> carries the template version on every row for exactly this reason: ${esc(SNAPSHOTS[3].ref)} was produced under <code>${esc(SNAPSHOTS[3].template)}</code> and is the only row that is not on <code>${esc(TEMPLATE.current)}</code>.</p>`,
+      ),
+      // Even split: at 3fr/2fr the versions table's state column panned off,
+      // and a state word cut to "hist" is the photocopier rule failing.
+      '1fr 1fr',
+    ) +
+    /* FR-7.5. The comparison gates issue rather than warning about it, and two
+     * of its checks read their outcome out of REPORT.sections — so a draft
+     * with an unwritten section fails its own structural check. A gate whose
+     * outcome is typed beside it is a decoration. */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Golden-output comparison</h2>' +
+    cols(
+      facts([
+        ['Reference', esc(G.reference)],
+        ['Approved', esc(G.approved)],
+        ['Run', `<span class="sf-instant">${esc(G.ran)}</span>`],
+        ['Result', `${C.status(`${G.passed} passed`, 'good')} ${G.failed ? C.status(`${G.failed} failed`, 'bad') : ''}`],
+        ['Gate', esc(G.gate)],
       ]),
-    }),
-    panel('Output', facts([
-      ['Template', esc(REPORT.template)],
-      ['Primary output', 'Word (.docx) — figures embedded as true vector'],
-      ['Also produced', 'PDF — a render of the Word file, not a second authoring path'],
-      ['Data export', 'Excel — the register, not the report layout'],
-      ['Branding', 'Wandalup Resources. Strataflow attribution is metadata only'],
-      ['Snapshot', `<span class="mk-num mk-num--warn">${esc(REPORT.snapshot)}</span>`],
-    ]) + '<p class="mk-tight mk-muted">A Strataflow-branded regulatory submission is a hard anti-pattern (FR-7.4). The customer’s logo, the customer’s template, the customer’s numbering.</p>'),
-    '3fr 2fr',
-  );
-
-const reportFigures = () =>
-  head('Figures and tables', 'What goes in, in what order, numbered as the document numbers them.', {
-    route: '/projects/:projectId/figures',
-  }) +
-  cols(
+      panel(
+        'What a comparison is for',
+        '<p class="mk-tight">Every other check in this product measures the document against a <em>rule</em> — a unit is present, a reference resolves. This one measures it against an <strong>approved copy</strong>, which is the only way to catch a change nobody thought to write a rule about.</p>' +
+          '<p class="mk-tight mk-muted">The reference is an oracle: it is approved once, by a person, and the assembled document is compared to it. Changing the reference and the document that asserts against it in the same act would make the comparison agree with itself, which is the failure mode of every golden test ever written in a hurry.</p>',
+      ),
+      '3fr 2fr',
+    ) +
     table({
-      caption: 'Cross-references update with the numbering. Renumbering by hand is where a submission acquires a “see Figure 6” that points at a table.',
-      head: ['№', 'Item', 'Source', 'Cited in', 'State'],
-      rows: [
-        ['Figure 4.1', 'Groundwater elevation — MW05, MW07, MW01A', 'Saved view · TSF downgradient', '§4.2, §6.1', tag('current', 'good')],
-        ['Figure 4.2', 'Arsenic at MW05, with censoring', 'Saved view · TSF downgradient', '§4.3, §5.1', tag('current', 'good')],
-        ['Figure 4.3', 'Piper trilinear diagram', '2026-Q2-GW major ions', '§6.2', tag('current', 'good')],
-        ['Figure 4.4', 'Stiff diagrams by location', '2026-Q2-GW major ions', '§6.2', tag('current', 'good')],
-        ['Figure 4.6', 'Arsenic trend at MW05', 'services/stats · Mann-Kendall', '§5.2, §6.1', tag('current', 'good')],
-        ['Figure 4.9', 'Monitoring network', 'Location register', '§2.1', tag('current', 'good')],
-        ['Table 4.1', 'Results by analyte and location', '2026-Q2-GW crosstab', '§4.1', tag('current', 'good')],
-        ['Table 5.1', 'Exceedance register', 'Evaluation · 2 criteria sets', '§5.1', tag('stale — MW03B superseded', 'warn')],
-        ['Table 3.1', 'QA/QC summary', 'Validation run 2026-05-21', '§3.2', tag('current', 'good')],
-      ],
-    }),
-    panel('One stale item, and it knows why',
-      '<p class="mk-tight">Table 5.1 was generated before the laboratory amended PAS2026-04398. The arsenic result at MW03B went from 31 to 3.1 and stopped being an exceedance.</p>' +
-      '<p class="mk-tight">The table is <strong>marked stale rather than silently regenerated</strong>. A figure that changes underneath a paragraph somebody has already written is how a report comes to contradict itself.</p>' +
-      `<div class="mk-actions">${btn('Regenerate Table 5.1', 'primary')}${btn('Show what changed')}</div>`),
-    '3fr 2fr',
+      caption: 'One row per check. What the reference expects, what the assembled document carries, and whether they agree.',
+      head: ['Check', 'The reference expects', 'The document carries', 'Outcome'],
+      kind: 'matrix',
+      label: 'Golden-output comparison, 2026 Q2 report',
+      rows: G.checks.map((x) => [
+        esc(x.check),
+        `<span class="mk-muted">${esc(x.expects)}</span>`,
+        esc(x.found),
+        C.status(x.outcome, x.outcome === 'pass' ? 'good' : 'bad'),
+      ]),
+    }) +
+    cols(
+      C.card({
+        tone: 'bad',
+        head: `<span class="mk-queue__kind">Blocked</span><span class="mk-queue__age">${G.failed} of ${G.checks.length} checks failing</span>`,
+        body:
+          `<p class="mk-queue__headline">The snapshot cannot be taken while ${unwritten.map((x) => `§${x.n}`).join(' and ')} are unwritten.</p>` +
+          `<p class="mk-queue__context">Both failures are the same failure: the prescribed form requires an authored section and the document has ${unwritten.map((x) => `${x.words} words in §${x.n}`).join(' and ')}. Nothing is wrong with the generated content — the crosstab, the registers and the figures all match the reference. The report is a draft, and the gate is saying so at the one moment it is worth saying: the moment somebody tries to issue it.</p>`,
+        foot:
+          `<a class="mk-btn mk-btn--primary" href="#narrative">Write §${unwritten[0].n}</a>` +
+          '<a class="mk-btn" href="#snapshot">What a snapshot would capture</a>' +
+          '<span class="mk-muted">Writing continues either way. Only issuing is blocked.</span>',
+      }),
+      panel(
+        `What a failure that is not an unfinished draft looks like — ${esc(G.lastDrift.at)}`,
+        `<p class="mk-tight"><strong>${esc(G.lastDrift.where)}.</strong> ${G.lastDrift.what}</p>` +
+          `<p class="mk-tight">${esc(G.lastDrift.why)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(G.lastDrift.done)}</p>`,
+      ),
+      '2fr 3fr',
+    )
   );
+};
+
+/**
+ * Numbering, and the two kinds of cross-reference.
+ *
+ * The number on every row is **derived from the item's position within its
+ * section**, never stored — `Figure 4.3` is a fact about where a figure sits,
+ * and a stored number plus a moved figure is precisely how a submission
+ * acquires a "see Figure 6" that points at a table. Deriving it means a
+ * renumbering can be *previewed*, which is the difference between an insert
+ * you decide and an insert you discover.
+ *
+ * Two kinds of reference, and only one of them is safe to move. A **live
+ * reference** is a pointer the document resolves at generation, so renumbering
+ * updates it and nothing is owed. A reference inside **authored prose** is a
+ * sentence somebody wrote; the product will not rewrite it, so a renumbering
+ * that reaches one is raised as a finding against the author. Silently
+ * rewriting a hydrogeologist's paragraph is the same class of act as silently
+ * substituting half a reporting limit.
+ */
+const reportFigures = () => {
+  const I = REPORT_ITEMS;
+  const ins = I.insert;
+  return (
+    head('Figures and tables', 'What goes in, in what order, numbered as the document numbers them.', {
+      route: '/projects/:projectId/figures',
+      toolbar: C.exportMenu() + btn('Insert a figure', 'primary'),
+    }) +
+    stats([
+      stat(String(I.figures), 'figures'),
+      stat(String(I.tables), 'tables'),
+      stat(String(I.items.filter((x) => x.state !== 'current').length), 'stale', 'warn'),
+      stat(String(I.items.reduce((n, x) => n + x.cites.length, 0)), 'cross-references'),
+    ]) +
+    `<p class="sf-lede mk-tight">Numbered <code>${esc(TEMPLATE.settings[0].value)}</code>, per <a class="mk-ref" href="#report">corporate template ${esc(TEMPLATE.current)}</a>. Figures and tables number independently, so <code>Table 4.1</code> and <code>Figure 4.1</code> coexist and neither is a typo.</p>` +
+    table({
+      caption: 'One row per item, in document order. The number is computed from the position; the “cited in” column is the other direction, and it is what makes a renumbering answerable before it happens.',
+      head: ['№', 'Item', 'Source', 'Cited in', 'Reference kind', 'State'],
+      kind: 'matrix',
+      label: 'Figures and tables in the 2026 Q2 report',
+      rows: I.items.map((x) => [
+        `<code class="mk-file mk-file--id">${esc(x.n)}</code>`,
+        esc(x.title),
+        `<span class="mk-muted">${esc(x.source)}</span>`,
+        x.cites.length ? `<span class="mk-muted">${esc(x.cites.join(', '))}</span>` : '<span class="mk-num mk-num--nil">— not cited</span>',
+        x.prose ? C.status('authored prose', 'warn') : C.status('live', 'good'),
+        x.state === 'current' ? tag('current', 'good') : tag(x.state, 'warn'),
+      ]),
+    }) +
+    cols(
+      panel(
+        'Two items are stale, and each says what made it stale',
+        I.items
+          .filter((x) => x.state !== 'current')
+          .map(
+            (x) =>
+              `<p class="mk-tight"><code>${esc(x.n)}</code> <strong>${esc(x.title)}</strong> — ${esc(x.state.replace(/^stale — /, ''))}.</p>`,
+          )
+          .join('') +
+          `<p class="mk-tight">Table 5.1 was generated before the laboratory amended PAS2026-04398: arsenic at ${loc('MW03B')} went from 31 to 3.1 and stopped being an exceedance. Figure 5.1 draws the four rounds of condition 12(c), two of whose series the <a class="mk-ref" href="#certificate">staged amendment</a> reaches.</p>` +
+          '<p class="mk-tight">Both are <strong>marked stale rather than silently regenerated</strong>. A figure that changes underneath a paragraph somebody has already written is how a report comes to contradict itself — and one of these two would change on a decision nobody has taken yet.</p>' +
+          `<div class="mk-actions">${btn('Regenerate Table 5.1', 'primary')}<a class="mk-btn" href="#certificate">Decide the amendment first</a></div>`,
+      ),
+      panel(
+        'A number this document does not carry',
+        `<p class="mk-tight">Every cross-reference is checked against the numbers the document actually carries, and ${esc(String(I.items.reduce((n, x) => n + x.cites.length, 0)))} of them resolve. A reference to <code>Figure 4.9</code> would not: §4 carries ${esc(String(I.items.filter((x) => x.kind === 'Figure' && x.section === '4').length))} figures, and a reference past the end of a section is a finding rather than a rendering that quietly prints the literal text.</p>` +
+          '<p class="mk-tight mk-muted">This is the check that costs nothing and that nobody runs. A dangling cross-reference survives every proofread, because the sentence around it reads perfectly well.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Inserting a figure, and what it renumbers</h2>' +
+    `<p class="mk-tight">Adding <strong>${esc(ins.item.title)}</strong> after <code>${esc(ins.after)}</code> makes it <code>${esc(ins.becomes)}</code>. ${esc(ins.why)}</p>` +
+    cols(
+      table({
+        caption: 'What moves, and where each moved number is referred to. Computed by numbering the list again with the new item in place — not by counting on somebody’s fingers.',
+        // Five columns, not six: "reference kind" and "what is owed" were the
+        // same fact twice, and the sixth column panned off the region.
+        head: ['Item', 'Number now', 'Becomes', 'Cited in', 'What is owed'],
+        kind: 'matrix',
+        label: 'Renumbering caused by the insert',
+        rows: ins.renumbered.map((r) => [
+          esc(r.title),
+          `<code class="mk-file mk-file--id">${esc(r.from)}</code>`,
+          `<code class="mk-file mk-file--id">${esc(r.to)}</code>`,
+          `<span class="mk-muted">${esc(r.cites.join(', '))}</span>`,
+          r.prose
+            ? `${C.status('prose — review', 'warn')} <a class="mk-ref" href="#narrative">§6</a>`
+            : `${C.status('live — follows it', 'good')}`,
+        ]),
+      }),
+      panel(
+        'Stated before the act, not discovered after it',
+        C.blastRadius({
+          lede: `Inserting ${esc(ins.item.title)} as ${esc(ins.becomes)} would:`,
+          rows: [
+            { what: 'Figures renumbered', n: `${ins.renumbered.length}` },
+            { what: 'Tables renumbered', n: '0 — figures and tables number independently' },
+            { what: 'Live cross-references updated automatically', n: `${ins.liveRefs}` },
+            { what: 'References in authored prose to review', n: `${ins.proseRefs}` },
+            { what: 'Sentences the product would rewrite', n: '0 — a sentence somebody wrote is theirs' },
+            { what: 'Issued reports affected', n: '0 — a lodged document is numbered by its own snapshot' },
+          ],
+          action: 'Insert and renumber',
+          cancel: 'Leave the numbering as it is',
+          reversible:
+            'Reversible: removing the figure renumbers back and the flagged sentences clear. What it cannot undo is a reader having already seen a draft with the old numbers, which is why the flags name the sentences rather than fixing them.',
+        }),
+      ),
+      '3fr 2fr',
+    ) +
+    notice(
+      'warning',
+      `${ins.proseRefs} cross-references would break, and they are shown as a finding rather than allowed to break.`,
+      `<a class="mk-ref" href="#narrative">§6 Interpretation</a> cites ${ins.renumbered.filter((r) => r.prose).map((r) => `<code>${esc(r.from)}</code>`).join(' and ')} inside sentences a hydrogeologist wrote. The numbers those sentences name would no longer be the numbers those figures carry. The product does not edit the prose and it does not renumber quietly: it names both sentences, beside the control that would cause it, before the control is pressed.`,
+    )
+  );
+};
 
 const narrative = () =>
   head('Interpretation — §6', 'Where the hydrogeologist writes, with the evidence beside them.', {
@@ -1218,22 +1675,115 @@ const narrative = () =>
     '3fr 2fr',
   );
 
-const snapshot = () =>
-  head('Snapshot and regeneration', 'What was issued, and the ability to produce it again byte for byte.', {
-    route: '/projects/:projectId/snapshots',
-  }) +
-  table({
-    caption: 'Every issued report carries the data it was built from. QB-3 is not a promise, it is a stored object.',
-    head: ['Report', 'Issued', 'To', 'Snapshot', 'Regenerates identically', 'Data since'],
-    rows: [
-      ['2026 Q1 Quarterly Groundwater', '2026-02-27', 'DWER', '<code>snap-2026Q1-8f14</code>', tag('verified', 'good'), '<span class="mk-muted">3 results superseded since issue</span>'],
-      ['2025 Annual Environmental Report', '2026-01-30', 'DWER', '<code>snap-2025AER-2c90</code>', tag('verified', 'good'), '<span class="mk-muted">11 results superseded since issue</span>'],
-      ['2025 Q4 Quarterly Groundwater', '2025-11-28', 'DWER', '<code>snap-2025Q4-71ab</code>', tag('verified', 'good'), '<span class="mk-muted">no change</span>'],
-      ['2026 Q2 Quarterly Groundwater', '—', '—', '<span class="mk-num mk-num--nil">not taken</span>', tag('draft', 'warn'), '—'],
-    ],
-  }) +
-  notice('default', '“Data since” is the column a regulator asks about.',
-    'Three results in the Q1 report have been superseded by an amended certificate. The report as issued is intact and reproducible; the fact that the underlying data moved is recorded beside it. Reconstructing what was known when, for a submission made two years ago, is a query rather than an afternoon.');
+/**
+ * Two regenerations, because they answer two different questions.
+ *
+ * *Regenerate from the snapshot* asks whether the lodged document still exists
+ * exactly as it was lodged, and the answer is always yes: the snapshot holds
+ * the bytes and every value they stood on, and it is append-only (FR-7.3,
+ * QB-3). *Regenerate against today's record* asks whether the record still
+ * says what the document says, and that answer moves. Collapsing the two into
+ * one "regenerates identically" tag is what makes a regulator's question —
+ * *what did you know, and what do you know now* — unanswerable from the screen
+ * that exists to answer it.
+ *
+ * The register joins `SUBMISSIONS` on the snapshot reference, so a report's
+ * issue date and the snapshot it went out on are one row read twice rather
+ * than two rows that can drift.
+ */
+const snapshot = () => {
+  const R = REGENERATION;
+  const snap = R.snapshot;
+  const draft = { ref: '—', what: REPORT.title, to: '—', submitted: '—', snapshot: null, results: null, template: TEMPLATE.current, supersededSince: 0, staged: 0, note: 'Not taken. The golden-output comparison has to pass before a snapshot can be, and two sections are unwritten.' };
+  return (
+    head('Snapshot and regeneration', 'What was issued, and the ability to produce it again byte for byte.', {
+      route: '/projects/:projectId/snapshots',
+      toolbar: C.exportMenu(),
+    }) +
+    stats([
+      stat(String(SNAPSHOTS.length), 'snapshots held'),
+      stat(String(SNAPSHOTS.reduce((n, x) => n + x.results, 0)), 'results captured'),
+      stat(String(SNAPSHOTS.reduce((n, x) => n + x.supersededSince, 0)), 'superseded since issue', 'warn'),
+      stat(String(SNAPSHOTS.reduce((n, x) => n + x.staged, 0)), 'staged and unwritten', 'warn'),
+    ]) +
+    table({
+      caption: 'Every issued report carries the data it was built from, and the template version it was produced under. QB-3 is not a promise, it is a stored object.',
+      head: ['Report', 'Issued', 'To', 'Snapshot', 'Digest', 'Results', 'Template', 'From the snapshot', 'Against today’s record'],
+      kind: 'matrix',
+      label: 'Report snapshots on this project',
+      rows: [...SNAPSHOTS, draft].map((x) => [
+        `${esc(x.what)}${x.ref === '—' ? '<small>draft</small>' : `<small>${esc(x.ref)}</small>`}`,
+        `<span class="sf-instant">${esc(x.submitted)}</span>`,
+        esc(x.to),
+        x.snapshot ? `<code class="mk-file mk-file--id">${esc(x.snapshot)}</code>` : '<span class="mk-num mk-num--nil">not taken</span>',
+        x.snapshot ? `<code class="mk-file">${esc(x.digest)}</code>` : '<span class="mk-num mk-num--nil">—</span>',
+        x.results === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${x.results.toLocaleString('en-AU')}</span>`,
+        `<code>${esc(x.template)}</code>`,
+        x.snapshot ? C.status('identical', 'good') : C.status('draft', 'warn'),
+        x.supersededSince + x.staged === 0
+          ? C.status('identical', 'good')
+          : C.status(
+              [x.supersededSince ? `${x.supersededSince} superseded` : null, x.staged ? `${x.staged} staged` : null].filter(Boolean).join(' · '),
+              x.supersededSince ? 'bad' : 'warn',
+            ),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>The last two columns are different questions and they can disagree.</strong> The 2025 Annual Environmental Report regenerates from ${esc(SNAPSHOTS[3].snapshot)} exactly as it was lodged and always will; regenerated against today’s record it would differ, because ${SNAPSHOTS[3].supersededSince} of its ${SNAPSHOTS[3].results.toLocaleString('en-AU')} results were superseded by the 2026-04-02 legacy reconciliation. A single “regenerates identically” tag would have said yes to both and answered neither.</p>` +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">${esc(snap.what)} — regenerated, both ways</h2>` +
+    cols(
+      panel(
+        'From the snapshot',
+        `<p class="mk-tight"><strong>${esc(R.fromSnapshot.question)}</strong></p>` +
+          `<p class="mk-tight">${C.status(R.fromSnapshot.answer, 'good')}</p>` +
+          facts([
+            ['Snapshot', `<code class="mk-file">${esc(snap.snapshot)}</code>`],
+            ['Digest at issue', `<code class="mk-file">${esc(snap.digest)}</code>`],
+            ['Digest on regeneration', `<code class="mk-file">${esc(snap.digest)}</code>`],
+            ['Template version', `<code>${esc(snap.template)}</code> — the version recorded on the snapshot, not the version now current`],
+            ['Results captured', `<span class="mk-num">${snap.results.toLocaleString('en-AU')}</span>, each with the value it held at issue`],
+          ]) +
+          `<p class="mk-tight mk-muted">${esc(R.fromSnapshot.always)}</p>`,
+      ),
+      panel(
+        'Against today’s record',
+        `<p class="mk-tight"><strong>${esc(R.againstRecord.question)}</strong></p>` +
+          `<p class="mk-tight">${C.status(R.againstRecord.answer, 'good')} <span class="mk-muted">${esc(R.againstRecord.evidence)}</span></p>` +
+          `<p class="mk-tight">${esc(R.againstRecord.caveat)}</p>` +
+          `<p class="mk-tight mk-muted">The amendment is <a class="mk-ref" href="#certificate">staged on ${esc(AMENDMENT.certificate)}</a> and the period it lands in is locked. Until somebody decides, this column is honest at <em>identical</em> and the column beside it is what the decision costs.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    '<h2 class="mk-h2">What the amendment would change, value by value</h2>' +
+    table({
+      caption: 'Issued value struck beside the value that would stand. Nothing here has been written; the third column is the consequence of a decision nobody has taken.',
+      head: ['Where in the document', 'What', 'As issued', 'If the amendment is accepted'],
+      kind: 'matrix',
+      label: 'Regeneration difference for the 2026 Q1 report',
+      rows: R.values.map((v) => [
+        `<code>${esc(v.where)}</code>`,
+        esc(v.subject),
+        `<span class="mk-num">${esc(v.issued)}</span>`,
+        struck(v.issued, v.staged),
+      ]),
+    }) +
+    `<p class="mk-tight">${R.values.length} differences across ${new Set(R.values.map((v) => v.where.split(' ')[0])).size} sections, from ${AMENDMENT.counts.resultsAmended} amended results — which is the ratio worth noticing. Three numbers move and seven things in the document change, because a monitoring report says the same result in several places and each of them is a place a hand-edit misses.</p>` +
+    notice(
+      'default',
+      'The issued artifact is immutable, and that is not the same claim as “nothing has changed”.',
+      'The bytes lodged with DWER on 2026-04-28 are held and reproducible; no amendment, no re-evaluation and no configuration change reaches them. What can change is the record they were drawn from, and the two columns above keep those apart so that “what did you report” and “what do you now believe” are separately answerable years later.',
+    ) +
+    '<h2 class="mk-h2">Reissuing</h2>' +
+    C.blastRadius({
+      lede: 'Reissuing the 2026 Q1 report would write:',
+      rows: R.reissue.writes,
+      action: 'Not available — the amendment is staged',
+      cancel: 'Open the amendment decision',
+      reversible: R.reissue.reversible,
+    }) +
+    `<p class="mk-tight">${esc(R.reissue.blocked)} The control is drawn and refuses, rather than being absent: somebody deciding the amendment upstairs needs to see what a reissue costs before they decide, not after.</p>` +
+    `<div class="mk-actions"><a class="mk-btn" href="#certificate">The staged amendment</a><a class="mk-btn" href="#signoff">What the existing approval covers</a><a class="mk-btn" href="#submissions">The submission as lodged</a></div>`
+  );
+};
 
 /* ================================================================== *
  * J6 — Keep the obligations met
@@ -1398,25 +1948,121 @@ const notification = () =>
     ],
   });
 
-const signoff = () =>
-  head('Approval and sign-off', 'Who approved exactly what, and when.', {
-    route: '/projects/:projectId/signoff',
-    toolbar: btn('Request approval', 'primary'),
-  }) +
-  notice('default', 'Sign-off is not a validation state.',
-    'Validation says the data is right. Approval says a named person accepts responsibility for what is about to leave the building. Collapsing the two means the person who screened the QC is also, silently, the person who signed the submission.') +
-  table({
-    caption: 'Approvals on this project.',
-    head: ['What', 'Approver', 'At', 'Covering', 'State'],
-    rows: [
-      ['2026 Q2 Quarterly Groundwater Report', 'R. Whitmore — Environmental Lead', '—', '231 results · snapshot not yet taken', tag('awaiting', 'warn')],
-      ['2026 Q2 data release to report', 'A. Nakamura — Hydrogeologist', '<span class="sf-instant">2026-05-22 16:20</span>', '231 results · validation state screened', tag('approved', 'good')],
-      ['2026 Q1 Quarterly Groundwater Report', 'R. Whitmore — Environmental Lead', '<span class="sf-instant">2026-02-27 09:05</span>', '<code>snap-2026Q1-8f14</code> · 228 results', tag('approved', 'good')],
-      ['2025 Annual Environmental Report', 'R. Whitmore — Environmental Lead', '<span class="sf-instant">2026-01-30 14:44</span>', '<code>snap-2025AER-2c90</code> · 912 results', tag('approved', 'good')],
-    ],
-  }) +
-  notice('warning', 'The Q1 approval covers a snapshot in which three results have since been superseded.',
-    'The approval is not invalidated — it recorded what was true when it was given, which is the whole point of recording it against a snapshot. What the product owes is visibility, and that is the “data since” column on the snapshot register.');
+/**
+ * What exactly was signed.
+ *
+ * A signature binds to a **report snapshot and that snapshot's digest**, never
+ * to current data: a signature against data that can move is a signature on
+ * something else by the time anybody reads it. Three capacities — prepared,
+ * reviewed, approved — because "who signed it" and "who checked it" are
+ * different questions, and the same person signing twice in one capacity is
+ * refused, since two approvals of one document make *who approved this*
+ * ambiguous.
+ *
+ * The consequence the amendment forces is the whole point of the binding: an
+ * amendment to the data underneath an issued report **does not reach backwards
+ * into what was signed**. The snapshot is unchanged, its digest is unchanged,
+ * and the approval still covers exactly the document it covered. What moves is
+ * whether the record still agrees with it — which is a different fact, held on
+ * a different screen, and stated here rather than left to be inferred.
+ */
+const signoff = () => {
+  const rows = SIGNOFFS.map((x) => ({ ...x, snap: SNAPSHOTS.find((sn) => sn.snapshot === x.snapshot) ?? null }));
+  const q1 = rows.filter((x) => x.snapshot === 'SNAP-0117');
+  const snapQ1 = SNAPSHOTS.find((sn) => sn.snapshot === 'SNAP-0117');
+  const CAPACITY = { prepared: 'neutral', reviewed: 'info', approved: 'good' };
+  return (
+    head('Approval and sign-off', 'Who approved exactly what, and when.', {
+      route: '/projects/:projectId/signoff',
+      toolbar: btn('Request approval', 'primary'),
+    }) +
+    notice('default', 'Sign-off is not a validation state.',
+      'Validation says the data is right, and it is made result by result. Approval says a named person accepts responsibility for a <em>document</em>, and it is made once. Collapsing the two means either that approving five hundred results signed a report nobody read, or that signing a report silently approved five hundred numbers.') +
+    stats([
+      stat(String(rows.filter((x) => x.state === 'signed').length), 'signatures held', 'good'),
+      stat(String(new Set(rows.filter((x) => x.snapshot).map((x) => x.snapshot)).size), 'documents signed'),
+      stat(String(rows.filter((x) => x.state === 'awaiting').length), 'awaiting', 'warn'),
+      stat(String(snapQ1.staged), 'staged changes under a signed snapshot', 'warn'),
+    ]) +
+    table({
+      caption: 'One row per signature, not per document. A signature names the capacity it was given in and the digest of what it covers.',
+      head: ['Document', 'Capacity', 'Signed by', 'At', 'Covers', 'Digest', 'State'],
+      kind: 'matrix',
+      label: 'Sign-off register',
+      rows: rows.map((x) => [
+        esc(x.subject),
+        C.status(x.capacity, CAPACITY[x.capacity] ?? 'neutral'),
+        `${esc(x.by)}<small>${esc(x.role)}</small>`,
+        x.at === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="sf-instant">${esc(x.at)}</span>`,
+        x.snap
+          ? `<a class="mk-ref" href="#snapshot"><code class="mk-file mk-file--id">${esc(x.snapshot)}</code></a> · <span class="mk-num">${x.snap.results.toLocaleString('en-AU')}</span> results`
+          : '<span class="mk-muted">no snapshot yet — nothing to sign</span>',
+        x.snap ? `<code class="mk-file">${esc(x.snap.digest)}</code>` : '<span class="mk-num mk-num--nil">—</span>',
+        x.state === 'signed' ? tag('signed', 'good') : tag('awaiting', 'warn'),
+      ]),
+    }) +
+    `<p class="mk-tight">The top row has no digest and that is the honest state, not a gap: the 2026 Q2 report has no snapshot, so there is nothing to sign. A signature offered against “the current draft” would bind to whatever the draft became afterwards. The <a class="mk-ref" href="#report">golden comparison</a> blocks the snapshot, the snapshot is what a signature binds to, and the order is not incidental.</p>` +
+    cols(
+      panel(
+        `What R. Whitmore approved on ${esc(q1.at(-1).at)}`,
+        facts([
+          ['Document', esc(q1.at(-1).subject)],
+          ['Snapshot', `<code class="mk-file">${esc(snapQ1.snapshot)}</code>`],
+          ['Digest signed', `<code class="mk-file">${esc(snapQ1.digest)}</code>`],
+          ['Results it stood on', `<span class="mk-num">${snapQ1.results.toLocaleString('en-AU')}</span>, each at the value it held that day`],
+          ['Template version', `<code>${esc(snapQ1.template)}</code>`],
+          ['Capacity', C.status('approved', 'good')],
+          ['Lodged with DWER', `<span class="sf-instant">${esc(snapQ1.submitted)}</span> · <a class="mk-ref" href="#submissions">${esc(snapQ1.ref)}</a>`],
+        ]) +
+          `<p class="mk-tight">Three signatures, in three capacities, all dated before the document went out: ${q1
+            .map((x) => `<strong>${esc(x.capacity)}</strong> ${esc(x.by)} ${esc(x.at.replace(' AWST', ''))}`)
+            .join(' · ')}. A signature dated after lodgement would be a signature on something already gone.</p>`,
+      ),
+      panel(
+        'The amendment does not reach it',
+        `<p class="mk-tight">The <a class="mk-ref" href="#certificate">staged amendment</a> re-reports ${AMENDMENT.counts.resultsAmended} results that ${esc(snapQ1.snapshot)} stands on. <strong>It changes nothing about this approval.</strong> The snapshot is append-only, its digest is unchanged, and the document R. Whitmore signed regenerates from it byte for byte.</p>` +
+          '<p class="mk-tight">That is the reason a signature binds to a snapshot rather than to a project, a period or a query. Bound to any of those, an amendment eighteen months later would silently change what a named person is on record as having accepted — and the person would be the last to know.</p>' +
+          `<p class="mk-tight">What <em>is</em> true, and is stated rather than left to be noticed: ${AMENDMENT.counts.resultsAmended} of the ${snapQ1.results} results beneath this signature have an amended value staged against them. The signature stands; the agreement between the signed document and the standing record is what would move, and it is the <a class="mk-ref" href="#snapshot">“against today’s record” column</a> that carries it.</p>` +
+          `<p class="mk-tight mk-muted">Superseding a signature is not a thing this product offers. A signature is withdrawn by a further signed act that names it, and both stay readable.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    '<h2 class="mk-h2">What a new approval would cover</h2>' +
+    C.blastRadius({
+      lede: 'If the amendment were accepted and the 2026 Q1 report reissued, the approval requested would cover:',
+      rows: [
+        { what: 'A new snapshot, with its own digest', n: 'SNAP-0124' },
+        { what: 'Results it would stand on', n: `${snapQ1.results} — ${AMENDMENT.counts.resultsAmended} at amended values` },
+        { what: 'Capacities required again', n: '3 — prepared, reviewed, approved' },
+        { what: 'Exceedances the document would report', n: `${EXCEEDANCES.length - AMENDMENT.counts.outcomesChanged} for the period, down ${AMENDMENT.counts.outcomesChanged}` },
+        { what: 'The approval of 2026-04-27', n: '0 changes — it covers SNAP-0117 and continues to' },
+        { what: 'Sections needing an author first', n: '1 — §6.1 cites a trip that would no longer stand' },
+      ],
+      action: 'Not available — the amendment is staged',
+      cancel: 'Open the amendment decision',
+      reversible:
+        'A requested approval can be withdrawn before it is given. Once given it is a record of what somebody accepted at a moment, and it is never edited — a mistaken approval is answered by a further signed act that names it.',
+    }) +
+    cols(
+      panel(
+        'Not a sign-off, and on this screen only so the two can be told apart',
+        facts([
+          ['What', esc(DATA_RELEASE.what)],
+          ['By', esc(DATA_RELEASE.by)],
+          ['At', `<span class="sf-instant">${esc(DATA_RELEASE.at)}</span>`],
+          ['Covering', esc(DATA_RELEASE.covering)],
+        ]) +
+          `<p class="mk-tight mk-muted">${esc(DATA_RELEASE.says)}</p>`,
+      ),
+      panel(
+        'Where each of these is answerable',
+        `<div class="mk-actions"><a class="mk-btn" href="#snapshot">What the snapshot holds, and how the record has moved</a><a class="mk-btn" href="#submissions">What was lodged, and when</a><a class="mk-btn" href="#validation">Validation state, result by result</a><a class="mk-btn" href="#audit">Every signature as an audit record</a></div>` +
+          '<p class="mk-tight mk-muted">A signature is a row in the audit trail like any other write, attributed to a principal in a transaction. The difference is that this one carries a capacity and a digest, which is what makes it evidence rather than a log line.</p>',
+      ),
+      '1fr 1fr',
+    )
+  );
+};
 
 /* ================================================================== *
  * J7 — Prove what was known, and when
@@ -1546,9 +2192,221 @@ const criteriaLibrary = () =>
           ['Licence Table 4', '<span class="mk-muted">half the limit of reporting</span>'],
         ],
       }) +
-      '<p class="mk-tight mk-muted">Regulators specify different rules, and the derived total can cross a criterion depending on which applied. A global setting would make one of the two answers silently wrong (FR-2.2).</p>'),
+      '<p class="mk-tight mk-muted">Regulators specify different rules, and the derived total can cross a criterion depending on which applied. A global setting would make one of the two answers silently wrong (FR-2.2). The workspace below runs that choice against the record rather than describing it.</p>'),
     '1fr 1fr',
+  ) +
+  nonDetectBinding() +
+  criteriaVersionWorkspace();
+
+/**
+ * FR-2.2, made operable on the one derived total this site has.
+ *
+ * The rule is *what a non-detect contributes to a calculation* — zero, half
+ * the limit of reporting, the limit, or excluded — and it belongs to the
+ * criteria set rather than to a preference. The reason is drawn here rather
+ * than argued: six of these seven locations reported both PFAS components
+ * below the limit of reporting, and the same six results read **indeterminate,
+ * compliant or 31× a guideline value** depending on which of the four applied.
+ * `zero` is the one that turns all six into passes, which is the direction
+ * this product exists to refuse silently.
+ *
+ * MW05 is the control in the experiment: both of its components were detected,
+ * so a rule about non-detects has nothing to say about it and its 4.8 ng/L is
+ * the same under all four. Every total in the table is summed from
+ * `PFAS_COMPONENTS` under the treatment named at the head of its column.
+ */
+const nonDetectBinding = () => {
+  const N = NON_DETECT;
+  const active = N.treatments.find((t) => t.rule === N.activeRule);
+  const cell = (r) =>
+    (r.censored
+      ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">${esc(r.total)}</span></span>`
+      : `<span class="mk-num${r.outcome === 'exceedance' ? ' mk-num--bad' : ''}">${esc(r.total)}</span>`) +
+    `<br>${outcomeCell(r.outcome)}` +
+    (r.factor === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factor)}</span>`);
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The non-detect rule, run over the record it decides</h2>' +
+    `<p class="sf-lede mk-tight">${esc(N.analyte)} · derived by <code class="mk-file">${esc(N.rule)}</code> · limit of reporting ${esc(N.lor.toFixed(1))} ng/L on each component · criterion ${esc(String(N.criterion))} ng/L (ANZG 2018 · 95%).</p>` +
+    cols(
+      panel(
+        'Bound to the set',
+        C.field({
+          label: 'Non-detect rule for ANZG 2018 — 95% species protection',
+          control: C.radioGroup({
+            name: 'nd-anzg',
+            legend: 'What a non-detect contributes to a derived sum',
+            value: 'exclude from the sum',
+            options: N.treatments.map((t) => t.label),
+          }),
+          hint: 'There is deliberately no default, in the schema or in the code. A criteria set without a rule cannot be stored, because the alternative is a value that looks like a decision and is not.',
+        }) +
+          `<p class="mk-tight">In force: <strong>${esc(active.label)}</strong>. Changing it here changes it for this set only — the Licence Table 4 set keeps half-limit substitution, and both answers are kept because two regulators asked two questions.</p>`,
+      ),
+      panel(
+        'What the components actually are',
+        table({
+          caption: 'The two results behind each derived total, as the laboratory reported them.',
+          head: ['Location', 'PFOS', 'PFHxS'],
+          scroll: true,
+          label: 'PFAS components by location',
+          rows: PFAS_COMPONENTS.map((p) => [
+            loc(p.location),
+            p.pfos === null ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(N.lor.toFixed(1))}</span></span>` : `<span class="mk-num">${esc(String(p.pfos))}</span>`,
+            p.pfhxs === null ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(N.lor.toFixed(1))}</span></span>` : `<span class="mk-num">${esc(String(p.pfhxs))}</span>`,
+          ]),
+        }) +
+          `<p class="mk-tight mk-muted">${esc(N.says)}</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+    table({
+      caption: 'One column per treatment, every total summed from the components under that rule. The column in force is marked; the other three are what the same seven results would say.',
+      head: [
+        'Location',
+        ...N.treatments.map(
+          (t) => `${esc(t.label)}${t.rule === N.activeRule ? '<small>in force</small>' : `<small>${t.changes} outcomes change</small>`}`,
+        ),
+      ],
+      kind: 'matrix',
+      label: 'The derived PFAS total under each non-detect rule',
+      rows: PFAS_COMPONENTS.map((p, i) => [loc(p.location), ...N.treatments.map((t) => cell(t.rows[i]))]),
+    }) +
+    cols(
+      panel(
+        'What each column would do to this round',
+        table({
+          head: ['Treatment', 'Outcomes', 'Changed from in force'],
+          scroll: true,
+          label: 'Outcome counts per non-detect treatment',
+          rows: N.treatments.map((t) => [
+            `${esc(t.label)}${t.rule === N.activeRule ? ' ' + C.status('in force', 'good') : ''}`,
+            t.outcomes.map((o) => `${outcomeCell(o.o)} <span class="mk-num">${o.n}</span>`).join('<br>'),
+            t.rule === N.activeRule ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num mk-num--bad">${t.changes}</span>`,
+          ]),
+        }),
+      ),
+      panel(
+        'Why this is a criteria-set field and not a setting',
+        `<p class="mk-tight"><strong>Zero is the dangerous one.</strong> Under it every censored total becomes ${esc(N.treatments[1].rows[0].total)} ng/L and six results that nobody could assess read as <em>compliant</em>. Nothing on the page would look wrong. That is the same failure as a reporting limit above a criterion rendering as a pass, arriving through a different door.</p>` +
+          `<p class="mk-tight">Under the limit of reporting the same six read as exceedances at ${esc(N.treatments[3].rows[0].factor)}, which would raise six statutory notification obligations. One field, and the round is either quiet or a compliance event.</p>` +
+          '<p class="mk-tight mk-muted">Which is why it is bound to the set: a regulator that specifies half-limit substitution and a regulator that specifies exclusion are both answerable at once, and neither answer is a global preference somebody changed on a Tuesday.</p>',
+      ),
+      '2fr 3fr',
+    )
   );
+};
+
+/**
+ * Journey 8, as controls: version → test → preview → approval → activation →
+ * rollback.
+ *
+ * The pair below differs in exactly one field, which is the point: a criteria
+ * set version is *this instance's configuration* of the set, not a new edition
+ * of ANZG. No guideline value moves. What moves is the non-detect rule, and
+ * that is enough to change six outcomes and start six statutory clocks — which
+ * is why activation is drawn as an approval with its consequences stated, and
+ * not as a save.
+ *
+ * The test runs the draft against the committed record rather than describing
+ * what it would do, and it reports the results that do **not** change as well
+ * as the ones that do. The same "Preview against the real record" shape the
+ * window condition uses, on the other configuration surface.
+ */
+const criteriaVersionWorkspace = () => {
+  const D = CRITERIA_DRAFT;
+  const pair = (label, a, b) => [esc(label), a, b];
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A version pair, one field apart</h2>' +
+    `<p class="sf-lede mk-tight">${esc(D.set)} — <code>${esc(D.active.version)}</code> in force, <code>${esc(D.draft.version)}</code> in draft. The version is this instance’s configuration of the set, not a new edition of the guideline: no value in it moves.</p>` +
+    table({
+      caption: 'Side by side. Four rows identical, one row different, and the different one decides six outcomes.',
+      head: ['', `Version ${esc(D.active.version)}<small>in force</small>`, `Version ${esc(D.draft.version)}<small>draft</small>`],
+      kind: 'matrix',
+      label: 'Criteria set version pair',
+      rows: [
+        pair('Effective', `<span class="sf-instant">${esc(D.active.effective)}</span>`, `<span class="sf-instant">${esc(D.draft.effective)}</span>`),
+        pair('State', C.status(D.active.state, 'good'), C.status(D.draft.state, 'warn')),
+        pair('Proposed by', `<span class="mk-muted">${esc(D.active.by)}</span>`, `${esc(D.draft.by)} · <span class="sf-instant">${esc(D.draft.at)}</span>`),
+        [
+          `<strong>${esc(D.differs[0])}</strong>`,
+          `<span class="mk-num">${esc(D.differs[1])}</span>`,
+          `<span class="mk-num mk-num--warn">${esc(D.differs[2])}</span>`,
+        ],
+        ...D.same.map(([what, how]) => pair(what, `<span class="mk-muted">${esc(how)}</span>`, `<span class="mk-muted">${esc(how)}</span>`)),
+      ],
+    }) +
+    `<p class="mk-tight mk-muted"><strong>Why:</strong> ${esc(D.rationale)}</p>` +
+    '<h2 class="mk-h2">Tested against the committed record</h2>' +
+    cols(
+      panel(
+        'What the test ran over',
+        facts([
+          ['Scope', esc(D.test.scope)],
+          ['Results the rule reaches', `<span class="mk-num">${D.test.reaches}</span>`],
+          ['Outcomes that change', `<span class="mk-num mk-num--bad">${D.test.changes}</span>`],
+          ['Outcomes that do not', `<span class="mk-num">${D.test.unchanged}</span>`],
+        ]) +
+          `<p class="mk-tight">${esc(D.test.unchangedWhy)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(D.test.nothingElse)}</p>` +
+          `<div class="mk-actions">${C.btn('Re-run against the record', 'primary')}<a class="mk-btn" href="#crosstab">Open the results this covers</a></div>`,
+      ),
+      panel(
+        `The ${D.test.changes} results that change, named`,
+        table({
+          caption: 'Not a count — the rows. A test that reports a number and not the records behind it cannot be checked by the person who has to approve it.',
+          head: ['Location', 'Total now', 'Outcome now', 'Total under the draft', 'Outcome under the draft', ''],
+          kind: 'matrix',
+          label: 'Results whose outcome changes under the draft version',
+          rows: D.test.rows.map((r) => [
+            loc(r.location),
+            `<span class="sf-result sf-result--censored"><span class="sf-result__value">${esc(r.was.total)}</span></span>`,
+            outcomeCell(r.was.outcome),
+            `<span class="mk-num mk-num--bad">${esc(r.total)}</span>`,
+            outcomeCell(r.outcome) + (r.factor === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factor)}</span>`),
+            `<a class="mk-ref" href="#lineage">Lineage</a>`,
+          ]),
+        }),
+      ),
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2">Activation, and what it starts</h2>' +
+    cols(
+      C.blastRadius({
+        lede: `Activating version ${esc(D.draft.version)} on ${esc(D.draft.effective)} would write:`,
+        rows: D.activation.writes,
+        action: 'Request approval to activate',
+        cancel: 'Leave the draft as a draft',
+        danger: true,
+        reversible: D.activation.reversible,
+      }),
+      panel(
+        'Why activating a criteria set is an approval, not a save',
+        `<p class="mk-tight">${esc(D.activation.says)}</p>` +
+          `<p class="mk-tight">A <a class="mk-ref" href="#notification">became-aware timestamp</a> is immutable at the database and a statutory window runs from it. Missing that window is an offence rather than a service failure — so a configuration change that manufactures six of them belongs behind the same <a class="mk-ref" href="#signoff">named approval</a> a submission does.</p>` +
+          `<p class="mk-tight mk-muted">Nothing here re-opens a locked period. The 2026 Q1 round is closed, and a rule change evaluates forward — which is the opposite of the <a class="mk-ref" href="#certificate">staged amendment</a>, where the data moved under a period already reported and the write has to be decided.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2">Rollback</h2>' +
+    cols(
+      C.blastRadius({
+        lede: `Rolling back to version ${esc(D.active.version)} would write:`,
+        rows: D.rollback.writes,
+        action: 'Roll back',
+        cancel: 'Cancel',
+        reversible:
+          'Reversible as an evaluation. An exceedance withdrawn by a rollback is withdrawn and not deleted, and it stays readable with the version that raised it and the version that withdrew it.',
+      }),
+      panel(
+        'What rollback cannot undo',
+        `<p class="mk-tight">${esc(D.rollback.says)}</p>` +
+          '<p class="mk-tight"><strong>A lodged notification is not a row this product owns.</strong> It is a document with a regulator, and it is withdrawn by writing to the regulator. Rolling back the rule withdraws the exceedance that obliged it and records that the notification stands — a product that quietly cleared both would have deleted the evidence that a notification was made.</p>' +
+          `<div class="mk-actions"><a class="mk-btn" href="#audit">Every version change as an audit record</a><a class="mk-btn" href="#exceedances">The results a re-evaluation would move</a></div>`,
+      ),
+      '3fr 2fr',
+    )
+  );
+};
 
 const formatDesigner = () =>
   head('EDD formats', 'A laboratory’s file shape, described rather than coded.', {
@@ -4291,7 +5149,7 @@ const coverage = () => {
     ['FR-1.11', 'Versioned criteria library with effective dates and applicability', 'covered', 'criteria', 'P0', ''],
     ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'partially', 'licence · obligations · tarp', 'P1', 'Entitlements have a product route (/water) and no drawn screen'],
     ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
-    ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'partially', 'criteria', 'P1', 'The binding is stated on the drawing, not operable in it'],
+    ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'covered', 'criteria', 'P1', 'The four treatments run over the seven derived PFAS totals: six results read indeterminate, compliant or 31× depending on the field'],
     ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', ''],
     ['FR-2.4', 'Never overwrite a reported value; derivation additive, reversible', 'covered', 'supersession · result-detail', 'P0', ''],
     ['FR-2.5', 'Speciation conversion with the basis recorded on the result', 'partially', 'result-detail', 'P2', 'The basis is shown; the conversion surface is not'],
@@ -4331,10 +5189,10 @@ const coverage = () => {
     ['FR-6.6', 'Vector export at print fidelity; chart configuration persists', 'partially', 'report-figures · saved-views', 'P1', 'Persisted configuration rides on a proposed screen'],
     ['FR-6.7', 'Spatial export as shapefile and GeoJSON', 'partially', 'map', 'P2', 'Named in the export menu; the export decision surface is not drawn'],
     ['FR-7.1', 'Reports from templates to Word, Excel and PDF; Word primary', 'covered', 'report', 'P0', ''],
-    ['FR-7.2', 'Styling, figure and table numbering, cross-references, captions', 'partially', 'report-figures', 'P1', 'Corporate template configuration is not drawn'],
+    ['FR-7.2', 'Styling, figure and table numbering, cross-references, captions', 'covered', 'report · report-figures', 'P1', 'Template configuration with versions and an effective date; numbering derived from position, and an insert previewed before it renumbers'],
     ['FR-7.3', 'A data snapshot with every issued report; identical regeneration', 'covered', 'snapshot', 'P0', ''],
     ['FR-7.4', 'Customer-branded output; Strataflow attribution metadata only', 'covered', 'report', 'P1', 'A property of the output, stated on the composer'],
-    ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'partially', 'report', 'P1', 'The OP 5.12 sections are drawn; the golden-output comparison surface is not'],
+    ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'covered', 'report', 'P1', 'The comparison against the approved reference, gating the snapshot — 11 checks passing, 2 failing on unwritten sections, and a named past drift'],
     ['FR-7.6', 'Regulator-format and EQuIS-compatible EDD export (S8)', 'deferred', '—', 'P4', ''],
     ['FR-8.1', 'Sampling programs with due and overdue tracking', 'covered', 'programme · obligations', 'P0', ''],
     ['FR-8.2', 'Exceedance and trigger alerts with acknowledgement and escalation', 'covered', 'alerts', 'P0', ''],
@@ -4411,9 +5269,9 @@ const coverage = () => {
     ['7', 'Groundwater interpretation', 'partially',
       [['Bore nest', 'location'], ['Water levels', 'hydrograph'], ['Datum conversion', 'hydrograph'], ['Elevation', 'hydrograph'], ['Hydrograph', 'hydrograph'], ['Potentiometric surface', 'map'], ['Reliability', 'map'], ['Interpretation', 'narrative'], ['Saved figure', 'saved-views'], ['Report', 'report-figures']],
       'Two steps rest on proposed screens'],
-    ['8', 'Configuration → operational effect', 'partially',
+    ['8', 'Configuration → operational effect', 'covered',
       [['Criteria / QA rule', 'criteria'], ['Version', 'criteria'], ['Test against records', 'criteria'], ['Impact preview', 'criteria'], ['Approval', 'signoff'], ['Activation', 'criteria'], ['Affected results', 'exceedances'], ['Re-evaluation', 'exceedances'], ['Audit', 'audit'], ['Rollback', 'criteria']],
-      'Test-against-real-records is asserted on the criteria screen, not drawn as an interaction'],
+      'The version pair, the draft run against the committed record naming the six results it moves, and activation and rollback as controls stating what each writes'],
     ['9', 'Portfolio → evidence', 'partially',
       [['Portfolio', 'obligations'], ['Project issue', 'project-home'], ['Location / obligation', 'location'], ['Triggering data', 'result-detail'], ['Response', 'tarp'], ['Report / notification', 'notification'], ['Evidence', 'documents'], ['Audit trail', 'audit']],
       'A one-site seed cannot draw a portfolio honestly; the second MOCK- project is the prerequisite'],
@@ -4752,7 +5610,7 @@ export const RELATED = {
   quarantine: ['import-review', 'import-commit', 'mapping-profiles', 'qc'],
   purge: ['field-capture', 'location', 'events', 'dqa', 'receipt'],
   receipt: ['events', 'ecoc', 'batches', 'qc', 'documents', 'purge'],
-  certificate: ['supersession', 'lineage', 'imports', 'documents'],
+  certificate: ['supersession', 'lineage', 'imports', 'documents', 'hardness', 'exceedances', 'tarp', 'snapshot'],
   migration: ['imports', 'validation', 'audit', 'mapping-profiles'],
   'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events'],
   // The chain is raised in the field and closed at the laboratory, so it sits
@@ -4784,16 +5642,16 @@ export const RELATED = {
   'saved-views': ['crosstab', 'hydrograph', 'report-figures'],
 
   report: ['report-figures', 'dqa', 'narrative', 'snapshot', 'signoff'],
-  'report-figures': ['report', 'narrative', 'supersession'],
+  'report-figures': ['report', 'narrative', 'supersession', 'certificate'],
   narrative: ['report', 'lineage', 'statistics'],
-  snapshot: ['report', 'signoff', 'submissions', 'supersession'],
+  snapshot: ['report', 'signoff', 'submissions', 'supersession', 'certificate'],
   submissions: ['snapshot', 'signoff', 'documents', 'obligations'],
 
   obligations: ['licence', 'programme', 'notification', 'signoff', 'alerts'],
   programme: ['obligations', 'field-capture', 'events', 'location'],
   licence: ['obligations', 'criteria', 'locations', 'submissions'],
   notification: ['tarp', 'obligations', 'lineage', 'documents'],
-  signoff: ['snapshot', 'submissions', 'validation', 'report'],
+  signoff: ['snapshot', 'submissions', 'validation', 'report', 'audit'],
 
   lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail'],
   audit: ['lineage', 'supersession', 'roles'],
@@ -4801,7 +5659,7 @@ export const RELATED = {
   documents: ['certificate', 'lineage', 'notification', 'submissions'],
 
   'project-settings': ['roles', 'criteria', 'facility', 'projects'],
-  criteria: ['hardness', 'crosstab', 'background', 'dictionary', 'licence'],
+  criteria: ['hardness', 'crosstab', 'background', 'dictionary', 'licence', 'exceedances', 'signoff', 'audit'],
   formats: ['imports', 'dictionary', 'import-review', 'mapping-profiles'],
   'mapping-profiles': ['formats', 'dictionary', 'import-review', 'supersession'],
   dictionary: ['formats', 'criteria', 'import-review', 'units'],
