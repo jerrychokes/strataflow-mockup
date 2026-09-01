@@ -91,3 +91,32 @@ orphans); no duplicate DOM ids at 375 px in a driven browser.
    before the viewer's script reveals the active screen and produces convincing blank
    frames. Every future sweep and every auditor must drive the browser (the sweep
    script from this pass is the seed of `EXPANSION_BRIEF.md` §10 tooling).
+
+## 6. The target information architecture (Phase 3), and why
+
+The 23 August by-section view ended in *"No section owns these"* — eighteen screens
+with no home in a six-section, fieldwork-ordered IA. The product answered while the
+view stood still: `/config/*`, `/instance/*` and `/help/*` are real URL spaces today,
+and `ia.ts` gives every workspace a declared `reachedFrom` parent. So Phase 3 did not
+invent a structure; it **adopted the product's own**, which the brief's authority
+order requires (a landed product decision outranks a proposed improvement), and the
+v1 prompt's twelve-section candidate list (Home/Plan/Field/Data/Quality/…) was not
+needed — the domain-ordered six sections plus three admin spaces already satisfy
+every §7 Phase 3 test, including "supports wider domains without restructuring":
+telemetry lands as a Locations/Results workspace, external parties as Instance
+growth, integration under Configuration.
+
+The rebuilt view has ten groups that exactly partition the 66 screens — Home and
+across projects (5, `/aggregate` owns the obligations board) · the six project
+sections carrying their `reachedFrom` workspaces (7 · 5 · 8 · 15 · 9 · 6) ·
+Configuration (3) · Instance (5, access included) · Conventions (3). Proposed
+screens file under the section whose question they serve, marked as the proposals
+they are. `build.mjs` now fails the build on a screen no group owns, a screen owned
+twice, or a group id that is not a screen — the drift that made the old view stale
+cannot recur silently. Two crumb fixes rode along: every section crumb used to land
+on the crosstab regardless of section, and `/config` screens had a project trail
+they do not have in the product.
+
+**Not resolved here, deliberately:** whether the work queue (J0 `home`) should exist
+at all is §5.1's conflict, and the by-section view files it under Home without
+prejudging it.

@@ -65,40 +65,80 @@ const ALL = JOBS.flatMap((j) => j.screens.map((s) => ({ ...s, job: j })));
 const labelOf = Object.fromEntries(ALL.map((s) => [s.id, s.label]));
 
 /**
- * The product's own six sections, and which drawn screens fall inside each.
+ * The product's own architecture, and which drawn screens fall inside each
+ * part of it — **rebuilt 1 September 2026** (pass 4, EXPANSION_BRIEF.md
+ * Phase 3).
  *
- * This mirrors `app/navigation/ia.ts` rather than restating it — that module
- * is the source of truth and this is a viewer affordance. The `—` group at the
- * end is the honest remainder: eighteen screens that belong to no section of
- * the shipped architecture, which is itself a finding. Configuration and
- * instance administration have no home in an IA built around the sequence of
- * fieldwork, and pretending otherwise by filing them under `Reports` would
- * hide exactly the gap this view exists to show.
+ * The 23 August version of this view ended in a group called *"No section
+ * owns these"* — eighteen screens with no home in an IA built around the
+ * sequence of fieldwork. That was a real finding, and the product has since
+ * answered it: `/config/*`, `/instance/*` and `/help/*` are real URL spaces
+ * in `apps/web/lib/navigation/routes.ts`, and `navigation/ia.ts` gives every
+ * one of its 33 workspaces a declared `reachedFrom` parent section. This
+ * view now mirrors that architecture — each project section lists its
+ * register screens first and then the workspaces the product hangs off it —
+ * so the honest remainder is empty and the group is gone. Where a drawn
+ * screen has no product counterpart (a `proposed` screen), it is filed under
+ * the section whose question it serves, which is a proposal like the screen
+ * itself.
+ *
+ * `checkSectionPartition()` below fails the build unless these ids exactly
+ * partition the register: every screen in exactly one group, no id that is
+ * not a screen. A view of the architecture that can silently drift from the
+ * register is how the last one went stale.
  */
 const SECTION_VIEW = [
-  { label: 'Home and across projects', lede: 'Where a session starts', ids: ['home', 'search', 'projects', 'project-home'] },
-  { label: 'Locations', lede: 'Step 1 — the bores and their survey history', ids: ['locations', 'location', 'facility'] },
-  { label: 'Sampling events', lede: 'Step 2 — each round of collection', ids: ['events', 'field-capture', 'programme'] },
-  { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'migration'] },
-  { label: 'Results', lede: 'Step 4 — every result by analyte and location', ids: ['crosstab', 'result-detail', 'qc', 'consistency', 'validation', 'qualifiers', 'hydrograph', 'hydrochem', 'statistics', 'map', 'saved-views'] },
-  { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion', ids: ['exceedances', 'tarp', 'alerts', 'notification'] },
-  { label: 'Reports', lede: 'Step 6 — submission-quality documents', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff', 'obligations', 'licence'] },
-  { label: 'No section owns these', lede: 'Configuration, provenance and the instance itself — the architecture has no place for any of it', ids: ['lineage', 'audit', 'supersession', 'documents', 'project-settings', 'criteria', 'formats', 'mapping-profiles', 'dictionary', 'units', 'roles', 'instance', 'upgrade', 'diagnostics', 'entitlement', 'data-states', 'assistance', 'coverage'] },
+  { label: 'Home and across projects', lede: 'Where a session starts — and /aggregate, the two questions that cross projects', ids: ['home', 'search', 'projects', 'project-home', 'obligations'] },
+  { label: 'Locations', lede: 'Step 1 — the bores, their survey history, and everything read while standing at one', ids: ['locations', 'location', 'facility', 'map', 'hydrograph', 'stygofauna', 'project-settings'] },
+  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'receipt', 'field-capture'] },
+  { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, and what each one rests on', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles'] },
+  { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
+  { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
+  { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
+  { label: 'Configuration', lede: '/config — reference data the whole instance shares', ids: ['formats', 'dictionary', 'units'] },
+  { label: 'Instance', lede: '/instance — the deployment itself, and who may enter it', ids: ['instance', 'roles', 'upgrade', 'diagnostics', 'entitlement'] },
+  { label: 'Conventions', lede: '/help, and the viewer’s own audit of this catalogue', ids: ['data-states', 'assistance', 'coverage'] },
 ];
 
-/** Which of the product's six sections a screen sits under, for the strip. */
-const SECTION_OF = {
-  locations: 'Locations', location: 'Locations', facility: 'Locations',
-  events: 'Sampling events', 'field-capture': 'Sampling events', programme: 'Sampling events',
-  imports: 'Import runs', 'import-review': 'Import runs', 'import-commit': 'Import runs',
-  quarantine: 'Import runs', certificate: 'Import runs', migration: 'Import runs',
-  crosstab: 'Results', 'result-detail': 'Results', qc: 'Results', consistency: 'Results',
-  validation: 'Results', qualifiers: 'Results', hydrograph: 'Results', hydrochem: 'Results',
-  statistics: 'Results', map: 'Results', 'saved-views': 'Results',
-  exceedances: 'Exceedances', tarp: 'Exceedances', alerts: 'Exceedances', notification: 'Exceedances',
-  report: 'Reports', 'report-figures': 'Reports', narrative: 'Reports', snapshot: 'Reports',
-  submissions: 'Reports', signoff: 'Reports', obligations: 'Reports', licence: 'Reports',
+/**
+ * Which of the six project sections a screen sits under, for the strip —
+ * derived from SECTION_VIEW rather than maintained beside it, so the strip
+ * and the by-section rail cannot disagree. Screens in the home, config,
+ * instance and conventions groups highlight nothing, which is correct: the
+ * strip is the project workspace’s navigation and they sit outside it.
+ */
+const PROJECT_SECTION_LABELS = new Set(['Locations', 'Sampling events', 'Import runs', 'Results', 'Exceedances', 'Reports']);
+const SECTION_OF = Object.fromEntries(
+  SECTION_VIEW.filter((sec) => PROJECT_SECTION_LABELS.has(sec.label)).flatMap((sec) => sec.ids.map((id) => [id, sec.label])),
+);
+
+/** The register screen each section crumb should land on. */
+const SECTION_REGISTER = {
+  Locations: 'locations',
+  'Sampling events': 'events',
+  'Import runs': 'imports',
+  Results: 'crosstab',
+  Exceedances: 'exceedances',
+  Reports: 'report',
 };
+
+/*
+ * The partition check the 23 August view never had, run before anything is
+ * written: every screen in exactly one group, no id that is not a screen.
+ */
+{
+  const seen = new Map();
+  for (const sec of SECTION_VIEW) for (const id of sec.ids) seen.set(id, (seen.get(id) ?? 0) + 1);
+  const dupes = [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+  const ghosts = [...seen.keys()].filter((id) => !labelOf[id]);
+  const unowned = ALL.map((s) => s.id).filter((id) => !seen.has(id));
+  if (dupes.length || ghosts.length || unowned.length) {
+    if (dupes.length) console.error(`by-section: listed twice: ${dupes.join(', ')}`);
+    if (ghosts.length) console.error(`by-section: not a screen: ${ghosts.join(', ')}`);
+    if (unowned.length) console.error(`by-section: no section owns: ${unowned.join(', ')}`);
+    process.exit(1);
+  }
+}
 
 /* ==================================================================== *
  * The rail — the catalogue, and the switch to the product's own IA
@@ -239,8 +279,18 @@ const sectionStrip = (current) => {
  * parent at all; and `coverage`, `data-states` and `assistance` belong to the
  * viewer rather than to the product, so they say so.
  */
-const ROOTS = { home: [], search: [], projects: [], 'project-home': [{ label: 'Projects', target: 'projects' }] };
-const INSTANCE_SPACE = new Set(['instance', 'upgrade', 'diagnostics', 'entitlement']);
+const ROOTS = {
+  home: [],
+  search: [],
+  projects: [],
+  'project-home': [{ label: 'Projects', target: 'projects' }],
+  // Across projects (/aggregate). The space has no index screen drawn, so the
+  // crumb names it without linking — an unlinked crumb is honest about a
+  // parent that exists in the URL space and not as a page.
+  obligations: [{ label: 'Across projects' }],
+};
+const INSTANCE_SPACE = new Set(['instance', 'roles', 'upgrade', 'diagnostics', 'entitlement']);
+const CONFIG_SPACE = new Set(['formats', 'dictionary', 'units']);
 const VIEWER_SPACE = new Set(['data-states', 'assistance', 'coverage']);
 
 function crumbFor(s) {
@@ -252,19 +302,27 @@ function crumbFor(s) {
     trail = [{ label: 'Conventions', target: 'coverage' }];
   } else if (INSTANCE_SPACE.has(s.id)) {
     trail = [{ label: 'Instance', target: 'instance' }];
+  } else if (CONFIG_SPACE.has(s.id)) {
+    // /config has no index route in the product, deliberately; same rule as
+    // the aggregate crumb above.
+    trail = [{ label: 'Configuration' }];
   } else {
     trail = [
       { label: 'Projects', target: 'projects' },
       { label: `${PROJECT.code} — ${PROJECT.name}`, target: 'project-home' },
     ];
-    if (section && section !== s.label) trail.push({ label: section, target: 'crosstab' });
+    // The section crumb lands on that section's own register — it linked
+    // every section to the crosstab until pass 4 measured the trails.
+    if (section && s.id !== SECTION_REGISTER[section]) trail.push({ label: section, target: SECTION_REGISTER[section] });
   }
   trail.push({ label: s.label });
   const items = trail
     .map((c, i) =>
       i === trail.length - 1
         ? `<li class="mk-crumb__item"><span class="mk-crumb__here" aria-current="page">${esc(c.label)}</span></li>`
-        : `<li class="mk-crumb__item"><a class="mk-crumb__link" href="#${c.target}">${esc(c.label)}</a></li>`,
+        : c.target
+          ? `<li class="mk-crumb__item"><a class="mk-crumb__link" href="#${c.target}">${esc(c.label)}</a></li>`
+          : `<li class="mk-crumb__item"><span>${esc(c.label)}</span></li>`,
     )
     .join('<li class="mk-crumb__sep" aria-hidden="true">/</li>');
   return `<nav class="mk-crumb" aria-label="Breadcrumb"><ol class="mk-crumb__list">${items}</ol></nav>`;
