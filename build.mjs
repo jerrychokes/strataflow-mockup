@@ -451,7 +451,9 @@ function palette() {
         { label: 'Reverse a committed import…', ctx: 'opens the blast radius first', target: 'import-commit' },
         { label: 'Resolve held rows…', ctx: '3 held', target: 'quarantine' },
         { label: 'Export what is on screen…', ctx: '⌘E', target: 'crosstab' },
-        { label: 'Switch project…', ctx: '4 bindings', target: 'projects' },
+        // Counted from the register of bindings, not typed: it read "4" while
+        // the seed held four rows, three of which had no project behind them.
+        { label: 'Switch project…', ctx: `${PROJECTS.length} bindings`, target: 'projects' },
         { label: 'Show keyboard shortcuts', ctx: '?', target: 'assistance' },
       ],
     },
@@ -518,7 +520,8 @@ ${sectionStrip('')}
 <p class="mk-banner"><strong>Mockup.</strong> Drawn 23 August 2026; screen states re-derived 1 September 2026 (pass 4)
 against the product's route table, which backs ${ROUTE_BACKED} of these ${ALL.length} screens. Styled by the product's own stylesheet on the
 approved Instrument direction; every figure is drawn to the approved grammar. The data is fictional —
-<code>MOCK-WDL</code>, on the <code>MOCK-</code> convention. The dot beside each screen in the rail is its state in the
+${PROJECTS.map((p) => `<code>${esc(p.code)}</code>`).join(' and ')}, on the <code>MOCK-</code> convention; the screens
+draw <code>${esc(PROJECT.code)}</code>'s workspace and the cross-project surfaces draw both. The dot beside each screen in the rail is its state in the
 product today (hover for the 23 August state), and <a class="mk-ref" href="#coverage">Coverage</a> says what this
 catalogue is exhaustive against.</p>
 <div class="mk-canvas">${screens}</div>

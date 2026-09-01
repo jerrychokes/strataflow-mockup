@@ -27,6 +27,7 @@ import {
   AMENDMENT, CRITERIA_DRAFT, DATA_RELEASE, GOLDEN, NON_DETECT, PFAS_COMPONENTS, Q1_ROUND,
   REGENERATION, REPORT_ITEMS, SIGNOFFS, SNAPSHOTS, TEMPLATE,
   WATER,
+  KURRAJONG, PORTFOLIO,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -981,6 +982,23 @@ const windowConditionPanel = () => {
 };
 
 const crosstab = () => {
+  /*
+   * The location filter's options, counted rather than typed. "All 9
+   * locations" was a typed label that had been stale since the register grew
+   * past nine rows, sitting on a grid that draws seven groundwater bores —
+   * and the three options beneath it were already counts of the same set, so
+   * the one number nobody derived was the one that went wrong. The scope is
+   * groundwater because that is what this matrix is: the matrix filter says
+   * Groundwater and the grid's own columns are the same seven bores.
+   */
+  const wells = LOCATIONS.filter((l) => l.klass === 'groundwater');
+  const inArea = (area) => wells.filter((l) => l.area === area).length;
+  const locationOptions = [
+    `All ${wells.length} locations`,
+    `Compliance boundary (${inArea('Compliance boundary')})`,
+    `Downgradient of TSF (${inArea('TSF')})`,
+    `Background (${wells.filter((l) => l.position === 'Background').length})`,
+  ];
   const rows = CROSSTAB.map((r) => {
     const analyte = ANALYTES.find((a) => a.name === r.analyte);
     const crit = [
@@ -1004,7 +1022,7 @@ const crosstab = () => {
       onView: 'TSF downgradient — metals',
       saved: false,
       controls: [
-        C.field({ label: 'Locations', control: C.select({ options: ['All 9 locations', 'Compliance boundary (2)', 'Downgradient of TSF (2)', 'Background (1)'], value: 'All 9 locations' }) }),
+        C.field({ label: 'Locations', control: C.select({ options: locationOptions, value: locationOptions[0] }) }),
         C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', 'Dissolved metals (8)', 'Nutrients (4)', 'PFAS (14)', 'Field parameters (5)'], value: 'Everything in the round' }) }),
         C.field({ label: 'Period', control: C.dateRange({ from: '2026-04-01', to: '2026-06-30' }) }),
         C.field({ label: 'Matrix', control: C.select({ options: ['Groundwater', 'Surface water', 'All matrices'], value: 'Groundwater' }) }),
@@ -1812,36 +1830,115 @@ const snapshot = () => {
  * ================================================================== */
 
 const obligations = () =>
-  head('Reporting obligations', 'What is due, to whom, and when — across all projects.', {
+  head('Reporting obligations', 'What is due, to whom, and when — across every project you hold a binding in.', {
     route: '/aggregate/obligations',
-    toolbar: btn('Add obligation'),
+    toolbar: C.exportMenu() + btn('Add obligation'),
   }) +
   // Counted from the register rather than typed beside it: these four read
   // 1 · 1 · 3 · 1 while the seed held 2 · 1 · 5 · 1, which is the wave-1
   // lesson (a hand-kept count rots, and it rots toward the flattering number).
+  // They now count the portfolio rather than one project, which is what
+  // `/aggregate` has always claimed and could not do from a one-site seed.
   stats([
-    stat(String(OBLIGATIONS.filter((o) => o.state === 'overdue').length), 'overdue', 'bad'),
-    stat(String(OBLIGATIONS.filter((o) => o.state === 'at risk').length), 'at risk', 'warn'),
-    stat(String(OBLIGATIONS.filter((o) => o.state === 'on track').length), 'on track', 'good'),
-    stat(String(OBLIGATIONS.filter((o) => o.state === 'met').length), 'met', 'good'),
+    stat(String(PORTFOLIO.counts.overdue), 'overdue', 'bad'),
+    stat(String(PORTFOLIO.counts['at risk']), 'at risk', 'warn'),
+    stat(String(PORTFOLIO.counts['on track']), 'on track', 'good'),
+    stat(String(PORTFOLIO.counts.met), 'met', 'good'),
+    stat(String(PORTFOLIO.projects.length), 'projects'),
   ]) +
+  C.filterBar({
+    controls: [
+      C.field({
+        label: 'Scope',
+        control: C.select({ options: ['Every project I hold a binding in', ...PROJECTS.map((p) => `${p.code} only`)], value: 'Every project I hold a binding in' }),
+        hint: 'An aggregate that cannot be taken apart into the sites it was added up from is a number nobody can act on.',
+      }),
+      C.field({ label: 'State', control: C.select({ options: ['Every state', 'Overdue', 'At risk', 'On track', 'Met'], value: 'Every state' }) }),
+      C.field({ label: 'Owner', control: C.select({ options: ['Anyone', 'Me', 'Unassigned'], value: 'Anyone' }) }),
+    ],
+    chips: [C.chip('every project', { prefix: 'scope', removable: false })],
+    count: `${PORTFOLIO.obligations.length} obligations across ${PORTFOLIO.projects.length} projects`,
+  }) +
+  notice(
+    'warning',
+    `The oldest thing owed on this estate is at ${esc(KURRAJONG.code)}, and nothing inside ${esc(KURRAJONG.code)} would have said so.`,
+    `A trigger response has been ${esc(KURRAJONG.obligations[0].remaining.replace('overdue by ', 'owed for '))} because the exceedance that obliged it was never acknowledged, and the six-monthly round that would have raised the question again is ${esc(KURRAJONG.obligations[1].remaining)}. Both rows sit above every ${esc(PROJECT.code)} row below, because this register is ordered by when a thing falls due and not by which project it belongs to. A quiet site reads as a well-run one from inside itself; a register that crosses projects is the only place the difference shows.`,
+  ) +
+  /*
+   * State moved up beside Project, and the basis prose moved to the end. The
+   * register is a matrix and pans, which is right for eight columns — but the
+   * column a reader pans *to* should not be the one carrying the answer, and
+   * with State last it was the first thing off the edge at 1280 px. Obligation,
+   * project, state, date: the decision reads without scrolling, and the
+   * regulator's wording is what you pan for.
+   */
   table({
-    caption: 'Statutory and internal obligations in one register, because they compete for the same week.',
-    head: ['Obligation', 'To', 'Due', 'Remaining', 'Owner', 'Basis', 'State'],
+    caption:
+      'Statutory and internal obligations in one register, because they compete for the same week — ordered by when each falls due, across projects. The due rule stays in the regulator’s own words, so “owed now” is a due rule rather than a blank.',
+    head: ['Obligation', 'Project', 'State', 'Due', 'Remaining', 'Owner', 'To', 'Basis'],
     kind: 'matrix',
-    label: 'Reporting obligations',
-    rows: OBLIGATIONS.map((o) => [
+    label: 'Reporting obligations across every project',
+    rows: PORTFOLIO.obligations.map((o) => [
       esc(o.what),
-      esc(o.to),
+      o.project === PROJECT.code
+        ? `<span class="mk-tag mk-tag--neutral">${esc(o.project)}</span>`
+        : `<a class="mk-ref" href="#projects">${esc(o.project)}</a>`,
+      tag(o.state, toneFor(o.state)),
       `<span class="sf-instant">${esc(o.due)}</span>`,
       o.state === 'overdue' ? `<span class="mk-num mk-num--bad">${esc(o.remaining)}</span>` : o.state === 'at risk' ? `<span class="mk-num mk-num--warn">${esc(o.remaining)}</span>` : `<span class="mk-num">${esc(o.remaining)}</span>`,
-      esc(o.owner),
+      o.owner.startsWith('—') ? `<span class="mk-num mk-num--bad">${esc(o.owner)}</span>` : esc(o.owner),
+      esc(o.to),
       `<span class="mk-muted">${esc(o.basis)}</span>`,
-      tag(o.state, toneFor(o.state)),
     ]),
   }) +
+  cols(
+    panel(
+      'The same register, taken apart',
+      '<p class="mk-tight">Every aggregate above is decomposable, and it is decomposed here rather than left as a number somebody has to trust. The two rows add to the four tiles.</p>' +
+        // Six columns, not seven: whether a project's workspace is drawn is a
+        // property of the project, so it rides in the project cell rather than
+        // as a column of its own that pans off the edge of a narrow panel.
+        table({
+          caption: 'One row per project. The four state columns sum to the four tiles at the top of this screen.',
+          head: ['Project', 'Obligations', 'Overdue', 'At risk', 'On track', 'Met'],
+          scroll: true,
+          label: 'Obligations per project',
+          rows: PORTFOLIO.byProject.map((b) => [
+            `<strong>${esc(b.code)}</strong><small>${esc(b.name)} · ` +
+              (b.drawn ? 'project home drawn' : 'workspace not drawn') + '</small>',
+            b.drawn ? `<a class="mk-ref" href="#project-home">${b.obligations}</a>` : `<span class="mk-num">${b.obligations}</span>`,
+            b.counts.overdue ? `<span class="mk-num mk-num--bad">${b.counts.overdue}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+            b.counts['at risk'] ? `<span class="mk-num mk-num--warn">${b.counts['at risk']}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+            `<span class="mk-num">${b.counts['on track']}</span>`,
+            `<span class="mk-num">${b.counts.met}</span>`,
+          ]),
+        }) +
+        `<p class="mk-tight mk-muted">Following a ${esc(KURRAJONG.code)} row is a scope switch and not a link: the header, the section strip and what every other screen is about all change with it. This catalogue draws one of the two workspaces, so the switch is where it stops — which is stated here rather than discovered by clicking.</p>`,
+    ),
+      panel(
+        'Four kinds of clock on one board, counted',
+        `<p class="mk-tight">They compete for the same week, which is why they share a register — but they are not the same obligation and the difference decides what missing one costs.</p>` +
+          table({
+            head: ['Kind', 'Rows', 'What starts the clock'],
+            scroll: true,
+            label: 'The kinds of obligation on this register',
+            rows: [
+              ['Reporting obligation', 'report', 'A cadence a licence condition sets — the wording survives, and interpreting it into a date comes later'],
+              ['Programme round', 'round', 'A period ending. Written when the period ends rather than when somebody looks, which is what makes a missed one nameable'],
+              ['Notification obligation', 'notification', 'An event. The window is short enough that missing it <em>is</em> the incident — and where the condition says <em>as soon as practicable</em>, no number of hours is invented'],
+              ['Trigger response', 'response', 'A criterion being crossed. The deadline is arithmetic on the evaluation date, so it can run without a person being involved at any point'],
+            ].map(([label, kind, why]) => [
+              `<strong>${esc(label)}</strong>`,
+              `<span class="mk-num">${PORTFOLIO.obligations.filter((o) => o.kind === kind).length}</span>`,
+              why,
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">The ${esc(KURRAJONG.code)} row is the last kind: the operating strategy gives thirty days from evaluation, so its deadline is ${esc(KURRAJONG.exceedance.evaluated)} plus thirty and nothing anybody typed — which is also how it reached ${esc(KURRAJONG.obligations[0].remaining)} with no person in the loop.</p>`,
+      ),
+    '3fr 2fr',
+  ) +
   notice('default', 'A monitoring period is resolved in the site’s own timezone, never the server’s.',
-    'A quarterly round at a Pilbara bore begins at 16:00 UTC on 31 December. A sample collected at 08:00 on 1 April local time belongs to the June quarter — get it wrong and the round it was meant to satisfy reads as missed while a spurious extra one reads as satisfied.');
+    `A quarterly round at a Pilbara bore begins at 16:00 UTC on 31 December. A sample collected at 08:00 on 1 April local time belongs to the June quarter — get it wrong and the round it was meant to satisfy reads as missed while a spurious extra one reads as satisfied. Both projects on this register resolve in ${esc(PROJECT.timezone)}; a register spanning two zones would resolve each row in its own site’s, never in one chosen for the board.`);
 
 const programme = () =>
   head('Sampling programme — GW-QTR', 'What each round expects, and what it got.', {
@@ -3351,21 +3448,31 @@ const stygofaunaScreen = () => (
 
 const workQueue = () => {
   const byUrgency = (u) => WORK_QUEUE.filter((w) => w.urgency === u);
+  /*
+   * The project is a tag in the card head, not the first clause of the
+   * context sentence. On a landing surface that spans an estate, *which site
+   * is this* has to be readable before the headline is — and a tag can be
+   * counted, filtered and checked, where a sentence cannot.
+   */
   const cardFor = (w) => C.card({
     tone: w.urgency === 'now' ? 'bad' : w.urgency === 'soon' ? 'warn' : 'neutral',
     head:
       `<span class="mk-queue__kind">${esc(w.kind)}</span>` +
+      `<span class="mk-tag mk-tag--${w.crossProject ? 'warn' : 'neutral'}">${esc(w.project)}</span>` +
       `<span class="mk-queue__age">${esc(w.age)}</span>`,
     body:
       `<p class="mk-queue__headline">${esc(w.headline)}</p>` +
       `<p class="mk-queue__context">${esc(w.context)}</p>`,
     foot: `<a class="mk-btn mk-btn--sm mk-btn--primary" href="#${w.target}">${esc(w.action)}</a>` +
-      `<span class="mk-muted">Opens where it is resolved, not a list to search again</span>`,
+      (w.crossProject
+        ? `<span class="mk-muted">Resolving it happens inside ${esc(w.project)}, which is a scope switch — and that workspace is not drawn in this catalogue, so this opens the cross-project register that holds the row</span>`
+        : '<span class="mk-muted">Opens where it is resolved, not a list to search again</span>'),
   });
 
   const completeness = C.card({
     tone: 'warn',
     head: '<span class="mk-queue__kind">Programme completeness</span>' +
+      `<span class="mk-tag mk-tag--neutral">${esc(PROJECT.code)}</span>` +
       `<span class="mk-queue__age">${esc(COMPLETENESS.period)}</span>`,
     body:
       C.progress({
@@ -3390,16 +3497,17 @@ const workQueue = () => {
       route: 'a proposal — the product’s / is deliberately a project list (ia-rationale §3); Jerry kept this drawn, 1 Sep 2026',
       toolbar: C.segmented({ options: ['Mine', 'My team', 'Everything'], value: 'Mine', label: 'Scope' }) + C.btn('Snooze rules'),
     }) +
+    // Counted from the queue, and the four tiles sum to it: 5 + 4 + 1 = 10 rows.
     stats([
-      stat('3', 'need you now', 'bad'),
-      stat('4', 'this week', 'warn'),
-      stat('1', 'awaiting your approval'),
-      stat('2', 'projects with open items'),
+      stat(String(byUrgency('now').length), 'need you now', 'bad'),
+      stat(String(byUrgency('soon').length), 'this week', 'warn'),
+      stat(String(byUrgency('later').length), 'when you get to it'),
+      stat(String(new Set(WORK_QUEUE.map((w) => w.project)).size), 'projects with open items', 'warn'),
     ]) +
     notice(
       'default',
-      'Ordering is driven by the role you hold, not by a setting.',
-      'You are a Contributor here, so exceptions and review sort above approvals. An Approver signing in to the same data sees the approval queue first. Nothing is configurable, because a work queue somebody has to tune is a work queue they stop trusting.',
+      'Ordering is driven by the role you hold, not by a setting — and it is not partitioned by project.',
+      `You are a Contributor at ${esc(PROJECT.code)}, so exceptions and review sort above approvals. An Approver signing in to the same data sees the approval queue first. Nothing is configurable, because a work queue somebody has to tune is a work queue they stop trusting. What it is <em>not</em> is one list per site: ${byUrgency('now').length} things need you today and ${WORK_QUEUE.filter((w) => w.crossProject).length} of them are at ${esc(KURRAJONG.code)}, where you hold Approver — a queue that grouped by project would have put them under a heading nobody opened, which is how they got to be ${KURRAJONG.exceedance.openDays} days old.`,
     ) +
     cols(
       '<section><h2 class="mk-h2">Needs you now</h2>' +
@@ -3415,7 +3523,7 @@ const workQueue = () => {
           '<p class="mk-tight">The queue shows an owner. It could not <em>change</em> one, and coordination is where a multi-user product is actually judged.</p>' +
             C.card({
               tone: 'bad',
-              head: `<span class="mk-queue__kind">Assigned</span><span class="mk-queue__age">${esc(ASSIGNMENT.at)}</span>`,
+              head: `<span class="mk-queue__kind">Assigned</span><span class="mk-tag mk-tag--neutral">${esc(PROJECT.code)}</span><span class="mk-queue__age">${esc(ASSIGNMENT.at)}</span>`,
               body:
                 `<p class="mk-queue__headline">${esc(ASSIGNMENT.subject)}</p>` +
                 `<p class="mk-queue__context">${esc(ASSIGNMENT.assignedBy)} → <strong>${esc(ASSIGNMENT.assignedTo)}</strong> · due ${esc(ASSIGNMENT.due)}</p>`,
@@ -3439,9 +3547,9 @@ const workQueue = () => {
           'When there is nothing',
           '<p class="mk-tight">The zero state is the one that matters most, because it is the claim the product makes every morning. It is not blank.</p>' +
             C.stateBlock('empty', {
-              headline: 'Nothing needs you.',
+              headline: 'Nothing needs you, on either project.',
               detail:
-                'Every exception is dispositioned, every round in the open period is collected or explained, and no obligation is inside its warning window. Last checked 2026-08-23 07:41 AWST.',
+                `Across all ${PROJECTS.length} bindings: every exception is dispositioned, every round in an open period is collected or explained, and no obligation is inside its warning window. The projects are named because “nothing” on a queue that spans an estate has to say what it spanned — a queue that had quietly narrowed to one site would show this same empty state. Last checked 2026-08-23 07:41 AWST.`,
               action: 'Open the 2026 Q3 programme',
               secondary: 'Review what closed this week',
             }),
@@ -3452,12 +3560,21 @@ const workQueue = () => {
 };
 
 const globalSearch = () => {
+  /*
+   * A hit in another project is not a link. The identifier is still the
+   * subject of its row, but following it crosses a scope boundary, so the
+   * affordance points at the switch — and where that project's workspace is
+   * not drawn in this catalogue, the row says so instead of implying a screen
+   * that would be MOCK-WDL's under another project's name.
+   */
   const group = (g) =>
     `<h2 class="mk-h2" style="margin-top:1.2rem">${esc(g.label)}</h2>` +
     table({
       head: ['Identifier', 'What it is', 'Project', ''],
       rows: g.rows.map((r) => [
-        `<a class="mk-ref mk-ref--loc" href="#${r.target}">${esc(r.code)}</a>`,
+        r.project === PROJECT.code
+          ? `<a class="mk-ref mk-ref--loc" href="#${r.target}">${esc(r.code)}</a>`
+          : `<a class="mk-ref mk-ref--loc" href="#${r.target}">${esc(r.code)}</a><small>switch scope to open it</small>`,
         esc(r.what),
         r.project === PROJECT.code
           ? `<span class="mk-muted">${esc(r.project)} · current scope</span>`
@@ -3473,44 +3590,80 @@ const globalSearch = () => {
     }) +
     C.filterBar({
       controls: [
-        C.field({ label: 'Query', control: C.input({ value: 'MW0', mono: true }), hint: 'Identifier prefixes rank first — a practitioner searches by code, not by name.' }),
+        C.field({ label: 'Query', control: C.input({ value: SEARCH.query, mono: true }), hint: 'Identifier prefixes rank first — a practitioner searches by code, not by name.' }),
         C.field({ label: 'Entity type', control: C.select({ options: ['Everything', 'Locations', 'Sampling events', 'Certificates', 'Import runs', 'Criteria sets', 'Licences', 'Reports'], value: 'Everything' }) }),
-        C.field({ label: 'Scope', control: C.select({ options: ['Every project I can see', 'MOCK-WDL only'], value: 'Every project I can see' }) }),
+        C.field({ label: 'Scope', control: C.select({ options: ['Every project I can see', ...PROJECTS.map((p) => `${p.code} only`)], value: 'Every project I can see' }) }),
       ],
-      chips: [C.chip('MW0', { prefix: 'starts with' })],
-      count: '9 matches across 2 projects',
+      chips: [C.chip(SEARCH.query, { prefix: 'matches' })],
+      // Counted from the rows below rather than typed above them, which is how
+      // "9 matches" survived a wave that changed the rows.
+      count: `${SEARCH.matches} matches across ${SEARCH.projects} projects`,
     }) +
     notice(
       'warning',
       'Opening a result in another project switches your scope, and says so before it does.',
-      'Row-level security is fail-closed: you see MOCK-KRJ here because you hold a binding on it. Following that row moves the whole application into that project — the header changes, and so does what every other screen is about. A scope that changes silently is how somebody reads the wrong site’s numbers into a report.',
+      `Row-level security is fail-closed: you see ${esc(KURRAJONG.code)} here because you hold a binding on it — Approver, where you hold Contributor at ${esc(PROJECT.code)}. Following one of its rows moves the whole application into that project: the header changes, the section strip changes, and so does what every other screen is about. A scope that changes silently is how somebody reads the wrong site’s numbers into a report. In this catalogue those rows stop at the switch, because ${esc(KURRAJONG.code)}’s workspace is not drawn — the boundary is the honest place for a drawing of one project to end.`,
     ) +
     SEARCH.groups.map(group).join('') +
-    panel(
-      'When nothing matches',
-      C.stateBlock('empty', {
-        headline: 'No identifier, name or certificate matches “MW0X”.',
-        detail:
-          'Search covers identifiers and names, not result values — a number is found through the crosstab’s filters, where the criteria set and period that make it meaningful are also chosen. Nine locations start with “MW0”; the nearest is MW05.',
-        action: 'Search MW05 instead',
-        secondary: 'Open the location register',
-      }),
+    cols(
+      panel(
+        'Why the second group ranks below the first',
+        `<p class="mk-tight">Both groups match the same query. The ${SEARCH.prefixLocations} above start with it; the ${SEARCH.containsLocations} below contain it, because Kurrajong’s bores carry their project’s prefix — <code class="mk-file">KRJ-MW03</code>, not <code class="mk-file">MW03</code>.</p>` +
+          `<p class="mk-tight">Two sites under one customer will reuse a bore number eventually, and a register where only a column tells one <code class="mk-file">MW03</code> from another is a register somebody will read wrong in a hurry. Prefixing the code is the cheap fix, and the cost of it is exactly this: the codes stop being prefix matches, and the ranking has to say so rather than quietly interleave them.</p>`,
+      ),
+      panel(
+        'When nothing matches',
+        C.stateBlock('empty', {
+          headline: 'No identifier, name or certificate matches “MW0X”.',
+          detail:
+            `Search covers identifiers and names, not result values — a number is found through the crosstab’s filters, where the criteria set and period that make it meaningful are also chosen. ${SEARCH.prefixLocations} locations start with “MW0” on ${esc(PROJECT.code)} and ${SEARCH.containsLocations} more contain it on ${esc(KURRAJONG.code)}; the nearest is MW05.`,
+          action: 'Search MW05 instead',
+          secondary: 'Open the location register',
+        }),
+      ),
     )
   );
 };
 
 const projectList = () => {
+  /*
+   * Every number in these rows is counted from the seed. The version this
+   * replaces typed four of them per row across four projects, and three of
+   * those projects had no data at all — on the one screen the portfolio
+   * journey starts at, where a wrong count sends somebody to the wrong site.
+   */
+  const num = (n, tone = '') => `<span class="mk-num${tone ? ` mk-num--${tone}` : ''}">${n}</span>`;
   const rows = PROJECTS.map((p) => [
-    p.current
-      ? `<strong class="mk-num">${esc(p.code)}</strong> <span class="mk-tag mk-tag--neutral">current</span>`
-      : `<a class="mk-ref mk-ref--loc" href="#project-home">${esc(p.code)}</a>`,
-    esc(p.name),
+    /*
+     * The project's state sits beside its identifier, where `current` already
+     * sat — it is a fact about the project rather than an action, and the last
+     * column is the narrowest on a nine-column matrix and the first to pan out
+     * of view.
+     */
+    p.drawn
+      ? `<a class="mk-ref mk-ref--loc" href="#project-home">${esc(p.code)}</a>` +
+        (p.current ? ' <span class="mk-tag mk-tag--neutral">current</span>' : '')
+      : `<strong class="mk-num">${esc(p.code)}</strong> <span class="mk-tag mk-tag--neutral">not drawn</span>`,
+    `${esc(p.name)}<small>${esc(p.facility)}</small>`,
     `<span class="mk-tag mk-tag--${p.role === 'Approver' ? 'new' : p.role === 'Viewer' ? 'neutral' : 'good'}">${esc(p.role)}</span>`,
-    esc(p.facility),
-    `<span class="mk-num">${p.locations}</span>`,
-    p.open ? `<span class="mk-num mk-num--bad">${p.open}</span>` : '<span class="mk-num mk-num--nil">0</span>',
-    `<span class="sf-instant">${esc(p.due)}</span>`,
-    p.current ? '' : `<button class="mk-btn mk-btn--sm" type="button">Switch to this project</button>`,
+    num(p.locations),
+    num(p.exceedances, p.exceedances ? 'bad' : 'nil'),
+    p.unacknowledged
+      ? `${num(p.unacknowledged, 'bad')} <span class="mk-muted">not looked at</span>`
+      : num(0, 'nil'),
+    p.roundsOverdue ? num(p.roundsOverdue, 'bad') : num(0, 'nil'),
+    `<span class="sf-instant">${esc(p.nextRound)}</span>`,
+    /*
+     * Short, both of them. The first draft put the not-drawn sentence in this
+     * cell and the column is the narrowest on the table: at 1280 px it laid
+     * the sentence out one or two words to a line and made the row four times
+     * the height of its neighbour. The sentence belongs in the notice under
+     * the table, where it has a column to be read in; the cell carries the
+     * state as a word and the action as a control.
+     */
+    p.drawn
+      ? '<span class="mk-muted">You are here</span>'
+      : `<a class="mk-ref" href="#obligations">What it owes</a>`,
   ]);
 
   return (
@@ -3521,15 +3674,39 @@ const projectList = () => {
     notice(
       'default',
       'The role is on the row because “as what” is the first thing scope decides.',
-      'You hold Viewer on MOCK-YRA: you can read every result and export them, and you cannot commit an import, answer a review question or sign anything off. The controls that would do those things are absent on that project rather than present and refusing.',
+      `You are a <strong>Contributor</strong> at ${esc(PROJECT.code)} and an <strong>Approver</strong> at ${esc(KURRAJONG.code)} — the same person, two sites, two sets of controls. As Approver you may sign a submission off and may not answer a review question; as Contributor the reverse. The controls that a binding does not carry are absent on that project rather than present and refusing, which is why the role has to be legible before you switch. A third role is on the register at <a class="mk-ref" href="#roles">Access</a>: S. Petrelli holds Viewer here and can read and export everything and write nothing.`,
     ) +
     table({
-      caption: 'Bindings resolve from Entra group membership and are re-read at sign-in.',
-      head: ['Code', 'Project', 'Your role', 'Facility', 'Locations', 'Open items', 'Next due', ''],
+      caption:
+        'Bindings resolve from Entra group membership and are re-read at sign-in. Every count below is taken from this project’s own records at build time — locations from the register, exceedances from the evaluation, overdue rounds from the programme.',
+      head: ['Code', 'Project<small>facility</small>', 'Your role', 'Locations', 'Exceedances', 'Unacknowledged', 'Rounds overdue', 'Next round due', ''],
       rows,
       kind: 'matrix',
       label: 'Projects you hold a binding in',
     }) +
+    notice(
+      'warning',
+      `${esc(KURRAJONG.code)} is real in the data and undrawn in this catalogue, and the row says which.`,
+      `The second project carries four bores, four rounds and one criteria set — enough for the two questions a portfolio asks, and no more. What it does not carry is a workspace: there is no location register, no crosstab and no report of its own here, so its row opens the cross-project register that does hold its rows rather than linking into ${esc(PROJECT.code)}’s screens under another project’s name. Crossing a project boundary is a scope switch, not a link, and the switch is where this catalogue stops.`,
+    ) +
+    panel(
+      `What the two rows say, read together`,
+      `<p class="mk-tight">${esc(PORTFOLIO.says)}</p>` +
+        table({
+          caption: 'The same two projects, as the portfolio’s two questions.',
+          head: ['Project', 'Where something is wrong', 'What is due'],
+          scroll: true,
+          label: 'The portfolio’s two questions, per project',
+          rows: PORTFOLIO.byProject.map((b) => [
+            `<strong>${esc(b.code)}</strong>`,
+            b.unacknowledged
+              ? `${b.unacknowledged} of ${PROJECTS.find((p) => p.code === b.code).exceedances} exceedances unacknowledged`
+              : 'Nothing unacknowledged',
+            `${b.counts.overdue} overdue · ${b.counts['at risk']} at risk · ${b.counts['on track']} on track · ${b.counts.met} met`,
+          ]),
+        }) +
+        `<p class="mk-tight mk-muted">${esc(PROJECT.code)} is the noisy site and it is the well-run one: every exceedance on it is on a register, escalated to a TARP level and, where it obliged one, notified. ${esc(KURRAJONG.code)} is quiet, and the quiet is the finding — one exceedance nobody has acknowledged in ${KURRAJONG.exceedance.openDays} days, and the round that would settle it ${esc(KURRAJONG.obligations[1].remaining)}. A site nobody opens looks fine from inside itself.</p>`,
+    ) +
     cols(
       panel(
         'When you hold no bindings at all',
@@ -3556,7 +3733,20 @@ const projectList = () => {
   );
 };
 
-const projectHome = () => (
+const projectHome = () => {
+  /*
+   * **One project's home, and every number on it is that project's.** The
+   * portfolio surfaces are `#projects` and `#obligations`; this page sits one
+   * level below both, and the risk a two-project seed introduces is precisely
+   * that a tile here starts counting the estate without saying so. Each count
+   * below therefore narrows explicitly — `o.project === PROJECT.code` rather
+   * than the length of a register that now holds two projects' rows — so
+   * appending a row for another project cannot move a number on this screen.
+   */
+  const mine = OBLIGATIONS.filter((o) => o.project === PROJECT.code);
+  const rounds = mine.filter((o) => o.kind === 'round');
+  const me = PROJECTS.find((p) => p.code === PROJECT.code);
+  return (
   head(`${esc(PROJECT.code)} — ${esc(PROJECT.name)}`, 'Where this project is up to, and what it owes.', {
     route: '/projects/:projectId — the landing after switching',
     toolbar: C.exportMenu() + C.btn('Project settings'),
@@ -3565,20 +3755,25 @@ const projectHome = () => (
     { label: 'Overview', current: true },
     { label: 'Network', count: LOCATIONS.length },
     { label: 'Programme' },
-    { label: 'Obligations', count: OBLIGATIONS.length, dot: 'bad' },
+    { label: 'Obligations', count: mine.length, dot: 'bad' },
     { label: 'Documents', count: 34 },
     { label: 'Settings' },
     { label: 'Audit' },
   ]) +
+  notice(
+    'default',
+    `Everything on this page is ${esc(PROJECT.code)}’s, and nothing on it is the estate’s.`,
+    `You arrived here from the <a class="mk-ref" href="#projects">project list</a> or the <a class="mk-ref" href="#obligations">cross-project register</a>, both of which count ${PROJECTS.length} projects. This one counts ${mine.length} obligations, ${EXCEEDANCES.length} exceedances and ${LOCATIONS.length} locations because that is what ${esc(PROJECT.code)} holds — ${esc(KURRAJONG.code)}’s ${KURRAJONG.obligations.length} obligations and one unacknowledged exceedance are not in any tile below, and its own project home is not drawn in this catalogue. A page that silently widened from a project to an estate would be the same defect as one that silently narrowed.`,
+  ) +
   stats([
     // Counted, and counted on a predicate: a bore water is taken from is a
     // location and not a monitoring location, so the tile that says
     // "monitoring" says how many there are rather than how many rows exist.
     stat(String(LOCATIONS.filter((l) => l.klass !== 'production_bore').length), 'monitoring locations'),
     stat(String(EXCEEDANCES.length), 'open exceedances', 'bad'),
-    stat('1', 'round overdue', 'warn'),
-    stat('58 / 63', 'results this period', 'warn'),
-    stat('2026-08-14', 'next round due'),
+    stat(String(rounds.filter((o) => o.state === 'overdue').length), 'round overdue', 'warn'),
+    stat(`${COMPLETENESS.received} / ${COMPLETENESS.planned}`, 'results this period', 'warn'),
+    stat(esc(me.nextRound), 'next round due'),
   ]) +
   cols(
     '<section>' +
@@ -3625,11 +3820,13 @@ const projectHome = () => (
           action: 'This is a design claim, not a measurement',
           cancel: 'It has not been observed with a practitioner',
           reversible: 'Recorded here so it can be checked against a real session rather than assumed. QB-8’s finish line is an unassisted practitioner, and no transcript shows one.',
-        }),
+        }) +
+        `<p class="mk-tight mk-muted">The tile that would be a dashboard here is a portfolio one — <em>how are my other sites</em> — and it is deliberately absent. This page cannot answer it without counting rows it does not own, so the question goes to <a class="mk-ref" href="#projects">Projects</a> and <a class="mk-ref" href="#obligations">Reporting obligations</a>, which do.</p>`,
     ),
     '3fr 2fr',
   )
-);
+  );
+};
 
 /* ================================================================== *
  * J1 additions — the network, the round, and the rows that were held
@@ -5683,9 +5880,10 @@ const coverage = () => {
     ['8', 'Configuration → operational effect', 'covered',
       [['Criteria / QA rule', 'criteria'], ['Version', 'criteria'], ['Test against records', 'criteria'], ['Impact preview', 'criteria'], ['Approval', 'signoff'], ['Activation', 'criteria'], ['Affected results', 'exceedances'], ['Re-evaluation', 'exceedances'], ['Audit', 'audit'], ['Rollback', 'criteria']],
       'The version pair, the draft run against the committed record naming the six results it moves, and activation and rollback as controls stating what each writes'],
-    ['9', 'Portfolio → evidence', 'partially',
+    ['9', 'Portfolio → evidence', 'covered',
       [['Portfolio', 'obligations'], ['Project issue', 'project-home'], ['Location / obligation', 'location'], ['Triggering data', 'result-detail'], ['Response', 'tarp'], ['Report / notification', 'notification'], ['Evidence', 'documents'], ['Audit trail', 'audit']],
-      'A one-site seed cannot draw a portfolio honestly; the second MOCK- project is the prerequisite'],
+      // The note is escaped where it renders, so the codes go in raw.
+      `Unblocked by the second project: the first two hops cross projects — the register counts ${PORTFOLIO.obligations.length} obligations over ${PORTFOLIO.projects.length} of them, and the oldest thing owed on the estate is ${KURRAJONG.code}’s — and from Project issue onward the walk descends into ${PROJECT.code}, whose workspace is the one this catalogue draws`],
   ];
 
   const STATUS_TONE = { covered: 'good', partially: 'warn', missing: 'bad', deferred: 'neutral', 'no screen': 'neutral', unverified: 'neutral' };
@@ -5790,7 +5988,7 @@ const coverage = () => {
     notice(
       'default',
       'A journey is owned when every step lands on a drawn screen that is not a proposal.',
-      'Each step below is a link, or a named hole. The deferred telemetry journey is not walked: EXPANSION_BRIEF.md defers it with Domain K, matching the PRD’s S8 marking, and walking it would require inventing the screens it defers.',
+      `Each step below is a link, or a named hole. The deferred telemetry journey is not walked: EXPANSION_BRIEF.md defers it with Domain K, matching the PRD’s S8 marking, and walking it would require inventing the screens it defers. Journey 9 was the one held open by the data rather than by a drawing — a portfolio cannot be drawn honestly from a one-site seed, and the answer was a second project in <code class="mk-file">seed.mjs</code> rather than a screen. It carries ${KURRAJONG.bores.length} bores, ${KURRAJONG.rounds.length} rounds and ${KURRAJONG.obligations.length} obligations, and its workspace is deliberately <em>not</em> drawn: the walk crosses two projects and then descends into the one this catalogue owns, which is what the note on its row says.`,
     ) +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>J</th><th>Journey</th><th>Status</th><th>The walk</th><th>Note</th></tr></thead><tbody>${JOURNEYS_WALK.map(
       ([n, name, status, steps, note]) =>
@@ -6069,7 +6267,11 @@ export const RELATED = {
   snapshot: ['report', 'signoff', 'submissions', 'supersession', 'certificate'],
   submissions: ['snapshot', 'signoff', 'documents', 'obligations'],
 
-  obligations: ['licence', 'programme', 'notification', 'signoff', 'alerts', 'water'],
+  // `/aggregate` is the one register that is genuinely above a project, and
+  // until there were two projects it exited only downward — into MOCK-WDL's
+  // own workspace, with nothing pointing back at the portfolio it belongs to.
+  // Journey 9's first hop is Portfolio → Project issue, and this is that hop.
+  obligations: ['projects', 'project-home', 'licence', 'programme', 'notification', 'signoff', 'alerts', 'water'],
   programme: ['obligations', 'field-capture', 'events', 'location'],
   licence: ['obligations', 'criteria', 'locations', 'submissions', 'water'],
   // The take is read against the licence that permits it and drawn at the

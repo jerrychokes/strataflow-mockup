@@ -159,6 +159,56 @@ year has elapsed"* beside a July–June year that was 15% through — 65% was th
 *entitlement*, which is the number on the line above. All of them are counted from the seed
 now.
 
+**Wave 5 — the portfolio, honestly drawn** (1 Sep 2026). No new screens; the register
+still holds 68. The work is in `seed.mjs`: **a second `MOCK-` project**, which
+EXPANSION_BRIEF §5.6 named as a one-time workstream and which Journey 9 had been blocked
+on since pass 4 — a portfolio cannot be drawn honestly from a one-site seed.
+
+**MOCK-KRJ, Kurrajong Borefield** is the water supply for the Wandalup operation, 38 km
+north-west of the mine, on its own licence to take water. It is deliberately small — four
+bores, four rounds, eight chloride results, one criteria set — because a counterweight is
+what makes the noisy first site legible, not a second Wandalup. The same customer, a
+different site, and a **different binding**: A. Nakamura is a Contributor at Wandalup and
+an Approver here, which is the first thing the project list has ever been able to
+demonstrate rather than assert.
+
+It carries two live facts and the second is the first one's consequence. **Chloride at
+KRJ-MW03 is 1.5× the operating strategy's trigger value and nobody has acknowledged it** —
+for 199 days. **The six-monthly round that would say whether that was a step or a spike is
+24 days overdue.** They compound: the exceedance was never acknowledged, so the written
+response it obliged was never lodged and is now 169 days past a deadline nobody set by
+hand — the operating strategy gives thirty days from evaluation, so the date is arithmetic
+on 2025-11-06. Wandalup is the noisy site and it is the well-run one; Kurrajong is quiet,
+and the quiet is the finding. **A site nobody opens looks fine from inside itself**, which
+is the whole argument for a surface that crosses projects.
+
+The three other project rows are gone. They were scenery — `locations: 14` and `open: 0`
+on sites with no data behind them, beside a Wandalup row reading `locations: 9` while the
+register held fourteen — and a portfolio is exactly the screen where a hand-kept count
+does its damage. Six surfaces were changed and every number on them is now counted: the
+project list (two rows, nine columns, all derived), the obligations board (genuinely
+`/aggregate` — 15 rows across 2 projects, ordered by when each falls due rather than
+grouped by site, with the aggregate decomposed back into the two projects it was added up
+from), search (both projects, both licences, and the second project's bores ranked *below*
+the prefix matches because they carry a project prefix — the ranking claim finally has
+something demonstrating it), the work queue (the project is a tag on every card rather
+than the first clause of a sentence), the project home (unchanged in scope, and it now
+says so: every count on it narrows to `MOCK-WDL` explicitly, so appending another
+project's row cannot move a tile), and the coverage matrix, where **Journey 9 flips to
+covered**.
+
+Three counts that were typed were found wrong while doing it and are computed now: the
+crosstab's `All 9 locations` filter option (seven groundwater bores), search's "nine
+locations start with MW0" (five), and the command palette's "4 bindings". A fourth was
+found by *looking* rather than by measuring — a `cols()` call took two panels as one
+argument, so the literal string `3fr 2fr` rendered as body text on the obligations board.
+
+What the second project deliberately does **not** have is a workspace. There is no
+Kurrajong location register, crosstab or report here, and every cross-project row says so
+and stops at the switch: crossing a project boundary is a scope change rather than a link,
+which is the rule `#search` has always stated and now has a second project to state it
+about.
+
 What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
 exists, loads, is scoped and renders — not that the product screen matches this
 drawing; no practitioner has looked at any of it; and G-76b's print test is still
@@ -526,7 +576,7 @@ compositing.
 
 | File | Holds |
 |---|---|
-| `seed.mjs` | The dataset. One site, deterministic, no `Math.random()` — a rebuild is byte-identical |
+| `seed.mjs` | The dataset. Two `MOCK-` projects since wave 5 — one drawn in full, one carrying only what a portfolio asks of it. Deterministic, no `Math.random()`; a rebuild is byte-identical |
 | `ui.mjs` | The `sf-` markup vocabulary: marks, the result encoding, tables, panels |
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |

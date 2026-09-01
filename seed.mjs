@@ -41,18 +41,249 @@ export const PROJECT = {
   code: 'MOCK-WDL',
   name: 'Wandalup Operations',
   operator: 'Wandalup Resources Pty Ltd',
+  facility: 'Wandalup mine and TSF',
   jurisdiction: 'Western Australia — DWER',
   licence: 'L8842/2019/1',
   timezone: 'Australia/Perth',
   crs: 'GDA2020 / MGA zone 50 (EPSG:7850)',
 };
 
-export const PRINCIPAL = {
-  name: 'A. Nakamura',
-  role: 'Hydrogeologist',
-  subject: 'anakamura@wandalup.example',
-  roleBinding: 'Contributor · MOCK-WDL',
-};
+/**
+ * The day every countdown on this seed is measured from.
+ *
+ * It is a constant rather than `Date.now()` for the reason the header states —
+ * a rebuild must be byte-identical — and it is **2026-05-24** because that is
+ * the date the obligation register's typed remainders were written against.
+ * Six of the seven re-derive from it exactly (129 · 160 · 82 · 65 · 37 · 114
+ * days), which is how it was established rather than chosen.
+ *
+ * The seventh does not: the 2026 Q2 round closed on 2026-05-14 and every
+ * screen calls it *nine* days overdue, which is 2026-05-23 — the same day
+ * `WATER.asAt` reads. That one-day disagreement predates this block and is
+ * left alone: correcting it would mean editing prose on screens outside this
+ * wave, and two surfaces then disagreeing about MW11 is worse than one number
+ * being a day old. Nothing below claims a board-wide as-at date, so nothing
+ * new rests on it.
+ */
+export const AS_AT = '2026-05-24';
+
+/** Whole days between two ISO dates, at UTC midnight. No clock is read. */
+export function daysBetween(from, to) {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * The second project — small, quiet, and the reason a portfolio can be drawn.
+ *
+ * Journey 9 (portfolio → evidence) was blocked from the fourth pass onward on
+ * one sentence: *a one-site seed cannot draw a portfolio honestly*. Four rows
+ * of typed project metadata were not a portfolio, they were four rows of typed
+ * numbers — `locations: 9` on Wandalup while the register held fourteen, and
+ * `open: 0` on three sites nothing backed. A cross-project count drawn by hand
+ * is the defect this file exists to prevent, and it was sitting on the one
+ * screen the portfolio journey starts at.
+ *
+ * So there are two projects now and both are real. This one is deliberately
+ * **small**: four bores, three rounds, eight chloride results. It is a
+ * counterweight, not a second Wandalup, and its scale is what lets the noisy
+ * first site stay legible beside it.
+ *
+ * ## One customer, two sites, two bindings
+ *
+ * The instance is single-tenant (DR-1), so both projects belong to the same
+ * operator — Kurrajong is the borefield Wandalup's plant and village draw
+ * their water from, 38 km north-west of the mine, on its own licence to take
+ * water. What differs is the **binding**: A. Nakamura is a Contributor at
+ * Wandalup and an Approver here, which is the whole reason the role sits on
+ * the row of the project list.
+ *
+ * ## Two live facts, and the second is the first one's consequence
+ *
+ * **Chloride at KRJ-MW03 is above the operating strategy's trigger value and
+ * nobody has acknowledged it** — for 199 days. **The round that would say
+ * whether it was a step or a spike is 24 days overdue.** They compound: the
+ * exceedance was never acknowledged, so the response it obliged was never
+ * lodged, and the round that would have resolved it was never collected. That
+ * is what a portfolio view is *for* — a site nobody opens looks quiet from
+ * inside itself, and only a surface that crosses projects can say otherwise.
+ *
+ * Every number below is derived from the values beside it: the factor from the
+ * value and the trigger, the response deadline from the evaluation date and
+ * the condition's own thirty days, every countdown from `AS_AT`.
+ */
+export const KURRAJONG = (() => {
+  const code = 'MOCK-KRJ';
+  const trigger = 500; // mg/L chloride, the operating strategy's own value
+
+  /*
+   * Four bores, and the codes carry the project prefix. Two sites under one
+   * customer will reuse a bore number sooner or later, and a register where
+   * only a column tells MW03 from MW03 is a register that will be read wrong
+   * in a hurry.
+   */
+  const bores = [
+    { code: 'KRJ-MW01', klass: 'groundwater', role: 'Monitoring — northern sentinel, upgradient of the borefield', chloride: [210, 224] },
+    { code: 'KRJ-MW02', klass: 'groundwater', role: 'Monitoring — borefield centre', chloride: [388, 455] },
+    { code: 'KRJ-MW03', klass: 'groundwater', role: 'Monitoring — southern sentinel, between the borefield and the palaeochannel', chloride: [486, 742] },
+    { code: 'KRJ-PB01', klass: 'production_bore', role: 'Production — the supply bore the plant and the village draw from', chloride: [301, 336] },
+  ];
+
+  /*
+   * Six-monthly, post-wet and late-dry. `collected: null` is what makes the
+   * third row a *missed* round rather than an absent one — the glossary's
+   * `overdue`, written when the period ended rather than when somebody looked.
+   */
+  const rounds = [
+    { code: '2025-H1-GW', label: '2025 H1', period: '1 Nov 2024 – 30 Apr 2025', due: '2025-04-30', collected: '2025-04-09', evaluated: '2025-05-02', state: 'satisfied' },
+    { code: '2025-H2-GW', label: '2025 H2', period: '1 May – 31 Oct 2025', due: '2025-10-31', collected: '2025-10-14', evaluated: '2025-11-06', state: 'satisfied' },
+    { code: '2026-H1-GW', label: '2026 H1', period: '1 Nov 2025 – 30 Apr 2026', due: '2026-04-30', collected: null, evaluated: null, state: 'overdue' },
+    { code: '2026-H2-GW', label: '2026 H2', period: '1 May – 31 Oct 2026', due: '2026-10-31', collected: null, evaluated: null, state: 'due' },
+  ];
+  const collected = rounds.filter((r) => r.collected);
+  const latest = collected.at(-1);
+  const overdueRound = rounds.find((r) => r.state === 'overdue');
+  const nextRound = rounds.find((r) => r.state === 'due');
+
+  /* One outcome per bore on the latest collected round, computed. */
+  const results = bores.map((b) => {
+    const value = b.chloride.at(-1);
+    const previous = b.chloride.at(-2);
+    return {
+      ...b,
+      value,
+      previous,
+      outcome: value > trigger ? 'exceedance' : 'compliant',
+      factor: value > trigger ? `${(value / trigger).toFixed(1)}×` : '—',
+    };
+  });
+  const above = results.filter((r) => r.outcome === 'exceedance');
+
+  const e = above[0];
+  const exceedance = {
+    location: e.code,
+    analyte: 'Chloride',
+    unit: 'mg/L',
+    value: `${e.value} mg/L`,
+    previous: `${e.previous} mg/L`,
+    criterion: `Kurrajong groundwater operating strategy · trigger 500 mg/L`,
+    factor: e.factor,
+    round: latest.code,
+    evaluated: latest.evaluated,
+    /* `open` is the register's word for an exceedance nobody has acknowledged. */
+    state: 'open',
+    openDays: daysBetween(latest.evaluated, AS_AT),
+    run: 'first — the round before it read 486 mg/L, under the trigger',
+    says:
+      'Chloride at the southern sentinel rose 256 mg/L in one six-month step, and the sentinel is there to see the palaeochannel arriving before the supply bore does. One round is not a trend and the next round is the test — which is the round that has not been collected.',
+  };
+
+  /*
+   * Three obligations seeded, and a fourth *derived from the exceedance*: the
+   * operating strategy gives thirty days from evaluation to lodge a written
+   * response, so the deadline is arithmetic on the exceedance rather than a
+   * date somebody typed beside it, and its state falls out of whether that
+   * date has passed while the exceedance is still unacknowledged.
+   */
+  const responseDue = new Date(Date.parse(`${exceedance.evaluated}T00:00:00Z`) + 30 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const remaining = (dueOn) => {
+    const n = daysBetween(AS_AT, dueOn);
+    return n < 0 ? `overdue by ${-n} days` : `${n} days`;
+  };
+  const stateFor = (dueOn) => (daysBetween(AS_AT, dueOn) < 0 ? 'overdue' : 'on track');
+
+  const obligations = [
+    {
+      what: `Operating strategy trigger response — chloride at ${exceedance.location}`,
+      to: 'DWER — water licensing', kind: 'response',
+      due: responseDue, dueOn: responseDue, remaining: remaining(responseDue), state: stateFor(responseDue),
+      owner: '— unassigned',
+      basis: 'GWL121904(1) condition 8 — a trigger value exceeded obliges a written response within 30 days of the evaluation',
+    },
+    {
+      what: `Six-monthly groundwater monitoring — ${overdueRound.label}`,
+      to: 'Internal programme', kind: 'round',
+      due: overdueRound.due, dueOn: overdueRound.due, remaining: remaining(overdueRound.due), state: stateFor(overdueRound.due),
+      owner: 'A. Nakamura',
+      basis: 'Sampling programme KRJ-BIA — GWL121904(1) condition 8',
+    },
+    {
+      what: 'Groundwater operating strategy — annual review',
+      to: 'DWER — water licensing', kind: 'report',
+      due: '2026-08-31', dueOn: '2026-08-31', remaining: remaining('2026-08-31'), state: stateFor('2026-08-31'),
+      owner: 'D. Okafor',
+      basis: 'GWL121904(1) condition 12 — the strategy is reviewed annually and the review lodged',
+    },
+    {
+      what: `Six-monthly groundwater monitoring — ${nextRound.label}`,
+      to: 'Internal programme', kind: 'round',
+      due: nextRound.due, dueOn: nextRound.due, remaining: remaining(nextRound.due), state: stateFor(nextRound.due),
+      owner: 'A. Nakamura',
+      basis: 'Sampling programme KRJ-BIA — GWL121904(1) condition 8',
+    },
+  ].map((o) => ({ ...o, project: code }));
+
+  return {
+    code,
+    name: 'Kurrajong Borefield',
+    operator: PROJECT.operator,
+    facility: 'Kurrajong water supply borefield',
+    jurisdiction: PROJECT.jurisdiction,
+    licence: 'GWL121904(1)',
+    licenceKind: 'Licence to take water — s5C, Rights in Water and Irrigation Act 1914 (WA)',
+    timezone: PROJECT.timezone,
+    crs: PROJECT.crs,
+    role: 'Approver',
+    where: '38 km north-west of the Wandalup mine — the borefield the plant and the accommodation village draw from',
+    programme: { code: 'KRJ-BIA', frequency: 'biannual', label: 'Six-monthly groundwater monitoring' },
+    criteriaSet: 'Kurrajong groundwater operating strategy — trigger values',
+    criteriaVersion: '2021.1',
+    criteriaSource: 'GWL121904(1) condition 8',
+    trigger,
+    bores,
+    rounds,
+    results,
+    aboveTrigger: above.length,
+    exceedance,
+    overdueRound,
+    nextRound,
+    obligations,
+    /*
+     * What this catalogue does *not* draw, said once and read wherever the
+     * project appears. Every other screen here renders MOCK-WDL's workspace;
+     * this project has no location register, no crosstab and no report of its
+     * own, and a row that linked into Wandalup's would be the scope confusion
+     * the search screen already warns about.
+     */
+    drawn: false,
+    notDrawn:
+      'Its workspace is not drawn in this catalogue. Crossing into it is a scope switch rather than a link — the header, the section strip and what every screen is about all change — so the cross-project surfaces below stop at the switch and say so.',
+  };
+})();
+
+export const PRINCIPAL = (() => {
+  /*
+   * A role binding is per project (glossary: *role binding*), so a principal
+   * has as many as they have projects. `roleBinding` is the binding **in the
+   * current scope** — the one the top bar shows — and it is derived from the
+   * list rather than typed beside it, because a header naming a role the
+   * project list disagrees with is the two-surfaces failure at its most
+   * embarrassing.
+   */
+  const bindings = [
+    { project: PROJECT.code, role: 'Contributor' },
+    { project: KURRAJONG.code, role: KURRAJONG.role },
+  ];
+  const current = bindings.find((b) => b.project === PROJECT.code);
+  return {
+    name: 'A. Nakamura',
+    role: 'Hydrogeologist',
+    subject: 'anakamura@wandalup.example',
+    bindings,
+    roleBinding: `${current.role} · ${current.project}`,
+  };
+})();
 
 export const ROUND = {
   code: '2026-Q2-GW',
@@ -824,25 +1055,37 @@ export const WATER = (() => {
   };
 })();
 
-/** Obligations across the estate. */
+/**
+ * Wandalup's obligations. **This project's, not the estate's** — the portfolio
+ * register is `PORTFOLIO.obligations` below, and the two are kept apart so a
+ * screen scoped to one project cannot quietly start counting two.
+ *
+ * Three fields carry the wave-5 additions and none of them changes a word that
+ * renders on an existing row. `project` is what makes the cross-project board
+ * able to say whose row it is. `kind` is what lets a *round* be counted as a
+ * round rather than matched out of prose. And `dueOn` is the due date as a
+ * sortable key beside `due`, which stays in the regulator's own words — the
+ * glossary's rule for a reporting obligation is that the wording survives, and
+ * "owed now" is a due rule rather than a date.
+ */
 export const OBLIGATIONS = [
-  { what: 'Annual Environmental Report', to: 'DWER', due: '2026-09-30', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 condition 18' },
+  { what: 'Annual Environmental Report', to: 'DWER', due: '2026-09-30', dueOn: '2026-09-30', kind: 'report', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 condition 18' },
   // The return the entitlement discharges through. Condition 23 has named it
   // since the licence was drawn; until the take was drawn, nothing did.
-  { what: 'Annual water return — entitlement year to 30 September', to: 'DWER — water licensing', due: '2026-10-31', remaining: '160 days', state: 'on track', owner: 'D. Okafor', basis: 'GWL118842(2) — volumes taken in the entitlement year, by bore and by month, with the basis of each' },
-  { what: 'Quarterly groundwater monitoring — 2026 Q3', to: 'Internal programme', due: '2026-08-14', remaining: '82 days', state: 'on track', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
-  { what: 'PFAS exceedance notification', to: 'DWER', due: '2026-05-23 09:14', remaining: 'lodged', state: 'met', owner: 'R. Whitmore', basis: 'Licence condition 21 — as soon as practicable' },
-  { what: 'Quarterly discharge return — 2026 Q2', to: 'DWER', due: '2026-07-28', remaining: '65 days', state: 'on track', owner: 'D. Okafor', basis: 'Licence L8842/2019/1 condition 14' },
-  { what: 'TSF annual review — instrumentation', to: 'Board / GISTM', due: '2026-06-30', remaining: '37 days', state: 'at risk', owner: 'S. Petrelli', basis: 'GISTM requirement 4.3' },
-  { what: 'Quarterly groundwater monitoring — 2026 Q2', to: 'Internal programme', due: '2026-05-14', remaining: 'overdue by 9 days at MW11', state: 'overdue', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
-  { what: 'Annual Audit Compliance Report', to: 'DWER', due: '2026-09-30', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 — a certified statement of compliance against every condition, separate from the AER' },
-  { what: 'Contaminated Sites Act report — PFAS at MW05', to: 'DWER — contaminated sites', due: 'owed now', remaining: 'owed since 2026-05-22 09:14', state: 'overdue', owner: 'R. Whitmore', basis: 'Contaminated Sites Act 2003 (WA) s11 — a duty on awareness, not a licence condition' },
-  { what: 'Subterranean fauna monitoring — 2026 wet season', to: 'Internal / EPA condition', due: '2026-09-15', remaining: '114 days', state: 'on track', owner: 'S. Petrelli', basis: 'Ministerial statement 1184 condition 9' },
+  { what: 'Annual water return — entitlement year to 30 September', to: 'DWER — water licensing', due: '2026-10-31', dueOn: '2026-10-31', kind: 'report', remaining: '160 days', state: 'on track', owner: 'D. Okafor', basis: 'GWL118842(2) — volumes taken in the entitlement year, by bore and by month, with the basis of each' },
+  { what: 'Quarterly groundwater monitoring — 2026 Q3', to: 'Internal programme', due: '2026-08-14', dueOn: '2026-08-14', kind: 'round', remaining: '82 days', state: 'on track', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
+  { what: 'PFAS exceedance notification', to: 'DWER', due: '2026-05-23 09:14', dueOn: '2026-05-23', kind: 'notification', remaining: 'lodged', state: 'met', owner: 'R. Whitmore', basis: 'Licence condition 21 — as soon as practicable' },
+  { what: 'Quarterly discharge return — 2026 Q2', to: 'DWER', due: '2026-07-28', dueOn: '2026-07-28', kind: 'report', remaining: '65 days', state: 'on track', owner: 'D. Okafor', basis: 'Licence L8842/2019/1 condition 14' },
+  { what: 'TSF annual review — instrumentation', to: 'Board / GISTM', due: '2026-06-30', dueOn: '2026-06-30', kind: 'report', remaining: '37 days', state: 'at risk', owner: 'S. Petrelli', basis: 'GISTM requirement 4.3' },
+  { what: 'Quarterly groundwater monitoring — 2026 Q2', to: 'Internal programme', due: '2026-05-14', dueOn: '2026-05-14', kind: 'round', remaining: 'overdue by 9 days at MW11', state: 'overdue', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
+  { what: 'Annual Audit Compliance Report', to: 'DWER', due: '2026-09-30', dueOn: '2026-09-30', kind: 'report', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 — a certified statement of compliance against every condition, separate from the AER' },
+  { what: 'Contaminated Sites Act report — PFAS at MW05', to: 'DWER — contaminated sites', due: 'owed now', dueOn: '2026-05-22', kind: 'notification', remaining: 'owed since 2026-05-22 09:14', state: 'overdue', owner: 'R. Whitmore', basis: 'Contaminated Sites Act 2003 (WA) s11 — a duty on awareness, not a licence condition' },
+  { what: 'Subterranean fauna monitoring — 2026 wet season', to: 'Internal / EPA condition', due: '2026-09-15', dueOn: '2026-09-15', kind: 'round', remaining: '114 days', state: 'on track', owner: 'S. Petrelli', basis: 'Ministerial statement 1184 condition 9' },
   // Raised by the window condition tripping at 2026-Q1-GW, not by anybody
   // remembering to raise it — which is the point of evaluating a condition
   // rather than describing one.
-  { what: 'Groundwater investigation programme — copper at MW05', to: 'DWER', due: '2026-03-16', remaining: 'lodged 2026-02-27', state: 'met', owner: 'A. Nakamura', basis: 'Licence L8842/2019/1 condition 12(c) — three consecutive rounds above the copper guideline value, tripped at 2026-Q1-GW' },
-];
+  { what: 'Groundwater investigation programme — copper at MW05', to: 'DWER', due: '2026-03-16', dueOn: '2026-03-16', kind: 'response', remaining: 'lodged 2026-02-27', state: 'met', owner: 'A. Nakamura', basis: 'Licence L8842/2019/1 condition 12(c) — three consecutive rounds above the copper guideline value, tripped at 2026-Q1-GW' },
+].map((o) => ({ ...o, project: PROJECT.code }));
 
 /** The statutory notification, with the countdown frozen onto the event. */
 export const NOTIFICATION = {
@@ -966,19 +1209,99 @@ export const INSTANCE = {
  * ==================================================================== */
 
 /**
- * Every project the principal holds a binding in (§2.1).
+ * Every project the principal holds a binding in (§2.1) — **two, and every
+ * number on both rows is counted rather than typed.**
  *
- * The role is on the row because *as what* you are acting is the first thing
- * project scope decides, and a user who cannot see it is guessing. One of
- * these is deliberately `viewer`: a switcher that only ever shows one role
- * teaches nothing about what the scope means.
+ * This list used to hold four rows and three of them were scenery: `locations:
+ * 14` and `open: 0` on sites with no data behind them, beside a Wandalup row
+ * reading `locations: 9` while the register held fourteen. A portfolio is
+ * exactly the screen where a hand-kept count does its damage — *where is
+ * something wrong* is answered by the numbers on these rows, and a wrong one
+ * sends somebody to the wrong site or, worse, nowhere. The three scenery rows
+ * are gone and the seed backs the two that remain.
+ *
+ * The role is still on the row, because *as what* you are acting is the first
+ * thing project scope decides — and it is now demonstrated rather than
+ * asserted: the same person is a Contributor at one site and an Approver at
+ * the other. The Viewer binding the old fourth row existed to show is real on
+ * `#roles`, where S. Petrelli holds one.
  */
-export const PROJECTS = [
-  { code: 'MOCK-WDL', name: 'Wandalup Operations', role: 'Contributor', facility: 'Wandalup mine and TSF', locations: 9, open: 9, due: '2026-08-14', current: true },
-  { code: 'MOCK-KRJ', name: 'Kurrajong Borefield', role: 'Contributor', facility: 'Kurrajong water supply', locations: 14, open: 0, due: '2026-09-01', current: false },
-  { code: 'MOCK-WNJ', name: 'Wanjina Landfill', role: 'Approver', facility: 'Wanjina waste facility', locations: 6, open: 2, due: '2026-08-29', current: false },
-  { code: 'MOCK-YRA', name: 'Yarra Rehabilitation', role: 'Viewer', facility: 'Yarra closure area', locations: 22, open: 0, due: '—', current: false },
-];
+export const PROJECTS = (() => {
+  const roleIn = (project) => PRINCIPAL.bindings.find((b) => b.project === project)?.role ?? '—';
+  const rounds = (obligations) => obligations.filter((o) => o.kind === 'round');
+  const nextRoundDue = (obligations) =>
+    rounds(obligations)
+      .filter((o) => o.state !== 'overdue')
+      .map((o) => o.dueOn)
+      .sort()[0] ?? '—';
+
+  return [
+    {
+      code: PROJECT.code,
+      name: PROJECT.name,
+      facility: PROJECT.facility,
+      role: roleIn(PROJECT.code),
+      current: true,
+      drawn: true,
+      locations: LOCATIONS.length,
+      exceedances: EXCEEDANCES.length,
+      unacknowledged: EXCEEDANCES.filter((e) => e.state === 'open').length,
+      roundsOverdue: rounds(OBLIGATIONS).filter((o) => o.state === 'overdue').length,
+      nextRound: nextRoundDue(OBLIGATIONS),
+      obligations: OBLIGATIONS,
+      note: 'The workspace this catalogue draws. Every other screen here is inside it.',
+    },
+    {
+      code: KURRAJONG.code,
+      name: KURRAJONG.name,
+      facility: KURRAJONG.facility,
+      role: roleIn(KURRAJONG.code),
+      current: false,
+      drawn: KURRAJONG.drawn,
+      locations: KURRAJONG.bores.length,
+      exceedances: KURRAJONG.aboveTrigger,
+      unacknowledged: KURRAJONG.exceedance.state === 'open' ? 1 : 0,
+      roundsOverdue: rounds(KURRAJONG.obligations).filter((o) => o.state === 'overdue').length,
+      nextRound: nextRoundDue(KURRAJONG.obligations),
+      obligations: KURRAJONG.obligations,
+      note: KURRAJONG.notDrawn,
+    },
+  ];
+})();
+
+/**
+ * The estate, as the two `/aggregate` questions actually ask it.
+ *
+ * *What is due* is one register across every binding, ordered by when it falls
+ * rather than by which project it belongs to — an operator's week is not
+ * partitioned by project and a board that partitioned it would hide the row
+ * that matters. `dueOn` is the sort key; `due` stays as written.
+ *
+ * *Where is something wrong* is the per-project decomposition beside it, so an
+ * aggregate can always be taken apart into the sites it was added up from.
+ */
+export const PORTFOLIO = (() => {
+  const obligations = PROJECTS.flatMap((p) => p.obligations).sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  const count = (state, rows = obligations) => rows.filter((o) => o.state === state).length;
+  return {
+    asAt: AS_AT,
+    projects: PROJECTS,
+    obligations,
+    states: ['overdue', 'at risk', 'on track', 'met'],
+    counts: Object.fromEntries(['overdue', 'at risk', 'on track', 'met'].map((s) => [s, count(s)])),
+    byProject: PROJECTS.map((p) => ({
+      code: p.code,
+      name: p.name,
+      drawn: p.drawn,
+      obligations: p.obligations.length,
+      counts: Object.fromEntries(['overdue', 'at risk', 'on track', 'met'].map((s) => [s, count(s, p.obligations)])),
+      unacknowledged: p.unacknowledged,
+      roundsOverdue: p.roundsOverdue,
+    })),
+    says:
+      'Two projects, one register. The rows interleave by date because that is how the week arrives — the oldest thing owed on this estate is a trigger response at Kurrajong that nobody was assigned, and it sits above every Wandalup row rather than below a project heading nobody opened.',
+  };
+})();
 
 /**
  * The work queue (§1.1) — what needs this person, before any navigation.
@@ -986,17 +1309,47 @@ export const PROJECTS = [
  * Ordered by role rather than by configuration: the principal is a
  * hydrogeologist, so exceptions sort above approvals. Each row carries the
  * screen that *resolves* it, never a list to re-search from.
+ *
+ * **The project is a field, not a phrase inside the context.** It used to be
+ * the first token of a sentence, which reads fine and cannot be counted,
+ * filtered or checked — and the landing surface of a two-project estate is the
+ * one place *which site is this* has to be structural. Two of the rows are on
+ * the second project, and their `target` is honest about where it can take
+ * you: MOCK-KRJ's workspace is not drawn, so they open the cross-project
+ * register that does hold them rather than pretending to open a screen that
+ * is somebody else's project.
  */
 export const WORK_QUEUE = [
-  { kind: 'Exceedance', urgency: 'now', headline: 'PFOS + PFHxS at MW05 is 37× the ANZG 2018 DGV', context: 'MOCK-WDL · first occurrence · TARP Level 3 raised', age: '3 days open', target: 'exceedances', action: 'Review exceedance' },
-  { kind: 'Notification', urgency: 'now', headline: 'Statutory notification lodged — evidence not attached', context: 'MOCK-WDL · DWER condition 21 · lodged 2026-05-22 14:30 AWST', age: '1 day', target: 'notification', action: 'Attach receipt' },
-  { kind: 'Overdue round', urgency: 'now', headline: 'MW11 not sampled for 2026 Q2', context: 'MOCK-WDL · programme GW-QTR · window closed 2026-05-14 AWST', age: 'overdue by 9 days', target: 'programme', action: 'Record or reschedule' },
-  { kind: 'Review', urgency: 'soon', headline: '3 questions on IMP-0239 block its commit', context: 'MOCK-WDL · Yarra Regional Analytical · 42 rows read', age: '5 days', target: 'import-review', action: 'Answer questions' },
-  { kind: 'Quarantine', urgency: 'soon', headline: '3 rows held out of IMP-0239', context: 'MOCK-WDL · holding time, aborted analysis', age: '5 days', target: 'quarantine', action: 'Resolve holds' },
-  { kind: 'Alert', urgency: 'soon', headline: 'TSF-VWP-03 has not reported for 41 hours', context: 'MOCK-WDL · vibrating wire piezometer · last reading 2026-08-21 16:12', age: '41 h', target: 'tarp', action: 'Acknowledge' },
-  { kind: 'Stale figure', urgency: 'soon', headline: 'Report §5 exceedance table is stale after a supersession', context: 'MOCK-WDL · arsenic at MW03B superseded 2026-05-19', age: '4 days', target: 'supersession', action: 'Regenerate' },
-  { kind: 'Approval', urgency: 'later', headline: '2026 Q1 report awaits your countersignature', context: 'MOCK-WNJ · you hold Approver on this project', age: '11 days', target: 'signoff', action: 'Review snapshot' },
-];
+  { kind: 'Exceedance', urgency: 'now', headline: 'PFOS + PFHxS at MW05 is 37× the ANZG 2018 DGV', context: 'First occurrence · TARP Level 3 raised', project: PROJECT.code, age: '3 days open', target: 'exceedances', action: 'Review exceedance' },
+  { kind: 'Notification', urgency: 'now', headline: 'Statutory notification lodged — evidence not attached', context: 'DWER condition 21 · lodged 2026-05-22 14:30 AWST', project: PROJECT.code, age: '1 day', target: 'notification', action: 'Attach receipt' },
+  { kind: 'Overdue round', urgency: 'now', headline: 'MW11 not sampled for 2026 Q2', context: 'Programme GW-QTR · window closed 2026-05-14 AWST', project: PROJECT.code, age: 'overdue by 9 days', target: 'programme', action: 'Record or reschedule' },
+  // The two live facts at the second project. Both are computed from
+  // KURRAJONG rather than restated here, so the queue card and the obligation
+  // register cannot come apart on a number.
+  {
+    kind: 'Exceedance', urgency: 'now',
+    headline: `Chloride at ${KURRAJONG.exceedance.location} is ${KURRAJONG.exceedance.factor} the operating-strategy trigger, and nobody has acknowledged it`,
+    context: `Round ${KURRAJONG.exceedance.round} · evaluated ${KURRAJONG.exceedance.evaluated} · the response it obliged is ${KURRAJONG.obligations[0].remaining}`,
+    project: KURRAJONG.code, age: `${KURRAJONG.exceedance.openDays} days open`,
+    target: 'obligations', action: 'Open it on the cross-project register',
+  },
+  {
+    kind: 'Overdue round', urgency: 'now',
+    headline: `The ${KURRAJONG.overdueRound.label} six-monthly round at Kurrajong has not been collected`,
+    context: `Programme ${KURRAJONG.programme.code} · window closed ${KURRAJONG.overdueRound.due} AWST · it is the round that would test the chloride step`,
+    project: KURRAJONG.code, age: KURRAJONG.obligations[1].remaining,
+    target: 'obligations', action: 'Open it on the cross-project register',
+  },
+  { kind: 'Review', urgency: 'soon', headline: '3 questions on IMP-0239 block its commit', context: 'Yarra Regional Analytical · 42 rows read', project: PROJECT.code, age: '5 days', target: 'import-review', action: 'Answer questions' },
+  { kind: 'Quarantine', urgency: 'soon', headline: '3 rows held out of IMP-0239', context: 'Holding time, aborted analysis', project: PROJECT.code, age: '5 days', target: 'quarantine', action: 'Resolve holds' },
+  { kind: 'Alert', urgency: 'soon', headline: 'TSF-VWP-03 has not reported for 41 hours', context: 'Vibrating wire piezometer · last reading 2026-08-21 16:12', project: PROJECT.code, age: '41 h', target: 'tarp', action: 'Acknowledge' },
+  { kind: 'Stale figure', urgency: 'soon', headline: 'Report §5 exceedance table is stale after a supersession', context: 'Arsenic at MW03B superseded 2026-05-19', project: PROJECT.code, age: '4 days', target: 'supersession', action: 'Regenerate' },
+  // The old row here was a countersignature on a project with no data behind
+  // it. This one is a real open decision on this project's own record: seven
+  // results that cannot be assessed until the laboratory's reporting limit
+  // comes down, and a quote for what that costs.
+  { kind: 'Decision', urgency: 'later', headline: 'Cadmium cannot be assessed at any bore until the reporting limit comes down', context: '7 results indeterminate · PAS quoted ICP-MS/MS at +$18 per sample', project: PROJECT.code, age: '3 days', target: 'indeterminate', action: 'Review the register' },
+].map((w) => ({ ...w, crossProject: w.project !== PROJECT.code }));
 
 /**
  * Planned against received for the open period (EX-20).
@@ -1031,34 +1384,65 @@ export const COMPLETENESS = {
  * and its project, and selecting one across a scope boundary switches the
  * scope *visibly*: fail-closed RLS made legible rather than surprising.
  */
-export const SEARCH = {
-  query: 'MW0',
-  groups: [
-    { label: 'Locations — identifier match', rows: [
+export const SEARCH = (() => {
+  const query = 'MW0';
+  const groups = [
+    { label: 'Locations — identifier starts with the query', rank: 'prefix', rows: [
       { code: 'MW05', what: 'Groundwater monitoring bore · TSF · downgradient', project: 'MOCK-WDL', target: 'location', badge: 'exceedance' },
       { code: 'MW01A', what: 'Groundwater monitoring bore · Borefield · upgradient', project: 'MOCK-WDL', target: 'location', badge: null },
       { code: 'MW03B', what: 'Groundwater monitoring bore · Borefield · nested, confined', project: 'MOCK-WDL', target: 'location', badge: null },
       { code: 'MW07', what: 'Groundwater monitoring bore · TSF · downgradient', project: 'MOCK-WDL', target: 'location', badge: null },
       { code: 'MW09', what: 'Groundwater monitoring bore · compliance boundary', project: 'MOCK-WDL', target: 'location', badge: 'indeterminate' },
-      { code: 'MW04', what: 'Groundwater monitoring bore · Kurrajong borefield', project: 'MOCK-KRJ', target: 'location', badge: 'other project' },
     ] },
-    { label: 'Sampling events', rows: [
+    /*
+     * The claim above this group — identifier prefixes rank first — had
+     * nothing to demonstrate it until there were two projects. Kurrajong's
+     * bores carry the project prefix, so `MW0` matches them in the middle of
+     * the code rather than at the front, and they rank below every exact
+     * prefix match. Same query, both projects, correct order.
+     */
+    { label: 'Locations — identifier contains the query', rank: 'contains', rows:
+      KURRAJONG.bores
+        .filter((b) => b.code.includes(query))
+        .map((b) => ({
+          code: b.code,
+          what: `${b.klass === 'production_bore' ? 'Production bore' : 'Groundwater monitoring bore'} · ${b.role}`,
+          project: KURRAJONG.code,
+          target: 'projects',
+          badge: b.code === KURRAJONG.exceedance.location ? 'exceedance' : null,
+        })) },
+    { label: 'Sampling events', rank: 'contains', rows: [
       { code: '2026-Q2-GW', what: 'Quarterly groundwater · collected 12–14 May 2026 · includes MW05', project: 'MOCK-WDL', target: 'events', badge: null },
     ] },
-    { label: 'Import runs and certificates', rows: [
+    { label: 'Import runs and certificates', rank: 'contains', rows: [
       { code: 'PAS2026-04417', what: 'Certificate · Pilbara Analytical Services · 231 results · covers MW05', project: 'MOCK-WDL', target: 'certificate', badge: null },
       { code: 'IMP-0239', what: 'Import run · Yarra Regional v2 · in review · 3 questions', project: 'MOCK-WDL', target: 'import-review', badge: 'in review' },
     ] },
-    { label: 'Criteria sets and licences', rows: [
-      { code: 'L8842/2019/1', what: 'Licence · DWER · 24 conditions · governs MW05, MW07, MW09, MW11', project: 'MOCK-WDL', target: 'licence', badge: null },
+    { label: 'Criteria sets and licences', rank: 'contains', rows: [
+      { code: PROJECT.licence, what: 'Licence · DWER · 24 conditions · governs MW05, MW07, MW09, MW11', project: PROJECT.code, target: 'licence', badge: null },
+      { code: KURRAJONG.licence, what: `Licence to take water · DWER · governs ${KURRAJONG.bores.filter((b) => b.klass === 'groundwater').map((b) => b.code).join(', ')}`, project: KURRAJONG.code, target: 'projects', badge: null },
     ] },
-  ],
-};
+  ];
+  const rows = groups.flatMap((g) => g.rows);
+  return {
+    query,
+    groups,
+    rows,
+    matches: rows.length,
+    projects: new Set(rows.map((r) => r.project)).size,
+    /* Both counted, because the empty state quotes them and a typed one was
+     * already wrong: it said nine locations start with "MW0" and five do. */
+    prefixLocations: groups.find((g) => g.rank === 'prefix').rows.length,
+    containsLocations: groups.find((g) => g.label.startsWith('Locations — identifier contains')).rows.length,
+  };
+})();
 
 /** The facility → area hierarchy (§3.1, FR-1.1). */
 export const FACILITY = {
-  name: 'Wandalup mine and TSF',
-  operator: 'Wandalup Resources Pty Ltd',
+  // One string, read twice: the project list names the facility on its row and
+  // this screen names it as a heading, and they cannot come apart.
+  name: PROJECT.facility,
+  operator: PROJECT.operator,
   tenement: 'M47/1882',
   /*
    * `locations` is counted from LOCATIONS rather than typed beside it. The
