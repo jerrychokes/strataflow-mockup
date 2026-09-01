@@ -1103,7 +1103,11 @@ export const RECEIPT = {
   checks: [
     { what: 'Cooler temperature on arrival', found: '4.2 °C', limit: '≤ 6 °C', outcome: 'pass' },
     { what: 'Temperature blank present', found: 'yes', limit: 'required', outcome: 'pass' },
-    { what: 'Custody seals intact', found: '2 of 2 intact', limit: 'all intact', outcome: 'pass' },
+    { what: 'Custody seals intact', found: '2 of 2 intact', limit: 'all intact', outcome: 'pass',
+      // W2-A-1: integrity and identity are different checks, and the identity
+      // question lives on the chain — this row must say so, or two surfaces
+      // disagree about custody, which is the exact failure claim B5 documents.
+      note: 'Integrity passed. One seal number is in question — not the seal — and the question is held on the chain of custody.' },
     { what: 'Containers received against the chain of custody', found: '38 of 38', limit: 'all', outcome: 'pass' },
     { what: 'Preservation — nitric acid, dissolved metals', found: 'pH < 2 verified on 7 of 7', limit: 'pH < 2', outcome: 'pass' },
     { what: 'Headspace — VOC vials', found: 'n/a — no VOCs in this suite', limit: '—', outcome: 'n/a' },

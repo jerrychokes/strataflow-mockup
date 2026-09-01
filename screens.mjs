@@ -2109,7 +2109,8 @@ const sampleReceipt = () => (
     head: ['Check', 'Found', 'Acceptance', 'Outcome'],
     rows: RECEIPT.checks.map((c) => [
       esc(c.what),
-      `<strong>${esc(c.found)}</strong>`,
+      `<strong>${esc(c.found)}</strong>` +
+        (c.note ? `<br><span class="mk-muted">${esc(c.note)}</span> <a class="mk-ref" href="#ecoc">Chain of custody</a>` : ''),
       `<span class="mk-muted">${esc(c.limit)}</span>`,
       c.outcome === 'n/a'
         ? '<span class="mk-num mk-num--nil">n/a</span>'
