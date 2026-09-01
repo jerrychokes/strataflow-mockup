@@ -1,0 +1,1219 @@
+/*
+ * G-13b — the approved direction as stylesheet.
+ *
+ * A real stylesheet rather than inline `style` attributes or a `<style>` block,
+ * and that is a security constraint before it is a taste one: the deployed CSP
+ * says `style-src 'self'` (G-84), so an inline style block is *blocked in
+ * production* and would work only in development. Discovering that at deploy is
+ * the sort of thing that gets a CSP relaxed.
+ *
+ * ## The `:root` block is checked against `app/design/tokens.ts`
+ *
+ * `test/design/token-css.spec.ts` parses this file and fails if a single custom
+ * property disagrees with the tokens module, in either direction. Two places hold
+ * the same values because CSS needs them as text and TypeScript needs them as
+ * types, and the test is what stops that from becoming two sources of truth.
+ * Adding a token without adding the property fails; changing one here without
+ * changing the module fails.
+ *
+ * Everything below `:root` is layout and is not mirrored anywhere — it is this
+ * file's own business.
+ */
+
+:root {
+  /* Typography */
+  --sf-font-display: 'Inter', system-ui, sans-serif;
+  --sf-font-ui: 'Inter', system-ui, sans-serif;
+  --sf-font-data: 'Plex Mono', ui-monospace, monospace;
+  --sf-size-xs: 11px;
+  --sf-size-sm: 12px;
+  --sf-size-base: 13px;
+  --sf-size-md: 15px;
+  --sf-size-lg: 18px;
+  --sf-size-xl: 23px;
+  --sf-leading-tight: 1.3;
+  --sf-leading-base: 1.5;
+
+  /* Colour */
+  --sf-ground: #ffffff;
+  --sf-surface: #f4f6f8;
+  --sf-ink: #12161a;
+  --sf-ink-muted: #5a6672;
+  --sf-rule: #d7dde3;
+  --sf-rule-strong: #9aa6b2;
+  --sf-exceedance: #b3300c;
+  --sf-indeterminate: #12161a;
+  --sf-accent: #14607a;
+
+  /* Space and density */
+  --sf-row: 1.75rem;
+  --sf-pad-cell: 0.34rem 0.8rem;
+  --sf-pad-sheet: 2rem 2.25rem;
+  --sf-space-xs: 0.3rem;
+  --sf-space-sm: 0.55rem;
+  --sf-space-md: 1rem;
+  --sf-space-lg: 1.75rem;
+  --sf-space-xl: 2.5rem;
+
+  /* Elevation and radius */
+  --sf-elevation-panel: inset 0 0 0 1px #d7dde3;
+  --sf-elevation-overlay: 0 2px 4px rgba(18, 22, 26, 0.08), 0 8px 24px rgba(18, 22, 26, 0.12);
+  --sf-radius-sm: 3px;
+  --sf-radius-md: 4px;
+
+  /* Mark colours — G-13a's own decision, held to WCAG 1.4.11 */
+  --sf-mark-compliant: #6b7885;
+  --sf-mark-exceedance: #b3300c;
+  --sf-mark-indeterminate: #12161a;
+  --sf-mark-not-evaluated: #7d8b98;
+  --sf-mark-on-exceedance: #ffffff;
+}
+
+/* ------------------------------------------------------------------ *
+ * Ground
+ * ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--sf-ground);
+  color: var(--sf-ink);
+  font-family: var(--sf-font-ui);
+  font-size: var(--sf-size-base);
+  line-height: var(--sf-leading-base);
+}
+
+/*
+ * Focus is never removed, only restyled. A keyboard user who cannot see where
+ * they are has no way through the exception queue at all, and `outline: none`
+ * with nothing in its place is the single most common way that happens.
+ */
+:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Button
+ * ------------------------------------------------------------------ */
+
+.sf-button {
+  font-family: var(--sf-font-ui);
+  font-size: var(--sf-size-sm);
+  font-weight: 500;
+  line-height: var(--sf-leading-tight);
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--sf-rule-strong);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-ground);
+  color: var(--sf-ink);
+  cursor: pointer;
+  /* 24px, so a row-height control is still a target at G-81's field sizes. */
+  min-height: 1.75rem;
+}
+
+.sf-button--primary {
+  background: var(--sf-ink);
+  border-color: var(--sf-ink);
+  color: var(--sf-ground);
+}
+
+.sf-button--danger {
+  border-color: var(--sf-exceedance);
+  color: var(--sf-exceedance);
+}
+
+.sf-button:disabled {
+  cursor: not-allowed;
+  /* Muted ink on the surface is 5.42:1 — a disabled control still has to be
+     readable, because "why is this off" is a question the label answers. */
+  color: var(--sf-ink-muted);
+  background: var(--sf-surface);
+  border-color: var(--sf-rule);
+}
+
+/* ------------------------------------------------------------------ *
+ * Field
+ * ------------------------------------------------------------------ */
+
+.sf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sf-space-xs);
+}
+
+.sf-field__label {
+  font-size: var(--sf-size-xs);
+  font-weight: 600;
+  color: var(--sf-ink-muted);
+}
+
+.sf-field__control {
+  font-family: var(--sf-font-ui);
+  font-size: var(--sf-size-base);
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--sf-rule-strong);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-ground);
+  color: var(--sf-ink);
+  min-height: 1.75rem;
+}
+
+.sf-field__control[data-invalid='true'] {
+  border-color: var(--sf-exceedance);
+  /* Border colour alone would be a colour-only signal. The message below is the
+     channel that survives; this is the redundant one. */
+  border-width: 2px;
+}
+
+.sf-field__hint {
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+}
+
+.sf-field__error {
+  font-size: var(--sf-size-xs);
+  color: var(--sf-exceedance);
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------ *
+ * Table
+ * ------------------------------------------------------------------ */
+
+.sf-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--sf-size-base);
+}
+
+.sf-table th,
+.sf-table td {
+  text-align: left;
+  vertical-align: baseline;
+  padding: var(--sf-pad-cell);
+  height: var(--sf-row);
+}
+
+.sf-table thead th {
+  font-size: var(--sf-size-xs);
+  font-weight: 600;
+  color: var(--sf-ink-muted);
+  border-bottom: 1px solid var(--sf-rule-strong);
+  vertical-align: bottom;
+}
+
+.sf-table thead th small,
+.sf-table tbody th small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sf-ink-muted);
+}
+
+.sf-table tbody tr:nth-child(even) {
+  background: #f7f9fa;
+}
+
+.sf-table tbody th {
+  font-weight: 450;
+}
+
+.sf-table__caption {
+  caption-side: top;
+  text-align: left;
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+  padding-bottom: var(--sf-space-xs);
+}
+
+/* ------------------------------------------------------------------ *
+ * Result value — the G-13a encoding, drawn
+ * ------------------------------------------------------------------ */
+
+.sf-result {
+  white-space: nowrap;
+  font-family: var(--sf-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+}
+
+.sf-result--exceedance .sf-result__value {
+  font-weight: 600;
+  color: var(--sf-exceedance);
+}
+
+.sf-result--censored .sf-result__value {
+  color: var(--sf-ink-muted);
+}
+
+.sf-result__superseded {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: #8695a2;
+}
+
+.sf-result__arrow {
+  color: #8695a2;
+  padding: 0 0.25em;
+}
+
+.sf-result--quarantined {
+  box-shadow: inset 3px 0 0 0 var(--sf-ink);
+  background: repeating-linear-gradient(45deg, #eef1f4, #eef1f4 3px, #dfe5ea 3px, #dfe5ea 6px);
+}
+
+.sf-result__bracket {
+  font-weight: 600;
+}
+
+.sf-result__marks {
+  display: inline-flex;
+  gap: 0.3em;
+  vertical-align: baseline;
+  margin-left: 0.35em;
+}
+
+.sf-mark {
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Legend
+ * ------------------------------------------------------------------ */
+
+.sf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+}
+
+.sf-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.sf-legend__key {
+  font-weight: 600;
+  color: var(--sf-ink);
+}
+
+/* ------------------------------------------------------------------ *
+ * Notice
+ * ------------------------------------------------------------------ */
+
+.sf-notice {
+  border: 1px solid var(--sf-rule-strong);
+  border-left: 3px solid var(--sf-ink);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-surface);
+  padding: 0.6rem 0.85rem;
+  font-size: var(--sf-size-sm);
+}
+
+.sf-notice--warning {
+  border-left-color: var(--sf-exceedance);
+}
+
+.sf-notice__headline {
+  font-weight: 600;
+}
+
+.sf-notice__detail {
+  margin: var(--sf-space-xs) 0 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Review queue
+ * ------------------------------------------------------------------ */
+
+.sf-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sf-space-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sf-review {
+  border: 1px solid var(--sf-rule);
+  border-left: 3px solid var(--sf-rule-strong);
+  border-radius: var(--sf-radius-sm);
+  padding: 0.7rem 0.9rem;
+  background: var(--sf-ground);
+}
+
+.sf-review__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+}
+
+.sf-review__kind {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sf-ink-muted);
+}
+
+.sf-review__subject {
+  font-size: 14.5px;
+  font-weight: 550;
+  margin: var(--sf-space-xs) 0 0;
+}
+
+.sf-review__detail {
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+  margin: 0.15rem 0 0;
+}
+
+/*
+ * The card's footer: what the answer would mean on the left, the answer on the
+ * right — and neither column may size itself to its longest sentence.
+ *
+ * It used to. `.sf-review__actions` was `flex-shrink: 0`, so the actions column
+ * took its max-content width — the whole "Reversible until you commit…"
+ * explainer on one line — the basis column was squeezed to about twelve
+ * characters and wrapped word by word, and the **Apply** button ended up
+ * 300px outside a 1280px viewport with the document scrolling to 1645px. The
+ * audit's F-10, unfixed through three rounds and slightly worse each time.
+ *
+ * `min-width: 0` is the load-bearing half: a flex item's automatic minimum is
+ * its min-content size, which for a column containing a select and a sentence
+ * is still wider than the space there is. `flex-wrap` is the other half — below
+ * about 34rem of card the two columns stop competing and stack, which is what
+ * the phone rule already did at 375px and the reason mobile was never affected.
+ */
+.sf-review__body {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 2em;
+  margin-top: var(--sf-space-sm);
+}
+
+.sf-review__body > * {
+  min-width: 0;
+}
+
+.sf-review__body > :first-child {
+  flex: 1 1 14rem;
+}
+
+.sf-review__actions {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.sf-confidence {
+  font-family: var(--sf-font-data);
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.sf-confidence__track {
+  display: inline-block;
+  width: 48px;
+  height: 5px;
+  background: #e3e8ec;
+}
+
+.sf-confidence__fill {
+  display: block;
+  height: 100%;
+  background: var(--sf-ink);
+}
+
+/* ------------------------------------------------------------------ *
+ * Dialog
+ * ------------------------------------------------------------------ */
+
+.sf-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 22, 26, 0.4);
+}
+
+.sf-dialog__content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(34rem, calc(100vw - 2rem));
+  background: var(--sf-ground);
+  border-radius: var(--sf-radius-md);
+  box-shadow: var(--sf-elevation-overlay);
+  padding: var(--sf-space-lg);
+}
+
+.sf-dialog__title {
+  margin: 0 0 var(--sf-space-xs);
+  font-size: var(--sf-size-lg);
+  font-weight: 600;
+}
+
+.sf-dialog__description {
+  margin: 0 0 var(--sf-space-md);
+  color: var(--sf-ink-muted);
+}
+
+.sf-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+}
+
+/* ------------------------------------------------------------------ *
+ * Panel and sheet
+ * ------------------------------------------------------------------ */
+
+.sf-sheet {
+  /* Phone first. The tablet breakpoint restores the approved sheet padding. */
+  padding: var(--sf-space-md) var(--sf-space-sm);
+}
+
+.sf-panel {
+  box-shadow: var(--sf-elevation-panel);
+  border-radius: var(--sf-radius-md);
+  background: var(--sf-surface);
+  padding: 0.9rem 1rem;
+}
+
+.sf-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Page shells
+ *
+ * These exist because the CSP forbids the alternative. `style-src 'self'`
+ * (G-84) blocks inline `style` *attributes*, not only `<style>` blocks — so
+ * every `style={{ … }}` in a component is silently dropped in a deployed
+ * instance while working perfectly in development. Five files carried twenty of
+ * them; this is where they went.
+ * ------------------------------------------------------------------ */
+
+/*
+ * Two shells, because a register and a consent form are not the same shape.
+ *
+ * This was `max-width: 48rem` for every screen — a 768px column on a 2000px
+ * display. That is where the crosstab wrapped `88 mg/L` onto two lines while
+ * two thirds of the window stayed empty, and where the mockup's side rails had
+ * nowhere to go. The mockup's own canvas (`design/mockup`, `.mk-canvas`) carries
+ * no max-width at all: it is fluid, and readable measure comes from capping the
+ * *prose* — `.mk-head .sf-lede` is 74ch there — rather than the page. That is
+ * the rule reproduced here, and the reason `--narrow` is the exception rather
+ * than the default it used to be.
+ *
+ * The 120rem ceiling is the one departure from the mockup, deliberately. At the
+ * ~2000px viewport the mockup was drawn against, fluid and capped are the same
+ * picture; the cap bites only on an ultrawide, where a register row spanning
+ * 3440px is one the eye cannot track from Location across to State.
+ */
+.sf-page {
+  max-width: 120rem;
+  margin: 2.5rem auto 4rem;
+  padding: 0 var(--sf-space-lg);
+}
+
+/*
+ * One column of reading, or one form. Full width would give a short field label
+ * a 1900px row to sit alone in, which is worse than the crush it replaces — so
+ * this keeps the old measure for the screens that were always shaped for it.
+ * `test/navigation/page-shell.spec.ts` is the inventory of which those are.
+ */
+.sf-page--narrow {
+  max-width: 48rem;
+  padding: 0 var(--sf-space-md);
+}
+
+.sf-page h1 {
+  margin-bottom: 0.25rem;
+}
+
+/*
+ * Main pane with a rail beside it — the mockup's `mk-cols`, which is 132
+ * occurrences there and none here until now.
+ *
+ * The columns are a class rather than `mk-cols`' `var(--mk-cols)` because that
+ * custom property is set by an inline `style` attribute in the mockup, and
+ * `style-src 'self'` (G-84) drops inline style *attributes* in a deployed
+ * instance while leaving them working in development. A figure that loses its
+ * rail only in production is the failure mode this block exists to prevent.
+ *
+ * `minmax(0, …)` on the main column is load-bearing: a grid item's automatic
+ * minimum is its content, so a wide table would push the rail off the screen
+ * instead of scrolling inside its own container.
+ */
+.sf-cols {
+  display: grid;
+  gap: var(--sf-space-lg);
+  align-items: start;
+}
+
+/*
+ * One column is the *default*, and the rail is what desktop adds — the direction
+ * G-81 fixes for this stylesheet. Written the other way round (a `max-width`
+ * that collapses the rail on small screens) it read as the phone being the
+ * exception patched afterwards, and it also spent the one max-width query the
+ * sheet is allowed, which belongs to the table-stacking rule.
+ */
+.sf-cols--rail,
+.sf-cols--plate {
+  grid-template-columns: 1fr;
+}
+
+/*
+ * The rail is a panel, not a column of loose text. Without the surface it reads
+ * as content that happens to be on the right; the mockup boxes it for the same
+ * reason, and the box is what says "this describes the thing beside it".
+ */
+.sf-rail {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-rule);
+  border-radius: 3px;
+  padding: var(--sf-space-md);
+}
+
+.sf-rail > .mk-group {
+  margin-bottom: 0;
+}
+
+/*
+ * Measure, not width. On a fluid page these two carry nearly all the prose —
+ * `.sf-lede` is every PageHead's explanatory line, `.sf-footnote` is every
+ * Group's lede and every caption — and an uncapped paragraph at 1900px is a line
+ * the eye loses its place returning from. 74ch is what the mockup caps
+ * `.mk-head .sf-lede` at; matching it means the page can widen without the
+ * reading getting worse.
+ */
+.sf-lede {
+  color: var(--sf-ink-muted);
+  margin-top: 0;
+  max-width: 74ch;
+}
+
+.sf-footnote {
+  color: var(--sf-ink-muted);
+  font-size: 0.85rem;
+  margin-top: var(--sf-space-lg);
+  max-width: 74ch;
+}
+
+/*
+ * `sf-prose` marked a paragraph as running text and styled nothing, which was
+ * survivable while the page was 48rem and stopped being the moment it was not —
+ * project settings explains itself in seven paragraphs, and each of them ran the
+ * full 1280px. Same measure as the lede: the class now does what its name always
+ * claimed.
+ */
+.sf-prose {
+  max-width: 74ch;
+}
+
+/*
+ * The register's select-all. A bare checkbox in a header cell has no accessible
+ * name, and "Select all" as visible text would widen the narrowest column on the
+ * table for a label the checkbox's own `aria-label` already carries.
+ */
+.sf-select-all {
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+ * An entry form is a column, whatever the page around it is doing. Stretched to
+ * a fluid page, the import screen's file picker and format select spanned 1280px
+ * — a control whose target is the whole window and whose label is four words.
+ *
+ * A field *inside a filter bar* is the opposite case: it sits inline with its
+ * siblings and is sized by them, so it opts out rather than inheriting a column
+ * width that would break the row.
+ */
+.sf-field,
+.mk-field {
+  max-width: 34rem;
+}
+
+.mk-filters .mk-field,
+.mk-filters .sf-field {
+  max-width: none;
+}
+
+.sf-facts dt {
+  font-weight: 600;
+}
+
+.sf-facts dd {
+  margin: 0 0 0.75rem;
+  font-family: var(--sf-font-data);
+}
+
+.sf-stack-sm {
+  margin-top: var(--sf-space-xs);
+}
+
+/*
+ * A date or a timestamp is one atom and breaks across a line as nonsense —
+ * `2026-01-` on one row and `14` on the next, which is what the register's
+ * Collected column did once all seven columns were present (the audit's N-07).
+ */
+.sf-instant {
+  white-space: nowrap;
+}
+
+/*
+ * The development sign-in stub's four inputs.
+ *
+ * They were `style={field}` until the 23 August audit found the CSP dropping
+ * them and logging four violations on the first screen a local operator sees —
+ * `08008d1` swept twenty of these on 18 August and missed these four, because
+ * the guard matched `style={{` and these pass a variable. Same remedy as that
+ * sweep: the stylesheet. The stub is not a customer surface, so this stays a
+ * plain shape rather than becoming a `Field`, which would imply it is one.
+ */
+.sf-stub-field {
+  display: block;
+  width: 100%;
+  padding: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.sf-panel__heading {
+  margin: 0 0 0.5rem;
+  font-size: var(--sf-size-md);
+}
+
+/* ------------------------------------------------------------------ *
+ * G-81 — reflow, do not remove
+ *
+ * Mobile-first, and the direction is the decision: the base rules above are the
+ * phone, and each `min-width` below *adds* density. A `max-width` cascade would
+ * make the phone the exception being patched, and the exception is the first
+ * thing that gets forgotten.
+ *
+ * There is one markup for all three viewports. Nothing here hides a class listed
+ * in `app/design/viewports.ts` DOMAIN_BEARING, and
+ * `test/design/responsive.spec.ts` resolves this file at 375px to check that
+ * rather than take it on trust.
+ *
+ * Every query in this section must use a feature `resolveCascade` understands —
+ * min-width, max-width, pointer — because the resolved-cascade oracle throws on
+ * anything else rather than dropping it quietly.
+ * ------------------------------------------------------------------ */
+
+/*
+ * A matrix scrolls; the identifying column stays.
+ *
+ * The wrapper is focusable and named because a scroll container that a keyboard
+ * cannot reach is a region of the page that some users simply do not have. That
+ * is not a nicety bolted on afterwards — it is the reason the wrapper is a
+ * `role="region"` with a label rather than a bare `div`.
+ */
+.sf-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sf-table-scroll:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
+}
+
+.sf-table--matrix {
+  /*
+   * Below the desktop breakpoint the table stops being squeezed and starts being
+   * panned. `min-width: max-content` is what makes the scroll real rather than a
+   * container that never overflows because its table obligingly shrank — and a
+   * crosstab that shrinks is a crosstab whose values wrap to three lines.
+   */
+  min-width: max-content;
+}
+
+.sf-table--matrix tbody th,
+.sf-table--matrix thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--sf-ground);
+  /*
+   * The frozen column needs an edge, and it needs one that survives the striped
+   * rows behind it. A box-shadow rather than a border, because a border would
+   * take part in `border-collapse` and move the whole grid by a pixel.
+   */
+  box-shadow: 1px 0 0 0 var(--sf-rule);
+}
+
+.sf-table--matrix tbody tr:nth-child(even) th {
+  background: #f7f9fa;
+}
+
+/*
+ * A record list stacks. Each row becomes a labelled block, and the label comes
+ * from `data-label` on the cell rather than from a duplicated header, so the
+ * accessible table structure is untouched — a screen reader still reads a table,
+ * because the reflow is presentational and the semantics are not.
+ */
+@media (max-width: 767px) {
+  .sf-table--records thead {
+    /*
+     * Hidden from sight only. Not `display: none`, which would take the header
+     * out of the accessibility tree along with it and leave every data cell
+     * unheaded.
+     */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .sf-table--records tbody tr {
+    display: block;
+    border: 1px solid var(--sf-rule);
+    border-radius: var(--sf-radius-sm);
+    margin-bottom: var(--sf-space-sm);
+    padding: var(--sf-space-xs) 0;
+  }
+
+  .sf-table--records tbody th,
+  .sf-table--records tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sf-space-md);
+    height: auto;
+    min-height: var(--sf-row);
+  }
+
+  .sf-table--records tbody td::before {
+    content: attr(data-label);
+    font-size: var(--sf-size-xs);
+    font-weight: 600;
+    color: var(--sf-ink-muted);
+    flex: 0 0 auto;
+  }
+
+  /* The review card's two-column footer becomes one column, in both directions. */
+  .sf-review__body,
+  .sf-review__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sf-space-sm);
+  }
+
+  /*
+   * In a column, `flex-basis` is a *height*. The two footer columns carry one
+   * each so that neither sizes to its longest sentence at desktop width (F-10);
+   * left alone here they would reserve 14rem and 18rem of empty vertical space
+   * on a phone.
+   */
+  .sf-review__body > :first-child,
+  .sf-review__actions {
+    flex-basis: auto;
+  }
+}
+
+/*
+ * Touch targets, keyed on the pointer rather than on the width.
+ *
+ * A 1280px touchscreen exists and a 375px desktop window exists, so a breakpoint
+ * is the wrong question to ask about a finger. 44px is WCAG 2.5.5 rather than
+ * 2.5.8's 24px, because the gap between them is the difference between
+ * technically conformant and usable with gloves on in the sun.
+ *
+ * Rows are deliberately untouched: a data row is not a target, and inflating
+ * every one of them would take the crosstab from six visible rows to three,
+ * which is removal by another name.
+ */
+@media (pointer: coarse) {
+  .sf-button,
+  .sf-field__control,
+  .sf-table a,
+  .sf-table button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /*
+   * Navigation links are targets too — §8.3's words are "anything a finger has
+   * to hit", and the section nav is the thing a finger hits most. Inline links
+   * ignore min-height, so they become inline-flex here; the negative margin
+   * gives the touch area without inflating the visual rhythm of the strip.
+   */
+  .sf-nav a,
+  .sf-nav__project,
+  .sf-shell__nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+    margin-block: -8px;
+  }
+
+  .sf-review__actions {
+    gap: var(--sf-space-sm);
+  }
+}
+
+@media (min-width: 768px) {
+  .sf-sheet {
+    padding: var(--sf-pad-sheet);
+  }
+
+  .sf-page {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1120px) {
+  .sf-table--matrix {
+    /* Room for the whole grid: the pan is no longer needed, so it stops. */
+    min-width: 100%;
+  }
+
+  /*
+   * Here the rail becomes a rail. Below this it is the next thing down the page,
+   * which is the right shape on a phone: a figure and then what it was drawn
+   * from, in the order you would read them.
+   */
+  .sf-cols--rail {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+
+  /*
+   * The main column sized by its content rather than the container — a plate is
+   * drawn at 180 mm because that is the width it is printed at (ADR-0006) and
+   * does not grow to fill a column. With `1fr` the figure sat against 360px of
+   * nothing before the rail began, reading as two unrelated things rather than
+   * as a figure and its provenance.
+   */
+  .sf-cols--plate {
+    grid-template-columns: fit-content(52rem) minmax(16rem, 22rem);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Data states — G-82
+ *
+ * The skeleton's only job is to be the same size as what replaces it. Its row
+ * height is `--sf-row`, the same token the real table uses, because a skeleton
+ * with its own height is a layout shift with extra steps.
+ * ------------------------------------------------------------------ */
+
+.sf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sf-space-md);
+  padding: var(--sf-space-xl) 0;
+}
+
+.sf-empty__headline {
+  margin: 0;
+  font-size: var(--sf-size-md);
+  color: var(--sf-ink-muted);
+}
+
+.sf-skeleton__described {
+  margin: 0 0 var(--sf-space-sm);
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+}
+
+.sf-skeleton__grid {
+  width: 100%;
+}
+
+.sf-skeleton__grid td {
+  height: var(--sf-row);
+  padding: var(--sf-pad-cell);
+}
+
+.sf-skeleton__bar {
+  display: block;
+  height: 0.7em;
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-rule);
+  animation: sf-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+/*
+ * The pulse is an affordance rather than decoration, and it is the one thing in
+ * this section a user may need turned off (WCAG 2.3.3). A reduced-motion user
+ * gets a still bar of the same size — the reservation is the point, and the
+ * animation was never carrying it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .sf-skeleton__bar {
+    animation: none;
+  }
+}
+
+@keyframes sf-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Import review options — G-15
+ *
+ * The options are the interaction. They wrap rather than scroll, because a
+ * closed unit table is short and a practitioner should see all of it at once —
+ * a hidden option is one the screen has quietly decided against.
+ * ------------------------------------------------------------------ */
+
+.sf-review__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-xs);
+  align-items: baseline;
+  /* A form is a flex item too, and it may not demand its widest line (F-10). */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * The explainer beside the control takes a line of its own rather than pushing
+ * the control and the button along one. It is a sentence, not a label, and a
+ * sentence competing for width with the primary action is how the action ended
+ * up off-screen.
+ */
+.sf-review__options > .sf-review__detail {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.sf-review__option {
+  font-family: var(--sf-font-data);
+  font-size: var(--sf-size-xs);
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--sf-rule);
+  border-radius: var(--sf-radius-sm);
+  background: var(--sf-ground);
+}
+
+/* ------------------------------------------------------------------ *
+ * Navigation — G-14
+ *
+ * The navigation *is* the information architecture, so it is a list and reads as
+ * one. `sf-sequence` keeps its numbers: the order of the sections is a claim
+ * about how the work happens, and a numbered list is the plainest way to say a
+ * sequence is meant.
+ * ------------------------------------------------------------------ */
+
+.sf-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-md);
+  list-style: none;
+  margin: 0 0 var(--sf-space-lg);
+  padding: 0;
+  font-size: var(--sf-size-sm);
+}
+
+.sf-nav a[aria-current='page'] {
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--sf-ink);
+}
+
+/* The project the page is inside, named on the navigation itself (G-14). */
+.sf-nav__project {
+  display: inline-block;
+  margin-bottom: var(--sf-space-xs);
+  font-size: var(--sf-size-sm);
+  font-weight: 600;
+  color: var(--sf-ink);
+  text-decoration: none;
+}
+
+.sf-nav__project:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ *
+ * Shell — the one strip that connects the three URL spaces (G-14)
+ * ------------------------------------------------------------------ */
+
+.sf-shell {
+  border-bottom: 1px solid var(--sf-rule);
+  background: var(--sf-surface);
+}
+
+.sf-shell__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sf-space-md);
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--sf-space-sm) 1rem;
+  font-size: var(--sf-size-sm);
+}
+
+.sf-shell__nav a {
+  color: var(--sf-ink);
+  text-decoration: none;
+}
+
+.sf-shell__nav a:hover {
+  text-decoration: underline;
+}
+
+.sf-shell__nav a:first-child {
+  font-weight: 600;
+}
+
+.sf-shell__principal {
+  margin-left: auto;
+  color: var(--sf-ink-muted);
+}
+
+/*
+ * A section that is not built, dressed so it cannot be read as an empty
+ * register. The dashed rule is the channel: no data surface in the product
+ * draws one, so "this is scaffolding" is visible before a word is read — and
+ * the words then say it too (see section-page.tsx).
+ */
+.sf-placeholder {
+  margin-top: var(--sf-space-lg);
+  padding: var(--sf-space-md);
+  border: 1px dashed var(--sf-rule-strong);
+  border-radius: var(--sf-radius-md);
+  color: var(--sf-ink-muted);
+}
+
+.sf-placeholder__headline {
+  margin: 0 0 var(--sf-space-xs);
+  font-weight: 600;
+  color: var(--sf-ink);
+}
+
+.sf-sequence {
+  padding-left: 1.2rem;
+}
+
+.sf-sequence li {
+  margin-bottom: var(--sf-space-md);
+}
+
+/* ------------------------------------------------------------------ *
+ * Figures — G-35a, G-48
+ *
+ * The graticule is a separator, not a meaning-bearing graphic, so it sits at
+ * `rule` weight deliberately (see the note on `meaningBearing` in tokens.ts).
+ * The symbols are not: they carry the outcome and are held to WCAG 1.4.11 by
+ * test/design/encoding.spec.ts.
+ * ------------------------------------------------------------------ */
+
+.sf-figure {
+  margin: 0 0 var(--sf-space-lg);
+}
+
+.sf-figure__caption {
+  font-size: var(--sf-size-xs);
+  color: var(--sf-ink-muted);
+  margin-top: var(--sf-space-xs);
+}
+
+.sf-map {
+  max-width: 100%;
+  height: auto;
+  background: var(--sf-ground);
+}
+
+.sf-map__graticule line {
+  stroke: var(--sf-rule);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.sf-map__scale line {
+  stroke: var(--sf-ink);
+  stroke-width: 1.5;
+}
+
+.sf-map__scale text {
+  font-family: var(--sf-font-ui);
+  font-size: var(--sf-size-xs);
+  fill: var(--sf-ink-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * Print map — G-35b
+ *
+ * Sized in millimetres by the SVG itself, so these rules govern weight and
+ * type only. Cartographic furniture is conventional, and the convention is
+ * restraint: hairlines, small type, nothing competing with the data.
+ * ------------------------------------------------------------------ */
+
+.sf-map-print {
+  max-width: 100%;
+  height: auto;
+  background: var(--sf-ground);
+}
+
+.sf-map-print__frame {
+  fill: none;
+  stroke: var(--sf-ink);
+  stroke-width: 0.3;
+}
+
+.sf-map-print text {
+  font-family: var(--sf-font-ui);
+  font-size: 2.6px;
+  fill: var(--sf-ink);
+}
+
+.sf-map-print__heading {
+  font-weight: 600;
+  font-size: 3.4px;
+}
+
+.sf-map-print__scale line,
+.sf-map-print__title line {
+  stroke: var(--sf-ink);
+  stroke-width: 0.3;
+}
+
+.sf-map-print__north path {
+  fill: var(--sf-ink);
+}

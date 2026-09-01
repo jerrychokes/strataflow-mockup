@@ -27,7 +27,7 @@
  * something a reader has to be told about.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,7 +38,17 @@ import { slideOver } from './controls.mjs';
 import { LINEAGE, PRINCIPAL, PROJECT, PROJECTS } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const APP_CSS = resolve(here, '../../apps/web/app/styles/app.css');
+// Inside the app repo (as design/mockup/) the product stylesheet is read live,
+// which is the claim in the header comment at full strength. In the standalone
+// strataflow-mockup repo that path does not exist, so a vendored byte-identical
+// copy (`app.css`, refreshed from the app repo — keep it diffable, no local
+// edits) stands in, and the claim weakens to "styled by a dated snapshot of
+// the thing that styles the product". The build says which one it used.
+const APP_CSS = [
+  resolve(here, '../../apps/web/app/styles/app.css'),
+  resolve(here, 'app.css'),
+].find(existsSync);
+if (!APP_CSS) throw new Error('no product stylesheet: neither ../../apps/web/app/styles/app.css nor ./app.css exists');
 const OUT = resolve(here, 'index.html');
 
 const productCss = readFileSync(APP_CSS, 'utf8');

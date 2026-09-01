@@ -526,9 +526,37 @@ body {
  * them; this is where they went.
  * ------------------------------------------------------------------ */
 
+/*
+ * Two shells, because a register and a consent form are not the same shape.
+ *
+ * This was `max-width: 48rem` for every screen — a 768px column on a 2000px
+ * display. That is where the crosstab wrapped `88 mg/L` onto two lines while
+ * two thirds of the window stayed empty, and where the mockup's side rails had
+ * nowhere to go. The mockup's own canvas (`design/mockup`, `.mk-canvas`) carries
+ * no max-width at all: it is fluid, and readable measure comes from capping the
+ * *prose* — `.mk-head .sf-lede` is 74ch there — rather than the page. That is
+ * the rule reproduced here, and the reason `--narrow` is the exception rather
+ * than the default it used to be.
+ *
+ * The 120rem ceiling is the one departure from the mockup, deliberately. At the
+ * ~2000px viewport the mockup was drawn against, fluid and capped are the same
+ * picture; the cap bites only on an ultrawide, where a register row spanning
+ * 3440px is one the eye cannot track from Location across to State.
+ */
 .sf-page {
+  max-width: 120rem;
+  margin: 2.5rem auto 4rem;
+  padding: 0 var(--sf-space-lg);
+}
+
+/*
+ * One column of reading, or one form. Full width would give a short field label
+ * a 1900px row to sit alone in, which is worse than the crush it replaces — so
+ * this keeps the old measure for the screens that were always shaped for it.
+ * `test/navigation/page-shell.spec.ts` is the inventory of which those are.
+ */
+.sf-page--narrow {
   max-width: 48rem;
-  margin: 4rem auto;
   padding: 0 var(--sf-space-md);
 }
 
@@ -536,15 +564,113 @@ body {
   margin-bottom: 0.25rem;
 }
 
+/*
+ * Main pane with a rail beside it — the mockup's `mk-cols`, which is 132
+ * occurrences there and none here until now.
+ *
+ * The columns are a class rather than `mk-cols`' `var(--mk-cols)` because that
+ * custom property is set by an inline `style` attribute in the mockup, and
+ * `style-src 'self'` (G-84) drops inline style *attributes* in a deployed
+ * instance while leaving them working in development. A figure that loses its
+ * rail only in production is the failure mode this block exists to prevent.
+ *
+ * `minmax(0, …)` on the main column is load-bearing: a grid item's automatic
+ * minimum is its content, so a wide table would push the rail off the screen
+ * instead of scrolling inside its own container.
+ */
+.sf-cols {
+  display: grid;
+  gap: var(--sf-space-lg);
+  align-items: start;
+}
+
+/*
+ * One column is the *default*, and the rail is what desktop adds — the direction
+ * G-81 fixes for this stylesheet. Written the other way round (a `max-width`
+ * that collapses the rail on small screens) it read as the phone being the
+ * exception patched afterwards, and it also spent the one max-width query the
+ * sheet is allowed, which belongs to the table-stacking rule.
+ */
+.sf-cols--rail,
+.sf-cols--plate {
+  grid-template-columns: 1fr;
+}
+
+/*
+ * The rail is a panel, not a column of loose text. Without the surface it reads
+ * as content that happens to be on the right; the mockup boxes it for the same
+ * reason, and the box is what says "this describes the thing beside it".
+ */
+.sf-rail {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-rule);
+  border-radius: 3px;
+  padding: var(--sf-space-md);
+}
+
+.sf-rail > .mk-group {
+  margin-bottom: 0;
+}
+
+/*
+ * Measure, not width. On a fluid page these two carry nearly all the prose —
+ * `.sf-lede` is every PageHead's explanatory line, `.sf-footnote` is every
+ * Group's lede and every caption — and an uncapped paragraph at 1900px is a line
+ * the eye loses its place returning from. 74ch is what the mockup caps
+ * `.mk-head .sf-lede` at; matching it means the page can widen without the
+ * reading getting worse.
+ */
 .sf-lede {
   color: var(--sf-ink-muted);
   margin-top: 0;
+  max-width: 74ch;
 }
 
 .sf-footnote {
   color: var(--sf-ink-muted);
   font-size: 0.85rem;
   margin-top: var(--sf-space-lg);
+  max-width: 74ch;
+}
+
+/*
+ * `sf-prose` marked a paragraph as running text and styled nothing, which was
+ * survivable while the page was 48rem and stopped being the moment it was not —
+ * project settings explains itself in seven paragraphs, and each of them ran the
+ * full 1280px. Same measure as the lede: the class now does what its name always
+ * claimed.
+ */
+.sf-prose {
+  max-width: 74ch;
+}
+
+/*
+ * The register's select-all. A bare checkbox in a header cell has no accessible
+ * name, and "Select all" as visible text would widen the narrowest column on the
+ * table for a label the checkbox's own `aria-label` already carries.
+ */
+.sf-select-all {
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+ * An entry form is a column, whatever the page around it is doing. Stretched to
+ * a fluid page, the import screen's file picker and format select spanned 1280px
+ * — a control whose target is the whole window and whose label is four words.
+ *
+ * A field *inside a filter bar* is the opposite case: it sits inline with its
+ * siblings and is sized by them, so it opts out rather than inheriting a column
+ * width that would break the row.
+ */
+.sf-field,
+.mk-field {
+  max-width: 34rem;
+}
+
+.mk-filters .mk-field,
+.mk-filters .sf-field {
+  max-width: none;
 }
 
 .sf-facts dt {
@@ -778,6 +904,26 @@ body {
   .sf-table--matrix {
     /* Room for the whole grid: the pan is no longer needed, so it stops. */
     min-width: 100%;
+  }
+
+  /*
+   * Here the rail becomes a rail. Below this it is the next thing down the page,
+   * which is the right shape on a phone: a figure and then what it was drawn
+   * from, in the order you would read them.
+   */
+  .sf-cols--rail {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+
+  /*
+   * The main column sized by its content rather than the container — a plate is
+   * drawn at 180 mm because that is the width it is printed at (ADR-0006) and
+   * does not grow to fill a column. With `1fr` the figure sat against 360px of
+   * nothing before the rail began, reading as two unrelated things rather than
+   * as a figure and its provenance.
+   */
+  .sf-cols--plate {
+    grid-template-columns: fit-content(52rem) minmax(16rem, 22rem);
   }
 }
 
