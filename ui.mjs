@@ -144,7 +144,7 @@ export function criteriaLegend(criteria) {
  * has to say which kind it is. Every cell carries `data-label` so the reflow has
  * a header to show without duplicating one into the markup.
  */
-export function table({ caption, head, rows, kind = 'records', label }) {
+export function table({ caption, head, rows, kind = 'records', label, scroll = false }) {
   const thead = `<thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead>`;
   const tbody = rows
     .map((row) => {
@@ -160,7 +160,15 @@ export function table({ caption, head, rows, kind = 'records', label }) {
     `<table class="sf-table sf-table--${kind}">` +
     (caption ? `<caption class="sf-table__caption">${caption}</caption>` : '') +
     `${thead}<tbody>${tbody}</tbody></table>`;
-  return kind === 'matrix'
+  /*
+   * A matrix always pans. A record list stacks on a phone (app.css, ≤767px)
+   * and normally needs nothing else — but pass 4 measured five record lists
+   * whose natural width exceeds their column on a desktop, and a table that
+   * silently widens the document is worse than one that pans. `scroll: true`
+   * gives such a list the same focusable region a matrix gets; when stacked
+   * on a phone the wrapper has nothing to scroll and costs nothing.
+   */
+  return kind === 'matrix' || scroll
     ? `<div class="sf-table-scroll" role="region" aria-label="${esc(label ?? caption ?? 'Table')}" tabindex="0">${inner}</div>`
     : inner;
 }

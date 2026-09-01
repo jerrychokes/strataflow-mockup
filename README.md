@@ -11,8 +11,68 @@ it will. It documents a proposal on one day. If the product needs mocking again,
 and date the rebuild.
 
 ```sh
-node design/mockup/build.mjs      # writes index.html, and checks the link graph
+node build.mjs      # writes index.html; checks the link graph, the section partition,
+                    # dead hrefs and the route-line contract — and fails, not warns
+node verify.mjs     # the driven-browser sweep: overflow at 375/1000/1280, ids,
+                    # accessible names, heading order, matrix panning (npm install first)
 ```
+
+## The fourth pass — 1 September 2026
+
+This repository became the working copy (`EXPANSION_BRIEF.md` governs it; the app
+repo's `design/mockup/` is the dated snapshot it was cut from), and the fourth pass
+ran under that brief. What it changed, in the order it found things:
+
+**The repo could not build itself.** The export severed the one cross-repo
+dependency — the product stylesheet. It is now vendored byte-identical (`app.css`),
+`build.mjs` prefers the live product path and falls back to it, and the rebuild
+showed the README's own claim working: the product stylesheet had gained classes
+since 23 August and the mockup restyled itself on the next build.
+
+**The states were re-derived, beside the record they replace.** Every screen now
+carries `now:` (1 Sep) beside `state:` (23 Aug, untouched); the rail dot renders
+today and hovers the history. The delta is the finding: **8 shipped / 35
+engine-only / 15 not built became 58 shipped / 1 not built in nine days.** The
+product built the catalogue out from under this mockup — almost everything the
+third pass found "nothing under it" now has schema, rules and a route.
+
+**The coverage matrix gained its three missing enumerations**: all 80 PRD rows,
+all 24 incumbent-baseline rows with their evidence tiers, and the nine journeys
+walked step by step — every step a link or a named hole (eCOC has no owner;
+`/water` is a product route this catalogue never drew; the portfolio journey is
+blocked on a one-site seed).
+
+**The by-section view stopped describing a resolved finding.** "No section owns
+these" was true on 23 August; the product has since landed `/config`, `/instance`
+and `/help`, and `ia.ts` parents every workspace. The view now mirrors that
+architecture — ten groups exactly partitioning the 66 screens — and the build
+fails if the partition ever breaks.
+
+**Sixteen screens measurably overflowed the document** (eleven at 375 px, three at
+1000, two at 1280 — the 1000 px cases found only when `verify.mjs` made three
+widths permanent). Four distinct mechanisms, none findable by reading: a
+containing-block escape inside the product's own scroll regions (fixed with
+`contain: layout`, which a labelled scroll region should declare anyway), grid
+tracks sized by nowrap sentences (`min-width: 0`, and sentences now wrap), eight
+record lists wider than their column (they pan now, in the same focusable region a
+matrix gets), and a stacked cell's `::before` label that refused to shrink —
+invisible to every element query, found through `td.scrollWidth`.
+
+**The route lines stopped asserting states.** Thirty-five of them still said
+"engine-only" or "not built" three routes and one product rebuild later. A route
+line is now a path (or an honest "a proposal"), the state lives in the register
+alone, and the build fails on a route line that carries a state claim.
+
+**Two decisions were taken at the stop gate** (Jerry, 1 Sep): Wave 1 approved, and
+the work queue stands as a deliberate proposal against `ia-rationale`'s
+project-list home — drawn, argued, not silently built.
+
+What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
+exists, loads, is scoped and renders — not that the product screen matches this
+drawing; no practitioner has looked at any of it; and G-76b's print test is still
+outstanding, so every figure here is drawn to a grammar that has never been on
+paper. The audit trail for all of the above is in `audits/`.
+
 
 ## The second pass, and what drove it
 
@@ -376,5 +436,9 @@ compositing.
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Eleven figure generators, drawn to the approved grammar |
 | `screens.mjs` | The 66 screens, the job spine, and the link graph |
-| `build.mjs` | Assembles `index.html`, inlining the product stylesheet, and checks the link graph |
+| `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
+| `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning. `npm install`, then `node verify.mjs` |
+| `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |
+| `EXPANSION_BRIEF.md` | What governs the expansion: authority order, conventions, phases, the audit loop |
+| `audits/` | The dated passes: findings, wave plan, audit rounds |
 | `index.html` | The output. Self-contained, no external requests |

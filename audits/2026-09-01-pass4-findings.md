@@ -120,3 +120,13 @@ they do not have in the product.
 **Not resolved here, deliberately:** whether the work queue (J0 `home`) should exist
 at all is §5.1's conflict, and the by-section view files it under Home without
 prejudging it.
+
+## 7. Decisions taken at the stop gate — 1 September 2026, Jerry
+
+1. **Wave 1 approved** as the first implementation wave.
+2. **The work queue stands as a proposal.** §5.1's conflict is ruled, not erased:
+   the product's `/` remains a project list per `ia-rationale`, and the J0 work
+   queue is retained in the catalogue as a deliberate counter-proposal — its
+   `now` state is `proposed`, the state's own definition. Journeys 2 and 5 hang
+   their assignment step on it as a proposal; building it in the product would be
+   a revision to `ia-rationale`, taken there, not here.

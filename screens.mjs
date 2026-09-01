@@ -316,7 +316,7 @@ const certificate = () =>
 
 const migration = () =>
   head('Legacy migration — reconciliation', 'Proof that what came out of the old system matches what went into this one.', {
-    route: 'engine-only — app/import legacy readers · G-21 built, acceptance blocked on a real export',
+    route: '/projects/:projectId/reconciliation',
   }) +
   stats([
     stat('18,740', 'source rows'),
@@ -342,7 +342,7 @@ const migration = () =>
 
 const fieldCapture = () =>
   head('Field capture — 2026 Q3 round', 'Water levels, field parameters and observations, recorded at the bore.', {
-    route: 'proposed — no route exists',
+    route: 'a proposal — not in the product',
     toolbar: btn('Sync 3 pending', 'primary'),
   }) +
   notice('warning', 'Proposed. Nothing in FR-1 to FR-8 covers field data capture.',
@@ -391,7 +391,7 @@ const fieldCapture = () =>
 
 const qcWorkspace = () =>
   head('QA/QC — 2026-Q2-GW', 'Every check the round was held to, and what each one did to the data.', {
-    route: 'engine-only — app/validation/ has no screen',
+    route: '/projects/:projectId/qaqc',
     toolbar: btn('Re-run checks') + btn('Advance to validated', 'primary'),
   }) +
   stats([
@@ -420,7 +420,7 @@ const qcWorkspace = () =>
     'Cadmium was reported at &lt;1.0 µg/L against an ANZG 2018 guideline value of 0.54 µg/L. Nothing was measured either way, so the outcome is <strong>indeterminate</strong> and it is drawn as its own mark. Recording that as compliance is the single most consequential error this product exists to prevent.');
 
 const consistency = () =>
-  head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: 'engine-only — app/validation/consistency.ts' }) +
+  head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: '/projects/:projectId/consistency' }) +
   cols(
     table({
       caption: 'Checks that compare one reported value against another.',
@@ -441,7 +441,7 @@ const consistency = () =>
 
 const validationBoard = () =>
   head('Validation state', 'Where every result in the round sits, and who moved it there.', {
-    route: 'engine-only — app/validation/state-machine.ts',
+    route: '/projects/:projectId/validation',
     toolbar: btn('Advance selected', 'primary'),
   }) +
   `<div class="mk-board">${[
@@ -466,7 +466,7 @@ const validationBoard = () =>
 
 const qualifiers = () =>
   head('Qualifiers and data lock', 'Reason codes on individual results, and periods closed to change.', {
-    route: 'engine-only — app/validation/qualifiers.ts, lock.ts',
+    route: '/projects/:projectId/validation (qualifiers and lock)',
   }) +
   cols(
     table({
@@ -496,7 +496,7 @@ const qualifiers = () =>
 
 const exceedances = () =>
   head('Exceedances — 2026 Q2', 'Where a result sits outside a criterion, and which criteria set says so.', {
-    route: '/projects/:projectId/exceedances — engine-only, the page says so',
+    route: '/projects/:projectId/exceedances',
     toolbar: C.exportMenu() + btn('Acknowledge selected', 'primary'),
   }) +
   stats([
@@ -557,7 +557,7 @@ const crosstab = () => {
   });
   return (
     head('Results by analyte and location', 'Every result in the round, with its outcome against each criteria set.', {
-      route: '/projects/:projectId/results — register shipped, crosstab engine-only',
+      route: '/projects/:projectId/results',
       toolbar: C.exportMenu() + C.lineageButton('Lineage of the focused cell') + btn('Add to report', 'primary'),
       kind: 'matrix',
       label: 'Exceedance register',
@@ -689,7 +689,7 @@ const crosstab = () => {
 
 const tarpBoard = () =>
   head('TARP state', 'Trigger levels, what each one requires, and whether it has been done.', {
-    route: 'engine-only — app/evaluation/tarp.ts',
+    route: '/projects/:projectId/tarp',
     toolbar: btn('Acknowledge', 'primary'),
   }) +
   '<h2 class="mk-h2">Trigger levels in force</h2>' +
@@ -707,11 +707,12 @@ const tarpBoard = () =>
 
 const alerts = () =>
   head('Alerts', 'Who was told, through what, and whether anybody has accepted it.', {
-    route: 'engine-only — app/obligations/alerting.ts',
+    route: '/projects/:projectId/alerts',
   }) +
   table({
     caption: 'Every destination is a configured row. There is no Strataflow-operated relay and no URL in application code.',
     head: ['Raised', 'Alert', 'Channel', 'Delivered', 'Acknowledged', 'Escalates'],
+    scroll: true, label: 'Alerts raised and their delivery',
     rows: [
       ['<span class="sf-instant">2026-05-22 09:14</span>', 'PFOS + PFHxS above ANZG 2018 · MW05', 'Environmental lead — email', tag('delivered', 'good'), 'R. Whitmore · 09:22', '—'],
       ['<span class="sf-instant">2026-05-22 09:14</span>', 'TARP Level 3 raised · MW05', 'Site webhook — Teams', tag('delivered', 'good'), 'S. Petrelli · 09:31', '—'],
@@ -724,7 +725,7 @@ const alerts = () =>
 
 const locationDetail = () =>
   head('MW05', 'One monitoring location: where it is, how it is built, and what it has told us.', {
-    route: '/projects/:projectId/locations — register shipped, detail not built',
+    route: '/projects/:projectId/locations',
     toolbar: btn('Export construction log') + btn('Resurvey'),
   }) +
   cols(
@@ -783,7 +784,7 @@ const locationDetail = () =>
 
 const hydrographWorkspace = () =>
   head('Hydrograph', 'Water level over time, with rainfall, triggers and comparison.', {
-    route: 'engine-only — app/figures/hydrograph.ts renders nowhere',
+    route: '/projects/:projectId/hydrograph',
     toolbar: btn('Export SVG') + btn('Save configuration') + btn('Add to report', 'primary'),
   }) +
   cols(
@@ -843,7 +844,7 @@ const hydrographWorkspace = () =>
 
 const hydrochem = () =>
   head('Hydrogeochemistry', 'Piper, Stiff and Schoeller — what kind of water this is.', {
-    route: 'engine-only — app/figures/hydrogeochem.ts renders nowhere',
+    route: '/projects/:projectId/hydrochem',
     toolbar: btn('Export SVG') + btn('Add all to report', 'primary'),
   }) +
   cols(
@@ -862,7 +863,7 @@ const hydrochem = () =>
 
 const statistics = () =>
   head('Statistics and trend', 'Censored-data methods and non-parametric trend tests.', {
-    route: 'engine-only — app/stats/ and services/stats',
+    route: '/projects/:projectId/statistics',
     toolbar: btn('Export SVG') + btn('Add to report', 'primary'),
   }) +
   cols(
@@ -908,7 +909,7 @@ const statistics = () =>
 
 const mapScreen = () =>
   head('Map', 'The monitoring network, symbolised by this round’s outcome.', {
-    route: 'engine-only — app/figures/map.ts renders nowhere',
+    route: '/projects/:projectId/map',
     toolbar: btn('Print layout') + btn('Export GeoJSON') + btn('Export shapefile'),
   }) +
   figure('4.9', 'Monitoring network — 2026 Q2 exceedance state', F.siteMap(),
@@ -946,7 +947,7 @@ const mapScreen = () =>
   );
 
 const savedViews = () =>
-  head('Saved views', 'A question you ask every quarter, kept as an object.', { route: 'proposed — no route exists' }) +
+  head('Saved views', 'A question you ask every quarter, kept as an object.', { route: 'a proposal — not in the product' }) +
   notice('warning', 'Proposed. No FR covers saved queries.',
     'FR-6.6 persists a <em>chart</em> configuration. Nothing persists the question that selected the data — which locations, which analytes, which period, which criteria sets. Every incumbent has this and it is most of what a returning user does.') +
   table({
@@ -968,7 +969,7 @@ const savedViews = () =>
 
 const reportBuilder = () =>
   head('Quarterly Groundwater Monitoring Report — 2026 Q2', 'Assembled from the data as it stands, into the customer’s own template.', {
-    route: '/projects/:projectId/reports — a 21-line stub today',
+    route: '/projects/:projectId/reports',
     toolbar: btn('Preview') + btn('Take snapshot and issue', 'primary'),
   }) +
   stats([
@@ -1002,7 +1003,7 @@ const reportBuilder = () =>
 
 const reportFigures = () =>
   head('Figures and tables', 'What goes in, in what order, numbered as the document numbers them.', {
-    route: 'engine-only — app/report/numbering.ts',
+    route: '/projects/:projectId/figures',
   }) +
   cols(
     table({
@@ -1029,7 +1030,7 @@ const reportFigures = () =>
 
 const narrative = () =>
   head('Interpretation — §6', 'Where the hydrogeologist writes, with the evidence beside them.', {
-    route: 'proposed — no route exists',
+    route: 'a proposal — not in the product',
   }) +
   notice('warning', 'Proposed. FR-7 generates a report but nothing authors one.',
     'FR-7.1 to FR-7.6 cover templates, numbering, snapshots and branding — the mechanics of assembly. A monitoring report is roughly half interpretive prose, and nothing in the requirement set says where that prose is written. Today the answer is Word, which reintroduces exactly the round trip QB-2 exists to remove.') +
@@ -1057,7 +1058,7 @@ const narrative = () =>
 
 const snapshot = () =>
   head('Snapshot and regeneration', 'What was issued, and the ability to produce it again byte for byte.', {
-    route: 'engine-only — app/report/snapshot.ts',
+    route: '/projects/:projectId/snapshots',
   }) +
   table({
     caption: 'Every issued report carries the data it was built from. QB-3 is not a promise, it is a stored object.',
@@ -1078,7 +1079,7 @@ const snapshot = () =>
 
 const obligations = () =>
   head('Reporting obligations', 'What is due, to whom, and when — across all projects.', {
-    route: '/aggregate/obligations — partly shipped',
+    route: '/aggregate/obligations',
     toolbar: btn('Add obligation'),
   }) +
   stats([
@@ -1107,7 +1108,7 @@ const obligations = () =>
 
 const programme = () =>
   head('Sampling programme — GW-QTR', 'What each round expects, and what it got.', {
-    route: 'engine-only — app/scheduler/periods.ts',
+    route: '/projects/:projectId/programme',
   }) +
   cols(
     table({
@@ -1169,7 +1170,7 @@ const programme = () =>
 
 const notification = () =>
   head('Statutory notification', 'A countdown against a window, from a timestamp nobody can move.', {
-    route: 'engine-only — app/obligations/notification.ts',
+    route: '/projects/:projectId/notifications',
   }) +
   cols(
     panel('Condition 21 — notification of exceedance',
@@ -1223,6 +1224,7 @@ const notification = () =>
   }) +
   table({
     caption: 'Notification history on this licence.',
+    scroll: true,
     head: ['Became aware', 'Trigger', 'Window', 'Lodged', 'Within window', 'Evidence'],
     rows: [
       ['<span class="sf-instant">2026-05-22 09:14</span>', 'PFOS + PFHxS · MW05', 'As soon as practicable', '<span class="sf-instant">2026-05-22 14:30</span>', tag('met', 'good'), 'DWER-N-2026-11842.pdf'],
@@ -1233,7 +1235,7 @@ const notification = () =>
 
 const signoff = () =>
   head('Approval and sign-off', 'Who approved exactly what, and when.', {
-    route: 'engine-only — app/obligations/signoff.ts',
+    route: '/projects/:projectId/signoff',
     toolbar: btn('Request approval', 'primary'),
   }) +
   notice('default', 'Sign-off is not a validation state.',
@@ -1257,7 +1259,7 @@ const signoff = () =>
 
 const lineage = () =>
   head('Why is this number what it is?', 'One result, and everything that produced it.', {
-    route: 'proposed — engine complete, no route renders it',
+    route: 'a proposal — the product carries lineage as a panel and the result page, not a route',
     toolbar: btn('Copy as evidence') + btn('Open certificate'),
   }) +
   notice('warning', 'Proposed as a surface. The engine is complete and nothing shows it.',
@@ -1278,7 +1280,7 @@ const lineage = () =>
 
 const auditTrail = () =>
   head('Audit trail', 'Every mutation, who made it, and what it changed.', {
-    route: 'engine-only — app/repositories reads it, nothing renders it',
+    route: '/projects/:projectId/audit',
     toolbar: btn('Filter by principal') + btn('Export'),
   }) +
   table({
@@ -1305,7 +1307,7 @@ const auditTrail = () =>
 
 const supersession = () =>
   head('Supersession', 'What a re-issued certificate changed, and everything that followed it.', {
-    route: 'engine-only — app/import supersession cascade',
+    route: '/projects/:projectId/supersessions',
   }) +
   `<p class="sf-lede mk-tight">${esc(SUPERSESSION.subject)}</p>` +
   cols(
@@ -1336,7 +1338,7 @@ const supersession = () =>
 
 const criteriaLibrary = () =>
   head('Criteria library', 'Which limits apply, to what, and from when.', {
-    route: 'engine-only — app/config/criteria-editing.ts, no screen',
+    route: '/projects/:projectId/criteria',
     toolbar: btn('New criteria set', 'primary'),
   }) +
   table({
@@ -1385,7 +1387,7 @@ const criteriaLibrary = () =>
 
 const formatDesigner = () =>
   head('EDD formats', 'A laboratory’s file shape, described rather than coded.', {
-    route: 'engine-only — app/import/formats/ · nine modules, no screen',
+    route: '/config/formats',
     toolbar: btn('New format', 'primary'),
   }) +
   table({
@@ -1417,12 +1419,13 @@ const formatDesigner = () =>
 
 const dictionary = () =>
   head('Analyte dictionary', 'The names, the synonyms, and what each one actually is.', {
-    route: 'engine-only — packages/db/src/seed/analyte-dictionary.ts, no screen',
+    route: '/config/analytes',
     toolbar: btn('Add synonym'),
   }) +
   table({
     caption: 'Distinct concepts stay distinct. LOR, MDL and PQL are three columns, never one friendlier field.',
     head: ['Analyte', 'CAS', 'Group', 'Basis', 'Default unit', 'LOR', 'MDL', 'Synonyms'],
+    scroll: true, label: 'The analyte dictionary',
     rows: [
       ['Arsenic (filtered)', '7440-38-2', 'Metals', 'As(V)', 'µg/L', '<span class="mk-num">1.0</span>', '<span class="mk-num">0.3</span>', '<span class="mk-muted">As-D, Arsenic dissolved, As (filt)</span>'],
       ['Cadmium (filtered)', '7440-43-9', 'Metals', 'dissolved Cd, unspeciated', 'µg/L', '<span class="mk-num">1.0</span>', '<span class="mk-num">0.2</span>', '<span class="mk-muted">Cd-D, Cadmium dissolved</span>'],
@@ -1437,7 +1440,7 @@ const dictionary = () =>
 
 const roles = () =>
   head('Access', 'Who can see and do what, resolved from the customer’s directory.', {
-    route: 'engine-only — app/auth/provisioning',
+    route: '/instance/access',
   }) +
   table({
     caption: 'Role bindings say “members of this directory group hold this role in this project”. There is no user table.',
@@ -1463,7 +1466,7 @@ const roles = () =>
 
 const instanceHealth = () =>
   head('Instance', 'What is running, at what version, and whether it is well.', {
-    route: '/healthz shipped · this view is CLI-only',
+    route: '/instance',
   }) +
   stats([
     stat(INSTANCE.version, 'version', 'good'),
@@ -1539,7 +1542,7 @@ const hardnessDerivation = () => {
   const H = HARDNESS;
   return (
     head('How this criterion was calculated', 'A hardness-modified guideline value, and every input that produced it.', {
-      route: 'Not built — the criterion is shown; the arithmetic behind it is not',
+      route: '/projects/:projectId/hardness',
       toolbar: C.lineageButton('Lineage of the hardness result') + C.exportMenu(),
     }) +
     notice(
@@ -1560,6 +1563,7 @@ const hardnessDerivation = () => {
           '<h3 class="mk-h3">Cross-checked against the major cations</h3>' +
           table({
             head: ['Input', 'Value'],
+            scroll: true, label: 'Hardness inputs and their cross-checks',
             rows: [
               ['Calcium (filtered)', `<span class="mk-num">${esc(H.crossCheck.calcium)}</span>`],
               ['Magnesium (filtered)', `<span class="mk-num">${esc(H.crossCheck.magnesium)}</span>`],
@@ -1625,7 +1629,7 @@ const hardnessDerivation = () => {
  */
 const indeterminateRegister = () => (
   head('Could not be assessed', 'Results where nothing can be said either way, and what it would take to change that.', {
-    route: 'Not built — the state exists everywhere; the register does not',
+    route: '/projects/:projectId/exceedances (could not be assessed)',
     toolbar: C.exportMenu() + C.btn('Add to the report', 'primary'),
   }) +
   stats([
@@ -1706,7 +1710,7 @@ const purgeLog = () => {
   };
   return (
     head('Purge and stabilisation — MW05', 'What the bore was doing before the sample was taken.', {
-      route: 'Not built — no requirement covers field capture, and this is the record it rests on',
+      route: '/projects/:projectId/purge',
       toolbar: C.exportMenu() + C.btn('Open the field round'),
     }) +
     notice(
@@ -1772,7 +1776,7 @@ const purgeLog = () => {
 /** What arrived at the laboratory, in what condition, and who had held it. */
 const sampleReceipt = () => (
   head('Receipt and custody', 'The condition the samples arrived in, and everyone who held them.', {
-    route: 'Not built — the custody form is stored as a document; the chain is not modelled',
+    route: '/projects/:projectId/receipt',
     toolbar: C.exportMenu() + C.btn('Print the custody form'),
   }) +
   facts([
@@ -1818,6 +1822,7 @@ const sampleReceipt = () => (
       'Holding time starts here, not at the laboratory bench',
       table({
         head: ['Analyte', 'Window', 'Collected', 'Analysed', 'Used', 'Outcome'],
+        scroll: true, label: 'Holding-time windows',
         rows: [
           ['Nitrate as N', '2 days', '2026-05-14 07:30', '2026-05-20 11:04', '<span class="mk-num mk-num--bad">6 d</span>', C.status('exceeded', 'bad')],
           ['Dissolved metals', '180 days', '2026-05-13 08:40', '2026-05-17 14:22', '<span class="mk-num">4 d</span>', C.status('within', 'good')],
@@ -1833,7 +1838,7 @@ const sampleReceipt = () => (
 /** QC acceptance criteria, versioned exactly as guideline values are. */
 const qcLimits = () => (
   head('Data quality objectives', 'The acceptance limits every QC check is measured against, and where each one comes from.', {
-    route: 'Not built — the limits are hard numbers in code with no stated source',
+    route: '/projects/:projectId/objectives',
     toolbar: C.exportMenu() + C.btn('New version'),
   }) +
   notice(
@@ -1894,7 +1899,7 @@ const qcLimits = () => (
 /** The laboratory batch — what a QC result actually covers. */
 const labBatches = () => (
   head('Laboratory batches', 'The unit QC is actually run on, and everything it qualifies.', {
-    route: 'Not built — QC is shown per check; the batch it belongs to is not modelled',
+    route: '/projects/:projectId/batches',
     toolbar: C.exportMenu(),
   }) +
   notice(
@@ -1956,7 +1961,7 @@ const labBatches = () => (
 /** Background comparison, and the derivation of a site-specific trigger value. */
 const backgroundComparison = () => (
   head('Background comparison', 'Downgradient against reference, and where a site-specific trigger value comes from.', {
-    route: 'Not built — the data model knows which bores are background; nothing compares them',
+    route: '/projects/:projectId/background',
     toolbar: C.exportMenu() + C.btn('Adopt as a criteria set', 'primary'),
   }) +
   notice(
@@ -2020,7 +2025,7 @@ const backgroundComparison = () => (
 /** Data quality assessment, against objectives set before the round. */
 const dataQuality = () => (
   head('Data quality assessment', 'Whether this round met the objectives it was designed against.', {
-    route: 'Not built — the QA/QC table is generated; the assessment over it is not',
+    route: '/projects/:projectId/dqa',
     toolbar: C.exportMenu() + C.btn('Generate report §3', 'primary'),
   }) +
   stats([
@@ -2075,7 +2080,7 @@ const dataQuality = () => (
 /** The receptor the water-quality numbers are ultimately about. */
 const stygofaunaScreen = () => (
   head('Subterranean fauna', 'The receptor downgradient of the TSF, assessed on whether a population persists.', {
-    route: 'Not built — a WA approval condition with no place in the data model',
+    route: '/projects/:projectId/fauna',
     toolbar: C.exportMenu() + C.btn('Record a survey event'),
   }) +
   notice(
@@ -2183,7 +2188,7 @@ const workQueue = () => {
 
   return (
     head('What needs you', 'Everything waiting on you, across every project you hold a binding in — before you navigate anywhere.', {
-      route: '/ — the landing surface, and the product’s daily proof of control',
+      route: 'a proposal — the product’s / is deliberately a project list (ia-rationale §3); Jerry kept this drawn, 1 Sep 2026',
       toolbar: C.segmented({ options: ['Mine', 'My team', 'Everything'], value: 'Mine', label: 'Scope' }) + C.btn('Snooze rules'),
     }) +
     stats([
@@ -2264,7 +2269,7 @@ const globalSearch = () => {
 
   return (
     head('Search', 'One box over every identifier in every project you can see.', {
-      route: 'Global — the ⌘K palette and the header box resolve to the same index',
+      route: '/search',
       toolbar: C.exportMenu(),
     }) +
     C.filterBar({
@@ -2447,7 +2452,7 @@ const locationRegistry = () => {
 
   return (
     head('Locations', 'Every monitoring location on this project, and what each one is telling you.', {
-      route: '/projects/:projectId/locations — register shipped, detail not built',
+      route: '/projects/:projectId/locations/:locationId',
       toolbar: C.exportMenu() + C.btn('Add location') + C.btn('Manage groups'),
     }) +
     C.filterBar({
@@ -2512,7 +2517,7 @@ const locationRegistry = () => {
 
 const facilityScreen = () => (
   head('Facility and areas', 'The hierarchy every location hangs from, and what an edit to it would touch.', {
-    route: 'Not built — FR-1.1 has the model, no screen edits it',
+    route: '/projects/:projectId/facility',
     toolbar: C.btn('Add area') + C.btn('Reorganise', 'primary'),
   }) +
   C.tabs([
@@ -2573,7 +2578,7 @@ const facilityScreen = () => (
 
 const samplingEvents = () => (
   head('Sampling events', 'Each round of collection — when it happened, who collected it, and where it is up to.', {
-    route: '/projects/:projectId/sampling-events — register shipped, detail not built',
+    route: '/projects/:projectId/sampling-events',
     toolbar: C.exportMenu() + C.btn('Plan a round') + C.btn('Record a round', 'primary'),
   }) +
   stats([
@@ -2662,7 +2667,7 @@ const samplingEvents = () => (
 
 const quarantine = () => (
   head('Held rows', 'Everything that did not make it into the record, why, and the way out of each one.', {
-    route: 'Not built — the reasons exist in import_quarantine and no screen reads them',
+    route: '/projects/:projectId/held',
     toolbar: C.exportMenu() + C.btn('Re-run the map stage'),
   }) +
   stats([
@@ -2740,7 +2745,7 @@ const resultDetail = () => {
   const R = RESULT_DETAIL;
   return (
     head(`${esc(R.reported)} — ${esc(R.analyte)}`, 'One result: what was measured, what could not be, and what anyone has said about it.', {
-      route: 'Not built — EX-08 names it; the crosstab dead-ends at the value',
+      route: '/projects/:projectId/results/:resultId',
       toolbar: C.lineageButton('Open lineage') + C.exportMenu() + C.btn('Annotate', 'primary'),
     }) +
     C.tabs([
@@ -2860,7 +2865,7 @@ const resultDetail = () => {
 
 const submissionArchive = () => (
   head('Submissions', 'What was sent, when, by whom, and against which snapshot. None of it can change.', {
-    route: 'Not built — G-38 has the snapshot model, nothing lists what was issued',
+    route: '/projects/:projectId/submissions',
     toolbar: C.exportMenu() + C.btn('Record an external submission'),
   }) +
   stats([
@@ -2910,6 +2915,7 @@ const submissionArchive = () => (
       'Scheduled delivery, and what happens when it fails',
       table({
         head: ['Obligation', 'Channel', 'Last run', 'Outcome'],
+        scroll: true, label: 'Scheduled deliveries',
         rows: [
           ['Quarterly discharge return', 'DWER portal · manual lodgement', '2026-04-24', C.status('accepted', 'good')],
           ['Exceedance notification', 'Email to the nominated officer', '2026-05-22', C.status('acknowledged', 'good')],
@@ -2930,7 +2936,7 @@ const licenceScreen = () => {
   const L = LICENCE;
   return (
     head(`Licence ${esc(L.id)}`, 'The conditions, what each one governs, and the report that discharges it.', {
-      route: 'Not built — the obligations model exists; the licence has no page',
+      route: '/projects/:projectId/licence',
       toolbar: C.exportMenu() + C.btn('Record a variation'),
     }) +
     C.tabs([
@@ -3027,7 +3033,7 @@ const licenceScreen = () => {
 
 const documents = () => (
   head('Documents', 'Certificates, custody forms, photographs and evidence — attached where they belong.', {
-    route: 'Not built — certificate retention exists; there is no documents surface',
+    route: '/projects/:projectId/documents',
     toolbar: C.exportMenu() + C.btn('Attach a document', 'primary'),
   }) +
   stats([
@@ -3098,7 +3104,7 @@ const documents = () => (
 
 const projectSettings = () => (
   head('Project settings', 'What this project is, what it evaluates against, and who can act in it.', {
-    route: 'Not built — the authorisation scope has no management surface',
+    route: '/projects/:projectId/settings',
     toolbar: C.btn('Save changes', 'primary', { disabled: true }),
   }) +
   C.tabs([
@@ -3207,7 +3213,7 @@ const projectSettings = () => (
 
 const mappingProfiles = () => (
   head('Mapping profiles', 'What the importer has learned from each laboratory, and how to correct it when it learned wrong.', {
-    route: 'Not built — FR-3.2 persists the decisions; nothing browses them',
+    route: '/projects/:projectId/mappings',
     toolbar: C.exportMenu() + C.btn('Import a profile') + C.btn('New profile', 'primary'),
   }) +
   table({
@@ -3291,7 +3297,7 @@ const mappingProfiles = () => (
 
 const unitsScreen = () => (
   head('Units and conversions', 'Every unit the product recognises, and every rule it may apply to one.', {
-    route: 'Not built — conversions happen and their rules are not readable anywhere',
+    route: '/config/units',
     toolbar: C.exportMenu() + C.btn('Add a unit'),
   }) +
   notice(
@@ -3434,7 +3440,7 @@ const upgradeScreen = () => (
 
 const entitlementScreen = () => (
   head('About this instance', 'Version, entitlement, and the support bundle you would send — previewed before anything leaves.', {
-    route: 'CLI — the first thing support asks for, and it is not self-servable',
+    route: '/instance (the bundle itself is assembled by CLI)',
     toolbar: C.btn('Copy version block'),
   }) +
   cols(
@@ -3476,6 +3482,7 @@ const entitlementScreen = () => (
         '<p class="mk-tight">Every line below is inspectable before the file exists. The preview is the feature: a support bundle a customer cannot read before sending is a request to take the vendor’s word for what is in it.</p>' +
         table({
           head: ['Contents', 'Size', 'Sensitivity', 'Include'],
+          scroll: true, label: 'Diagnostic bundle contents',
           rows: BUNDLE.contents.map((c) => [
             esc(c.what),
             `<span class="mk-num${c.size === '—' ? ' mk-num--nil' : ''}">${esc(c.size)}</span>`,
@@ -3524,7 +3531,7 @@ const dataStates = () => {
     panel(title, `<p class="mk-tight">${note}</p>${block}`);
   return (
     head('Four states, everywhere', 'Empty, loading, partial and error — designed once, for every surface.', {
-      route: 'Shipped as a constraint — every data surface declares all four or the suite fails by name',
+      route: '/help/states',
       toolbar: C.segmented({ options: ['Empty', 'Loading', 'Partial', 'Error'], value: 'Empty', label: 'State' }),
     }) +
     notice(
@@ -3657,7 +3664,7 @@ const dataStates = () => {
 
 const assistance = () => (
   head('Keyboard and assistance', 'The contract for somebody who works here every day, and the help for somebody who does not.', {
-    route: 'Partly shipped — focus order and labels are enforced; the palette and the sheet are proposals',
+    route: '/help/keyboard',
     toolbar: C.btn('Open the command palette', 'primary') + C.btn('Print this sheet'),
   }) +
   notice(
@@ -3973,7 +3980,7 @@ const coverage = () => {
       'eCOC has no owner: receipt covers the laboratory side; creating one in the field has none'],
     ['2', 'Result → exceedance response', 'partially',
       [['Result', 'result-detail'], ['Applicable criteria', 'criteria'], ['Derivation', 'hardness'], ['Exceedance', 'exceedances'], ['Evaluation', 'exceedances'], ['TARP / obligation', 'tarp'], ['Acknowledge', 'alerts'], ['Assign', 'home'], ['Evidence', 'documents'], ['Approve', 'signoff'], ['Close', 'tarp']],
-      'Assignment rides on the contested work queue (pass-4 findings §2)'],
+      'Assignment rides on the work queue, kept as a proposal by decision (1 Sep 2026 — findings §7)'],
     ['3', 'Result → issued report', 'covered',
       [['Result', 'crosstab'], ['Validation', 'validation'], ['Evaluation', 'exceedances'], ['Figure / table', 'report-figures'], ['Snapshot', 'snapshot'], ['Assembly', 'report'], ['Quality review', 'report'], ['Approval', 'signoff'], ['Issue', 'submissions'], ['Archive', 'submissions'], ['Regenerate', 'snapshot']],
       ''],
@@ -3982,7 +3989,7 @@ const coverage = () => {
       ''],
     ['5', 'Programme → completed field work', 'partially',
       [['Programme', 'programme'], ['Recurrence', 'programme'], ['Round', 'events'], ['Locations / suites', 'events'], ['Assignment', 'home'], ['Field work', 'field-capture'], ['Samples / QC', 'field-capture'], ['eCOC', null], ['Custody transfer', 'receipt'], ['Laboratory receipt', 'receipt'], ['Completion', 'programme']],
-      'Field capture is a proposal; eCOC is unowned; assignment is contested'],
+      'Field capture is a proposal; eCOC is unowned; assignment rides on the work-queue proposal (findings §7)'],
     ['6', 'Statutory notification', 'covered',
       [['Licence condition', 'licence'], ['Triggering result', 'result-detail'], ['Became aware', 'notification'], ['Deadline', 'notification'], ['Evidence review', 'documents'], ['Approval', 'signoff'], ['Submission', 'notification'], ['Proof', 'documents'], ['Closure', 'notification'], ['Audit', 'audit']],
       ''],
@@ -4122,6 +4129,7 @@ const coverage = () => {
         '<p class="mk-tight">Re-run the three enumerations rather than reading this table. It was assembled by hand and hand-maintained summaries rot, fastest in whichever direction flatters the person writing them.</p>' +
           table({
             head: ['Enumeration', 'Where it lives', 'Re-run by'],
+            scroll: true, label: 'The enumerations and how to re-run them',
             rows: [
               ['Global expectations', 'The register’s §0', 'Reading §0 against this screen'],
               ['Surfaces', 'The register’s §15 matrix', 'Every glossary entity has an owning screen'],
@@ -4179,7 +4187,7 @@ export const JOBS = [
   { id: 'j0', n: 'J0', title: 'Arrive, and find out what needs you', who: 'U1 · U2 · U4 · U5',
     note: 'Absent from the first build. The authorisation scope had no face, and the catalogue opened on a screen that assumes you already know where you are.',
     screens: [
-      { id: 'home', label: 'Work queue', body: workQueue, state: 'not built', isNew: true, now: 'not built' },
+      { id: 'home', label: 'Work queue', body: workQueue, state: 'not built', isNew: true, now: 'proposed' },
       { id: 'search', label: 'Search', body: globalSearch, state: 'not built', isNew: true, now: 'shipped' },
       { id: 'projects', label: 'Projects', body: projectList, state: 'engine-only', isNew: true, now: 'shipped' },
       { id: 'project-home', label: 'Project home', body: projectHome, state: 'shipped', isNew: true, now: 'shipped' },

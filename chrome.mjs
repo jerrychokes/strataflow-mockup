@@ -232,6 +232,15 @@ html, body { background: var(--mk-chrome); }
 
 .mk-cols { display: grid; grid-template-columns: var(--mk-cols); gap: 1rem; align-items: start; margin-bottom: 1rem; }
 @media (max-width: 1100px) { .mk-cols { grid-template-columns: 1fr; } }
+/*
+ * Pass 4, measured: a grid item's min-width is auto, so one unwrappable line
+ * anywhere in a panel set the track wider than the viewport and every panel
+ * in the pair overflowed the document by the same amount — ten screens at
+ * 375px, two at 1280. min-width: 0 lets the track shrink to the column and
+ * pushes the question down to the content, where the rules below answer it.
+ */
+.mk-cols > * { min-width: 0; }
+
 
 .mk-tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: .1rem .4rem; border-radius: 3px; white-space: nowrap; border: 1px solid; }
 .mk-tag--good { color: var(--mk-good); border-color: var(--mk-good-line); background: var(--mk-good-bg); }
@@ -766,6 +775,18 @@ html, body { background: var(--mk-chrome); }
 .mk-cover tr:hover td { background: var(--sf-surface); }
 .mk-cover__id { font-family: var(--sf-font-data); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .mk-table-wrap { overflow-x: auto; margin-bottom: 1.2rem; }
+
+/*
+ * Pass 4, measured: at 375px the window scrolled 519px into blank space on
+ * the crosstab. The scrollable void is generated inside the product's own
+ * .sf-table-scroll regions (a Chromium containing-block escape: hiding the
+ * wrap removes it, clipping any ancestor between it and .mk-main does not).
+ * A focusable, labelled scroll region is an independent layout boundary, so
+ * declaring the containment is the truthful fix, not a workaround — and it
+ * belongs here rather than in app.css, which stays byte-identical to the
+ * product. The wrap check in verify.mjs holds this at three widths.
+ */
+.sf-table-scroll, .mk-table-wrap { contain: layout; }
 .mk-table-wrap .mk-cover { margin-bottom: 0; min-width: 640px; }
 
 .mk-fig { display: block; max-width: 100%; height: auto; background: var(--sf-ground); }
@@ -852,5 +873,33 @@ html, body { background: var(--mk-chrome); }
   .mk-rail, .mk-top, .mk-banner, .mk-toolbar, .mk-filters, .mk-related { display: none; }
   .mk-app { grid-template-columns: 1fr; }
   .mk-screen { display: block !important; }
+}
+
+/* ==================================================================== *
+ * Pass 4 — measured overflow fixes. Last in the file deliberately: these
+ * override nowrap rules declared above, and the cascade decides ties by
+ * order, which is exactly how the first attempt at them silently lost.
+ * ==================================================================== */
+
+/*
+ * nowrap is right for a chip and wrong for a sentence inside one. Buttons
+ * carry sentences in this product ("Not available — the stand-down
+ * condition…"), so they wrap at every width; tags and link-buttons wrap only
+ * on a narrow viewport, where the alternative is the document scrolling into
+ * blank space. Identity chips (top bar, tabs, status glyphs) keep nowrap —
+ * they never carry prose. Code phrases break anywhere rather than jutting.
+ */
+.mk-btn { white-space: normal; }
+.mk-file { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .mk-tag, .mk-linkbtn { white-space: normal; }
+  /*
+   * The stacked cell's ::before label is flex: 0 0 auto in app.css, which is
+   * right until a label is a sentence — "Consequence for the assessment" made
+   * three DQA cells 73px wider than their row, invisibly (a pseudo-element
+   * shows up in no element query; found via td.scrollWidth). Letting it
+   * shrink lets it wrap.
+   */
+  .sf-table--records tbody td::before { flex-shrink: 1; min-width: 0; }
 }
 `;

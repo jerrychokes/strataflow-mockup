@@ -123,6 +123,24 @@ const SECTION_REGISTER = {
 };
 
 /*
+ * Route lines carry no state claims — pass 4 found thirty-five of them still
+ * asserting 23 August states ("engine-only", "not built") three routes and
+ * one product rebuild later. The state lives in the register alone, rendered
+ * by the rail dot; a route line is a path, a stage suffix, or an honest
+ * "a proposal" for a screen the product does not have. Checked at the source
+ * so the prose cannot rot separately from the register again.
+ */
+{
+  const source = readFileSync(resolve(here, 'screens.mjs'), 'utf8');
+  const banned = /engine-only|not built|no route|renders nowhere|no screen|nothing renders|CLI-only|shipped/i;
+  const stale = [...source.matchAll(/route: '([^']*)'/g)].map((m) => m[1]).filter((r) => banned.test(r));
+  if (stale.length) {
+    for (const r of stale) console.error(`route line carries a state claim: “${r}”`);
+    process.exit(1);
+  }
+}
+
+/*
  * The partition check the 23 August view never had, run before anything is
  * written: every screen in exactly one group, no id that is not a screen.
  */
