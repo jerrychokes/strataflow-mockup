@@ -104,13 +104,23 @@ const SECTION_OF = {
  * The rail — the catalogue, and the switch to the product's own IA
  * ==================================================================== */
 
-const screenButton = (s) =>
-  `<li data-label="${esc(s.label.toLowerCase())}" data-state="${esc(s.state)}">` +
-  `<button class="mk-rail__screen" type="button" data-target="${s.id}" aria-current="false">` +
-  `<span class="mk-dot mk-dot--${STATE_TONE[s.state]}" title="${esc(s.state)}"></span>` +
-  `<span>${esc(s.label)}</span>` +
-  (s.isNew ? '<span class="mk-rail__new" title="Added in this pass">NEW</span>' : '') +
-  '</button></li>';
+/**
+ * The dot shows the *current* state (`now`, re-derived 1 Sep 2026); the title
+ * carries the 23 Aug state where it differs, so the third pass's finding stays
+ * one hover away rather than being erased by the fourth.
+ */
+const screenButton = (s) => {
+  const cur = s.now ?? s.state;
+  const hist = s.now && s.now !== s.state ? `${cur} — was “${s.state}” on 23 Aug 2026` : cur;
+  return (
+    `<li data-label="${esc(s.label.toLowerCase())}" data-state="${esc(cur)}">` +
+    `<button class="mk-rail__screen" type="button" data-target="${s.id}" aria-current="false">` +
+    `<span class="mk-dot mk-dot--${STATE_TONE[cur]}" title="${esc(hist)}"></span>` +
+    `<span>${esc(s.label)}</span>` +
+    (s.isNew ? '<span class="mk-rail__new" title="Added in the third pass">NEW</span>' : '') +
+    '</button></li>'
+  );
+};
 
 function rail() {
   const byJob = JOBS.map(
@@ -375,11 +385,12 @@ ${rail()}
 ${topBar()}
 ${sectionStrip('')}
 </header>
-<p class="mk-banner"><strong>Mockup.</strong> Rendered 23 August 2026 from <code>design/mockup/</code> against the approved
-Instrument direction and the product's own stylesheet. Every figure is drawn to the approved grammar. The data is
-fictional — <code>MOCK-WDL</code>, on the <code>MOCK-</code> convention. Most of these screens do not exist in the
-product; the dot beside each one in the rail says which, and <a class="mk-ref" href="#coverage">Coverage</a> says what
-this catalogue is exhaustive against.</p>
+<p class="mk-banner"><strong>Mockup.</strong> Drawn 23 August 2026; screen states re-derived 1 September 2026 (pass 4)
+against the product's route table, which now backs 58 of the 66 screens. Styled by the product's own stylesheet on the
+approved Instrument direction; every figure is drawn to the approved grammar. The data is fictional —
+<code>MOCK-WDL</code>, on the <code>MOCK-</code> convention. The dot beside each screen in the rail is its state in the
+product today (hover for the 23 August state), and <a class="mk-ref" href="#coverage">Coverage</a> says what this
+catalogue is exhaustive against.</p>
 <div class="mk-canvas">${screens}</div>
 </main>
 </div>
@@ -546,13 +557,19 @@ ${palette()}
 writeFileSync(OUT, html, 'utf8');
 
 const byState = {};
-for (const s of ALL) byState[s.state] = (byState[s.state] ?? 0) + 1;
+const byNow = {};
+for (const s of ALL) {
+  byState[s.state] = (byState[s.state] ?? 0) + 1;
+  const cur = s.now ?? s.state;
+  byNow[cur] = (byNow[cur] ?? 0) + 1;
+}
 const added = ALL.filter((s) => s.isNew).length;
 const anchors = (html.match(/href="#/g) ?? []).length;
 
-console.log(`design/mockup/index.html · ${ALL.length} screens across ${JOBS.length} jobs · ${(html.length / 1024).toFixed(0)} KB`);
-console.log(Object.entries(byState).map(([k, v]) => `${k}: ${v}`).join(' · '));
-console.log(`${added} added this pass · ${anchors} anchors`);
+console.log(`index.html · ${ALL.length} screens across ${JOBS.length} jobs · ${(html.length / 1024).toFixed(0)} KB`);
+console.log(`23 Aug 2026 · ${Object.entries(byState).map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
+console.log(` 1 Sep 2026 · ${Object.entries(byNow).map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
+console.log(`${added} added in pass 3 · ${anchors} anchors`);
 
 /* The two invariants the first build got wrong, checked rather than claimed. */
 const dangling = Object.entries(RELATED).flatMap(([from, tos]) => tos.filter((t) => !labelOf[t]).map((t) => `${from} → ${t}`));
