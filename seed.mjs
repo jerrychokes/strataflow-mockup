@@ -96,6 +96,18 @@ export const LOCATIONS = [
   { code: 'SW01', klass: 'surface_water', area: 'Wandalup Creek', unit: '—', position: 'Downstream of discharge', easting: 516010, northing: 7651880, toc: 198.62, screen: '—', state: 'compliant' },
   { code: 'STY01', klass: 'stygofauna', area: 'Borefield', unit: 'Superficial', position: 'Reference — upgradient, off the bore transect', easting: 511800, northing: 7653400, toc: 215.10, screen: '14.0 – 26.0 m', state: 'not_evaluated' },
   { code: 'STY02', klass: 'stygofauna', area: 'TSF', unit: 'Superficial', position: 'Downgradient of TSF, off the bore transect', easting: 515000, northing: 7653400, toc: 206.40, screen: '12.0 – 24.0 m', state: 'not_evaluated' },
+  /*
+   * The production bores. A bore water is taken from is a location — the
+   * extraction record hangs off one — so they belong on this register rather
+   * than in a list beside it, and `state` is `not_evaluated` because no
+   * criterion is selectable for a bore nobody samples: nothing is asserted
+   * about its quality, which is different from asserting it is clean.
+   * `lifecycle` is what makes PB03's row honest; the register's own network
+   * health question has named it since the third pass.
+   */
+  { code: 'PB01', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — western borefield', easting: 512090, northing: 7653640, toc: 216.30, screen: '30.0 – 60.0 m', state: 'not_evaluated' },
+  { code: 'PB02', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — eastern borefield', easting: 512740, northing: 7653320, toc: 214.95, screen: '32.0 – 62.0 m', state: 'not_evaluated' },
+  { code: 'PB03', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — decommissioned 2025-11-04', easting: 511560, northing: 7654180, toc: 218.20, screen: '28.0 – 55.0 m', state: 'not_evaluated', lifecycle: 'decommissioned' },
 ];
 
 /**
@@ -501,9 +513,323 @@ export const TARP = [
   { level: 'Level 3', label: 'Notify DWER', locations: 'TSF-VWP-03', trigger: 'Phreatic surface above design line for 7 consecutive days', state: 'cleared', since: '2026-04-08', response: 'Cleared 2026-04-16 after drawdown' },
 ];
 
+/**
+ * The take, the entitlement it is measured against, and the load the discharge
+ * return carries (FR-5.6, FR-5.5).
+ *
+ * **Volumes are kilolitres, held as integers.** The glossary gives the reason
+ * and it is not fussiness: an entitlement is a legal limit, and a rounding that
+ * lands a kilolitre over it is an exceedance nobody caused. Megalitres are a
+ * display unit and no comparison here is made in them.
+ *
+ * **A monthly figure is an extraction record — a reported volume for a stated
+ * period — and not a meter reading.** The difference between two cumulative
+ * readings is a derivation and would owe its rule and its inputs; a meter
+ * replaced mid-year, a rollover and a read nobody took each change that answer
+ * silently. So May, whose period has not ended, carries a totaliser reading
+ * instead and is kept out of every rate computed below.
+ *
+ * **Basis is metered or estimated, and there is no third value.** An estimate
+ * carries the arithmetic that produced it and is never blended into a metered
+ * figure; the totals state how much of themselves is estimated.
+ *
+ * **The entitlement year is the water licence's own.** GWL118842(2) was granted
+ * on 1 October 2019 and its year runs from that anniversary — not the WA fiscal
+ * year, which is what a July boundary here would be. The year is named by the
+ * month it *ends*, so the 2026 entitlement year is 1 Oct 2025 → 30 Sep 2026,
+ * and midnight at the site is 16:00 UTC the day before.
+ */
+export const WATER = (() => {
+  const entitlementKl = 1_250_000;
+  const asAt = '2026-05-23';
+  const threshold = 90; // per cent of the entitlement, projected at year end
+
+  /*
+   * The year, month by month. `complete` carries the whole reliability
+   * question: a complete month has an extraction record behind it, an
+   * incomplete one has a meter still running.
+   */
+  const months = [
+    { key: '2025-10', label: 'Oct 2025', days: 31, complete: true },
+    { key: '2025-11', label: 'Nov 2025', days: 30, complete: true },
+    { key: '2025-12', label: 'Dec 2025', days: 31, complete: true },
+    { key: '2026-01', label: 'Jan 2026', days: 31, complete: true },
+    { key: '2026-02', label: 'Feb 2026', days: 28, complete: true },
+    { key: '2026-03', label: 'Mar 2026', days: 31, complete: true },
+    { key: '2026-04', label: 'Apr 2026', days: 30, complete: true },
+    { key: '2026-05', label: 'May 2026', days: 31, complete: false, elapsed: 23 },
+  ];
+  const complete = months.filter((m) => m.complete);
+  const restOfYear = [30, 31, 31, 30]; // June, July, August, September
+
+  /*
+   * Two estimates in the year, and each is its own arithmetic rather than a
+   * number somebody wrote down.
+   */
+  const pb02Feb = { hours: 412, rate: 107.5 };
+  const pb03Oct = { hours: 200, rate: 130 };
+
+  /* Keyed by bore, in month order. `null` is no take, which is not zero. */
+  const TAKES = {
+    PB01: {
+      meter: 'Magflow MF-2211',
+      verified: '2025-11-12',
+      note: 'Read on the last day of each month, and that reading is the month’s reported volume.',
+      cells: [
+        { kl: 44_800, basis: 'metered' },
+        { kl: 47_200, basis: 'metered' },
+        { kl: 52_600, basis: 'metered' },
+        { kl: 55_100, basis: 'metered' },
+        { kl: 51_400, basis: 'metered' },
+        { kl: 53_900, basis: 'metered' },
+        { kl: 46_700, basis: 'metered' },
+        { kl: 34_600, basis: 'metered' },
+      ],
+    },
+    PB02: {
+      meter: 'Magflow MF-2212',
+      verified: '2026-02-26',
+      note: 'MF-2212 failed on 2026-02-03 and was replaced on 2026-02-26; the replacement was verified on installation.',
+      cells: [
+        { kl: 38_100, basis: 'metered' },
+        { kl: 40_600, basis: 'metered' },
+        { kl: 45_200, basis: 'metered' },
+        { kl: 47_800, basis: 'metered' },
+        {
+          kl: Math.round(pb02Feb.hours * pb02Feb.rate),
+          basis: 'estimated',
+          how: `${pb02Feb.hours} pump run hours × ${pb02Feb.rate} kL/h`,
+          why: 'The meter was out of service for 23 days of the month. The duty rate is the one MF-2212 itself measured in January and the hours come from the pump controller, so neither input is an assumption about this bore.',
+        },
+        { kl: 46_100, basis: 'metered' },
+        { kl: 39_400, basis: 'metered' },
+        { kl: 29_800, basis: 'metered' },
+      ],
+    },
+    PB03: {
+      meter: null,
+      note: 'Never metered, and decommissioned on 2025-11-04 — inside this entitlement year, so the take before that date still counts against it.',
+      cells: [
+        {
+          kl: Math.round(pb03Oct.hours * pb03Oct.rate),
+          basis: 'estimated',
+          how: `${pb03Oct.hours} pump run hours × ${pb03Oct.rate} kL/h`,
+          why: 'No meter was ever fitted to PB03. The rate is its last capacity test, in 2021, which is the weakest evidence on this page — so it is marked wherever the volume appears rather than only here.',
+        },
+        null, null, null, null, null, null, null,
+      ],
+    },
+  };
+
+  /*
+   * The bore list comes from the location register rather than from the table
+   * above, so a production bore cannot exist on one screen and not on the
+   * other. A bore with no take data is a bore with no extraction records — an
+   * empty state, not a missing row.
+   */
+  const bores = LOCATIONS.filter((l) => l.klass === 'production_bore').map((l) => {
+    const t = TAKES[l.code] ?? { meter: null, note: 'No extraction records in this entitlement year.', cells: [] };
+    const cells = months.map((m, i) => t.cells[i] ?? null);
+    return {
+      code: l.code,
+      position: l.position,
+      lifecycle: l.lifecycle ?? 'operating',
+      meter: t.meter,
+      verified: t.verified,
+      note: t.note,
+      cells,
+      recordKl: cells.reduce((a, c, i) => a + (c && months[i].complete ? c.kl : 0), 0),
+      provisionalKl: cells.reduce((a, c, i) => a + (c && !months[i].complete ? c.kl : 0), 0),
+    };
+  });
+
+  const monthTotals = months.map((m, i) => ({
+    ...m,
+    kl: bores.reduce((a, b) => a + (b.cells[i]?.kl ?? 0), 0),
+    estimated: bores.filter((b) => b.cells[i]?.basis === 'estimated').length,
+  }));
+
+  const takenKl = bores.reduce((a, b) => a + b.recordKl, 0);
+  const provisionalKl = bores.reduce((a, b) => a + b.provisionalKl, 0);
+  const records = bores.flatMap((b) => b.cells.filter((c, i) => c && months[i].complete));
+  const estimates = records.filter((c) => c.basis === 'estimated');
+
+  /*
+   * The projection, and the rule behind it: the mean of the *complete* months,
+   * over twelve. The alternative — counting the part month as a month — is
+   * computed beside it because it is the arithmetic a reader does in their
+   * head, and on this year it lands on the other side of the flag. Which rule
+   * is in force is a decision, so it is printed rather than assumed.
+   */
+  const rateKl = takenKl / complete.length;
+  const projectionKl = Math.round(rateKl * 12);
+  const altProjectionKl = Math.round(((takenKl + provisionalKl) / (complete.length + 1)) * 12);
+  /*
+   * And the third rule, which is the one the data itself argues for: PB03 was
+   * decommissioned in November, so a flat rate over the whole record projects
+   * a bore that no longer exists forward for another five months.
+   */
+  const operatingKl = bores.filter((b) => b.lifecycle === 'operating').reduce((a, b) => a + b.recordKl, 0);
+  const operatingProjectionKl = Math.round((operatingKl / complete.length) * 12);
+  const pct = (kl) => Math.round((kl / entitlementKl) * 1000) / 10;
+
+  const elapsedDays = complete.reduce((a, m) => a + m.days, 0);
+  const yearDays = months.reduce((a, m) => a + m.days, 0) + restOfYear.reduce((a, d) => a + d, 0);
+  const monthsRemaining = 12 - complete.length;
+  const headroomKl = entitlementKl - takenKl;
+  const may = months.at(-1);
+
+  /**
+   * Mass load by reporting period (FR-5.5).
+   *
+   * The reporting period is the calendar quarter, because that is what the
+   * discharge return is on — condition 14, and the quarters already in the
+   * submission archive. Volume is metered at the discharge point; concentration
+   * is one grab sample per quarter at the point the licence names for it, which
+   * sits 200 m downstream. That arrangement is the licence's rather than a
+   * setting: the load is reported at the compliance point and not at the
+   * outfall, and moving the sample is a variation, not a preference.
+   *
+   * `concentration × kL ÷ 1000` is the whole calculation, and the unit scaling
+   * is stated rather than absorbed: mg/L × kL ÷ 1000 = kg, µg/L × kL ÷ 1000 = g.
+   *
+   * **A censored concentration is not a number and the load does not invent
+   * one.** FR-5.8 refuses default half-LOR substitution and a total that goes
+   * to a regulator is the last place to start; the quarter carries the interval
+   * its two bounding substitutions give — zero below, the limit of reporting
+   * above — with the four treatments drawn beside it so the choice is visible.
+   */
+  const load = (() => {
+    const dischargeKl = {
+      '2025-10': 0, '2025-11': 1_900, '2025-12': 12_400, '2026-01': 38_600,
+      '2026-02': 44_200, '2026-03': 21_800, '2026-04': 4_600, '2026-05': 0,
+    };
+    const quarters = [
+      { key: '2025 Q4', months: ['2025-10', '2025-11', '2025-12'], complete: true, returned: 'lodged 2026-01-27' },
+      { key: '2026 Q1', months: ['2026-01', '2026-02', '2026-03'], complete: true, returned: 'lodged 2026-04-24 · WDL-DR-2026Q1' },
+      { key: '2026 Q2', months: ['2026-04', '2026-05'], complete: false, returned: 'due 2026-07-28' },
+    ];
+    const analytes = [
+      { name: 'Nitrate as N', unit: 'mg/L', loadUnit: 'kg', lor: 0.05,
+        by: { '2025 Q4': { v: 1.8, at: '2025-11-18' }, '2026 Q1': { v: 2.4, at: '2026-02-11' }, '2026 Q2': { v: 2.1, at: '2026-05-14' } } },
+      { name: 'Copper (filtered)', unit: 'µg/L', loadUnit: 'g', lor: 0.5,
+        by: { '2025 Q4': { v: null, at: '2025-11-18' }, '2026 Q1': { v: 0.9, at: '2026-02-11' }, '2026 Q2': { v: null, at: '2026-05-14' } } },
+    ];
+    const r1 = (v) => Math.round(v * 10) / 10;
+    const mass = (conc, kl) => (conc * kl) / 1000;
+
+    const rows = analytes.flatMap((a) =>
+      quarters.map((q) => {
+        const kl = q.months.reduce((sum, m) => sum + dischargeKl[m], 0);
+        const s = a.by[q.key];
+        const censored = s.v === null;
+        return {
+          analyte: a.name, unit: a.unit, loadUnit: a.loadUnit, lor: a.lor,
+          quarter: q.key, complete: q.complete, returned: q.returned,
+          kl, sampledAt: s.at,
+          conc: censored ? `< ${a.lor.toFixed(1)}` : String(s.v),
+          censored,
+          load: censored ? null : r1(mass(s.v, kl)),
+          low: censored ? 0 : null,
+          high: censored ? r1(mass(a.lor, kl)) : null,
+          treatments: censored
+            ? [
+                { rule: 'exclude', gives: null },
+                { rule: 'zero', gives: r1(0) },
+                { rule: 'half the LOR', gives: r1(mass(a.lor / 2, kl)) },
+                { rule: 'the LOR', gives: r1(mass(a.lor, kl)) },
+              ]
+            : null,
+        };
+      }),
+    );
+
+    const totals = analytes.map((a) => {
+      const mine = rows.filter((r) => r.analyte === a.name);
+      const low = mine.reduce((sum, r) => sum + (r.censored ? 0 : mass(Number(r.conc), r.kl)), 0);
+      const high = mine.reduce((sum, r) => sum + (r.censored ? mass(a.lor, r.kl) : mass(Number(r.conc), r.kl)), 0);
+      return { analyte: a.name, loadUnit: a.loadUnit, low: r1(low), high: r1(high), bounded: r1(low) !== r1(high) };
+    });
+
+    return {
+      point: 'DP01', monitoredAt: 'SW01',
+      period: 'Calendar quarter — the period the discharge return is on (condition 14)',
+      formula: 'concentration × volume ÷ 1000 — mg/L × kL gives kilograms, µg/L × kL gives grams',
+      dischargeKl, quarters, analytes, rows, totals,
+      says:
+        'One grab sample against three months of volume is a first-order load, and the screen says so rather than printing three significant figures at it. A flow-weighted composite would answer better; the licence asks for a grab, and the number that goes into the return is the one the licence asks for.',
+    };
+  })();
+
+  return {
+    asAt,
+    instrument: {
+      id: 'GWL118842(2)',
+      kind: 'Licence to take water — s5C, Rights in Water and Irrigation Act 1914 (WA)',
+      granted: '2019-10-01',
+      regulator: 'DWER — water licensing',
+      mirror: '23',
+      mirrors:
+        'Condition 23 of L8842/2019/1 restates the same volume, so taking more than the entitlement breaches two instruments at once — the water licence the entitlement belongs to, and the environmental licence that mirrors it.',
+      scope:
+        'The entitlement is held on the licence and not on a bore, so PB03’s October take counts against it although condition 23 names only PB01 and PB02. The condition’s wording is kept as the regulator wrote it; the difference is stated here rather than resolved by editing it.',
+    },
+    year: {
+      label: '2026 entitlement year',
+      from: '2025-10-01',
+      to: '2026-09-30',
+      endsIn: 'September',
+      why:
+        'The year runs from the anniversary of the water licence’s grant — 1 October 2019 — because that is what the instrument says. A July boundary here would be the WA fiscal year borrowed out of habit, and it would put four months of this year’s take into last year’s return.',
+      named: 'A year is named by the month it ends, so the 2026 entitlement year began on 1 October 2025.',
+      boundary:
+        'The boundary is 00:00 on 1 October at the site, which is 16:00 UTC on 30 September. A volume logged at 07:00 AWST on 1 October belongs to the year beginning, never to the year ending — resolved in Australia/Perth, never on the server.',
+      aligns:
+        'Four calendar quarters tile this year exactly, which is why the quarterly discharge returns sit inside it without splitting. The groundwater monitoring year does not: it ends in June and cuts this one in half.',
+    },
+    entitlementKl,
+    threshold,
+    months,
+    complete,
+    bores,
+    monthTotals,
+    takenKl,
+    provisionalKl,
+    estimatedKl: estimates.reduce((a, c) => a + c.kl, 0),
+    recordCount: records.length,
+    estimatedCount: estimates.length,
+    estimates: bores.flatMap((b) =>
+      b.cells.map((c, i) => (c && c.basis === 'estimated' ? { ...c, code: b.code, month: months[i].label } : null)).filter(Boolean),
+    ),
+    pctTaken: pct(takenKl),
+    pctYear: Math.round((elapsedDays / yearDays) * 1000) / 10,
+    elapsedDays,
+    yearDays,
+    rateKl: Math.round(rateKl),
+    projectionKl,
+    projectionPct: pct(projectionKl),
+    altProjectionKl,
+    altProjectionPct: pct(altProjectionKl),
+    operatingKl,
+    operatingRateKl: Math.round(operatingKl / complete.length),
+    operatingProjectionKl,
+    operatingProjectionPct: pct(operatingProjectionKl),
+    decommissionedKl: takenKl - operatingKl,
+    headroomKl,
+    monthsRemaining,
+    allowedKl: Math.round(headroomKl / monthsRemaining),
+    mayRateKl: Math.round((provisionalKl / may.elapsed) * may.days),
+    flagged: pct(projectionKl) >= threshold,
+    load,
+  };
+})();
+
 /** Obligations across the estate. */
 export const OBLIGATIONS = [
   { what: 'Annual Environmental Report', to: 'DWER', due: '2026-09-30', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 condition 18' },
+  // The return the entitlement discharges through. Condition 23 has named it
+  // since the licence was drawn; until the take was drawn, nothing did.
+  { what: 'Annual water return — entitlement year to 30 September', to: 'DWER — water licensing', due: '2026-10-31', remaining: '160 days', state: 'on track', owner: 'D. Okafor', basis: 'GWL118842(2) — volumes taken in the entitlement year, by bore and by month, with the basis of each' },
   { what: 'Quarterly groundwater monitoring — 2026 Q3', to: 'Internal programme', due: '2026-08-14', remaining: '82 days', state: 'on track', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
   { what: 'PFAS exceedance notification', to: 'DWER', due: '2026-05-23 09:14', remaining: 'lodged', state: 'met', owner: 'R. Whitmore', basis: 'Licence condition 21 — as soon as practicable' },
   { what: 'Quarterly discharge return — 2026 Q2', to: 'DWER', due: '2026-07-28', remaining: '65 days', state: 'on track', owner: 'D. Okafor', basis: 'Licence L8842/2019/1 condition 14' },
@@ -734,12 +1060,18 @@ export const FACILITY = {
   name: 'Wandalup mine and TSF',
   operator: 'Wandalup Resources Pty Ltd',
   tenement: 'M47/1882',
+  /*
+   * `locations` is counted from LOCATIONS rather than typed beside it. The
+   * typed version said 3 · 3 · 2 · 1 while the register held four in two of
+   * those areas: a hand-kept count of a list that grows is a count that is
+   * wrong by the next screen somebody adds.
+   */
   areas: [
-    { name: 'Borefield', kind: 'Water supply', locations: 3, parent: '—', programme: 'GW-QTR', note: 'Upgradient and background control' },
-    { name: 'TSF', kind: 'Tailings storage', locations: 3, parent: '—', programme: 'GW-QTR, GW-MTH', note: 'Downgradient of the embankment; monthly since 2026-03-01' },
-    { name: 'Compliance boundary', kind: 'Regulatory', locations: 2, parent: '—', programme: 'GW-QTR', note: 'Licence Table 4 applies here and nowhere else' },
-    { name: 'Wandalup Creek', kind: 'Surface water', locations: 1, parent: '—', programme: 'SW-QTR', note: 'Downstream of the licensed discharge point' },
-  ],
+    { name: 'Borefield', kind: 'Water supply', parent: '—', programme: 'GW-QTR', note: 'Upgradient and background control, and the bores the entitlement is taken through' },
+    { name: 'TSF', kind: 'Tailings storage', parent: '—', programme: 'GW-QTR, GW-MTH', note: 'Downgradient of the embankment; monthly since 2026-03-01' },
+    { name: 'Compliance boundary', kind: 'Regulatory', parent: '—', programme: 'GW-QTR', note: 'Licence Table 4 applies here and nowhere else' },
+    { name: 'Wandalup Creek', kind: 'Surface water', parent: '—', programme: 'SW-QTR', note: 'Downstream of the licensed discharge point' },
+  ].map((a) => ({ ...a, locations: LOCATIONS.filter((l) => l.area === a.name).length })),
   /** What an edit would touch, shown before the edit (G-EXP-5, PP6). */
   blastRadius: [
     { what: 'Locations reassigned', n: '3 bores move from TSF to Compliance boundary' },
@@ -894,13 +1226,22 @@ export const LICENCE = {
     { n: '14', what: 'Quarterly discharge return, volumes and quality at the licensed discharge point', governs: 'SW01', discharges: 'Quarterly discharge return', state: 'due' },
     { n: '18', what: 'Annual Environmental Report by 30 September each year', governs: 'All locations', discharges: 'Annual Environmental Report', state: 'on track' },
     { n: '21', what: 'Notify the CEO as soon as practicable on becoming aware of an exceedance', governs: 'All locations', discharges: 'Statutory notification', state: 'discharged 2026-05-22' },
-    { n: '23', what: 'Abstraction must not exceed 1,250 ML per water year', governs: 'PB01, PB02 (production bores)', discharges: 'Annual water return', state: 'on track' },
+    // The volume comes from the entitlement it mirrors, not from a second copy
+    // of the number: this condition restates a limit set on another instrument,
+    // and two instruments holding one figure is exactly how they come apart.
+    { n: '23', what: `Abstraction must not exceed the volume licensed by ${WATER.instrument.id} — ${(WATER.entitlementKl / 1000).toLocaleString('en-AU')} ML — in the entitlement year`, governs: 'PB01, PB02 (production bores)', discharges: 'Annual water return', state: 'on track' },
   ],
   dischargePoints: [
     { id: 'DP01', what: 'Licensed surface discharge to Wandalup Creek', limit: '≤ 4 ML/day · Table 4 quality', monitored: 'SW01, 200 m downstream' },
   ],
+  /*
+   * The entitlement is a row on this licence's screen and its numbers are
+   * `WATER`'s — one source, read twice. The version this replaces typed
+   * "812 ML" and "65% of year elapsed" beside a July–June year, where 65% was
+   * the share of the *entitlement* taken and the year was 15% through.
+   */
   entitlements: [
-    { id: 'GWL-118842', what: 'Groundwater abstraction entitlement', limit: '1,250 ML per water year (1 Jul – 30 Jun)', used: '812 ML to 2026-08-23', headroom: '438 ML · 65% of year elapsed' },
+    { id: WATER.instrument.id, what: 'Groundwater abstraction entitlement', instrument: WATER.instrument.kind, condition: WATER.instrument.mirror },
   ],
 };
 

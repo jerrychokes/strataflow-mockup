@@ -26,6 +26,7 @@ import {
   CUSTODY_CHAIN, EC_MW05, EC_MW05_OUTLIER, LAB_QC, WINDOW_CONDITION,
   AMENDMENT, CRITERIA_DRAFT, DATA_RELEASE, GOLDEN, NON_DETECT, PFAS_COMPONENTS, Q1_ROUND,
   REGENERATION, REPORT_ITEMS, SIGNOFFS, SNAPSHOTS, TEMPLATE,
+  WATER,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -66,6 +67,16 @@ const stat = (value, label, tone = 'neutral') =>
   `<div class="mk-stat mk-stat--${tone}"><span class="mk-stat__value">${esc(value)}</span><span class="mk-stat__label">${esc(label)}</span></div>`;
 const stats = (items) => `<div class="mk-stats">${items.join('')}</div>`;
 const cols = (a, b, ratio = '3fr 2fr') => `<div class="mk-cols" style="--mk-cols:${ratio}">${a}${b}</div>`;
+/**
+ * Kilolitres printed as megalitres — one decimal, grouped.
+ *
+ * Volumes are held in kilolitres because an entitlement is a legal limit and a
+ * rounding that lands a kilolitre over it is an exceedance nobody caused. This
+ * is the only place the display rounding happens, so the take screen and the
+ * licence panel cannot round the same volume two ways.
+ */
+const megalitres = (kl) =>
+  (Math.round(kl / 100) / 10).toLocaleString('en-AU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /* ================================================================== *
  * J1 — Get the data in, and know it landed
@@ -3552,7 +3563,7 @@ const projectHome = () => (
   }) +
   C.tabs([
     { label: 'Overview', current: true },
-    { label: 'Network', count: 9 },
+    { label: 'Network', count: LOCATIONS.length },
     { label: 'Programme' },
     { label: 'Obligations', count: OBLIGATIONS.length, dot: 'bad' },
     { label: 'Documents', count: 34 },
@@ -3560,8 +3571,11 @@ const projectHome = () => (
     { label: 'Audit' },
   ]) +
   stats([
-    stat('9', 'monitoring locations'),
-    stat('9', 'open exceedances', 'bad'),
+    // Counted, and counted on a predicate: a bore water is taken from is a
+    // location and not a monitoring location, so the tile that says
+    // "monitoring" says how many there are rather than how many rows exist.
+    stat(String(LOCATIONS.filter((l) => l.klass !== 'production_bore').length), 'monitoring locations'),
+    stat(String(EXCEEDANCES.length), 'open exceedances', 'bad'),
     stat('1', 'round overdue', 'warn'),
     stat('58 / 63', 'results this period', 'warn'),
     stat('2026-08-14', 'next round due'),
@@ -3622,6 +3636,23 @@ const projectHome = () => (
  * ================================================================== */
 
 const locationRegistry = () => {
+  /*
+   * The take column, not a take screen inside the register. A production bore
+   * is a location — the extraction record hangs off one — so it is a row here
+   * like any other, and what this register says about it is the one thing a
+   * reader of a *location* register needs: water is taken here, on this basis,
+   * and the volumes are one click away. `≈` for estimated and `●` for metered,
+   * so the basis survives greyscale; a bore with no take reads `—`.
+   */
+  const takeOf = (code) => WATER.bores.find((b) => b.code === code);
+  const takeCell = (l) => {
+    const b = takeOf(l.code);
+    if (!b) return '<span class="mk-num mk-num--nil">—</span>';
+    return b.meter
+      ? `<a class="mk-ref" href="#water">● metered</a>`
+      : `<a class="mk-ref" href="#water">≈ estimated</a>`;
+  };
+
   const rows = LOCATIONS.map((l) => [
     loc(l.code),
     esc(l.klass.replace(/_/g, ' ')),
@@ -3629,17 +3660,24 @@ const locationRegistry = () => {
     esc(l.position),
     `<span class="mk-num">${l.toc.toFixed(2)}</span> <span class="mk-entry__unit">m AHD</span>`,
     esc(l.screen),
-    `<span class="sf-instant">2026-05-1${l.code === 'MW11' ? '4' : '3'}</span>`,
-    l.code === 'MW11'
-      ? C.status('overdue 9 days', 'bad')
-      : l.code === 'MW12'
-        ? C.status('no criteria selectable', 'neutral')
-        : C.status(l.state.replace(/_/g, ' '), toneFor(l.state)),
+    takeCell(l),
+    takeOf(l.code)
+      ? '<span class="mk-num mk-num--nil">—</span>'
+      : `<span class="sf-instant">2026-05-1${l.code === 'MW11' ? '4' : '3'}</span>`,
+    l.lifecycle
+      ? C.status(l.lifecycle, 'neutral')
+      : l.code === 'MW11'
+        ? C.status('overdue 9 days', 'bad')
+        : l.code === 'MW12'
+          ? C.status('no criteria selectable', 'neutral')
+          : takeOf(l.code)
+            ? C.status('not sampled — take only', 'neutral')
+            : C.status(l.state.replace(/_/g, ' '), toneFor(l.state)),
     l.code === 'MW05' ? '<span class="mk-num mk-num--bad">8</span>' : l.code === 'MW07' ? '<span class="mk-num mk-num--bad">1</span>' : '<span class="mk-num mk-num--nil">0</span>',
   ]);
 
   return (
-    head('Locations', 'Every monitoring location on this project, and what each one is telling you.', {
+    head('Locations', 'Every location on this project — monitoring, discharge and production — and what each one is telling you.', {
       route: '/projects/:projectId/locations/:locationId',
       toolbar: C.exportMenu() + C.btn('Add location') + C.btn('Manage groups'),
     }) +
@@ -3649,11 +3687,11 @@ const locationRegistry = () => {
       controls: [
         C.field({ label: 'Find', control: C.input({ placeholder: 'Code or name…', mono: true }) }),
         C.field({ label: 'Area', control: C.select({ options: ['All areas', 'Borefield', 'TSF', 'Compliance boundary', 'Wandalup Creek'], value: 'All areas' }) }),
-        C.field({ label: 'Class', control: C.select({ options: ['All classes', 'groundwater', 'surface_water', 'tsf_instrumentation'], value: 'All classes' }) }),
+        C.field({ label: 'Class', control: C.select({ options: ['All classes', ...[...new Set(LOCATIONS.map((l) => l.klass))]], value: 'All classes' }) }),
         C.field({ label: 'Group', control: C.select({ options: ['Any group', 'Downgradient of TSF', 'Compliance boundary', 'Background'], value: 'Any group' }) }),
         C.field({ label: 'Network health', control: C.select({ options: ['Any', 'Unsampled in 6 months', 'Missing survey data', 'Decommissioned but still in a programme'], value: 'Any' }) }),
       ],
-      count: '9 of 9 locations',
+      count: `${LOCATIONS.length} of ${LOCATIONS.length} locations`,
     }) +
     notice(
       'default',
@@ -3668,22 +3706,32 @@ const locationRegistry = () => {
     }) +
     table({
       caption: 'Sorted by area, then by position along the flow path — not alphabetically, because that is how the network is read.',
-      head: ['Code', 'Class', 'Area', 'Position', 'Top of casing', 'Screened interval', 'Last sampled', 'Current state', 'Open items'],
+      head: ['Code', 'Class', 'Area', 'Position', 'Top of casing', 'Screened interval', 'Take', 'Last sampled', 'Current state', 'Open items'],
       rows,
       kind: 'matrix',
       label: 'Location register',
     }) +
-    C.pager({ from: 1, to: 9, total: 9, unit: 'locations' }) +
+    `<p class="mk-tight">The three production bores are on this register and not in a list beside it: water is taken from a location, so a ` +
+    `bore water is taken from is one. <strong>●</strong> is a metered take and <strong>≈</strong> an estimated one — the volumes, the basis of ` +
+    `each and the position against the entitlement are on <a class="mk-ref" href="#water">water take against entitlement</a>. Nobody samples ` +
+    `them, which is why their state asserts nothing about quality rather than reading as compliant.</p>` +
+    C.pager({ from: 1, to: LOCATIONS.length, total: LOCATIONS.length, unit: 'locations' }) +
     cols(
       panel(
         'Questions this register answers without leaving it',
         table({
           head: ['Question', 'Answer here', 'Rows'],
           rows: [
-            ['Which bores have not been sampled in six months?', 'Network health filter', '<span class="mk-num">0</span>'],
+            ['Which monitoring locations have not been sampled in six months?', 'Network health filter', '<span class="mk-num">0</span>'],
             ['Which have no survey epoch, so elevation cannot be derived?', 'Network health filter', '<span class="mk-num">0</span>'],
-            ['Which are decommissioned but still named in a programme?', 'Network health filter', '<span class="mk-num mk-num--warn">1</span> — PB03, in GW-QTR'],
-            ['Which sit on the compliance boundary?', 'Area filter', '<span class="mk-num">2</span>'],
+            [
+              'Which are decommissioned but still named in a programme?',
+              'Network health filter',
+              `<span class="mk-num mk-num--warn">${LOCATIONS.filter((l) => l.lifecycle === 'decommissioned').length}</span> — ` +
+                `${LOCATIONS.filter((l) => l.lifecycle === 'decommissioned').map((l) => esc(l.code)).join(', ')}, in GW-QTR`,
+            ],
+            ['Which sit on the compliance boundary?', 'Area filter', `<span class="mk-num">${LOCATIONS.filter((l) => l.area === 'Compliance boundary').length}</span>`],
+            ['Which have a metered or estimated take against the entitlement?', 'Class filter', `<span class="mk-num">${WATER.bores.length}</span> — <a class="mk-ref" href="#water">the production bores</a>`],
             ['What are the numbers at each?', '<em>Not here.</em> That is the crosstab.', '—'],
           ],
         }) +
@@ -3710,7 +3758,7 @@ const facilityScreen = () => (
   }) +
   C.tabs([
     { label: 'Hierarchy', current: true },
-    { label: 'Locations', count: 9 },
+    { label: 'Locations', count: LOCATIONS.length },
     { label: 'Programmes', count: 3 },
     { label: 'Documents', count: 6 },
     { label: 'Audit' },
@@ -3720,7 +3768,7 @@ const facilityScreen = () => (
     ['Operator', esc(FACILITY.operator)],
     ['Tenement', esc(FACILITY.tenement)],
     ['Areas', String(FACILITY.areas.length)],
-    ['Locations', '9'],
+    ['Locations', String(LOCATIONS.length)],
     ['Licence', `<a class="mk-ref" href="#licence">${esc(LICENCE.id)}</a>`],
   ]) +
   '<h2 class="mk-h2" style="margin-top:1.2rem">Areas</h2>' +
@@ -4188,11 +4236,345 @@ const submissionArchive = () => (
 );
 
 /* ================================================================== *
+ * J6 addition — the take against the entitlement (FR-5.6, FR-5.5)
+ * ================================================================== */
+
+/**
+ * Water take against entitlement.
+ *
+ * The one route in the product this catalogue had never drawn. It sits in
+ * this job rather than beside the hydrographs because everything on it is a
+ * licence obligation: the volume is a legal limit, the flag is a warning about
+ * a return, and the question it answers — *are we going to be over* — is asked
+ * by the person who signs the return, not by the person reading a hydrograph.
+ * The product parents it under Locations, which is the other axis and is
+ * honoured in the by-section view.
+ *
+ * Three decisions are made on the page rather than described.
+ *
+ * **The year runs when the instrument says.** October, not July — a fiscal
+ * boundary borrowed by habit would put a third of this year's take in last
+ * year's return — and the year is named by the month it ends.
+ *
+ * **The projection has a rule and the rule is printed**, because the two
+ * defensible rules land on opposite sides of the flag: complete months only
+ * gives 93.1%, counting the part month gives 89.2%, and a flag that changes
+ * with an unstated convention is not a flag.
+ *
+ * **A censored concentration in a load is a decision, not a number.** The
+ * quarter carries the interval its bounding substitutions give; the four
+ * treatments sit beside it, and the half-LOR column is the one FR-5.8 refuses
+ * as a default.
+ *
+ * No figure is drawn here. A monthly-volume bar is not among the twelve
+ * approved plates, and the grammar fence says a new family needs a written
+ * proposal before it is drawn rather than after.
+ */
+const waterScreen = () => {
+  const W = WATER;
+  const ml = megalitres;
+  const num = (kl, tone = '') => `<span class="mk-num${tone ? ` mk-num--${tone}` : ''}">${ml(kl)}</span>`;
+  const kl = (v) => v.toLocaleString('en-AU');
+  const ord = (n) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+
+  /*
+   * Estimated volumes read `≈` and metered ones do not, so the basis survives
+   * a photocopier and a screen reader alike — the glyph carries it, the colour
+   * repeats it, and the hidden word says it in full.
+   */
+  const takeCell = (c, month) => {
+    if (!c) return '<span class="mk-num mk-num--nil">—</span>';
+    if (c.basis === 'estimated')
+      return `<span class="mk-num mk-num--warn">≈ ${ml(c.kl)}</span><span class="sf-visually-hidden"> ML, estimated, not metered</span>`;
+    return (
+      `<span class="mk-num">${ml(c.kl)}</span>` +
+      `<span class="sf-visually-hidden"> ML, metered${month.complete ? '' : ' — totaliser reading, the period has not ended'}</span>`
+    );
+  };
+
+  const monthHead = W.months.map((m) =>
+    m.complete ? esc(m.label) : `${esc(m.label)}<small>to the ${ord(m.elapsed)}</small>`,
+  );
+
+  const takeRows = W.bores.map((b) => [
+    `${loc(b.code)}<small>${esc(b.position)}</small>`,
+    b.meter
+      ? `${esc(b.meter)}<small>verified ${esc(b.verified)}</small>`
+      : `<span class="mk-num mk-num--warn">no meter</span><small>estimated from pump hours</small>`,
+    ...b.cells.map((c, i) => takeCell(c, W.months[i])),
+    `<strong>${num(b.recordKl)}</strong>`,
+  ]);
+  takeRows.push([
+    '<strong>All bores</strong>',
+    `<span class="mk-muted">${W.estimatedCount} of ${W.recordCount} records estimated</span>`,
+    ...W.monthTotals.map((m) =>
+      m.estimated
+        ? `<strong class="mk-num mk-num--warn">≈ ${ml(m.kl)}</strong>` +
+          `<span class="sf-visually-hidden"> ML, of which ${m.estimated === 1 ? 'one volume is' : `${m.estimated} volumes are`} estimated</span>`
+        : `<strong class="mk-num">${ml(m.kl)}</strong><span class="sf-visually-hidden"> ML, every volume metered</span>`,
+    ),
+    `<strong>${num(W.takenKl)}</strong>`,
+  ]);
+
+  const loadRow = (r) => [
+    esc(r.analyte),
+    `${esc(r.quarter)}<small>${esc(r.returned)}</small>`,
+    num(r.kl),
+    r.censored
+      ? `<span class="mk-num mk-num--warn">${esc(r.conc)}</span><span class="sf-visually-hidden"> — censored, below the limit of reporting</span>`
+      : `<span class="mk-num">${esc(r.conc)}</span>`,
+    `<span class="mk-muted">${esc(r.unit)}</span>`,
+    r.censored
+      ? `<span class="mk-num mk-num--warn">${r.low.toFixed(1)} – ${r.high.toFixed(1)}</span> <span class="mk-muted">${esc(r.loadUnit)}</span>`
+      : `<span class="mk-num">${r.load.toFixed(1)}</span> <span class="mk-muted">${esc(r.loadUnit)}</span>`,
+    r.complete ? C.status('reported', 'good') : C.status('period open', 'warn'),
+  ];
+
+  const censoredRows = W.load.rows.filter((r) => r.censored);
+
+  return (
+    head('Water take against entitlement', 'How much has been taken, against what the licence allows, for the entitlement year in force.', {
+      route: '/projects/:projectId/water',
+      toolbar: C.exportMenu() + C.btn('Enter a monthly volume') + C.btn('Prepare the annual water return', 'primary'),
+    }) +
+    stats([
+      stat(`${ml(W.takenKl)} ML`, `taken — ${W.complete.length} complete months`),
+      stat(`${ml(W.entitlementKl)} ML`, `entitlement, year to ${esc(W.year.to)}`),
+      stat(`${W.pctTaken}%`, `of the entitlement, at ${W.pctYear}% of the year`, 'warn'),
+      stat(`${W.projectionPct}%`, 'projected at year end', W.flagged ? 'bad' : 'good'),
+      stat(`${W.estimatedCount} of ${W.recordCount}`, 'volumes estimated, not metered', 'warn'),
+    ]) +
+    notice(
+      W.flagged ? 'warning' : 'default',
+      `${W.flagged ? '▲ Approaching the entitlement' : '● Within the entitlement'} — projected ${ml(W.projectionKl)} ML at 30 September, ${W.projectionPct}% of ${ml(W.entitlementKl)} ML.`,
+      `The flag trips at <strong>${W.threshold}%</strong> projected, and the projection is the mean of the ${W.complete.length} complete months — ` +
+        `${ml(W.rateKl)} ML a month — over twelve. It is a warning about a return, not a breach: ${ml(W.headroomKl)} ML of the entitlement ` +
+        `is unused, the ${W.monthsRemaining} months left may average ${ml(W.allowedKl)} ML, and the year to date has averaged ${ml(W.rateKl)} ML. ` +
+        `Nothing is owed because of this flag, and that is deliberate — the obligation is the ` +
+        `<a class="mk-ref" href="#obligations">annual water return</a>, which falls due whatever the number is.`,
+    ) +
+    cols(
+      panel(
+        'The entitlement year in force',
+        facts([
+          ['Entitlement', `<span class="mk-file">${esc(W.instrument.id)}</span> · ${ml(W.entitlementKl)} ML <span class="mk-muted">(${kl(W.entitlementKl)} kL)</span>`],
+          ['Instrument', esc(W.instrument.kind)],
+          ['Granted', `${esc(W.instrument.granted)} <span class="mk-muted">— the anniversary the year runs from</span>`],
+          ['Year in force', `<strong>${esc(W.year.label)}</strong> · ${esc(W.year.from)} → ${esc(W.year.to)}`],
+          ['Mirrored by', `<a class="mk-ref" href="#licence">${esc(LICENCE.id)} condition ${esc(W.instrument.mirror)}</a>`],
+          ['Position as at', `<span class="sf-instant">${esc(W.asAt)}</span> · ${esc(PROJECT.timezone)}`],
+        ]) +
+          `<p class="mk-tight">${esc(W.year.why)}</p>` +
+          `<p class="mk-tight">${esc(W.year.named)} ${esc(W.year.boundary)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(W.year.aligns)}</p>`,
+      ),
+      panel(
+        'The running position',
+        C.progress({
+          pct: Math.round(W.pctTaken),
+          label: `${ml(W.takenKl)} of ${ml(W.entitlementKl)} ML taken`,
+          detail:
+            `${W.pctTaken}% of the entitlement against ${W.pctYear}% of the year elapsed — ${W.elapsedDays} of ${W.yearDays} days. ` +
+            `The comparison is the point: a volume without its share of the year is a number nobody can act on.`,
+        }) +
+          facts([
+            ['On the record', `${num(W.takenKl)} ML <span class="mk-muted">${kl(W.takenKl)} kL · ${W.recordCount} extraction records</span>`],
+            ['Headroom', `${num(W.headroomKl, 'good')} ML <span class="mk-muted">${kl(W.headroomKl)} kL</span>`],
+            ['May, not yet a record', `${num(W.provisionalKl, 'warn')} ML <span class="mk-muted">totaliser at ${esc(W.asAt)} · ${ml(W.mayRateKl)} ML/month equivalent</span>`],
+          ]) +
+          `<p class="mk-tight"><strong>The comparison is made in kilolitres, not megalitres.</strong> ${kl(W.takenKl)} kL is ` +
+          `${ml(W.takenKl)} ML displayed, and the entitlement is a legal limit — a rounding that lands a kilolitre over it would be an ` +
+          `exceedance nobody caused.</p>` +
+          `<p class="mk-tight mk-muted">May is a meter totaliser read on the 23rd, not an extraction record: an extraction record is a ` +
+          `reported volume for a period that has ended. It is shown because a practitioner asks, and it is in no rate on this page.</p>`,
+      ),
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Monthly volumes, by bore</h2>' +
+    table({
+      caption: `Every extraction record in the ${esc(W.year.label)}, in megalitres. The last column is the year to 30 April — the months that have ended.`,
+      head: ['Bore', 'Meter', ...monthHead, 'Records'],
+      kind: 'matrix',
+      label: 'Monthly extraction records by bore',
+      rows: takeRows,
+    }) +
+    `<p class="mk-tight"><strong>≈</strong> marks a volume that was estimated rather than metered, so the basis reads across the row without ` +
+    `reading the notes; on the totals row it marks a month that contains one. There is no third basis: a volume was measured by a meter or it ` +
+    `was estimated, and a return that presented the two alike would overstate its own reliability.</p>` +
+    cols(
+      panel(
+        'The two volumes nobody metered',
+        W.estimates
+          .map(
+            (e) =>
+              `<p class="mk-tight">${C.status('estimated', 'warn')} <strong>${esc(e.code)} · ${esc(e.month)}</strong> — ` +
+              `${num(e.kl, 'warn')} ML from <span class="mk-file">${esc(e.how)}</span>. ${esc(e.why)}</p>`,
+          )
+          .join('') +
+          `<p class="mk-tight">Together they are ${num(W.estimatedKl, 'warn')} ML — ` +
+          `${Math.round((W.estimatedKl / W.takenKl) * 1000) / 10}% of the take on the record. The total above carries them because the ` +
+          `entitlement counts every kilolitre however it was measured; what changes is the confidence, and that is printed rather than absorbed.</p>` +
+          `<p class="mk-tight mk-muted">${esc(W.bores.find((b) => !b.meter).code)} has no meter at all and was decommissioned on ` +
+          `2025-11-04, inside this year. A bore that no longer exists still took water in October, and dropping the row would make the ` +
+          `year’s total smaller than the year’s take.</p>`,
+      ),
+      panel(
+        'What the projection rests on',
+        table({
+          caption: 'Three defensible rules over the same volumes, and only one of them is in force.',
+          head: ['Rule', 'What the rate is over', 'Projected', 'Against the flag'],
+          rows: [
+            [
+              '<strong>Complete months, every bore</strong><small>in force</small>',
+              `${W.complete.length} months <span class="mk-muted">Oct – Apr · ${W.bores.length} bores</span>`,
+              `<strong class="mk-num">${ml(W.projectionKl)}</strong> ML · ${W.projectionPct}%`,
+              C.status(`over ${W.threshold}%`, 'bad'),
+            ],
+            [
+              'Counting May as a month',
+              `${W.complete.length + 1} months <span class="mk-muted">Oct – May · ${W.bores.length} bores</span>`,
+              `<span class="mk-num">${ml(W.altProjectionKl)}</span> ML · ${W.altProjectionPct}%`,
+              C.status(`under ${W.threshold}%`, 'neutral'),
+            ],
+            [
+              'Operating bores only',
+              `${W.complete.length} months <span class="mk-muted">Oct – Apr · ${W.bores.filter((b) => b.lifecycle === 'operating').length} bores</span>`,
+              `<span class="mk-num">${ml(W.operatingProjectionKl)}</span> ML · ${W.operatingProjectionPct}%`,
+              C.status(`under ${W.threshold}%`, 'neutral'),
+            ],
+          ],
+          scroll: true,
+          label: 'Projection rules compared',
+        }) +
+          `<p class="mk-tight">A part month divided as though it were a whole one understates the rate by a fifth. And the rate in force runs ` +
+          `${ml(W.decommissionedKl)} ML of ${esc(W.bores.find((b) => b.lifecycle !== 'operating').code)}’s October take forward for five more ` +
+          `months, through a bore that was decommissioned on 2025-11-04 — on the ${W.bores.filter((b) => b.lifecycle === 'operating').length} ` +
+          `bores still operating the rate is ${ml(W.operatingRateKl)} ML a month rather than ${ml(W.rateKl)}.</p>` +
+          `<p class="mk-tight"><strong>So the position is marginal, and the flag says so rather than reading as a forecast.</strong> ` +
+          `${W.projectionPct}% against a ${W.threshold}% threshold, with two defensible variations of the rule landing under it. Neither ` +
+          `variation is applied here: which months and which bores a projection runs over is a rule, and a rule that decides a flag has to be ` +
+          `configured and versioned before it is used, never chosen because it gives the quieter answer.</p>`,
+      ),
+      // The wide column goes to the table rather than to the prose: at the
+      // default ratio the rules table's verdict column was cut at the panel
+      // edge, and only a sideways pan would have found it.
+      '2fr 3fr',
+    ) +
+    panel(
+      'Recording May’s volume — refused, and why',
+      '<p class="mk-tight">The obvious next act on this screen is to enter the number the meter is showing. It is refused, because the ' +
+        'period it would be recorded against has not ended.</p>' +
+        C.blastRadius({
+          lede: `Recording ${ml(W.provisionalKl)} ML against May today would:`,
+          rows: [
+            { what: 'Take on the record', n: `${ml(W.takenKl)} → ${ml(W.takenKl + W.provisionalKl)} ML` },
+            { what: 'Months in the rate', n: `${W.complete.length} → ${W.complete.length + 1}` },
+            { what: 'Projection at year end', n: `${ml(W.projectionKl)} → ${ml(W.altProjectionKl)} ML` },
+            { what: 'The approaching-limit flag', n: `${W.projectionPct}% → ${W.altProjectionPct}% — the flag clears` },
+            { what: 'Water actually taken', n: '0 ML difference' },
+          ],
+          // The refused act is not drawn as a button. A control that says
+          // "refused" beside a live primary is a control somebody clicks.
+          action: 'Wait for the month to end',
+          cancel: 'Correct a volume for a month that has ended',
+          reversible:
+            'The last two rows are the whole argument: the flag would clear without a litre less being taken, because a fuller-looking record changes what the rate is computed over. An extraction record is a reported volume for a period that has ended — and once the annual return is lodged the period is locked, so a wrong volume is corrected by supersession rather than edited.',
+        }) +
+        '<p class="mk-tight mk-muted"><strong>Refused:</strong> recording a totaliser reading as the month’s volume while the month is ' +
+        'running. There is no control for it, rather than a control that warns — the reading is real and it is on the page above, and what ' +
+        'it is not is a record of a period.</p>',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Mass load by reporting period</h2>' +
+    `<p class="sf-lede mk-tight">Volume metered at discharge point <strong>${esc(W.load.point)}</strong>, concentration sampled at ` +
+    `${loc(W.load.monitoredAt)} — the point <a class="mk-ref" href="#licence">the licence names for it</a>, 200 m downstream. The load is ` +
+    `therefore reported at the compliance point rather than at the outfall; moving the sample is a licence variation, not a setting on this ` +
+    `screen.</p>` +
+    table({
+      caption: `${esc(W.load.formula)}. One grab sample per quarter, against the quarter’s metered volume.`,
+      head: ['Analyte', 'Reporting period', 'Volume (ML)', 'Concentration', 'Unit', 'Load', 'Return'],
+      kind: 'records',
+      scroll: true,
+      label: 'Mass load by reporting period',
+      rows: W.load.rows.map(loadRow),
+    }) +
+    cols(
+      panel(
+        'A censored concentration is a decision, not a number',
+        `<p class="mk-tight">Copper was below the limit of reporting in ${censoredRows.length} of the ${W.load.quarters.length} quarters. ` +
+          `Nothing was measured, so no load can be computed — and a total that goes to a regulator is the last place to substitute a number ` +
+          `nobody read. The quarter carries the interval its two bounding substitutions give, and the four treatments sit beside it.</p>` +
+          table({
+            caption: `Copper at ${esc(W.load.monitoredAt)}, 2025 Q4 — ${kl(censoredRows[0].kl)} kL at < ${censoredRows[0].lor.toFixed(1)} µg/L, under each treatment.`,
+            head: ['Treatment', 'Load', 'What it asserts'],
+            rows: censoredRows[0].treatments.map((t) => [
+              esc(t.rule) + (t.rule === 'exclude' ? '<small>bound to the criteria set today</small>' : ''),
+              t.gives === null
+                ? '<span class="mk-num mk-num--nil">no load</span>'
+                : `<span class="mk-num">${t.gives.toFixed(1)}</span> <span class="mk-muted">g</span>`,
+              t.rule === 'exclude'
+                ? 'The quarter has no reportable load — which is not the same as a quarter that discharged nothing.'
+                : t.rule === 'zero'
+                  ? 'That no copper left the site. Nothing measured says that.'
+                  : t.rule === 'half the LOR'
+                    ? 'A number nobody read, printed to one decimal. FR-5.8 refuses it as a default.'
+                    : 'The most that could have been there — the upper bound, and true as one.',
+            ]),
+          }) +
+          `<p class="mk-tight">The criteria set in force binds <strong>exclude</strong>, and that binding is not inherited here: evaluation ` +
+          `asks whether one value is above a limit, and a load asks what total to report. The load is drawn as the interval — ` +
+          `<span class="mk-num mk-num--warn">${censoredRows[0].low.toFixed(1)} – ${censoredRows[0].high.toFixed(1)} g</span> — with both bounds ` +
+          `named. <a class="mk-ref" href="#criteria">The treatments the criteria set can bind</a> are the same four.</p>`,
+      ),
+      panel(
+        'The year’s load, and what it does not claim',
+        table({
+          head: ['Analyte', 'Entitlement year to date', 'Basis'],
+          rows: W.load.totals.map((t) => [
+            esc(t.analyte),
+            t.bounded
+              ? `<span class="mk-num mk-num--warn">${t.low.toFixed(1)} – ${t.high.toFixed(1)}</span> <span class="mk-muted">${esc(t.loadUnit)}</span>`
+              : `<span class="mk-num">${t.low.toFixed(1)}</span> <span class="mk-muted">${esc(t.loadUnit)}</span>`,
+            t.bounded ? 'Bounded — two quarters censored' : 'Detected in every quarter',
+          ]),
+        }) +
+          `<p class="mk-tight">${esc(W.load.says)}</p>` +
+          `<p class="mk-tight mk-muted">October discharged nothing at all. A zero volume is not a missing reading and the row says which ` +
+          `it is — a month with no discharge contributes no load, and a month nobody read would contribute an unknown one.</p>`,
+      ),
+    ) +
+    panel(
+      'What exceeding the entitlement would oblige',
+      `<p class="mk-tight">${esc(W.instrument.mirrors)}</p>` +
+        C.pipeline([
+          { name: 'The take passes the entitlement', detail: `Measured in kilolitres against ${kl(W.entitlementKl)} kL, in the year 1 October to 30 September.`, state: 'wait' },
+          { name: `${W.instrument.id} — the entitlement itself`, detail: 'Taking more than the licence permits is an offence under the Rights in Water and Irrigation Act, not a service failure.', state: 'wait' },
+          { name: `${LICENCE.id} condition ${W.instrument.mirror}`, detail: 'The environmental licence mirrors the volume, so the same take breaches a condition here too.', state: 'wait' },
+          { name: 'Condition 21 — notify on becoming aware', detail: 'As soon as practicable, from the timestamp awareness is recorded. The window is stored as null and read as owed now; no number is invented.', state: 'wait' },
+          { name: 'The annual water return', detail: `Due 2026-10-31, on track. It states the volume taken in each month and the basis of each — which is why the ${W.estimatedCount} estimates are marked rather than blended.`, state: 'done' },
+        ]) +
+        `<p class="mk-tight">Every step above is a link to where it is answered: the ` +
+        `<a class="mk-ref" href="#licence">condition</a>, the <a class="mk-ref" href="#obligations">return it discharges</a>, and the ` +
+        `<a class="mk-ref" href="#notification">notification</a> that would run from becoming aware. The flag is the start of that chain ` +
+        `rather than a tile on a dashboard, and today it is at the first step and nothing after it is owed.</p>` +
+        `<p class="mk-tight mk-muted">${esc(W.instrument.scope)}</p>`,
+    )
+  );
+};
+
+/* ================================================================== *
  * J6 addition — the licence as an entity, not as a string on a header
  * ================================================================== */
 
 const licenceScreen = () => {
   const L = LICENCE;
+  /*
+   * Counted from the conditions rather than typed beside them. The typed
+   * version said 6 and named 7 the day the production bores became rows on
+   * the location register — which is the shape every hand-kept count on this
+   * catalogue has failed in.
+   */
+  const governed = new Set(
+    L.conditions.flatMap((c) => c.governs.split(', ').map((g) => g.split(' ')[0]).filter((g) => /^[A-Z]{2,3}\d/.test(g))),
+  );
   return (
     head(`Licence ${esc(L.id)}`, 'The conditions, what each one governs, and the report that discharges it.', {
       route: '/projects/:projectId/licence',
@@ -4200,9 +4582,9 @@ const licenceScreen = () => {
     }) +
     C.tabs([
       { label: 'Conditions', count: L.conditions.length, current: true },
-      { label: 'Governed locations', count: 6 },
-      { label: 'Discharge points', count: 1 },
-      { label: 'Entitlements', count: 1 },
+      { label: 'Governed locations', count: governed.size },
+      { label: 'Discharge points', count: L.dischargePoints.length },
+      { label: 'Entitlements', count: L.entitlements.length },
       { label: 'Variations', count: 3 },
       { label: 'Documents', count: 5 },
       { label: 'Audit' },
@@ -4227,8 +4609,10 @@ const licenceScreen = () => {
       rows: L.conditions.map((c) => [
         `<strong class="mk-file">${esc(c.n)}</strong>`,
         esc(c.what),
+        // A code is a link where it identifies a row on the register, and the
+        // production bores are rows there now.
         c.governs.includes('MW') || c.governs.includes('SW') || c.governs.includes('PB')
-          ? c.governs.split(', ').map((g) => (g.startsWith('MW') || g.startsWith('SW') ? loc(g) : esc(g))).join(', ')
+          ? c.governs.split(', ').map((g) => (/^(MW|SW|PB)\d/.test(g) ? loc(g.split(' ')[0]) + esc(g.slice(g.split(' ')[0].length)) : esc(g))).join(', ')
           : esc(c.governs),
         `<a class="mk-ref" href="#obligations">${esc(c.discharges)}</a>`,
         // A third state arrived with 12(c): a condition a window has *tripped*
@@ -4252,24 +4636,39 @@ const licenceScreen = () => {
           ]),
         }),
       ),
+      /*
+       * Every figure here is `WATER`'s — one source, read twice — so this
+       * panel and the take screen cannot drift. The volume is not this
+       * licence's to set: condition 23 mirrors a limit held on the water
+       * licence, and the panel says so rather than presenting it as its own.
+       */
       panel(
         'Entitlement, against what has been taken',
         L.entitlements
           .map(
             (e) =>
               facts([
-                ['Entitlement', `<span class="mk-file">${esc(e.id)}</span>`],
-                ['What', esc(e.what)],
-                ['Limit', esc(e.limit)],
-                ['Taken', `<span class="mk-num">${esc(e.used)}</span>`],
-                ['Headroom', `<span class="mk-num mk-num--good">${esc(e.headroom)}</span>`],
+                ['Entitlement', `<span class="mk-file">${esc(e.id)}</span> — ${esc(e.what)}`],
+                ['Instrument', esc(e.instrument)],
+                ['Mirrored here by', `condition <strong class="mk-file">${esc(e.condition)}</strong>, which restates the volume and does not set it`],
+                ['Limit', `<span class="mk-num">${megalitres(WATER.entitlementKl)}</span> ML in the entitlement year`],
+                ['Year in force', `${esc(WATER.year.from)} → ${esc(WATER.year.to)}`],
+                ['Taken', `<span class="mk-num">${megalitres(WATER.takenKl)}</span> ML <span class="mk-muted">${WATER.complete.length} complete months, to ${WATER.asAt}</span>`],
+                ['Headroom', `<span class="mk-num mk-num--good">${megalitres(WATER.headroomKl)}</span> ML <span class="mk-muted">over ${WATER.monthsRemaining} months</span>`],
               ]) +
               C.progress({
-                pct: 65,
-                label: '812 of 1,250 ML taken',
+                pct: Math.round(WATER.pctTaken),
+                label: `${megalitres(WATER.takenKl)} of ${megalitres(WATER.entitlementKl)} ML taken`,
                 detail:
-                  'The water year runs 1 July to 30 June, so 65% of the year has elapsed against 65% of the entitlement. The comparison is the point — a volume without its share of the year is a number nobody can act on.',
-              }),
+                  `${WATER.pctTaken}% of the entitlement against ${WATER.pctYear}% of the year elapsed. The comparison is the point — a ` +
+                  'volume without its share of the year is a number nobody can act on.',
+              }) +
+              `<p class="mk-tight">${WATER.flagged ? '▲' : '●'} <strong>Projected ${megalitres(WATER.projectionKl)} ML at year end — ` +
+              `${WATER.projectionPct}% of the entitlement</strong>, above the ${WATER.threshold}% flag. The running position, the projection’s ` +
+              `basis and what exceeding would oblige are on ` +
+              `<a class="mk-ref" href="#water">water take against entitlement</a>.</p>` +
+              `<p class="mk-tight mk-muted">The year runs 1 October to 30 September because that is the water licence’s own anniversary, ` +
+              `not this licence’s and not the fiscal year’s.</p>`,
           )
           .join(''),
       ),
@@ -5159,7 +5558,7 @@ const coverage = () => {
     ['FR-1.9', 'LOR, MDL and PQL distinct; detect status first-class', 'covered', 'result-detail · crosstab', 'P0', ''],
     ['FR-1.10', 'Logger and telemetry series, raw and corrected (S8)', 'deferred', '—', 'P4', 'Domain K, deferred with the telemetry journey'],
     ['FR-1.11', 'Versioned criteria library with effective dates and applicability', 'covered', 'criteria', 'P0', ''],
-    ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'partially', 'licence · obligations · tarp', 'P1', 'Entitlements have a product route (/water) and no drawn screen'],
+    ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'covered', 'licence · obligations · tarp · water', 'P1', 'The entitlement is an instrument with a year, a volume and a take against it — the last of the five'],
     ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
     ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'covered', 'criteria', 'P1', 'The four treatments run over the seven derived PFAS totals: six results read indeterminate, compliant or 31× depending on the field'],
     ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', ''],
@@ -5188,8 +5587,8 @@ const coverage = () => {
     ['FR-5.2', 'Consecutive-exceedance and rolling-window conditions', 'covered', 'exceedances', 'P1', 'Licence condition 12(c) evaluated over four rounds, four series, three distinct outcomes'],
     ['FR-5.3', 'TARP state with escalation, acknowledgement and response', 'covered', 'tarp · alerts', 'P0', ''],
     ['FR-5.4', 'Automatic re-evaluation on data change, reflected in lineage', 'covered', 'certificate · supersession', 'P0', ''],
-    ['FR-5.5', 'Mass load from volume and concentration, by reporting period', 'missing', '—', 'P2', 'Belongs with the undrawn water screen'],
-    ['FR-5.6', 'Extraction against entitlement with approaching-limit flags', 'missing', '—', 'P1', 'The product ships /water; this catalogue never drew it'],
+    ['FR-5.5', 'Mass load from volume and concentration, by reporting period', 'covered', 'water', 'P2', 'Quarterly loads at the discharge point, with a censored quarter carrying its interval rather than a substituted number'],
+    ['FR-5.6', 'Extraction against entitlement with approaching-limit flags', 'covered', 'water', 'P1', 'The flag is decided from the volumes, at a stated threshold, with the projection’s rule printed beside the rule that would clear it'],
     ['FR-5.7', 'Water level to groundwater elevation via the datum in force', 'covered', 'hydrograph', 'P0', ''],
     ['FR-5.8', 'Censored statistics: Kaplan-Meier and robust ROS, never silent half-LOR', 'covered', 'statistics', 'P0', 'Claim B2'],
     ['FR-5.9', 'Mann-Kendall, seasonal Kendall, Sen’s slope, sample-size warnings', 'covered', 'statistics', 'P0', ''],
@@ -5549,6 +5948,17 @@ export const JOBS = [
     screens: [
       { id: 'obligations', label: 'Obligations board', body: obligations, state: 'shipped', now: 'shipped' },
       { id: 'programme', label: 'Sampling programme', body: programme, state: 'engine-only', now: 'shipped' },
+      /*
+       * No `state`, deliberately, on the same rule the chain of custody
+       * follows: `state` is the 23 August record and this screen was not
+       * drawn then. It differs from that one in being `shipped` rather than
+       * proposed — `/projects/:projectId/water` is a route in the product
+       * today, and the catalogue is what was missing. It sits in this job
+       * because the entitlement is a licence obligation; the product parents
+       * it under Locations, which is the other axis and is where the
+       * by-section view files it.
+       */
+      { id: 'water', label: 'Water take against entitlement', body: waterScreen, now: 'shipped', added: '2026-09-01' },
       { id: 'licence', label: 'Licence and conditions', body: licenceScreen, state: 'engine-only', isNew: true, now: 'shipped' },
       { id: 'notification', label: 'Statutory notification', body: notification, state: 'engine-only', now: 'shipped' },
       { id: 'signoff', label: 'Approval and sign-off', body: signoff, state: 'engine-only', now: 'shipped' },
@@ -5612,7 +6022,7 @@ export const RELATED = {
   projects: ['project-home', 'project-settings', 'roles', 'home'],
   'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings'],
 
-  locations: ['location', 'facility', 'events', 'crosstab', 'map'],
+  locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water'],
   location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents'],
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
   events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme'],
@@ -5659,9 +6069,13 @@ export const RELATED = {
   snapshot: ['report', 'signoff', 'submissions', 'supersession', 'certificate'],
   submissions: ['snapshot', 'signoff', 'documents', 'obligations'],
 
-  obligations: ['licence', 'programme', 'notification', 'signoff', 'alerts'],
+  obligations: ['licence', 'programme', 'notification', 'signoff', 'alerts', 'water'],
   programme: ['obligations', 'field-capture', 'events', 'location'],
-  licence: ['obligations', 'criteria', 'locations', 'submissions'],
+  licence: ['obligations', 'criteria', 'locations', 'submissions', 'water'],
+  // The take is read against the licence that permits it and drawn at the
+  // bores it is taken from, so it exits to both — and to the obligation it
+  // discharges through, which is the only thing the flag can lead to.
+  water: ['licence', 'locations', 'obligations', 'hydrograph'],
   notification: ['tarp', 'obligations', 'lineage', 'documents'],
   signoff: ['snapshot', 'submissions', 'validation', 'report', 'audit'],
 

@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **67 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **68 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -123,6 +123,41 @@ at 1000 and 41 at 375, the worst by 2397px. The document never overflowed and ev
 query said the caption was exactly as wide as its table, which was true and was the defect.
 It is fixed in `chrome.mjs` and the meter is now the ninth family in `verify.mjs`; deleting
 the rule reproduces exactly 92 failures.
+
+**Wave 4 — water and loads** (1 Sep 2026). One screen was added, and it is the one case in
+the catalogue where the *product* was ahead of the drawing: `/projects/:projectId/water`
+ships, `ia.ts` gives it a label and a parent, and this catalogue had never drawn it.
+**Water take against entitlement** carries no `state` for the same reason the chain of
+custody carries none — it was not drawn on 23 August — but unlike that one it is `shipped`
+rather than a proposal, which is the first time the fourth pass's badge and census have had
+to hold a stateless screen that exists in the product. It is filed under J6 because
+everything on it is a licence obligation, and under **Locations** in the by-section view
+because that is where the product parents it.
+
+Three decisions are made on it rather than described. **The entitlement year runs when the
+instrument says** — 1 October to 30 September, the anniversary of the water licence's own
+grant, not the fiscal year a July boundary would have borrowed by habit — and it is named
+by the month it *ends*. **The projection has a rule and the rule is printed**, because the
+three defensible rules over the same volumes land on both sides of the flag: complete
+months over every bore gives 93.1% and trips the 90% flag, counting the part month gives
+89.2%, and dropping the bore that was decommissioned in November gives 89.6%. A flag that
+moves with an unstated convention is not a flag, so the convention is stated and the
+position is called marginal rather than forecast. **A censored concentration in a load is a
+decision, not a number**: the quarter carries the interval its bounding substitutions give
+— 0.0 – 7.2 g — with the four treatments beside it and the half-LOR column named as the one
+FR-5.8 refuses as a default.
+
+The seed gained the production bores the licence had always named and the register never
+held (PB01, PB02, and PB03, decommissioned inside the year it still took water in), monthly
+volumes in **kilolitres as integers** — an entitlement is a legal limit, and a rounding that
+lands a kilolitre over it is an exceedance nobody caused — and two volumes nobody metered,
+each carrying the arithmetic that produced it. Adding rows to the location register turned
+up what a hand-kept count always turns up: `9 of 9 locations` had been wrong since the
+stygofauna bores landed in pass 3, the facility's area counts read `3 · 3 · 2 · 1` against a
+register holding four in two of them, and the licence's entitlement panel said *"65% of the
+year has elapsed"* beside a July–June year that was 15% through — 65% was the share of the
+*entitlement*, which is the number on the line above. All of them are counted from the seed
+now.
 
 What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
 exists, loads, is scoped and renders — not that the product screen matches this
@@ -496,7 +531,7 @@ compositing.
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Eleven figure generators, drawn to the approved grammar |
-| `screens.mjs` | The 67 screens, the job spine, and the link graph |
+| `screens.mjs` | The 68 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
 | `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |
