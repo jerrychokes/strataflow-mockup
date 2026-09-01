@@ -23,6 +23,7 @@ import {
   TARP, UNITS, UPGRADE, WORK_QUEUE,
   ASSIGNMENT, BACKGROUND, BATCHES, CUSTODY, DQA, HARDNESS, INDETERMINATE, NEST, PURGE, QC_LIMITS,
   RECEIPT, STATUTORY, STYGOFAUNA, TREND,
+  CUSTODY_CHAIN, EC_MW05, EC_MW05_OUTLIER, LAB_QC, WINDOW_CONDITION,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -395,10 +396,10 @@ const qcWorkspace = () =>
     toolbar: btn('Re-run checks') + btn('Advance to validated', 'primary'),
   }) +
   stats([
-    stat('18', 'checks run'),
-    stat('12', 'passed', 'good'),
-    stat('4', 'warnings', 'warn'),
-    stat('2', 'failed', 'bad'),
+    stat(String(QAQC.length), 'checks run'),
+    stat(String(QAQC.filter((q) => q.outcome === 'pass').length), 'passed', 'good'),
+    stat(String(QAQC.filter((q) => q.outcome === 'warn').length), 'warnings', 'warn'),
+    stat(String(QAQC.filter((q) => q.outcome === 'fail').length), 'failed', 'bad'),
   ]) +
   table({
     caption: 'A check that fails does something to the data, and the action column says what.',
@@ -417,7 +418,78 @@ const qcWorkspace = () =>
     'A control sample applies to a laboratory batch, not to a sample — so “which results does this failed spike qualify” is answerable rather than a judgement call. And the acceptance limits are a versioned set with a stated source, because “why 30%?” is the same question a regulator asks about a criterion.',
   ) +
   notice('warning', 'A reporting limit above the criterion is not a pass.',
-    'Cadmium was reported at &lt;1.0 µg/L against an ANZG 2018 guideline value of 0.54 µg/L. Nothing was measured either way, so the outcome is <strong>indeterminate</strong> and it is drawn as its own mark. Recording that as compliance is the single most consequential error this product exists to prevent.');
+    'Cadmium was reported at &lt;1.0 µg/L against an ANZG 2018 guideline value of 0.54 µg/L. Nothing was measured either way, so the outcome is <strong>indeterminate</strong> and it is drawn as its own mark. Recording that as compliance is the single most consequential error this product exists to prevent.') +
+  historyOutlierPanel();
+
+/**
+ * A finding raised against the location's own record (FR-4.5).
+ *
+ * Every other check on this screen measures a value against something written
+ * down in advance — a holding time, an acceptance limit, a criterion. This one
+ * has no external number at all: it asks whether this result belongs to the
+ * series this bore has been producing, and the answer depends entirely on which
+ * bore it is. 3410 µS/cm at a background bore is a finding; the same number at
+ * a bore that has read 3400 for a decade is a Tuesday.
+ *
+ * The working is drawn because the finding is only as good as its instrument.
+ * A mean and a standard deviation over a rising series are dragged toward the
+ * very value being tested, so a spike partly hides itself; the median and the
+ * MAD are not, which is why the modified z-score is the test and why the screen
+ * says so rather than printing a verdict.
+ */
+const historyOutlierPanel = () => {
+  const O = EC_MW05_OUTLIER;
+  const history = EC_MW05.slice(0, -1);
+  const current = EC_MW05.at(-1);
+  const worst = Math.max(...EC_MW05.map((r) => r.value));
+  // The bare bar, not a confidence band: the modifiers colour a *judgement*,
+  // and every row but the last is the record rather than an assessment of it.
+  // The last one is drawn on the same scale on purpose — a step you cannot see
+  // beside the rounds before it is a number, not a finding.
+  const bar = (v, flagged = false) => {
+    const pct = Math.round((v / worst) * 100);
+    return `<span class="mk-conf${flagged ? ' mk-conf--low' : ''}" title="${esc(v)} µS/cm"><span class="mk-conf__track"><span class="mk-conf__fill" style="width:${pct}%"></span></span><span class="mk-conf__pct">${flagged ? `<strong>${v}</strong>` : v}</span></span>`;
+  };
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Spike against history — a finding with no limit behind it</h2>' +
+    cols(
+      panel(
+        `${esc(O.analyte)} at ${esc(O.location)} — ${esc(O.value)} this round`,
+        `<p class="mk-tight"><strong>${esc(O.basis)}</strong> ${esc(O.reading)}</p>` +
+          facts([
+            ['Result', `<span class="mk-num mk-num--warn">${esc(O.value)}</span> · sample <span class="mk-file">${esc(O.sample)}</span> · round <span class="mk-file">${esc(O.round)}</span>`],
+            ['Compared against', `${O.n} prior rounds at this bore — nothing from any other location`],
+            ['Median of that record', `<span class="mk-num">${esc(O.median)}</span>`],
+            ['Median absolute deviation', `<span class="mk-num">${esc(O.mad)}</span>`],
+            ['Ratio to the median', `<span class="mk-num">${esc(O.ratio)}</span>`],
+            ['Score', `<span class="mk-num mk-num--warn">${esc(O.score)}</span> against a flagging threshold of <span class="mk-num">${esc(O.threshold)}</span>`],
+            ['Method', esc(O.method)],
+          ]) +
+          `<p class="mk-tight mk-muted">${esc(O.separately)}</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#statistics">Is it a step or a trend? — open the trend test</a><a class="mk-btn" href="#exceedances">The licence question, separately</a><a class="mk-btn" href="#purge">The purge record for this sample</a></div>`,
+      ),
+      panel(
+        'The record it was measured against',
+        table({
+          caption: 'Every round this bore has produced, oldest first. The last row is the one under test and it is not in its own comparison.',
+          head: ['Round', 'Electrical conductivity, µS/cm', 'In the comparison'],
+          scroll: true,
+          label: 'Electrical conductivity at MW05, round by round',
+          rows: [
+            ...history.map((r) => [`<span class="mk-file">${esc(r.round)}</span>`, bar(r.value), '<span class="mk-muted">yes</span>']),
+            [
+              `<span class="mk-file">${esc(current.round)}</span>`,
+              bar(current.value, true),
+              '<span class="mk-tag mk-tag--warn">under test</span>',
+            ],
+          ],
+        }) +
+          '<p class="mk-tight mk-muted">A value that entered its own comparison would raise its own threshold and hide itself, which is the failure mode of every rolling check written in a hurry.</p>',
+      ),
+      '3fr 2fr',
+    )
+  );
+};
 
 const consistency = () =>
   head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: '/projects/:projectId/consistency' }) +
@@ -500,10 +572,14 @@ const exceedances = () =>
     toolbar: C.exportMenu() + btn('Acknowledge selected', 'primary'),
   }) +
   stats([
-    stat('9', 'exceedances', 'bad'),
-    stat('2', 'locations affected', 'bad'),
-    stat('7', 'indeterminate', 'warn'),
-    stat('1', 'notified', 'good'),
+    stat(String(EXCEEDANCES.length), 'exceedances', 'bad'),
+    stat(String(new Set(EXCEEDANCES.map((e) => e.location)).size), 'locations affected', 'bad'),
+    stat(String(INDETERMINATE.length), 'indeterminate', 'warn'),
+    stat(String(EXCEEDANCES.filter((e) => e.state === 'notified').length), 'notified', 'good'),
+    // F-17's rule, on a tile whose count is 1 today and could be 0 tomorrow.
+    ((n) => stat(String(n), `window condition${n === 1 ? '' : 's'} triggered`, n ? 'bad' : 'neutral'))(
+      WINDOW_CONDITION.series.filter((w) => w.outcome === 'triggered').length,
+    ),
   ]) +
   C.filterBar({
     onView: 'All open exceedances',
@@ -539,8 +615,94 @@ const exceedances = () =>
       tag(e.state, toneFor(e.state)),
     ]),
   }) +
-  notice('warning', 'Seven results could not be assessed at all, and they are not on this register.',
-    'Cadmium at every bore was reported below a limit that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen.');
+  notice('warning', `${INDETERMINATE.length} results could not be assessed at all, and they are not on this register.`,
+    'Cadmium at every bore was reported below a limit that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen.') +
+  windowConditionPanel();
+
+/**
+ * A consecutive-round condition, drawn *deciding* something (FR-5.2).
+ *
+ * The register above already says "2nd consecutive quarter" in a column, which
+ * is a fact about a row and not a decision. This is the decision: one licence
+ * condition, the four rounds it looked at, and four different outcomes out of
+ * the same rule — including the two that matter most and are the easiest to
+ * leave undrawn. **Not triggered is an outcome**, and a screen that only shows
+ * conditions that fired teaches a reader that silence means nothing was
+ * evaluated. **Already triggered is a different outcome again**: the condition
+ * tripped a quarter ago and this round extends the run without raising a second
+ * obligation, because the deadline runs from the round that first made it true.
+ *
+ * Outcome is carried by a word and a glyph, never by the colour (§5.3).
+ */
+const windowConditionPanel = () => {
+  const W = WINDOW_CONDITION;
+  const fmt = (v, unit) => (unit === 'µS/cm' ? String(v) : v.toFixed(1));
+  const TONE = { triggered: 'bad', 'one round short': 'warn', 'not triggered': 'neutral' };
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Condition 12(c) — three consecutive rounds, evaluated</h2>' +
+    facts([
+      ['Condition', `<a class="mk-ref" href="#licence">${esc(W.condition)}</a>`],
+      ['Rule', esc(W.rule)],
+      ['Parameters and locations', esc(W.schedule)],
+      ['What it obliges', esc(W.obliges)],
+      ['Window', `${esc(W.rounds[0])} → ${esc(W.rounds.at(-1))} · ${W.rounds.length} rounds`],
+      ['Evaluated', `<span class="sf-instant">${esc(W.evaluated)}</span>`],
+      ['Rule version', `<code class="mk-file">${esc(W.ruleVersion)}</code>`],
+    ]) +
+    table({
+      caption: 'One rule, four series, four outcomes.',
+      head: ['Location', 'Parameter', 'Criterion', ...W.rounds, 'Run', 'Outcome'],
+      kind: 'matrix',
+      label: 'Consecutive-round condition 12(c), evaluated',
+      rows: W.series.map((s) => [
+        loc(s.location),
+        esc(s.analyte),
+        `<span class="mk-muted">${esc(s.criterion)}</span>`,
+        ...s.values.map(
+          (v, i) =>
+            `<span class="mk-num${s.above[i] ? ' mk-num--bad' : ''}">${s.above[i] ? '▲ ' : '· '}${esc(fmt(v, s.unit))}</span>`,
+        ),
+        `<span class="mk-num">${s.run} of 3</span>`,
+        C.status(s.outcome, TONE[s.outcome]),
+      ]),
+    }) +
+    '<p class="mk-tight"><strong>▲</strong> marks a round above the criterion and <strong>·</strong> one below it, so the run reads across the row without reading the numbers.</p>' +
+    `<p class="mk-tight mk-muted">${esc(W.notDrawn)}</p>` +
+    cols(
+      panel(
+        'What each outcome did, in words',
+        W.series
+          .map(
+            (s) =>
+              '<p class="mk-tight">' +
+              `${C.status(s.outcome, TONE[s.outcome])} <strong>${esc(s.analyte)} at ${esc(s.location)}</strong>` +
+              (s.trippedAt ? ` — tripped on <span class="mk-file">${esc(s.trippedAt)}</span>` : '') +
+              `. ${esc(s.says)}</p>` +
+              (s.also ? `<p class="mk-tight mk-muted">${esc(s.also)}</p>` : ''),
+          )
+          .join(''),
+      ),
+      panel(
+        'Why the outcome is stored rather than re-computed',
+        `<p class="mk-tight">${esc(W.frozen)}</p>` +
+          `<p class="mk-tight">${esc(W.alsoWindowed)} The two windows are drawn apart on purpose: the licence is what a regulator enforces and the <a class="mk-ref" href="#tarp">TARP</a> is what the site committed to, and a product that merges them loses which one was breached.</p>` +
+          C.blastRadius({
+            lede: 'If the window were widened to five rounds, before anybody widened it:',
+            rows: [
+              { what: 'Series whose outcome would change', n: '0 — a longer window cannot break a run that is already unbroken' },
+              { what: 'Outcomes already decided', n: '1 — copper at MW05, frozen with the rule that decided it' },
+              { what: 'Obligations that would be re-raised', n: '0' },
+              { what: 'Rounds that would be re-evaluated', n: '9 — every round in the new window, on the criterion in force at each' },
+            ],
+            action: 'Preview against the real record',
+            cancel: 'Leave the window at three',
+            reversible:
+              'Reversible, and nothing is written by the preview. A condition change re-evaluates forward; outcomes already frozen onto an obligation stay as they were decided.',
+          }),
+      ),
+    )
+  );
+};
 
 const crosstab = () => {
   const rows = CROSSTAB.map((r) => {
@@ -1082,11 +1244,14 @@ const obligations = () =>
     route: '/aggregate/obligations',
     toolbar: btn('Add obligation'),
   }) +
+  // Counted from the register rather than typed beside it: these four read
+  // 1 · 1 · 3 · 1 while the seed held 2 · 1 · 5 · 1, which is the wave-1
+  // lesson (a hand-kept count rots, and it rots toward the flattering number).
   stats([
-    stat('1', 'overdue', 'bad'),
-    stat('1', 'at risk', 'warn'),
-    stat('3', 'on track', 'good'),
-    stat('1', 'met this month', 'good'),
+    stat(String(OBLIGATIONS.filter((o) => o.state === 'overdue').length), 'overdue', 'bad'),
+    stat(String(OBLIGATIONS.filter((o) => o.state === 'at risk').length), 'at risk', 'warn'),
+    stat(String(OBLIGATIONS.filter((o) => o.state === 'on track').length), 'on track', 'good'),
+    stat(String(OBLIGATIONS.filter((o) => o.state === 'met').length), 'met', 'good'),
   ]) +
   table({
     caption: 'Statutory and internal obligations in one register, because they compete for the same week.',
@@ -1773,6 +1938,158 @@ const purgeLog = () => {
   );
 };
 
+/**
+ * The chain of custody — created in the field, sealed, transferred, received.
+ *
+ * **The New-Screen Test, answered.** A custody chain is a durable legal record
+ * with a lifecycle of its own: it is raised at the first bore, it accumulates
+ * containers over three days, it is sealed, it is handed to a courier, and it
+ * is closed by a laboratory that may or may not agree with what it says.
+ * `#receipt` owns exactly one moment of that — the condition the samples were
+ * in when the box was opened — and nothing owned the rest. Journeys 1 and 5
+ * both step through *eCOC* and both landed on nothing.
+ *
+ * **The label is `docs/GLOSSARY.md`'s, not the industry's.** The glossary has
+ * no entry for "eCOC" and one for **custody transfer**: *one handover of a set
+ * of samples from one party to another, with the time, both parties, and the
+ * seal on the container.* So the screen is called Chain of custody — the
+ * glossary's own phrase for the sequence those transfers make — and "COC" and
+ * "eCOC" appear on it as what practitioners say, marked as such, rather than
+ * as a term the product invents (QB-9, §5.9).
+ *
+ * `state: 'proposed'` is not on the register entry for this screen and that is
+ * deliberate: `state` records what was true on 23 August 2026 and this screen
+ * did not exist then. `added` carries its date instead, and the rail renders
+ * that rather than a fabricated history.
+ */
+const chainOfCustody = () => {
+  const C_ = CUSTODY_CHAIN;
+  const D = C_.discrepancy;
+  const covered = EVENT_SAMPLES;
+  const containers = covered.reduce((n, s) => n + s.containers, 0);
+  const sealed = C_.transfers.find((t) => t.seal !== '—');
+  return (
+    head('Chain of custody — 2026-Q2-GW', 'Every hand that held these samples, from the bore to the laboratory bench.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + C.btn('Print the custody form'),
+    }) +
+    notice(
+      'warning',
+      'Proposed. The PRD names no chain-of-custody surface, and there is no route for one.',
+      'FR-1.6 gets the samples as far as the event and FR-3.8 picks them up at the certificate; the days in between are where a defensibility argument is actually won or lost. <a class="mk-ref" href="#receipt">Receipt and custody</a> draws the laboratory end of the chain because that is where the record used to start — which is the tell. A chain reconstructed afterwards from a scanned form proves that a form was signed; it does not answer the question a challenge asks, which is whether these samples were ever unaccounted for. This screen argues for itself and is filed under Sampling events on that argument. It is called <em>Chain of custody</em> rather than <em>eCOC</em> because the glossary has an entry for <strong>custody transfer</strong> and none for the acronym: practitioners call the paper form a COC and the electronic one an eCOC, and both words are named here once rather than becoming the product’s (QB-9).',
+    ) +
+    facts([
+      ['Custody record', `<span class="mk-file">${esc(C_.id)}</span>`],
+      ['Round', `<a class="mk-ref" href="#events">${esc(C_.round)}</a>`],
+      ['Raised', `${esc(C_.raisedBy)} · <span class="sf-instant">${esc(C_.raisedAt)}</span>`],
+      ['Consigned to', esc(C_.laboratory)],
+      ['Work order', `<a class="mk-ref" href="#batches">${esc(C_.workOrder)}</a>`],
+      ['Containers', `<span class="mk-num">${C_.containers}</span> · seals ${esc(C_.seals)}`],
+      ['State', C.status(C_.state, 'good')],
+    ]) +
+    '<h2 class="mk-h2" style="margin-top:1.2rem">The transfers</h2>' +
+    table({
+      caption: 'One row per handover: both parties, the time in the site’s own zone, and the seal in force.',
+      head: ['#', 'When · AWST', 'From', 'To', 'Containers', 'Seal', 'State'],
+      kind: 'matrix',
+      label: 'Custody transfers for 2026-Q2-GW',
+      rows: C_.transfers.map((t) => [
+        `<span class="mk-num">${t.seq}</span>`,
+        `<span class="sf-instant">${esc(t.at.replace(' AWST', ''))}</span>`,
+        esc(t.from),
+        esc(t.to),
+        `<span class="mk-num">${t.containers}</span>`,
+        t.seal === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-file">${esc(t.seal)}</span>`,
+        t.state === 'exception' ? C.status('exception', 'bad') : C.status('signed', 'good'),
+      ]),
+    }) +
+    `<p class="mk-tight">The rows are ordered by <strong>sequence</strong> rather than by time — two handovers can share a recorded minute, and a chain ordered only by the clock closes silently over a missing link. Here they run 1 to ${C_.transfers.length} with nothing missing between them, and that is the property worth having: a gap in the sequence is a hole somebody has to explain, where a gap in a list of timestamps is invisible. The last four rows are the ones <a class="mk-ref" href="#receipt">Receipt and custody</a> has always drawn — they are the same four rows, read from the same record, not a second copy of them.</p>` +
+    C.blastRadius({
+      lede: 'Sealing a cooler and handing it over — what that writes, before you do it:',
+      rows: [
+        { what: 'Transfers appended', n: '1 — appended, never edited' },
+        { what: 'Containers committed to the consignment', n: `${containers} across ${covered.length} samples` },
+        { what: 'Seal numbers frozen onto the transfer', n: `${sealed ? esc(sealed.seal) : '—'}` },
+        { what: 'Samples that can still be added to this chain', n: '0 — a sealed cooler is closed' },
+        { what: 'Rows that can be corrected afterwards', n: '0 — a correction supersedes and both entries stay readable' },
+      ],
+      action: 'Seal and hand over',
+      cancel: 'Not yet — keep the chain open',
+      reversible:
+        'Not reversible in the ordinary sense. A transfer cannot be edited or deleted; a mistake is corrected by a superseding entry that names what it corrects, and both stay on the record. That is what makes the chain evidence rather than a document.',
+      danger: true,
+    }) +
+    '<h2 class="mk-h2" style="margin-top:1.2rem">One seal number, written down twice, differently</h2>' +
+    notice(
+      'warning',
+      `${esc(D.what)} — the field record says ${esc(C_.seals.split(', ')[1])} and the laboratory’s receiving form says 4427.`,
+      `${esc(D.affects)} Both seals were found <em>intact</em>, which is a different check and it passed. The product has not chosen between the two numbers and will not: a transposition is the likeliest reading, and the likeliest reading is exactly what a custody challenge attacks.`,
+    ) +
+    cols(
+      panel(
+        'The two entries, side by side',
+        facts([
+          ['Field record', `<span class="mk-file">${esc(D.field)}</span>`],
+          ['Laboratory receiving form', `<span class="mk-file">${esc(D.laboratory)}</span>`],
+          ['Raised', `${esc(D.raisedBy)} · <span class="sf-instant">${esc(D.raisedAt)}</span>`],
+          ['Assigned to', esc(D.assignedTo)],
+          ['State', C.status(D.state, 'warn')],
+        ]) +
+          `<p class="mk-tight mk-muted"><strong>Refused:</strong> ${esc(D.refused)}</p>`,
+      ),
+      panel(
+        'The ways out, each with what it does',
+        table({
+          caption: 'Every option says what it writes before it is taken (QB-7). None of them deletes anything.',
+          head: ['Option', 'What it does', ''],
+          scroll: true,
+          label: 'Ways to resolve the seal discrepancy',
+          rows: D.ways.map((w) => [esc(w.label), `<span class="mk-muted">${esc(w.detail)}</span>`, C.btn('Take this')]),
+        }),
+      ),
+      // The consequence column is the wide one. A table whose "what it does"
+      // reads four words to a line is a form, and the whole point of this panel
+      // is that the consequence is easier to read than the button beside it.
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.2rem">What this chain covers</h2>' +
+    cols(
+      table({
+        caption: `The samples in the consignment, and the containers each contributed. They add to ${containers}, which is what the seal covered and what the laboratory reconciled on arrival.`,
+        head: ['Sample', 'Location or role', 'Containers'],
+        scroll: true,
+        label: 'Samples covered by this chain of custody',
+        rows: [
+          ...covered.map((s) => [
+            `<span class="mk-file">${esc(s.id)}</span>`,
+            s.qc === '—' ? loc(s.location) : `<span class="mk-tag mk-tag--new">${esc(s.qc)}</span>`,
+            `<span class="mk-num">${s.containers}</span>`,
+          ]),
+          ['<strong>Total</strong>', `<span class="mk-muted">${covered.length} samples · <a class="mk-ref" href="#events">the manifest</a></span>`, `<span class="mk-num"><strong>${containers}</strong></span>`],
+        ],
+      }),
+      panel(
+        'Where this record stops, and what picks it up',
+        '<p class="mk-tight"><strong>This screen owns</strong> the chain: raising it in the field, the containers it accumulates, the seals, and every transfer up to and including the handover the laboratory signs for. It owns the discrepancy above, because a disagreement about a seal is a custody question.</p>' +
+          '<p class="mk-tight"><strong><a class="mk-ref" href="#receipt">Receipt and custody</a> owns</strong> what the laboratory found when it opened the box — cooler temperature, preservation, breakages, holding time on arrival — and the results those explain. The cracked sulfate bottle is its finding, not this one’s.</p>' +
+          '<p class="mk-tight">After that the round leaves custody altogether and becomes a deliverable: the certificate and the rows that come back are <a class="mk-ref" href="#imports">Import runs</a>. Three screens, one seam each, and each seam named on both sides of it.</p>' +
+          `<div class="mk-actions"><a class="mk-btn" href="#receipt">What arrived, and in what condition</a><a class="mk-btn" href="#field-capture">The field round that filled it</a></div>`,
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.2rem">A round with no chain yet</h2>' +
+    C.stateBlock('empty', {
+      headline: '2026-Q3-GW has no chain of custody, because it has not been collected.',
+      detail:
+        `There are ${EVENTS.length} rounds on this project and ${EVENTS.filter((e) => e.state !== 'planned').length} of them have one. This is the other: planned, with a window, a location list and an analyte suite, and no samples yet. That is a different sentence from <em>no rounds have ever been sampled</em>, and a screen printing “No data” for both would have said nothing in either case. The chain is raised at the first bore, on the device, before the first container is filled — not typed up afterwards from a notebook. Raising one writes an empty record attributed to you, and it can be discarded until the first transfer is signed.`,
+      action: 'Raise the chain for 2026-Q3-GW',
+      secondary: 'Open the planned round',
+      // Raising is the one control here that is not irreversible, and it says
+      // so rather than leaving the reader to infer it from the two above.
+    })
+  );
+};
+
 /** What arrived at the laboratory, in what condition, and who had held it. */
 const sampleReceipt = () => (
   head('Receipt and custody', 'The condition the samples arrived in, and everyone who held them.', {
@@ -2366,7 +2683,7 @@ const projectHome = () => (
     { label: 'Overview', current: true },
     { label: 'Network', count: 9 },
     { label: 'Programme' },
-    { label: 'Obligations', count: 6, dot: 'bad' },
+    { label: 'Obligations', count: OBLIGATIONS.length, dot: 'bad' },
     { label: 'Documents', count: 34 },
     { label: 'Settings' },
     { label: 'Audit' },
@@ -2582,10 +2899,10 @@ const samplingEvents = () => (
     toolbar: C.exportMenu() + C.btn('Plan a round') + C.btn('Record a round', 'primary'),
   }) +
   stats([
-    stat('4', 'rounds this period'),
-    stat('1', 'planned, not yet collected'),
-    stat('1', 'results partial', 'warn'),
-    stat('5', 'QC samples linked'),
+    stat(String(EVENTS.filter((e) => e.state !== 'planned').length), 'rounds collected this period'),
+    stat(String(EVENTS.filter((e) => e.state === 'planned').length), 'planned, not yet collected'),
+    stat(String(EVENTS.filter((e) => e.state === 'results-partial').length), 'results partial', 'warn'),
+    stat(String(EVENTS.reduce((n, e) => n + e.qc, 0)), 'QC samples linked'),
   ]) +
   C.filterBar({
     controls: [
@@ -2594,11 +2911,11 @@ const samplingEvents = () => (
       C.field({ label: 'Collected by', control: C.select({ options: ['Anyone', 'A. Nakamura', 'D. Okafor'], value: 'Anyone' }) }),
     ],
     chips: [C.chip('2026 Q2', { prefix: 'period' })],
-    count: '5 rounds',
+    count: `${EVENTS.length} rounds`,
   }) +
   table({
-    caption: 'State is explicit on every round, because “where is this one up to” is U1’s standing question.',
-    head: ['Round', 'What', 'Window', 'Collected', 'By', 'Samples', 'QC', 'Laboratory', 'State'],
+    caption: 'State is explicit on every round, because “where is this one up to” is U1’s standing question. Primary and QC are counted apart — a round of nine samples of which four are blanks has not sampled nine bores.',
+    head: ['Round', 'What', 'Window', 'Collected', 'By', 'Primary', 'QC', 'Laboratory', 'State'],
     rows: EVENTS.map((e) => [
       `<a class="mk-ref mk-ref--loc" href="#events">${esc(e.code)}</a>`,
       esc(e.label),
@@ -2613,36 +2930,107 @@ const samplingEvents = () => (
     kind: 'matrix',
     label: 'Sampling events',
   }) +
-  '<h2 class="mk-h2" style="margin-top:1.4rem">2026-Q2-GW — samples in this round</h2>' +
-  C.tabs([
-    { label: 'Samples', count: 8, current: true },
-    { label: 'Field observations' },
-    { label: 'Results', count: 113 },
-    { label: 'QC linkage', count: 3 },
-    { label: 'Documents', count: 4 },
-    { label: 'Audit' },
-  ]) +
-  table({
-    caption: 'Event → samples → tests → results in one view, with the QC linkage visible in place rather than inferred from a naming convention.',
-    head: ['Sample', 'Location', 'Matrix', 'Collected', 'Depth', 'Tests', 'Results', 'QC role', 'State'],
-    rows: EVENT_SAMPLES.map((s) => [
-      `<span class="mk-file">${esc(s.id)}</span>`,
-      s.location === '—' ? '<span class="mk-num mk-num--nil">—</span>' : loc(s.location),
-      esc(s.matrix),
-      `<span class="sf-instant">${esc(s.collected)}</span>`,
-      esc(s.depth),
-      `<span class="mk-num">${s.tests}</span>`,
-      `<span class="mk-num${s.results < s.tests ? ' mk-num--warn' : ''}">${s.results}</span>`,
-      s.qc === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-tag mk-tag--new">${esc(s.qc)}</span>`,
-      C.status(s.state, s.state === 'results-partial' ? 'warn' : 'good'),
-    ]),
-    kind: 'matrix',
-    label: 'Samples in round 2026-Q2-GW',
-  }) +
+  (() => {
+    const qcRows = EVENT_SAMPLES.filter((s) => s.qc !== '—');
+    const containers = EVENT_SAMPLES.reduce((n, s) => n + s.containers, 0);
+    /*
+     * What each control answers. The strings are prose and live here; every
+     * number and every identifier below is read from the manifest, so a QC
+     * sample added to the seed appears in this taxonomy without anybody
+     * remembering to add it — which is how the equipment blank came to be
+     * referenced by the QA/QC screen for a fortnight while appearing on no
+     * manifest at all.
+     */
+    const ANSWERS = {
+      'Field duplicate (blind)': 'Sampling and analysis together — the only control that carries the act of collecting',
+      'Field blank': 'Contamination from handling and from the air at the bore',
+      'Trip blank': 'Contamination picked up in transit, in the cooler, by the containers themselves',
+      'Equipment blank (rinsate)': 'Carry-over on equipment reused between two bores — the glossary’s equipment blank, and the rinsate a field officer asks for',
+    };
+    const roles = [...new Set(qcRows.map((s) => s.qc))].map((role) => {
+      const rows = qcRows.filter((s) => s.qc === role);
+      return [
+        esc(role),
+        '<span class="mk-tag mk-tag--neutral">field</span>',
+        rows.map((r) => `<span class="mk-file mk-file--id">${esc(r.id)}</span>`).join('<br>'),
+        rows.map((r) => `<span class="mk-muted">${esc(r.detail ?? r.parent)}</span>`).join('<br>'),
+        esc(ANSWERS[role] ?? ''),
+      ];
+    });
+    const lab = LAB_QC.map((q) => [
+      esc(q.kind),
+      '<span class="mk-tag mk-tag--neutral">laboratory</span>',
+      `<span class="mk-file mk-file--id">${esc(q.id)}</span>`,
+      `<span class="mk-muted">${esc(q.parent)}</span>`,
+      esc(q.answers),
+    ]);
+    return (
+      '<h2 class="mk-h2" style="margin-top:1.4rem">2026-Q2-GW — the sample manifest</h2>' +
+      C.tabs([
+        { label: 'Samples', count: EVENT_SAMPLES.length, current: true },
+        { label: 'Field observations' },
+        { label: 'Results' },
+        { label: 'QC linkage', count: qcRows.length },
+        { label: 'Documents', count: 4 },
+        { label: 'Audit' },
+      ]) +
+      table({
+        // The caption sits inside the panning region, so a long one is cut
+        // at the viewport edge on a phone rather than wrapping. One clause
+        // here; the argument goes in a paragraph under the table, which wraps.
+        caption: 'Event → sample → test → result, in one view.',
+        head: ['Sample', 'Location', 'Matrix', 'Collected · AWST', 'Depth', 'QC role', 'Parent', 'Containers', 'Results', 'State'],
+        rows: EVENT_SAMPLES.map((s) => [
+          `<span class="mk-file mk-file--id">${esc(s.id)}</span>`,
+          s.location === '—' ? '<span class="mk-num mk-num--nil">—</span>' : loc(s.location),
+          esc(s.matrix),
+          `<span class="sf-instant">${esc(s.collected.replace(' AWST', ''))}</span>`,
+          esc(s.depth),
+          s.qc === '—' ? '<span class="mk-num mk-num--nil">primary</span>' : `<span class="mk-tag mk-tag--new">${esc(s.qc)}</span>`,
+          s.parent === '—'
+            ? '<span class="mk-num mk-num--nil">—</span>'
+            : s.parent.startsWith('WDL-')
+              ? `<span class="mk-file mk-file--id">${esc(s.parent)}</span>`
+              : `<span class="mk-muted">${esc(s.parent)}</span>`,
+          `<span class="mk-num">${s.containers}</span>`,
+          // Two columns became one: "13 of 14" is the sentence a reader was
+          // making out of them anyway, and the pair cost a column that the pan
+          // then hid at every width.
+          `<span class="mk-num${s.results < s.tests ? ' mk-num--warn' : ''}">${s.results} of ${s.tests}</span>`,
+          C.status(s.state, s.state === 'results-partial' ? 'warn' : 'good'),
+        ]),
+        kind: 'matrix',
+        label: 'Sample manifest for round 2026-Q2-GW',
+      }) +
+      '<p class="mk-tight">Every QC sample names its parent <em>by code</em>. The incumbent alternative is a naming convention — <code class="mk-file">MW05-DUP</code> beside <code class="mk-file">MW05</code>, related by a substring and by nothing the database knows, and unrelated the moment somebody types <code class="mk-file">MW05 DUP</code>.</p>' +
+      `<p class="mk-tight"><strong>${containers} containers</strong> across ${EVENT_SAMPLES.length} samples — the same ${containers} the ` +
+      `<a class="mk-ref" href="#ecoc">chain of custody</a> sealed on 14 May and the same ${containers} the laboratory reconciled on ` +
+      `arrival (<a class="mk-ref" href="#receipt">38 of 38</a>). Three screens, one addition: a manifest that cannot be added up to the ` +
+      'number on the custody form is the first thing a challenge finds.</p>' +
+      notice(
+        'warning',
+        'MW11 is not on this manifest, and that is the finding rather than an omission.',
+        'The 2026 Q2 window closed on 14 May in Australia/Perth and the bore was not sampled — it is nine days overdue on the <a class="mk-ref" href="#programme">programme</a> and short nine results on the <a class="mk-ref" href="#dqa">data quality assessment</a>. A manifest that quietly listed it, or that omitted the row without saying so, would let an overdue round read as collected.',
+      ) +
+      panel(
+        'The QC taxonomy, closed — and split by where each control is made',
+        table({
+          caption: 'Every control this round rests on, what it is made from, and the question it answers.',
+          head: ['Control', 'Made', 'This round', 'Parent', 'What it answers'],
+          rows: [...roles, ...lab],
+          kind: 'matrix',
+          label: 'QC taxonomy for round 2026-Q2-GW',
+        }) +
+          '<p class="mk-tight">The split is the point. A <em>field</em> duplicate and a <em>laboratory</em> duplicate are both duplicates and they are not the same control: one carries the act of collecting and the other does not, so a pair that disagrees says something different depending on which it was. Products that list them under one word have thrown away the only thing the pair was collected to separate.</p>' +
+          `<p class="mk-tight">The bench controls belong to the <a class="mk-ref" href="#batches">laboratory batch</a>, not to this round — a control sample applies to a batch, which is what makes “which results does this failed spike qualify” answerable. The matrix spike on ${esc(LAB_QC.find((q) => q.kind === 'Matrix spike').parent)} is the one that failed, and it qualifies every zinc result in ${esc(LAB_QC.find((q) => q.kind === 'Matrix spike').batch)} rather than the sample it was made from.</p>` +
+          '<p class="mk-tight mk-muted">No composites. FR-1.7’s depth intervals and increment traceability are soil and sediment work, staged S8 — every row above is a discrete grab, and drawing a composite here would be drawing a matrix the slice does not carry.</p>',
+      )
+    );
+  })() +
   cols(
     panel(
       'A blind duplicate stays blind, and the link is still recorded',
-      '<p class="mk-tight">WDL-26Q2-004 is a field duplicate of 003 and the laboratory was not told. The link exists in the record from the moment the sample was collected, so the RPD can be computed — and the laboratory never had the chance to make two results agree.</p>' +
+      `<p class="mk-tight">Two field duplicates this round — ${EVENT_SAMPLES.filter((s) => s.qc === 'Field duplicate (blind)').map((s) => `<span class="mk-file">${esc(s.id)}</span>`).join(' and ')} — and the laboratory was told about neither. The link exists in the record from the moment the sample was collected, so the RPD can be computed, and the laboratory never had the chance to make two results agree.</p>` +
         '<p class="mk-tight">The distinction the screen has to keep is between <em>the laboratory did not know</em> and <em>we do not know</em>. Showing the parent here is correct; showing it on anything the laboratory receives is not.</p>' +
         C.card({
           tone: 'new',
@@ -2954,7 +3342,7 @@ const licenceScreen = () => {
       ['Issued', esc(L.issued)],
       ['Expires', esc(L.expires)],
       ['Last varied', esc(L.lastVaried)],
-      ['Conditions with a monitoring obligation', '5 of 24'],
+      ['Conditions with a monitoring obligation', `${L.conditions.length} of 24`],
     ]) +
     notice(
       'warning',
@@ -2972,7 +3360,10 @@ const licenceScreen = () => {
           ? c.governs.split(', ').map((g) => (g.startsWith('MW') || g.startsWith('SW') ? loc(g) : esc(g))).join(', ')
           : esc(c.governs),
         `<a class="mk-ref" href="#obligations">${esc(c.discharges)}</a>`,
-        C.status(c.state, c.state === 'due' ? 'warn' : 'good'),
+        // A third state arrived with 12(c): a condition a window has *tripped*
+        // is not "met" and it is not merely "due", and rendering it as either
+        // is the drift the tone map is here to refuse.
+        C.status(c.state, c.state === 'due' ? 'warn' : c.state === 'triggered' ? 'bad' : 'good'),
       ]),
       kind: 'matrix',
       label: 'Licence conditions',
@@ -3918,12 +4309,12 @@ const coverage = () => {
     ['FR-4.2', 'A reporting limit above the criterion is flagged', 'covered', 'indeterminate · crosstab', 'P0', 'Claim B5 — the register the incumbents lack'],
     ['FR-4.3', 'Duplicate RPD, blanks and recoveries against configurable limits', 'covered', 'qc · qc-limits', 'P0', ''],
     ['FR-4.4', 'Internal consistency: total/dissolved, ionic balance, TDS, EC', 'covered', 'consistency', 'P0', ''],
-    ['FR-4.5', 'Spikes and outliers against the location’s own history', 'partially', 'qc', 'P2', 'No drawn queue raises it as a finding type'],
+    ['FR-4.5', 'Spikes and outliers against the location’s own history', 'covered', 'qc', 'P2', 'Raised as a finding with its working — median, MAD and the score, over the bore’s own record'],
     ['FR-4.6', 'Validation state machine with attribution, including bulk', 'covered', 'validation', 'P0', ''],
     ['FR-4.7', 'Data lock for periods reported to a regulator', 'covered', 'qualifiers', 'P1', ''],
     ['FR-4.8', 'Manual qualifiers from a controlled reason-code list', 'covered', 'qualifiers', 'P0', ''],
     ['FR-5.1', 'All applicable criteria concurrently, an outcome per criterion', 'covered', 'crosstab · exceedances', 'P0', ''],
-    ['FR-5.2', 'Consecutive-exceedance and rolling-window conditions', 'partially', 'exceedances', 'P1', 'Drawn deciding nothing — no window condition shown producing an outcome'],
+    ['FR-5.2', 'Consecutive-exceedance and rolling-window conditions', 'covered', 'exceedances', 'P1', 'Licence condition 12(c) evaluated over four rounds, four series, three distinct outcomes'],
     ['FR-5.3', 'TARP state with escalation, acknowledgement and response', 'covered', 'tarp · alerts', 'P0', ''],
     ['FR-5.4', 'Automatic re-evaluation on data change, reflected in lineage', 'covered', 'certificate · supersession', 'P0', ''],
     ['FR-5.5', 'Mass load from volume and concentration, by reporting period', 'missing', '—', 'P2', 'Belongs with the undrawn water screen'],
@@ -3998,9 +4389,9 @@ const coverage = () => {
 
   const JOURNEYS_WALK = [
     // [n, name, status, [ [step, screenId|null], … ], note]
-    ['1', 'Laboratory EDD → approved data', 'partially',
-      [['Programme', 'programme'], ['Round', 'events'], ['Sampling event', 'events'], ['eCOC', null], ['Certificate', 'certificate'], ['Import batch', 'imports'], ['Parse', 'imports'], ['Map', 'import-review'], ['Validate', 'import-review'], ['Exceptions', 'quarantine'], ['Partial accept', 'import-commit'], ['QA/QC', 'qc'], ['DQA', 'dqa'], ['Approval', 'validation'], ['Results', 'crosstab']],
-      'eCOC has no owner: receipt covers the laboratory side; creating one in the field has none'],
+    ['1', 'Laboratory EDD → approved data', 'covered',
+      [['Programme', 'programme'], ['Round', 'events'], ['Sampling event', 'events'], ['eCOC', 'ecoc'], ['Certificate', 'certificate'], ['Import batch', 'imports'], ['Parse', 'imports'], ['Map', 'import-review'], ['Validate', 'import-review'], ['Exceptions', 'quarantine'], ['Partial accept', 'import-commit'], ['QA/QC', 'qc'], ['DQA', 'dqa'], ['Approval', 'validation'], ['Results', 'crosstab']],
+      'Closed by the chain-of-custody screen — creation, seals and transfer, where receipt covered only the laboratory end'],
     ['2', 'Result → exceedance response', 'partially',
       [['Result', 'result-detail'], ['Applicable criteria', 'criteria'], ['Derivation', 'hardness'], ['Exceedance', 'exceedances'], ['Evaluation', 'exceedances'], ['TARP / obligation', 'tarp'], ['Acknowledge', 'alerts'], ['Assign', 'home'], ['Evidence', 'documents'], ['Approve', 'signoff'], ['Close', 'tarp']],
       'Assignment rides on the work queue, kept as a proposal by decision (1 Sep 2026 — findings §7)'],
@@ -4011,8 +4402,8 @@ const coverage = () => {
       [['Original', 'certificate'], ['Amendment', 'certificate'], ['Supersession comparison', 'supersession'], ['Impacted results', 'supersession'], ['Recalculated derivations', 'hardness'], ['Changed exceedances', 'exceedances'], ['Changed trigger states', 'tarp'], ['Affected reports', 'snapshot'], ['Decision', 'certificate']],
       ''],
     ['5', 'Programme → completed field work', 'partially',
-      [['Programme', 'programme'], ['Recurrence', 'programme'], ['Round', 'events'], ['Locations / suites', 'events'], ['Assignment', 'home'], ['Field work', 'field-capture'], ['Samples / QC', 'field-capture'], ['eCOC', null], ['Custody transfer', 'receipt'], ['Laboratory receipt', 'receipt'], ['Completion', 'programme']],
-      'Field capture is a proposal; eCOC is unowned; assignment rides on the work-queue proposal (findings §7)'],
+      [['Programme', 'programme'], ['Recurrence', 'programme'], ['Round', 'events'], ['Locations / suites', 'events'], ['Assignment', 'home'], ['Field work', 'field-capture'], ['Samples / QC', 'field-capture'], ['eCOC', 'ecoc'], ['Custody transfer', 'ecoc'], ['Laboratory receipt', 'receipt'], ['Completion', 'programme']],
+      'Two holes left, both proposals rather than gaps: field capture, and assignment on the work queue (findings §7)'],
     ['6', 'Statutory notification', 'covered',
       [['Licence condition', 'licence'], ['Triggering result', 'result-detail'], ['Became aware', 'notification'], ['Deadline', 'notification'], ['Evidence review', 'documents'], ['Approval', 'signoff'], ['Submission', 'notification'], ['Proof', 'documents'], ['Closure', 'notification'], ['Audit', 'audit']],
       ''],
@@ -4228,6 +4619,14 @@ export const JOBS = [
       { id: 'quarantine', label: 'Held rows', body: quarantine, state: 'engine-only', isNew: true, now: 'shipped' },
       { id: 'purge', label: 'Purge and stabilisation', body: purgeLog, state: 'not built', isNew: true, now: 'shipped' },
       { id: 'receipt', label: 'Receipt and custody', body: sampleReceipt, state: 'not built', isNew: true, now: 'shipped' },
+      /*
+       * No `state`, deliberately. `state` is the 23 August record and this
+       * screen did not exist on 23 August; writing one would fabricate a
+       * history to satisfy a field's shape. `added` carries the date it
+       * arrived instead, and `build.mjs` renders that where it would
+       * otherwise render a state it does not have.
+       */
+      { id: 'ecoc', label: 'Chain of custody', body: chainOfCustody, now: 'proposed', added: '2026-09-01' },
       { id: 'certificate', label: 'Certificate and supersession', body: certificate, state: 'engine-only', now: 'shipped' },
       { id: 'migration', label: 'Legacy reconciliation', body: migration, state: 'engine-only', now: 'shipped' },
       { id: 'field-capture', label: 'Field capture', body: fieldCapture, state: 'proposed', now: 'proposed' },
@@ -4345,16 +4744,19 @@ export const RELATED = {
   locations: ['location', 'facility', 'events', 'crosstab', 'map'],
   location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents'],
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
-  events: ['location', 'field-capture', 'receipt', 'imports', 'programme'],
+  events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme'],
   imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats'],
   'import-review': ['import-commit', 'quarantine', 'qc', 'dictionary', 'mapping-profiles'],
   'import-commit': ['crosstab', 'quarantine', 'exceedances', 'audit'],
   quarantine: ['import-review', 'import-commit', 'mapping-profiles', 'qc'],
   purge: ['field-capture', 'location', 'events', 'dqa', 'receipt'],
-  receipt: ['events', 'batches', 'qc', 'documents', 'purge'],
+  receipt: ['events', 'ecoc', 'batches', 'qc', 'documents', 'purge'],
   certificate: ['supersession', 'lineage', 'imports', 'documents'],
   migration: ['imports', 'validation', 'audit', 'mapping-profiles'],
-  'field-capture': ['purge', 'programme', 'location', 'events'],
+  'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events'],
+  // The chain is raised in the field and closed at the laboratory, so it sits
+  // between the two screens that own those ends rather than beside either.
+  ecoc: ['receipt', 'events', 'field-capture', 'imports'],
 
   qc: ['batches', 'qc-limits', 'consistency', 'qualifiers', 'validation', 'dqa'],
   batches: ['qc', 'qc-limits', 'receipt', 'result-detail'],

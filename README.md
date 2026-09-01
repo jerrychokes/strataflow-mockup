@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **66 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **67 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -13,8 +13,11 @@ and date the rebuild.
 ```sh
 node build.mjs      # writes index.html; checks the link graph, the section partition,
                     # dead hrefs and the route-line contract — and fails, not warns
-node verify.mjs     # the driven-browser sweep: overflow at 375/1000/1280, ids,
-                    # accessible names, heading order, matrix panning (npm install first)
+node verify.mjs     # the driven-browser sweep, seven families: overflow at
+                    # 375/1000/1280, duplicate ids, accessible names, heading order,
+                    # matrix panning, figure text collisions, coarse-pointer touch
+                    # targets and stacked-label legibility (npm install first;
+                    # CHROMIUM=<binary> if playwright-core has no browser)
 ```
 
 ## The fourth pass — 1 September 2026
@@ -70,6 +73,25 @@ alone, and the build fails on a route line that carries a state claim.
 **Two decisions were taken at the stop gate** (Jerry, 1 Sep): Wave 1 approved, and
 the work queue stands as a deliberate proposal against `ia-rationale`'s
 project-list home — drawn, argued, not silently built.
+
+**Wave 2 — the chain of custody, and three findings drawn deciding something**
+(1 Sep 2026). One screen was added, the only one this wave was allowed to create:
+**Chain of custody**, which is `docs/GLOSSARY.md`'s phrase rather than the industry's
+"eCOC" — the glossary has an entry for *custody transfer* and none for the acronym. It
+owns what nothing owned: raising the record in the field, the containers it accumulates,
+the seals, and every transfer up to the handover the laboratory signs for, where
+`receipt` owns only what was found when the box was opened. It carries no `state` field,
+because `state` is the 23 August record and this screen did not exist then; the rail
+hovers "added 1 Sep 2026" and badges it `NEW·4`. Four screens were deepened: the round's
+sample manifest with the QC taxonomy closed and split by where each control is made
+(`events`), a licence condition evaluated over four rounds into three different outcomes
+(`exceedances`), a spike raised against a bore's own eleven-round record with the median,
+the MAD and the score shown (`qc`), and the rows-read statement on `imports` verified
+where it already stood. The tooling items the wave-1 audit left open are closed: the
+touch check measures **both axes at a true 44px**, and the viewer's own chrome is inside
+its scope rather than excluded — which found the top-bar search at 24px, the project
+switcher at 27px, the rail's filter box at 32px, an icon button shrinking to 42px wide
+inside a flex row, and the eight bundle-contents checkboxes whose whole tap target was a 15px box.
 
 What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
 exists, loads, is scoped and renders — not that the product screen matches this
@@ -226,16 +248,20 @@ finding the view exists to produce.
 | Job | Screens | Who |
 |---|---|---|
 | **J0** Arrive, and find out what needs you | 4 | U1 · U2 · U4 · U5 |
-| **J1** Get the data in, and know it landed | 11 | U1 · U5 |
-| **J2** Know the data is right | 4 | U1 · U2 |
-| **J3** Know what is wrong | 5 | U2 · U3 · U4 |
-| **J4** Understand it and explain it | 5 | U2 |
+| **J1** Get the data in, and know it landed | 14 | U1 · U5 |
+| **J2** Know the data is right | 7 | U1 · U2 |
+| **J3** Know what is wrong | 7 | U2 · U3 · U4 |
+| **J4** Understand it and explain it | 7 | U2 |
 | **J5** Produce the submission | 5 | U2 · U4 |
 | **J6** Keep the obligations met | 5 | U4 · U1 |
 | **J7** Prove what was known, and when | 4 | U2 · U4 |
 | **J8** Configure the instance | 7 | U5 |
 | **J9** Keep the instance alive | 4 | U6 |
 | **J10** The conventions the whole product keeps | 3 | Every user |
+
+The counts above were the second pass's and stood at 57 while the catalogue grew to 66;
+they are re-derived here from the register at the wave-2 change (1 Sep 2026). Re-derive
+them rather than reading them — `JOBS` in `screens.mjs` is the only thing that knows.
 
 **J10 is not a job**, and it is labelled so. It holds the three cross-cutting claims — the
 four data states, the keyboard contract, and the coverage matrix — drawn once each. Every
@@ -439,9 +465,9 @@ compositing.
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Eleven figure generators, drawn to the approved grammar |
-| `screens.mjs` | The 66 screens, the job spine, and the link graph |
+| `screens.mjs` | The 67 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
-| `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning. `npm install`, then `node verify.mjs` |
+| `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |
 | `EXPANSION_BRIEF.md` | What governs the expansion: authority order, conventions, phases, the audit loop |
 | `audits/` | The dated passes: findings, wave plan, audit rounds |

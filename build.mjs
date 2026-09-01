@@ -63,6 +63,13 @@ const STATE_TONE = {
 
 const ALL = JOBS.flatMap((j) => j.screens.map((s) => ({ ...s, job: j })));
 const labelOf = Object.fromEntries(ALL.map((s) => [s.id, s.label]));
+/*
+ * The banner said "backs 58 of the 66 screens" as two typed numbers. Both were
+ * true when they were typed and one wave made both wrong — which is the same
+ * failure the route lines had, in the one paragraph every visitor reads first.
+ * Counted from the register instead, the way `stateSentence()` counts.
+ */
+const ROUTE_BACKED = ALL.filter((s) => (s.now ?? s.state) === 'shipped').length;
 
 /**
  * The product's own architecture, and which drawn screens fall inside each
@@ -90,7 +97,7 @@ const labelOf = Object.fromEntries(ALL.map((s) => [s.id, s.label]));
 const SECTION_VIEW = [
   { label: 'Home and across projects', lede: 'Where a session starts — and /aggregate, the two questions that cross projects', ids: ['home', 'search', 'projects', 'project-home', 'obligations'] },
   { label: 'Locations', lede: 'Step 1 — the bores, their survey history, and everything read while standing at one', ids: ['locations', 'location', 'facility', 'map', 'hydrograph', 'stygofauna', 'project-settings'] },
-  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'receipt', 'field-capture'] },
+  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture'] },
   { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, and what each one rests on', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles'] },
   { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
@@ -166,16 +173,33 @@ const SECTION_REGISTER = {
  * The dot shows the *current* state (`now`, re-derived 1 Sep 2026); the title
  * carries the 23 Aug state where it differs, so the third pass's finding stays
  * one hover away rather than being erased by the fourth.
+ *
+ * A screen added *after* 23 August has no `state` at all, deliberately — the
+ * field is that day's record and inventing one for a screen that did not exist
+ * would be the retro-edit §5.2 forbids. Such a screen hovers "added <date>"
+ * from its `added` field. Reading `s.state` blindly here printed
+ * `was “undefined” on 23 Aug 2026`, which is the shape of the bug this whole
+ * two-field arrangement exists to avoid.
  */
+const DAY = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]} ${y}`;
+};
+
 const screenButton = (s) => {
   const cur = s.now ?? s.state;
-  const hist = s.now && s.now !== s.state ? `${cur} — was “${s.state}” on 23 Aug 2026` : cur;
+  const hist = !s.state
+    ? `${cur} — added ${DAY(s.added)}`
+    : s.now && s.now !== s.state
+      ? `${cur} — was “${s.state}” on 23 Aug 2026`
+      : cur;
   return (
     `<li data-label="${esc(s.label.toLowerCase())}" data-state="${esc(cur)}">` +
     `<button class="mk-rail__screen" type="button" data-target="${s.id}" aria-current="false">` +
     `<span class="mk-dot mk-dot--${STATE_TONE[cur]}" title="${esc(hist)}"></span>` +
     `<span>${esc(s.label)}</span>` +
     (s.isNew ? '<span class="mk-rail__new" title="Added in the third pass">NEW</span>' : '') +
+    (s.added ? '<span class="mk-rail__new" title="Added in the fourth pass">NEW·4</span>' : '') +
     '</button></li>'
   );
 };
@@ -258,7 +282,10 @@ function rail() {
     '</div>' +
     byJob + bySection + byAz +
     '<p class="mk-rail__empty" id="mk-rail-empty" hidden>No screen matches that. The catalogue holds registers, detail pages and workspaces — try “licence”, “quarantine” or “lineage”.</p>' +
-    `<div class="mk-rail__key">${key}<div style="margin-top:.6rem"><span class="mk-rail__new">NEW</span><span>added in this pass</span></div></div></nav>`
+    `<div class="mk-rail__key">${key}` +
+    '<div style="margin-top:.6rem"><span class="mk-rail__new">NEW</span><span>added in the third pass</span></div>' +
+    '<div style="margin-top:.3rem"><span class="mk-rail__new">NEW·4</span><span>added in the fourth pass</span></div>' +
+    '</div></nav>'
   );
 }
 
@@ -489,7 +516,7 @@ ${topBar()}
 ${sectionStrip('')}
 </header>
 <p class="mk-banner"><strong>Mockup.</strong> Drawn 23 August 2026; screen states re-derived 1 September 2026 (pass 4)
-against the product's route table, which now backs 58 of the 66 screens. Styled by the product's own stylesheet on the
+against the product's route table, which backs ${ROUTE_BACKED} of these ${ALL.length} screens. Styled by the product's own stylesheet on the
 approved Instrument direction; every figure is drawn to the approved grammar. The data is fictional —
 <code>MOCK-WDL</code>, on the <code>MOCK-</code> convention. The dot beside each screen in the rail is its state in the
 product today (hover for the 23 August state), and <a class="mk-ref" href="#coverage">Coverage</a> says what this
@@ -737,17 +764,22 @@ writeFileSync(OUT, html, 'utf8');
 const byState = {};
 const byNow = {};
 for (const s of ALL) {
-  byState[s.state] = (byState[s.state] ?? 0) + 1;
+  // A screen added after 23 August is not in the 23 August derivation. It has
+  // no `state` and counting it under `undefined` would put a screen that did
+  // not exist into a census of what did.
+  if (s.state) byState[s.state] = (byState[s.state] ?? 0) + 1;
   const cur = s.now ?? s.state;
   byNow[cur] = (byNow[cur] ?? 0) + 1;
 }
 const added = ALL.filter((s) => s.isNew).length;
+const added4 = ALL.filter((s) => s.added).length;
+const stated = ALL.filter((s) => s.state).length;
 const anchors = (html.match(/href="#/g) ?? []).length;
 
 console.log(`index.html · ${ALL.length} screens across ${JOBS.length} jobs · ${(html.length / 1024).toFixed(0)} KB`);
-console.log(`23 Aug 2026 · ${Object.entries(byState).map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
+console.log(`23 Aug 2026 · ${Object.entries(byState).map(([k, v]) => `${k}: ${v}`).join(' · ')} · ${ALL.length - stated} drawn since`);
 console.log(` 1 Sep 2026 · ${Object.entries(byNow).map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
-console.log(`${added} added in pass 3 · ${anchors} anchors`);
+console.log(`${added} added in pass 3 · ${added4} added in pass 4 · ${anchors} anchors`);
 
 /* The two invariants the first build got wrong, checked rather than claimed. */
 const dangling = Object.entries(RELATED).flatMap(([from, tos]) => tos.filter((t) => !labelOf[t]).map((t) => `${from} → ${t}`));

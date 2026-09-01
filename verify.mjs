@@ -206,12 +206,24 @@ for (const width of widths) {
  * a 44px target either breaks the line box or spaces the paragraph to nothing.
  * chrome.mjs floors the ones that are navigation rather than sentences.
  *
- * Scoped to the active screen, which leaves the catalogue's own furniture out:
- * the rail's filter box and the top bar's search are how this document is
- * browsed, not surfaces the product ships, and on 1 Sep 2026 they measure 31px
- * and 23px under a coarse pointer. That is a stated exclusion rather than a
- * silent one — W1-A-6 is the standing lesson about a check whose scope is
- * where the defect lives.
+ * **Both axes, and the bar is 44** (W1-A-10). The hit walk used to run up and
+ * down the centre line only, so a control 44px tall and 18px wide passed — and
+ * the pass bar was 43, one pixel under the number the summary line claimed.
+ * The run is a count of integer sample points that reach the target, so a run
+ * of 44 is a target at least 43px across and at most 45; the bar is set at the
+ * number in the rule rather than a pixel under it, and the two axes are
+ * reported separately so a failure says which way the target is thin.
+ *
+ * **The viewer's own chrome is measured too**, and that is a change from the
+ * wave-1 exclusion. The top bar and the section strip are drawn as the
+ * *product's* architecture — the mockup's README says so — so excluding them
+ * meant excluding product surfaces on the grounds of where the check happened
+ * to be pointed, which is W1-A-6's lesson exactly. The rail is the catalogue's
+ * own furniture and is measured anyway: it is the only navigation this document
+ * has on a phone, and a filter box nobody can tap is a defect whoever owns it.
+ * What is still out of scope is what is display:none at rest — the palette and
+ * the lineage panel — because a hit test on a hidden element measures nothing
+ * rather than measuring zero.
  */
 {
   const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
@@ -221,51 +233,91 @@ for (const width of widths) {
   const coarse = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
   if (!coarse) failures.push('touch targets: (pointer: coarse) does not match — the check would measure the desktop stylesheet');
   const ids = await page.evaluate(() => [...document.querySelectorAll('.mk-screen')].map((s) => s.id));
+
+  /**
+   * One measurement pass over one set of scopes. Runs in the page.
+   *
+   * `pin` exists because the single-column layout stacks a 100vh sticky rail
+   * above a sticky page header, and each covers the other depending on where
+   * the document is scrolled: measured at scrollY 2331 every rail control
+   * reported a 0×0 hit area, because the header was painted over it. So the
+   * rail is measured at the top of the document and the header from inside the
+   * canvas, and each element's own `scrollIntoView` is undone by re-pinning
+   * before the hit test. A 0×0 result now means unreachable rather than
+   * unlucky, and it fails.
+   */
+  const probe = ({ scopes, sid, pin = null }) => {
+    if (sid) document.querySelectorAll('.mk-screen').forEach((p) => p.setAttribute('data-active', String(p.id === sid)));
+    if (pin !== null) window.scrollTo(0, pin);
+    const parts = ['button', 'select', 'textarea', 'input:not([type=hidden])', 'label.mk-check', 'label.mk-radio', 'label.mk-switch'];
+    const selector = scopes.flatMap((sc) => parts.map((p) => `${sc} ${p}`)).join(', ');
+    const small = [];
+    let seen = 0;
+    for (const el of document.querySelectorAll(selector)) {
+      if (el.closest('[hidden]')) continue;
+      if (el.matches('a.mk-ref, .mk-linkbtn') || el.closest('.mk-linkbtn')) continue;
+      const own = el.getBoundingClientRect();
+      if (own.width === 0 && own.height === 0) continue;
+      seen++;
+      // Tapping the label activates the control, so the label is the target.
+      const label = el.closest('label.mk-check, label.mk-radio, label.mk-switch');
+      const lab = label ? label.getBoundingClientRect() : null;
+      const box = { w: Math.max(own.width, lab ? lab.width : 0), h: Math.max(own.height, lab ? lab.height : 0) };
+      if (box.w >= 44 && box.h >= 44) continue;
+      // Only now is a hit test worth its cost. The box can be smaller than the
+      // target — `.mk-why__btn` keeps a 15px glyph and gains 45px from an inset
+      // `::after` that no element query can see.
+      const target = label ?? el;
+      target.scrollIntoView({ block: 'center' });
+      if (pin !== null) window.scrollTo(0, pin);
+      const rect = target.getBoundingClientRect();
+      const cx = Math.round(rect.left + rect.width / 2);
+      const cy = Math.round(rect.top + rect.height / 2);
+      // The target itself, or something inside it — never an ancestor.
+      // Counting an ancestor as a hit makes every target as tall as the
+      // panel behind it, and the check passes with the floors deleted.
+      const reaches = (x, y) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit === target || target.contains(hit);
+      };
+      const run = (axis) => {
+        if (!reaches(cx, cy)) return 0;
+        const at = (n) => (axis === 'y' ? reaches(cx, cy + n) : reaches(cx + n, cy));
+        const origin = axis === 'y' ? cy : cx;
+        const limit = (axis === 'y' ? window.innerHeight : window.innerWidth) - 1 - origin;
+        let lo = 0;
+        let hi = 0;
+        while (lo - 1 >= -origin && at(lo - 1)) lo -= 1;
+        while (hi + 1 <= limit && at(hi + 1)) hi += 1;
+        return hi - lo + 1;
+      };
+      const down = run('y');
+      const across = run('x');
+      if (down < 44 || across < 44) {
+        const name = (el.textContent || el.value || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').trim().slice(0, 30);
+        small.push(`${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${name}” — ${across}×${down}px hit area`);
+      }
+    }
+    return { small, seen };
+  };
+
   let measured = 0;
   if (coarse) {
     for (const id of ids) {
-      const r = await page.evaluate((sid) => {
-        document.querySelectorAll('.mk-screen').forEach((p) => p.setAttribute('data-active', String(p.id === sid)));
-        const scope = `#${CSS.escape(sid)}`;
-        const parts = ['button', 'select', 'textarea', 'input:not([type=hidden])', 'label.mk-check', 'label.mk-radio', 'label.mk-switch'];
-        const small = [];
-        let seen = 0;
-        for (const el of document.querySelectorAll(parts.map((p) => `${scope} ${p}`).join(', '))) {
-          if (el.closest('[hidden]')) continue;
-          if (el.matches('a.mk-ref, .mk-linkbtn') || el.closest('.mk-linkbtn')) continue;
-          const own = el.getBoundingClientRect();
-          if (own.width === 0 && own.height === 0) continue;
-          seen++;
-          const label = el.closest('label.mk-check, label.mk-radio, label.mk-switch');
-          const box = Math.max(own.height, label ? label.getBoundingClientRect().height : 0);
-          if (box >= 43) continue;
-          // Only now is a hit test worth its cost.
-          const target = label ?? el;
-          target.scrollIntoView({ block: 'center' });
-          const rect = target.getBoundingClientRect();
-          const cx = Math.round(rect.left + rect.width / 2);
-          const cy = Math.round(rect.top + rect.height / 2);
-          // The target itself, or something inside it — never an ancestor.
-          // Counting an ancestor as a hit makes every target as tall as the
-          // panel behind it, and the check passes with the floors deleted.
-          const reaches = (y) => {
-            const hit = document.elementFromPoint(cx, y);
-            return hit === target || target.contains(hit);
-          };
-          let top = cy, bottom = cy;
-          while (top > 0 && reaches(top - 1)) top--;
-          while (bottom < window.innerHeight - 1 && reaches(bottom + 1)) bottom++;
-          const hit = reaches(cy) ? bottom - top + 1 : 0;
-          if (hit < 43) {
-            small.push(`${el.tagName.toLowerCase()}.${[...el.classList].join('.')} “${(el.textContent || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 30)}” — ${hit}px`);
-          }
-        }
-        return { small, seen };
-      }, id);
+      const r = await page.evaluate(probe, { scopes: [`#${id}`], sid: id });
       measured += r.seen;
       for (const s of new Set(r.small)) failures.push(`#${id}: coarse-pointer target under 44px: ${s}`);
     }
-    console.log(`touch: ${measured} controls hit-tested at 375px under (pointer: coarse)`);
+    // The chrome is drawn once and does not change with the active screen, so
+    // it is measured once rather than 67 times — but in two passes, because
+    // the rail and the header are only reachable at different scroll positions
+    // in the single-column layout.
+    for (const [scope, pin] of [['.mk-rail', 0], ['.mk-chrome-head', 1200]]) {
+      const chrome = await page.evaluate(probe, { scopes: [scope], sid: null, pin });
+      measured += chrome.seen;
+      for (const s of new Set(chrome.small)) failures.push(`viewer chrome ${scope}: coarse-pointer target under 44px: ${s}`);
+    }
+    console.log(`touch: ${measured} controls hit-tested at 375px under (pointer: coarse), both axes, floor 44px`);
   }
   await context.close();
 }

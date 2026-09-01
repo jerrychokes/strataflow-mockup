@@ -914,4 +914,54 @@ html, body { background: var(--mk-chrome); }
    */
   .sf-table--records tbody td::before { flex-shrink: 1; }
 }
+
+/* ==================================================================== *
+ * Wave 2 — the touch check's scope widened, and what it then measured
+ *
+ * Two changes to verify.mjs produced every rule below, and none of them was
+ * findable by reading. The check now measures **both axes** rather than the
+ * vertical run alone (W1-A-10), and it measures the **viewer's own chrome**
+ * rather than excluding it — the top bar and section strip are drawn as the
+ * product's architecture, so excluding them excluded product surfaces on the
+ * grounds of where the check happened to be pointed, which is W1-A-6's lesson.
+ *
+ * Measured at 375px under an emulated coarse pointer, before these rules:
+ * top-bar search 151×24, project switcher 184×27, the ⌘K button 34×26, the
+ * rail's filter box 342×32 and its three grouping buttons at 112×23 — and, inside the
+ * screens, two kinds the vertical-only walk could not see: a ghost icon button
+ * in a flex row shrinking to 42px wide against the 44 its own rule gives it,
+ * and the eight checkboxes on the diagnostics bundle whose label is visually
+ * hidden, which leaves the whole tap target the 15px box.
+ *
+ * Last in the file because several of these override a height or a width set
+ * above, and the cascade settles same-specificity ties by order.
+ * ==================================================================== */
+
+@media (pointer: coarse) {
+  .mk-search, .mk-search input { min-height: 44px; }
+  .mk-switch-proj { min-height: 44px; }
+  .mk-top__link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
+  .mk-rail__find { min-height: 44px; }
+  .mk-rail__seg button { min-height: 44px; }
+  /* width: 44px is a used value a flex item may shrink below; min-width is not. */
+  .mk-iconbtn { min-width: 44px; flex: none; }
+  /*
+   * A checkbox carrying its name for a screen reader only — the bundle
+   * contents on #entitlement — is 15px of box and nothing else to hit. The
+   * floor widens the label, and the label is the target: tapping it activates
+   * the control it labels, so the extra 29px is target rather than padding.
+   */
+  label.mk-check, label.mk-radio, label.mk-switch { min-width: 44px; }
+}
+
+/*
+ * An identifier is one word even when it has hyphens in it.
+ *
+ * mk-file breaks anywhere, which is what keeps a long file name from jutting
+ * out of a panel. In a panning matrix the same rule lets a column shrink to one
+ * character: WDL-26Q2-001 rendered as three stacked fragments in the manifest's
+ * identity column, and a sample code a reader has to reassemble is not an
+ * identifier. Codes in a register cell say so.
+ */
+.mk-file--id { white-space: nowrap; overflow-wrap: normal; }
 `;
