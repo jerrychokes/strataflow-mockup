@@ -84,7 +84,7 @@ export function daysBetween(from, to) {
  * screen the portfolio journey starts at.
  *
  * So there are two projects now and both are real. This one is deliberately
- * **small**: four bores, three rounds, eight chloride results. It is a
+ * **small**: four bores, four rounds, eight chloride results. It is a
  * counterweight, not a second Wandalup, and its scale is what lets the noisy
  * first site stay legible beside it.
  *
@@ -1223,7 +1223,7 @@ export const INSTANCE = {
  * The role is still on the row, because *as what* you are acting is the first
  * thing project scope decides — and it is now demonstrated rather than
  * asserted: the same person is a Contributor at one site and an Approver at
- * the other. The Viewer binding the old fourth row existed to show is real on
+ * the other. The Reader binding the old fourth row existed to show is real on
  * `#roles`, where S. Petrelli holds one.
  */
 export const PROJECTS = (() => {
@@ -1668,11 +1668,14 @@ export const SUBMISSIONS = [
 
 /** Role bindings against Entra identities (§2.3, §13.1, G-70d). */
 export const MEMBERS = [
-  { name: 'A. Nakamura', identity: 'anakamura@wandalup.example', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Contributors', lastSeen: '2026-08-23 07:41 AWST', state: 'active' },
-  { name: 'D. Okafor', identity: 'dokafor@wandalup.example', role: 'Contributor', granted: '2024-06-03', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Contributors', lastSeen: '2026-08-22 16:08 AWST', state: 'active' },
-  { name: 'R. Whitmore', identity: 'rwhitmore@wandalup.example', role: 'Approver', granted: '2024-02-19', by: 'System administrator', group: 'SG-Strataflow-WDL-Approvers', lastSeen: '2026-08-23 06:55 AWST', state: 'active' },
-  { name: 'S. Petrelli', identity: 'spetrelli@wandalup.example', role: 'Viewer', granted: '2025-03-11', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Viewers', lastSeen: '2026-08-19 09:12 AWST', state: 'active' },
-  { name: 'J. Halloran', identity: 'jhalloran@wandalup.example', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: '— removed from group 2026-07-31', lastSeen: '2026-07-30 15:44 AWST', state: 'deprovisioned' },
+  { name: 'A. Nakamura', identity: 'anakamura@wandalup.example', project: 'MOCK-WDL', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Contributors', lastSeen: '2026-08-23 07:41 AWST', state: 'active' },
+  // W5-A-1: the binding two screens and the top bar rest on must be on the
+  // register that grounds it, or the register is not the authority it claims.
+  { name: 'A. Nakamura', identity: 'anakamura@wandalup.example', project: 'MOCK-KRJ', role: 'Approver', granted: '2025-09-14', by: 'System administrator', group: 'SG-Strataflow-KRJ-Approvers', lastSeen: '2026-08-23 07:41 AWST', state: 'active' },
+  { name: 'D. Okafor', identity: 'dokafor@wandalup.example', project: 'MOCK-WDL', role: 'Contributor', granted: '2024-06-03', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Contributors', lastSeen: '2026-08-22 16:08 AWST', state: 'active' },
+  { name: 'R. Whitmore', identity: 'rwhitmore@wandalup.example', project: 'MOCK-WDL', role: 'Approver', granted: '2024-02-19', by: 'System administrator', group: 'SG-Strataflow-WDL-Approvers', lastSeen: '2026-08-23 06:55 AWST', state: 'active' },
+  { name: 'S. Petrelli', identity: 'spetrelli@wandalup.example', project: 'MOCK-WDL', role: 'Reader', granted: '2025-03-11', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Readers', lastSeen: '2026-08-19 09:12 AWST', state: 'active' },
+  { name: 'J. Halloran', identity: 'jhalloran@wandalup.example', project: 'MOCK-WDL', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: '— removed from group 2026-07-31', lastSeen: '2026-07-30 15:44 AWST', state: 'deprovisioned' },
 ];
 
 /** Instance administration the operating model implies but no persona owns (§13.3). */

@@ -3645,7 +3645,7 @@ const projectList = () => {
         (p.current ? ' <span class="mk-tag mk-tag--neutral">current</span>' : '')
       : `<strong class="mk-num">${esc(p.code)}</strong> <span class="mk-tag mk-tag--neutral">not drawn</span>`,
     `${esc(p.name)}<small>${esc(p.facility)}</small>`,
-    `<span class="mk-tag mk-tag--${p.role === 'Approver' ? 'new' : p.role === 'Viewer' ? 'neutral' : 'good'}">${esc(p.role)}</span>`,
+    `<span class="mk-tag mk-tag--${p.role === 'Approver' ? 'new' : p.role === 'Reader' ? 'neutral' : 'good'}">${esc(p.role)}</span>`,
     num(p.locations),
     num(p.exceedances, p.exceedances ? 'bad' : 'nil'),
     p.unacknowledged
@@ -3674,7 +3674,7 @@ const projectList = () => {
     notice(
       'default',
       'The role is on the row because “as what” is the first thing scope decides.',
-      `You are a <strong>Contributor</strong> at ${esc(PROJECT.code)} and an <strong>Approver</strong> at ${esc(KURRAJONG.code)} — the same person, two sites, two sets of controls. As Approver you may sign a submission off and may not answer a review question; as Contributor the reverse. The controls that a binding does not carry are absent on that project rather than present and refusing, which is why the role has to be legible before you switch. A third role is on the register at <a class="mk-ref" href="#roles">Access</a>: S. Petrelli holds Viewer here and can read and export everything and write nothing.`,
+      `You are a <strong>Contributor</strong> at ${esc(PROJECT.code)} and an <strong>Approver</strong> at ${esc(KURRAJONG.code)} — the same person, two sites, two sets of controls. As Approver you may sign a submission off and may not answer a review question; as Contributor the reverse. The controls that a binding does not carry are absent on that project rather than present and refusing, which is why the role has to be legible before you switch. A third role is on the register at <a class="mk-ref" href="#roles">Access</a>: S. Petrelli holds Reader here and can read and export everything and write nothing.`,
     ) +
     table({
       caption:
@@ -5048,11 +5048,12 @@ const projectSettings = () => (
   '<h2 class="mk-h2" style="margin-top:1.4rem">Membership</h2>' +
   table({
     caption: 'Role bindings resolve from directory groups. Nothing here grants access directly — the group does, and this shows what that produced.',
-    head: ['Person', 'Identity', 'Role', 'From group', 'Granted', 'By', 'Last seen', 'State'],
+    head: ['Person', 'Identity', 'Project', 'Role', 'From group', 'Granted', 'By', 'Last seen', 'State'],
     rows: MEMBERS.map((m) => [
       esc(m.name),
       `<span class="mk-file">${esc(m.identity)}</span>`,
-      `<span class="mk-tag mk-tag--${m.role === 'Approver' ? 'new' : m.role === 'Viewer' ? 'neutral' : 'good'}">${esc(m.role)}</span>`,
+      `<code>${esc(m.project)}</code>`,
+      `<span class="mk-tag mk-tag--${m.role === 'Approver' ? 'new' : m.role === 'Reader' ? 'neutral' : 'good'}">${esc(m.role)}</span>`,
       `<span class="mk-muted">${esc(m.group)}</span>`,
       `<span class="sf-instant">${esc(m.granted)}</span>`,
       esc(m.by),
