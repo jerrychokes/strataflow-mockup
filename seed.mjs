@@ -920,7 +920,10 @@ const QAQC_ROWS = [
   },
   {
     id: 'ST-1', check: 'Field parameter stabilisation', scope: 'MW09', outcome: 'warn',
-    detail: 'Turbidity never fell below 10 NTU across 14 readings and 22.0 L purged. Sampled at the field officer’s judgement.',
+    // Composed below, beside the PURGE derivation it reads from — a typed
+    // literal here would be a dead initializer that could reactivate if the
+    // override moved (W6-A-5, W6-A-6).
+    detail: null,
     action: 'Qualifier T on every metal result from this sample',
     concept: 'automatic', state: 'dispositioned',
     rule: { name: 'Field parameter stabilisation', version: 'DQO 2025.2 · 3 consecutive readings in tolerance, low-flow', says: 'The purge record carries the readings and the tolerances, so whether the parameters held is computed rather than judged. What was judged is whether to sample anyway, and the field officer did that at the bore and said so.' },

@@ -24,3 +24,23 @@ commit message's, so nothing on the screen changes.
 added one — link graph clean, the 23 Aug census unchanged) and verify exit 0
 (nine families, all three widths) with all five fixes in. Round 2 goes back to the
 standing auditor lineage.
+
+---
+
+# Wave 6 — response to the audit, round 2
+
+**The gate passed — zero P0/P1 — and Wave 6 closes under §11.** All five round-1
+fixes were verified by the auditor's own measurement (the record in its three
+places, the byte-identical series rows, the stated deviation, the dated
+correction, the composed ST-1). The one new finding is fixed in this closing
+commit:
+
+| Finding | Severity | Response |
+|---|---|---|
+| W6-A-6 — ST-1's `detail` still declared the old typed literal, a dead initializer the derived override always discards | P3 | **Accepted and fixed.** `detail: null` with a comment saying where the real sentence is composed and why a literal here would be a shadow copy waiting to reactivate. The built page is byte-identical on this change, which is the point: the literal was doing nothing except being able to go stale. |
+
+**State at close:** build and verify exit 0 with the fix in; rebuild
+byte-identical; the 23 Aug census unchanged. Wave 6 — the practitioner review's
+field/QA half, PR-1 and PR-2 with all three riders — is closed on the auditor's
+round 2 against `c9a5005` plus this one render-neutral fix. The MW11 blanking
+rider is Wave 7's, recorded in the wave plan.
