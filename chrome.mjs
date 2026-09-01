@@ -1008,4 +1008,81 @@ html, body { background: var(--mk-chrome); }
   width: 100cqw;
   box-sizing: border-box;
 }
+
+/* ==================================================================== *
+ * Wave 6 — the bore session, the disposition mark, the decision card
+ *
+ * Last in the file, on the same rule as everything above it: these override
+ * spacing and wrapping declared earlier and the cascade settles ties by order.
+ *
+ * Four new pieces of vocabulary, and each one is a proposal like the rest of
+ * this file. The **session** is a bordered walk-down rather than a form in
+ * columns, because the review's whole finding was that a bore visit is a
+ * sequence and not a row. The **pair** is one labelled read-only fact inside
+ * it, stacked so it reads the same at 375 px and at 1280. The **disposition**
+ * carries a glyph before its word so the seven states survive a photocopier.
+ * The **decision** card is the one emphasis on the QA/QC screen, because a
+ * screen whose headline is "what is still mine to decide" has to draw those
+ * three findings louder than the sixteen that are settled.
+ * ==================================================================== */
+
+.mk-sess {
+  border-radius: 4px; background: var(--sf-ground);
+  box-shadow: inset 0 0 0 1px var(--sf-rule-strong);
+  padding: .9rem 1rem 1rem; margin-bottom: 1rem;
+}
+.mk-sess__head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem;
+  padding-bottom: .6rem; margin-bottom: .5rem; border-bottom: 1px solid var(--sf-rule);
+}
+.mk-sess__code { font-family: var(--sf-font-data); font-size: 19px; font-weight: 700; margin: 0; }
+.mk-sess__meta { font-size: 11.5px; color: var(--sf-ink-muted); margin: 0; }
+.mk-sess__state { display: flex; flex-wrap: wrap; gap: .4rem; margin-left: auto; }
+.mk-sess .mk-chain { margin-bottom: 0; }
+/* The step body is the column a thumb scrolls; it may not be squeezed by the
+   number gutter, and min-width:0 is what lets the panning series inside it
+   pan rather than widening the document. */
+.mk-sess .mk-chain__text { min-width: 0; }
+.mk-sess .mk-chain__step { padding: .75rem 0; }
+.mk-sess .mk-field { margin-top: .45rem; }
+
+.mk-pair { display: grid; gap: 1px; margin: .45rem 0; }
+.mk-pair__label { font-size: 11px; font-weight: 600; color: var(--sf-ink-muted); }
+.mk-pair__value { font-size: 13px; }
+.mk-pair__hint { font-size: 11px; color: var(--sf-ink-muted); line-height: 1.5; }
+
+.mk-dispo {
+  display: inline-flex; align-items: center; gap: .3rem; font-size: 11.5px; font-weight: 600;
+  padding: .1rem .4rem; border-radius: 3px; background: var(--sf-surface);
+  box-shadow: inset 0 0 0 1px var(--sf-rule-strong);
+}
+.mk-dispo__glyph { font-family: var(--sf-font-data); font-size: 12px; }
+.mk-dispo--good { background: var(--mk-good-bg); box-shadow: inset 0 0 0 1px var(--mk-good-line); color: var(--mk-good); }
+.mk-dispo--warn { background: var(--mk-warn-bg); box-shadow: inset 0 0 0 1px var(--mk-warn-line); color: var(--mk-warn); }
+.mk-dispo--bad { background: var(--mk-bad-bg); box-shadow: inset 0 0 0 1px var(--mk-bad-line); color: var(--mk-bad); }
+
+.mk-decide {
+  border-radius: 4px; background: var(--sf-ground); padding: .85rem .95rem; margin-bottom: .9rem;
+  box-shadow: inset 0 0 0 1px var(--mk-warn-line); border-left: 4px solid var(--mk-warn);
+}
+.mk-decide__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .7rem; margin-bottom: .35rem; }
+.mk-decide__flag {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--mk-warn); border: 1px solid var(--mk-warn-line); border-radius: 3px; padding: .1rem .35rem;
+}
+.mk-decide__title { font-size: 13.5px; font-weight: 600; margin: 0; }
+.mk-decide__q { font-size: 13px; margin: .2rem 0 .35rem; }
+.mk-decide__why { font-size: 11.5px; color: var(--sf-ink-muted); line-height: 1.55; margin: 0 0 .5rem; }
+
+/*
+ * A segmented control with seven options is wider than a phone.
+ *
+ * .mk-seg was inline-flex with no wrapping, which was right for the two- and
+ * three-option groups it was written for. The bore-session selector carries one
+ * option per planned location, and at 375 px seven of them ran 401 px wide and
+ * took the document with them (measured: +60 px). It wraps now, and the padded
+ * shell keeps the group readable as one control across two lines.
+ */
+.mk-seg { flex-wrap: wrap; }
+
 `;

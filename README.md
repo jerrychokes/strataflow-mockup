@@ -553,10 +553,21 @@ it does not close it.
 **A green row in the coverage matrix means an expectation has been *drawn*.** It does not
 mean it is built and it does not mean it is right.
 
-**It has not been looked at by a practitioner**, and the screens that matter most here are
-exactly the ones with the most invention in them — the QA/QC workspace, the lineage panel,
-the interpretation editor and the field-capture grid. Five minutes of a hydrogeologist's
-attention on those is worth more than another day of drawing.
+**It had not been looked at by a practitioner** when that was written, and the screens that
+mattered most here were exactly the ones with the most invention in them — the QA/QC
+workspace, the lineage panel, the interpretation editor and the field-capture grid. Five
+minutes of a hydrogeologist's attention on those is worth more than another day of drawing.
+
+**Corrected 1 September 2026 (wave 6).** It has now: a senior hydrogeologist reviewed those
+four screens (`audits/2026-09-01-practitioner-review.md`) and returned four P0 design
+changes and a binding keep-list. The overall verdict was "unusually close to how
+environmental groundwater work actually needs to be reasoned about" — and the field-capture
+grid was judged **wrong on its axis**: it entered a round column by column across bores,
+where field work runs bore by bore. Wave 6 answers two of the four — field capture rebuilt
+around the bore session, QA/QC rebuilt around the decision layer — and wave 7 holds the
+other two, provenance beginning at the bore and evidence for an inference rather than for
+its citations. The estimate above was right: five minutes found what a day of re-reading
+would not have, because the drawn version was internally consistent and wrong anyway.
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls

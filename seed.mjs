@@ -57,13 +57,19 @@ export const PROJECT = {
  * Six of the seven re-derive from it exactly (129 · 160 · 82 · 65 · 37 · 114
  * days), which is how it was established rather than chosen.
  *
- * The seventh does not: the 2026 Q2 round closed on 2026-05-14 and every
- * screen calls it *nine* days overdue, which is 2026-05-23 — the same day
- * `WATER.asAt` reads. That one-day disagreement predates this block and is
- * left alone: correcting it would mean editing prose on screens outside this
- * wave, and two surfaces then disagreeing about MW11 is worse than one number
- * being a day old. Nothing below claims a board-wide as-at date, so nothing
- * new rests on it.
+ * The seventh did not, and it does now — **resolved 1 September 2026** (wave 6,
+ * rider 3). The 2026 Q2 round closed on 2026-05-14 and six screens called it
+ * *nine* days overdue, which is as-at 2026-05-23 rather than 2026-05-24. The
+ * earlier version of this comment recorded the disagreement and left it,
+ * because correcting it meant editing prose on screens outside that wave. The
+ * fix is `Q2_OVERDUE` below: the number is now **derived** from `AS_AT` like
+ * the other six, so it reads **ten**, and no screen types it.
+ *
+ * `WATER.asAt` still reads 2026-05-23 and that is not the same claim. It is
+ * the day a meter totaliser was read — a reading date on a record — not a
+ * board-wide as-at, and the year-elapsed arithmetic on `#water` is measured
+ * from it deliberately. Nothing below claims a board-wide as-at date but this
+ * constant.
  */
 export const AS_AT = '2026-05-24';
 
@@ -71,6 +77,30 @@ export const AS_AT = '2026-05-24';
 export function daysBetween(from, to) {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
+
+/**
+ * The 2026 Q2 round's overdue countdown, derived once and read everywhere.
+ *
+ * Six screens typed "nine days" and one seed comment documented that the
+ * number implied a different as-at date from the rest of the board. Typing it
+ * seven times is what let the two drift, so it is computed here and the
+ * screens read `days` — the arithmetic is `2026-05-14` to `AS_AT`, the same
+ * subtraction every other countdown on the board makes.
+ */
+export const Q2_OVERDUE = (() => {
+  const due = '2026-05-14';
+  const days = daysBetween(due, AS_AT);
+  return {
+    round: '2026-Q2-GW',
+    location: 'MW11',
+    due,
+    days,
+    /** "overdue by 10 days", for prose that wants the phrase rather than the number. */
+    phrase: `overdue by ${days} days`,
+    /** "10 days overdue", for a register cell that leads with the count. */
+    chip: `overdue ${days} days`,
+  };
+})();
 
 /**
  * The second project — small, quiet, and the reason a portfolio can be drawn.
@@ -603,31 +633,412 @@ export const APPLIED_UNASKED = [
   { what: '−997 → text result', why: 'ESdat ELDF-4 sentinel, mapped by the format definition', count: 1 },
 ];
 
-/** QA/QC evaluation for the round. */
-export const QAQC = [
-  { check: 'Holding time', scope: 'Nitrate as N · MW09', outcome: 'fail', detail: 'Analysed 6 days after collection against a 2-day window (APHA 4500-NO₃⁻).', action: 'Quarantined · excluded from evaluation' },
-  { check: 'Holding time', scope: '229 of 231 results', outcome: 'pass', detail: 'Within method windows from collection through preparation to analysis.', action: '—' },
-  { check: 'Reporting limit above criterion', scope: 'Cadmium (filtered) · all 7 bores', outcome: 'fail', detail: 'LOR 1.0 µg/L sits above the ANZG 2018 criterion of 0.54 µg/L. Nothing can be asserted.', action: 'Outcome recorded as indeterminate — not as a pass' },
-  { check: 'Field duplicate RPD', scope: 'WDL-26Q2-005 / WDL-26Q2-008 · MW07', outcome: 'pass', detail: 'All 14 paired analytes within 30% RPD. Largest: sulfate at 11.4%.', action: '—' },
-  { check: 'Field duplicate RPD', scope: 'WDL-26Q2-003 / WDL-26Q2-004 · MW05', outcome: 'warn', detail: 'Zinc 21.4 and 31.6 µg/L — RPD 38.2% against a 30% limit. Both results above 5 × LOR, so the percentage test applies and this is a real disagreement rather than noise near the limit.', action: 'Qualifier J assigned — estimated' },
-  { check: 'Field duplicate RPD', scope: 'Cadmium · WDL-26Q2-003 / WDL-26Q2-004', outcome: 'pass', detail: 'Both results below 5 × LOR, so the absolute-difference test applies rather than RPD: 0 µg/L against a 2 × LOR allowance. An RPD here would have been arithmetic on noise.', action: '—' },
-  { check: 'Laboratory duplicate RPD', scope: 'PAS-WO-268841 · split of WDL-26Q2-003', outcome: 'pass', detail: 'Maximum RPD 4.1% (sulfate) against a 20% limit across 14 analytes.', action: '—' },
-  { check: 'Method blank', scope: 'PAS-WO-268841 · MB-268841', outcome: 'pass', detail: 'Every analyte below the limit of reporting in the preparation blank.', action: '—' },
-  { check: 'Laboratory control sample', scope: 'PAS-WO-268841 · LCS-268841', outcome: 'pass', detail: 'Recovery 96–104% across 8 analytes against an 80–120% limit.', action: '—' },
-  { check: 'Matrix spike recovery', scope: 'PAS-WO-268841 · zinc', outcome: 'fail', detail: 'Zinc recovered 62% against a 70–130% limit, reproduced at 64% on the spike duplicate. Matrix interference, not a one-off.', action: 'Qualifier L — biased low — on all 9 zinc results in the batch' },
-  { check: 'Field blank', scope: 'WDL-26Q2-QC1', outcome: 'pass', detail: 'All analytes below LOR.', action: '—' },
-  { check: 'Trip blank', scope: 'WDL-26Q2-QC2', outcome: 'pass', detail: 'All analytes below LOR.', action: '—' },
-  { check: 'Equipment blank', scope: 'WDL-26Q2-QC3 · bladder pump, after MW05', outcome: 'warn', detail: 'Zinc 1.4 µg/L in the equipment rinsate against a 1.0 µg/L LOR. The pump was reused between MW05 and MW07, and MW07 is the other zinc exceedance this round.', action: 'MW07 zinc flagged for review — carry-over cannot be ruled out' },
-  { check: 'Surrogate recovery', scope: 'PFAS batch YAR-B-118420', outcome: 'pass', detail: 'M8PFOS recovery 94% (limits 70–130%) on every sample.', action: '—' },
-  { check: 'Field parameter stabilisation', scope: 'MW09', outcome: 'warn', detail: 'Turbidity never fell below 10 NTU across 14 readings and 22 L purged. Sampled at the field officer’s judgement.', action: 'Qualifier T on every metal result from this sample' },
-  { check: 'Ionic balance', scope: 'MW05', outcome: 'warn', detail: 'Cation–anion balance −7.8% against a ±5% acceptance limit.', action: 'Review item raised — check sulfate and hardness' },
-  { check: 'EC : TDS ratio', scope: '7 bores', outcome: 'pass', detail: 'All within 0.55–0.75 of the expected relationship.', action: '—' },
-  { check: 'Spike against history', scope: 'Arsenic · MW05', outcome: 'warn', detail: '28.4 µg/L is 2.4× the location’s prior rolling median of 11.8 µg/L.', action: 'Confirmed against the certificate — real, not transcription' },
-  // The same check, on the series `EC_MW05` holds. Its numbers are computed in
-  // EC_MW05_OUTLIER rather than written here, so the row and the working on the
-  // screen cannot come apart.
-  { check: 'Spike against history', scope: 'Electrical conductivity · MW05', outcome: 'warn', detail: `${EC_MW05_OUTLIER.value} against a prior-round median of ${EC_MW05_OUTLIER.median} at this bore — a modified z-score of ${EC_MW05_OUTLIER.score} on ${EC_MW05_OUTLIER.n} rounds of its own record, against a ${EC_MW05_OUTLIER.threshold} threshold.`, action: 'Review item raised — flagged against the bore’s own record, not against a limit' },
+/**
+ * The site's data quality objectives, as a version pair (PR-2c).
+ *
+ * A finding carries the rule version it was raised under — that is the
+ * glossary's own words for a data quality objective, and it is why "Re-run
+ * checks" has to say *against what*. This round's findings were raised on
+ * 2026-05-19 under **2025.2**; **2026.1** took effect two days later and is
+ * what is in force now, so the QA/QC screen shows both and the re-run control
+ * names the one it would use.
+ *
+ * The span reaches forward only. Re-running does not re-judge a finding
+ * already raised; it produces a second assessment under a second version, and
+ * both stay readable.
+ */
+export const DQO = {
+  set: 'Wandalup data quality objectives',
+  basis: 'AS/NZS 5667.1, the laboratory’s NATA-scoped QA plan, and the site’s own DQOs where these are tighter.',
+  raisedAt: '2026-05-19 10:22 AWST',
+  used: {
+    version: '2025.2',
+    effective: '2025-07-01 → 2026-05-20',
+    state: 'superseded',
+    why: 'In force when this round’s checks were run, so it is what every finding on it was judged against.',
+  },
+  current: {
+    version: '2026.1',
+    effective: '2026-05-21 →',
+    state: 'in force',
+    by: 'D. Okafor',
+    approved: '2026-05-20 16:05 AWST',
+    why: 'Two changes, both tightening: the field duplicate limit, and an explicit consequence on the equipment blank rule that 2025.2 stated no action for.',
+  },
+  changes: [
+    {
+      check: 'Field duplicate RPD',
+      was: '≤ 30%',
+      now: '≤ 25%',
+      what: 'The limit only. The 5 × LOR applicability rule is unchanged.',
+    },
+    {
+      check: 'Field / trip / equipment blank',
+      was: '< LOR, with no stated consequence',
+      now: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event',
+      what: 'The number did not move. What 2026.1 adds is the propagation rule 2025.2 left to a judgement, which is why one finding on this round stops needing a decision under it.',
+    },
+  ],
+};
+
+/**
+ * The laboratory batch the zinc question is about, named once.
+ *
+ * `BATCHES` reads its sample count from here rather than typing a second copy,
+ * because "how many results does this failed spike reach" is the question the
+ * propagation basis exists to answer and two numbers for it would be worse
+ * than none.
+ */
+export const METALS_BATCH = {
+  id: 'PAS-WO-268841',
+  laboratory: 'Pilbara Analytical Services',
+  method: 'USEPA 200.8 — dissolved metals',
+  samples: 9,
+  analyte: 'Zinc (filtered)',
+  spiked: 'WDL-26Q2-005',
+  spikedFrom: 'MW07',
+};
+
+/**
+ * QA/QC evaluation for the round — every check, and what it is still waiting
+ * on somebody to decide.
+ *
+ * **Rebuilt 1 September 2026 (wave 6, PR-2).** The practitioner review called
+ * the analytical logic one of the strongest parts of the mockup and then said
+ * exactly what was wrong with the surface over it: eyes go from *"10 passed ·
+ * 6 warnings · 3 failed"* to *"Advance to validated"* and stop. Pass, warn and
+ * fail are the **outcome** of a check. They are not the question a
+ * hydrogeologist arrives with, which is *what is still mine to decide*.
+ *
+ * Three concepts were mixed under one word, and every row below now says which
+ * it is:
+ *
+ * - **`outcome`** — the check ran and passed. Nothing followed, nothing is
+ *   owed. Ten of the nineteen.
+ * - **`automatic`** — a deterministic rule fired and did something to the
+ *   data, and the rule is named on the row. A holding time exceeded quarantines
+ *   the result; a reporting limit above a criterion records the outcome as
+ *   indeterminate. Neither is a judgement and neither should wait for one.
+ * - **`decision`** — the finding needs a hydrogeologist. Blank contamination
+ *   that *might* be carry-over, an electrical conductivity step that might be
+ *   a spike or might be the bore's new normal, and a failed matrix spike whose
+ *   qualifier will or will not reach eight results nobody spiked. A product
+ *   that dispositions these silently has made a professional judgement in
+ *   somebody's name.
+ *
+ * The workflow is **Unresolved → Reviewed → Dispositioned → Ready for
+ * validation**, and it is a different axis from `ValidationState`: this one
+ * runs over *findings*, and the round becomes ready for the validation move
+ * only when nothing is unresolved. Every count on the screen is derived from
+ * these rows.
+ *
+ * **Every qualifier that reached a result names its basis** (PR-2b). One of
+ * four: the laboratory said it in the deliverable · a project data quality
+ * objective rule applies · a named person dispositioned it · it is specific to
+ * the sample it was raised on. "That is exactly the type of thing an auditor
+ * may ask five years later", and it is the difference between a qualifier and
+ * an inference wearing one.
+ */
+const QAQC_ROWS = [
+  {
+    id: 'HT-1', check: 'Holding time', scope: 'Nitrate as N · MW09', outcome: 'fail',
+    detail: 'Analysed 6 days after collection against a 2-day window (APHA 4500-NO₃⁻).',
+    action: 'Quarantined · excluded from evaluation',
+    concept: 'automatic', state: 'dispositioned',
+    rule: { name: 'Holding-time window', version: 'APHA 4500-NO₃⁻ · 2 days from collection', says: 'A result analysed outside its method window is quarantined and takes no part in evaluation. There is no judgement in it: the clock ran from collection through transit to the bench, and it ran out.' },
+    results: 1, qualifier: null,
+    basis: { kind: 'sample', says: 'The one result. A holding time is a fact about this sample’s own clock and reaches nothing else.' },
+  },
+  {
+    id: 'HT-2', check: 'Holding time', scope: '229 of 231 results', outcome: 'pass',
+    detail: 'Within method windows from collection through preparation to analysis.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'LOR-1', check: 'Reporting limit above criterion', scope: 'Cadmium (filtered) · all 7 bores', outcome: 'fail',
+    detail: 'LOR 1.0 µg/L sits above the ANZG 2018 criterion of 0.54 µg/L. Nothing can be asserted.',
+    action: 'Outcome recorded as indeterminate — not as a pass',
+    concept: 'automatic', state: 'dispositioned',
+    rule: { name: 'Reporting limit against the applicable criterion', version: 'Deterministic — ANZG 2018 · 2018.1', says: 'A limit above the criterion means nothing was measured either way. The comparison is arithmetic on two numbers that are both on the record, so the outcome is written rather than proposed — and it is written as indeterminate, which is not a pass.' },
+    results: 7, qualifier: null,
+    basis: { kind: 'dqo', says: 'The criteria set’s own guideline value against the laboratory’s own reporting limit. No person and no laboratory assertion is involved.' },
+  },
+  {
+    id: 'FD-1', check: 'Field duplicate RPD', scope: 'WDL-26Q2-005 / WDL-26Q2-008 · MW07', outcome: 'pass',
+    detail: 'All 14 paired analytes within 30% RPD. Largest: sulfate at 11.4%.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+    rerun: { version: '2026.1', outcomeMoves: false, says: 'The largest RPD in the pair is 11.4%, so the tightened 25% limit does not reach it.' },
+  },
+  {
+    id: 'FD-2', check: 'Field duplicate RPD', scope: 'WDL-26Q2-003 / WDL-26Q2-004 · MW05', outcome: 'warn',
+    detail: 'Zinc 21.4 and 31.6 µg/L — RPD 38.2% against a 30% limit. Both results above 5 × LOR, so the percentage test applies and this is a real disagreement rather than noise near the limit.',
+    action: 'Qualifier J assigned — estimated',
+    concept: 'automatic', state: 'dispositioned',
+    rule: { name: 'Field duplicate RPD', version: 'DQO 2025.2 · ≤ 30% above 5 × LOR', says: 'The site’s own objective states the limit, the applicability and the consequence, so the qualifier follows from the rule rather than from a view about this pair.' },
+    results: 2, qualifier: 'J',
+    basis: { kind: 'dqo', says: 'Project DQO 2025.2, Field duplicate RPD. The rule states its own consequence, so the propagation is the rule’s and the version rides on the finding.' },
+    reaches: 'The parent and its duplicate — two results, both at MW05. It does not reach the other six bores: a field duplicate says what happened at the bore it was collected at.',
+    rerun: { version: '2026.1', outcomeMoves: false, says: 'Already outside the 30% limit, so it is outside the 25% one. The finding would be raised again under 2026.1 with the same consequence.' },
+  },
+  {
+    id: 'FD-3', check: 'Field duplicate RPD', scope: 'Cadmium · WDL-26Q2-003 / WDL-26Q2-004', outcome: 'pass',
+    detail: 'Both results below 5 × LOR, so the absolute-difference test applies rather than RPD: 0 µg/L against a 2 × LOR allowance. An RPD here would have been arithmetic on noise.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+    rerun: { version: '2026.1', outcomeMoves: false, says: 'The applicability rule did not move in 2026.1, so this pair is still tested by absolute difference and the tightened percentage never applies to it.' },
+  },
+  {
+    id: 'LD-1', check: 'Laboratory duplicate RPD', scope: 'PAS-WO-268841 · split of WDL-26Q2-003', outcome: 'pass',
+    detail: 'Maximum RPD 4.1% (sulfate) against a 20% limit across 14 analytes.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'MB-1', check: 'Method blank', scope: 'PAS-WO-268841 · MB-268841', outcome: 'pass',
+    detail: 'Every analyte below the limit of reporting in the preparation blank.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'LCS-1', check: 'Laboratory control sample', scope: 'PAS-WO-268841 · LCS-268841', outcome: 'pass',
+    detail: 'Recovery 96–104% across 8 analytes against an 80–120% limit.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'MS-1', check: 'Matrix spike recovery', scope: 'PAS-WO-268841 · zinc', outcome: 'fail',
+    detail: 'Zinc recovered 62% against a 70–130% limit, reproduced at 64% on the spike duplicate. Matrix interference, not a one-off.',
+    action: 'Proposed: qualifier L — biased low — on all 9 zinc results in the batch. Not applied; the basis has not been chosen.',
+    concept: 'decision', state: 'unresolved',
+    results: 9, qualifier: 'L', proposed: true,
+    /*
+     * PR-2b, drawn as the review asked. The old row applied qualifier L to
+     * nine results and said only that the batch spike had failed, which reads
+     * as though the laboratory or a rule had propagated it. Neither did. The
+     * certificate reports the spike recovery on its QC page and qualifies no
+     * sample result; DQO 2025.2 states the recovery limit and no consequence.
+     * So the honest basis for the drawn case is the third one, and it is drawn
+     * as exactly that: a decision, with the batch-wide option as one choice and
+     * its consequence stated.
+     */
+    decision: {
+      question: 'Zinc recovered 62% in this water and reproduced at 64%. Which zinc results does that reach, and on whose authority?',
+      matters: 'Nine results are in the batch and one of them is the MW05 exceedance at 31.6 µg/L. A recovery below 100% biases low, so a qualified exceedance is understated rather than doubtful — but the qualifier is an assertion about eight samples nobody spiked, and an auditor five years from now will ask who made it.',
+      options: [
+        {
+          label: 'The laboratory’s qualifier applies batch-wide',
+          basis: 'laboratory',
+          writes: 'Qualifier L on 9 results, origin laboratory, attributed to Pilbara Analytical Services.',
+          available: false,
+          why: 'Not available on this certificate. PAS-WO-268841 reports the spike recovery on its QC page and carries no result-level qualifier, so taking this option would attribute to the laboratory something it did not say.',
+        },
+        {
+          label: 'A project data quality objective rule applies',
+          basis: 'dqo',
+          writes: 'Qualifier L on every zinc result in the batch, origin rule, with DQO 2025.2 named on each.',
+          available: false,
+          why: 'Not available under 2025.2. Its matrix spike rule states the 70–130% limit and no propagation action, and a rule that says nothing cannot be cited as having said this. Adding the action is a new DQO version, and that is where it belongs.',
+        },
+        {
+          label: 'A hydrogeologist’s disposition — batch-wide',
+          basis: 'disposition',
+          writes: 'Qualifier L on 9 results, origin manual, naming you, the date, and the reason you give. Every result carries “dispositioned by” rather than a rule reference.',
+          available: true,
+          why: 'The honest basis for this case: the interference is reproducible across the spike duplicate, the batch is one water type from one round, and extending it is a professional judgement somebody has to own.',
+        },
+        {
+          label: 'Sample-specific only',
+          basis: 'sample',
+          writes: 'Qualifier L on 1 result — zinc in WDL-26Q2-005, the sample the spike was made from. The other eight carry nothing.',
+          available: true,
+          why: 'Defensible and narrow: a spike measures recovery in the aliquot it was added to. It leaves the MW05 exceedance unqualified, which is the consequence to weigh.',
+        },
+      ],
+      refused: 'Apply it silently because the spike failed. That is the inference the review named — a propagated qualifier with no basis on it is indistinguishable from one somebody decided, and only one of those survives a challenge.',
+    },
+  },
+  {
+    id: 'FB-1', check: 'Field blank', scope: 'WDL-26Q2-QC1', outcome: 'pass',
+    detail: 'All analytes below LOR.', action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'TB-1', check: 'Trip blank', scope: 'WDL-26Q2-QC2', outcome: 'pass',
+    detail: 'All analytes below LOR.', action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'EB-1', check: 'Equipment blank', scope: 'WDL-26Q2-QC3 · bladder pump, after MW05', outcome: 'warn',
+    detail: 'Zinc 1.4 µg/L in the equipment rinsate against a 1.0 µg/L LOR. The pump was reused between MW05 and MW07, and MW07 is the other zinc exceedance this round.',
+    action: 'MW07 zinc raised for review — carry-over cannot be ruled out, and has not been ruled in',
+    concept: 'decision', state: 'unresolved',
+    results: 1, qualifier: 'B', proposed: true,
+    decision: {
+      question: 'Zinc is in the rinsate at 1.4 µg/L. Is MW07’s 9.4 µg/L formation water, carry-over from MW05, or both?',
+      matters: 'MW07’s zinc is an exceedance at 1.2× the guideline value, and the rinsate is 15% of it. The field record has the pump moved from MW05 — a bore reading 31.6 µg/L — and rinsed at the vehicle before it went down MW07, which is the right order and does not make the question go away.',
+      options: [
+        {
+          label: 'Qualify MW07’s zinc as blank-affected',
+          basis: 'disposition',
+          writes: 'Qualifier B on 1 result, origin manual, naming you and your reason. The exceedance stands and is annotated; it is not withdrawn.',
+          available: true,
+          why: 'The rinsate is a real detection above the limit of reporting on the analyte and the equipment in question.',
+        },
+        {
+          label: 'Resample MW07 for zinc with dedicated equipment',
+          basis: 'disposition',
+          writes: 'A field task on the programme, and the exceedance stays open pending it. Nothing is qualified in the meantime.',
+          available: true,
+          why: 'The only option that answers the question instead of annotating it — and MW05 and MW07 are already on the escalated monthly programme, so the visit is due within weeks.',
+        },
+        {
+          label: 'Accept the result — the rinsate is 15% of the value',
+          basis: 'disposition',
+          writes: 'The finding is dispositioned with your reason and no qualifier. It stays on the record as a decision that was made, not as a check that passed.',
+          available: true,
+          why: 'Defensible if the carry-over cannot account for the exceedance. It is still a judgement and it is still yours.',
+        },
+      ],
+      refused: 'Treat the warning as noise and advance the round. A blank detection on the analyte that is exceeding, on the equipment that visited both bores, is the one warning on this screen that must not be cleared by scrolling past it.',
+    },
+    rerun: {
+      version: '2026.1', outcomeMoves: false, conceptMoves: 'automatic', results: 1,
+      says: 'Under 2026.1 this stops being a decision. The blank rule gains an explicit consequence — a detection above the limit of reporting qualifies every result for that analyte collected with the same equipment after the rinse — so MW07’s zinc would take qualifier B automatically, with the rule and its version as the basis instead of a person.',
+    },
+  },
+  {
+    id: 'SR-1', check: 'Surrogate recovery', scope: 'PFAS batch YAR-B-118420', outcome: 'pass',
+    detail: 'M8PFOS recovery 94% (limits 70–130%) on every sample.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'ST-1', check: 'Field parameter stabilisation', scope: 'MW09', outcome: 'warn',
+    detail: 'Turbidity never fell below 10 NTU across 14 readings and 22.0 L purged. Sampled at the field officer’s judgement.',
+    action: 'Qualifier T on every metal result from this sample',
+    concept: 'automatic', state: 'dispositioned',
+    rule: { name: 'Field parameter stabilisation', version: 'DQO 2025.2 · 3 consecutive readings in tolerance, low-flow', says: 'The purge record carries the readings and the tolerances, so whether the parameters held is computed rather than judged. What was judged is whether to sample anyway, and the field officer did that at the bore and said so.' },
+    results: 8, qualifier: 'T',
+    basis: { kind: 'sample', says: 'Sample-specific — every metal result from WDL-26Q2-006 and nothing beyond it. Stabilisation is a fact about one purge at one bore on one visit.' },
+    reaches: 'A filtered metal from a turbid bore reads high, and nobody can tell afterwards whether that was formation water or suspended sediment. The qualifier says which question is open.',
+  },
+  {
+    id: 'IB-1', check: 'Ionic balance', scope: 'MW05', outcome: 'warn',
+    detail: 'Cation–anion balance −7.8% against a ±5% acceptance limit.',
+    action: 'Review item raised — check sulfate and hardness',
+    concept: 'decision', state: 'reviewed',
+    results: 0, qualifier: null,
+    review: {
+      by: 'A. Nakamura', at: '2026-05-20 11:12 AWST',
+      found: 'Sulfate re-read against the certificate at 918 mg/L — transcription is not the explanation. The likeliest reading is a cation the suite does not include, and the laboratory has been asked whether they can report it from the retained sample.',
+      next: 'Waiting on Pilbara Analytical Services. Nothing has been qualified and nothing has been dispositioned, because the answer decides which.',
+    },
+  },
+  {
+    id: 'ET-1', check: 'EC : TDS ratio', scope: '7 bores', outcome: 'pass',
+    detail: 'All within 0.55–0.75 of the expected relationship.',
+    action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
+  },
+  {
+    id: 'SH-1', check: 'Spike against history', scope: 'Arsenic · MW05', outcome: 'warn',
+    detail: '28.4 µg/L is 2.4× the location’s prior rolling median of 11.8 µg/L.',
+    action: 'Dispositioned — confirmed against the certificate; real, not transcription',
+    concept: 'decision', state: 'dispositioned',
+    results: 1, qualifier: null,
+    disposition: {
+      by: 'A. Nakamura', role: 'Hydrogeologist', at: '2026-05-20 09:41 AWST',
+      chose: 'Accept the value and leave it unqualified',
+      why: 'Read against the certificate and against the arsenic series: the rise is the third consecutive quarter and it tracks sulfate and conductivity at the same bore. A transcription error does not do that.',
+      wrote: 'The finding is closed with a reason on it, and no qualifier reached the result. A finding closed without a qualifier is still a decision somebody made.',
+    },
+  },
+  {
+    id: 'SH-2', check: 'Spike against history', scope: 'Electrical conductivity · MW05', outcome: 'warn',
+    detail: 'SPIKE_DETAIL',
+    action: 'Review item raised — flagged against the bore’s own record, not against a limit',
+    concept: 'decision', state: 'unresolved',
+    results: 1, qualifier: null,
+    decision: {
+      question: 'Is this a step in the bore’s own chemistry, or a spike in one round’s number?',
+      matters: 'It is not a regulatory question and the screen must not let it become one: the licence question about conductivity is a separate exceedance against Table 4, already open. This finding is about whether the bore’s record has moved, which is what decides whether the next round is a comparison or a confirmation.',
+      options: [
+        {
+          label: 'Accept as a real step — the bore has changed',
+          basis: 'disposition',
+          writes: 'The finding is closed with your reason. No qualifier reaches the result, and the trend test is re-run over the series including this round.',
+          available: true,
+          why: 'Consistent with sulfate and hardness moving together at this bore, and with the TSF-seepage reading the interpretation already argues.',
+        },
+        {
+          label: 'Hold for the next round before deciding',
+          basis: 'disposition',
+          writes: 'The finding stays open and is carried onto 2026-Q3-GW’s QA/QC as a standing question, with the round it came from named. Nothing is qualified.',
+          available: true,
+          why: 'One reading cannot separate a step from a spike, and the escalated monthly programme means the next reading is weeks away rather than a quarter.',
+        },
+        {
+          label: 'Qualify the result as suspect pending confirmation',
+          basis: 'disposition',
+          writes: 'A reviewer qualifier on 1 result, origin manual, naming you. It travels with the value into every figure and export until it is removed.',
+          available: true,
+          why: 'Available and rarely right: a value flagged against its own history is not a value in doubt, and a qualifier that says otherwise will be read as a laboratory’s.',
+        },
+      ],
+      refused: 'Treat it as an exceedance. A historical anomaly is not a regulatory exceedance, and a screen that ran the two together would raise obligations nobody owes.',
+    },
+  },
 ];
+
+export const QAQC = QAQC_ROWS.map((r) =>
+  r.id === 'SH-2'
+    ? {
+        ...r,
+        // The same check, on the series `EC_MW05` holds. Its numbers are computed
+        // in EC_MW05_OUTLIER rather than written here, so the row and the working
+        // on the screen cannot come apart.
+        detail: `${EC_MW05_OUTLIER.value} against a prior-round median of ${EC_MW05_OUTLIER.median} at this bore — a modified z-score of ${EC_MW05_OUTLIER.score} on ${EC_MW05_OUTLIER.n} rounds of its own record, against a ${EC_MW05_OUTLIER.threshold} threshold.`,
+      }
+    : r,
+);
+
+/**
+ * The decision layer — the screen's headline, counted rather than typed.
+ *
+ * `needDecision` is the number the review wants a practitioner's eye to land
+ * on first, and `ready` is false while it is above zero. That is the whole
+ * redesign in two fields: the control that used to be one click from a
+ * pass/warn/fail triad now states which named findings are between the round
+ * and the validation move.
+ */
+export const QC_DECISIONS = (() => {
+  const by = (p) => QAQC.filter(p);
+  const state = (s) => by((q) => q.state === s);
+  const needDecision = state('unresolved');
+  const rerun = by((q) => q.rerun);
+  return {
+    checks: QAQC.length,
+    passed: by((q) => q.outcome === 'pass').length,
+    warned: by((q) => q.outcome === 'warn').length,
+    failed: by((q) => q.outcome === 'fail').length,
+    automatic: by((q) => q.concept === 'automatic').length,
+    reviewed: state('reviewed').length,
+    dispositionedByPerson: by((q) => q.state === 'dispositioned' && q.concept === 'decision').length,
+    dispositioned: state('dispositioned').length,
+    clear: state('clear').length,
+    needDecision: needDecision.length,
+    needDecisionRows: needDecision,
+    resultsAwaiting: needDecision.reduce((n, q) => n + q.results, 0),
+    ready: needDecision.length === 0,
+    workflow: [
+      { state: 'unresolved', label: 'Unresolved', n: state('unresolved').length, means: 'A finding nobody has looked at, or has looked at and not decided. The round cannot leave this state on its own.' },
+      { state: 'reviewed', label: 'Reviewed', n: state('reviewed').length, means: 'Somebody has read it and recorded what they found, and the disposition is waiting on something outside this screen.' },
+      { state: 'dispositioned', label: 'Dispositioned', n: state('dispositioned').length, means: 'Settled — by a deterministic rule that names itself, or by a person who names themselves. Both are on the record and they are told apart.' },
+      { state: 'clear', label: 'Ready for validation', n: state('clear').length, means: 'The check passed and nothing followed. It is not a decision that was made; it is a decision that was never owed.' },
+    ],
+    /** What re-running under the current version would and would not move. */
+    rerunUnderCurrent: {
+      version: DQO.current.version,
+      considered: rerun.length,
+      outcomesMoved: rerun.filter((q) => q.rerun.outcomeMoves).length,
+      conceptsMoved: rerun.filter((q) => q.rerun.conceptMoves).length,
+      resultsNewlyQualified: rerun.filter((q) => q.rerun.conceptMoves).reduce((n, q) => n + (q.rerun.results ?? 0), 0),
+      rows: rerun,
+    },
+  };
+})();
 
 /** Exceedances on the round, as the register lists them. */
 export const EXCEEDANCES = [
@@ -1077,7 +1488,7 @@ export const OBLIGATIONS = [
   { what: 'PFAS exceedance notification', to: 'DWER', due: '2026-05-23 09:14', dueOn: '2026-05-23', kind: 'notification', remaining: 'lodged', state: 'met', owner: 'R. Whitmore', basis: 'Licence condition 21 — as soon as practicable' },
   { what: 'Quarterly discharge return — 2026 Q2', to: 'DWER', due: '2026-07-28', dueOn: '2026-07-28', kind: 'report', remaining: '65 days', state: 'on track', owner: 'D. Okafor', basis: 'Licence L8842/2019/1 condition 14' },
   { what: 'TSF annual review — instrumentation', to: 'Board / GISTM', due: '2026-06-30', dueOn: '2026-06-30', kind: 'report', remaining: '37 days', state: 'at risk', owner: 'S. Petrelli', basis: 'GISTM requirement 4.3' },
-  { what: 'Quarterly groundwater monitoring — 2026 Q2', to: 'Internal programme', due: '2026-05-14', dueOn: '2026-05-14', kind: 'round', remaining: 'overdue by 9 days at MW11', state: 'overdue', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
+  { what: 'Quarterly groundwater monitoring — 2026 Q2', to: 'Internal programme', due: '2026-05-14', dueOn: '2026-05-14', kind: 'round', remaining: `${Q2_OVERDUE.phrase} at ${Q2_OVERDUE.location}`, state: 'overdue', owner: 'A. Nakamura', basis: 'Sampling programme GW-QTR' },
   { what: 'Annual Audit Compliance Report', to: 'DWER', due: '2026-09-30', dueOn: '2026-09-30', kind: 'report', remaining: '129 days', state: 'on track', owner: 'R. Whitmore', basis: 'Licence L8842/2019/1 — a certified statement of compliance against every condition, separate from the AER' },
   { what: 'Contaminated Sites Act report — PFAS at MW05', to: 'DWER — contaminated sites', due: 'owed now', dueOn: '2026-05-22', kind: 'notification', remaining: 'owed since 2026-05-22 09:14', state: 'overdue', owner: 'R. Whitmore', basis: 'Contaminated Sites Act 2003 (WA) s11 — a duty on awareness, not a licence condition' },
   { what: 'Subterranean fauna monitoring — 2026 wet season', to: 'Internal / EPA condition', due: '2026-09-15', dueOn: '2026-09-15', kind: 'round', remaining: '114 days', state: 'on track', owner: 'S. Petrelli', basis: 'Ministerial statement 1184 condition 9' },
@@ -1121,6 +1532,19 @@ export const REPORT = {
   ],
 };
 
+/** The three limits on the two PFAS components, kept apart (QB-9, ADR-0009). */
+export const PFAS_LIMITS = {
+  lor: 2.0,
+  mdl: 0.5,
+  unit: 'ng/L',
+  method: 'USEPA 1633',
+  scheme: 'USEPA',
+  qualifier: 'J',
+  qualifierMeans: 'estimated',
+  origin: 'laboratory',
+  says: 'Reported by Yarra Regional on YAR-26-0881 with the J qualifier against the result. The laboratory said it; nobody here inferred it.',
+};
+
 /** The lineage of one number — the panel's whole subject. */
 export const LINEAGE = {
   value: '4.8 ng/L',
@@ -1131,11 +1555,18 @@ export const LINEAGE = {
     { step: 'Source', what: 'YAR-26-0881_Wandalup_PFAS.csv, rows 18 and 24', detail: 'Yarra Regional Analytical · certificate YAR-26-0881 · received 2026-05-18 11:47', kind: 'source' },
     { step: 'Import', what: 'IMP-0239 · ESdat-mapped, committed 2026-05-19 10:22', detail: 'Acting principal dokafor@wandalup.example · transaction 8f2c…41ab', kind: 'import' },
     { step: 'Unit conversion', what: 'ng/L retained — no conversion applied', detail: 'Dictionary unit for this analyte pair is ng/L. Rule: unit-identity v1.', kind: 'rule' },
-    { step: 'Component 1', what: 'PFOS (linear) = 3.1 ng/L · detected', detail: 'LOR 2.0 ng/L · method USEPA 1633 · analysed 2026-05-17', kind: 'input' },
-    { step: 'Component 2', what: 'PFHxS = 1.7 ng/L · detected', detail: 'LOR 2.0 ng/L · method USEPA 1633 · analysed 2026-05-17', kind: 'input' },
-    { step: 'Derivation', what: 'Sum of components · rule sum-pfas-anzg v2.1', detail: 'Non-detect treatment: exclude. Bound to ANZG 2018, not to a global setting (FR-2.2).', kind: 'rule' },
-    { step: 'Derived result', what: '4.8 ng/L · flagged derived, not reported by the laboratory', detail: 'Stored additively. Neither component was overwritten (FR-2.4).', kind: 'derived' },
-    { step: 'Evaluation', what: 'ANZG 2018 95% species protection · 0.13 ng/L · exceedance at 37×', detail: 'Evaluated synchronously on commit, 2026-05-19 10:22. Criteria version 2018.1.', kind: 'evaluation' },
+    { step: 'Component 1', what: `PFOS (linear) = 3.1 ${PFAS_LIMITS.unit} · detected · quantified`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · above the limit of reporting, so the number is quantified · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input' },
+    /*
+     * PR-3b, in the one place the review found it. This step read "PFHxS =
+     * 1.7 ng/L · detected · LOR 2.0 ng/L" — an unqualified detect below the
+     * limit of reporting, which is not a thing a laboratory reports. The three
+     * limits stay distinct (QB-9) and the assertion moves to where the
+     * glossary puts it: a **qualifier**, not a detect status.
+     */
+    { step: 'Component 2', what: `PFHxS = 1.7 ${PFAS_LIMITS.unit} · detected · ${PFAS_LIMITS.qualifier} — ${PFAS_LIMITS.qualifierMeans}`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · the value sits between the two, so it is real and not reliably quantified · qualifier ${PFAS_LIMITS.qualifier} (${PFAS_LIMITS.scheme} scheme, ${PFAS_LIMITS.origin} origin) · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input' },
+    { step: 'Derivation', what: 'Sum of components · rule sum-pfas-anzg v2.1', detail: 'Non-detect treatment: exclude — and it does not reach either component here. Both were detected, and an estimated detect is still a detect, so 1.7 enters the sum at its reported value rather than at a substituted one. Bound to ANZG 2018, not to a global setting (FR-2.2).', kind: 'rule' },
+    { step: 'Derived result', what: `4.8 ${PFAS_LIMITS.unit} ${PFAS_LIMITS.qualifier} · ${PFAS_LIMITS.qualifierMeans} · flagged derived, not reported by the laboratory`, detail: 'Stored additively. Neither component was overwritten (FR-2.4), and the J carries from the component onto the total — a sum is no more certain than the least certain thing in it.', kind: 'derived' },
+    { step: 'Evaluation', what: 'ANZG 2018 95% species protection · 0.13 ng/L · exceedance at 37×', detail: 'Evaluated synchronously on commit, 2026-05-19 10:22. Criteria version 2018.1. The estimate does not decide it: PFOS alone is 24× the guideline value, so the outcome holds under every reading of the component.', kind: 'evaluation' },
     { step: 'Consequence', what: 'TARP Level 3 raised · statutory notification obligation created', detail: 'Notification lodged 2026-05-22 14:30 AWST. Became-aware timestamp immutable at the database (G-44).', kind: 'consequence' },
   ],
 };
@@ -1322,7 +1753,7 @@ export const PORTFOLIO = (() => {
 export const WORK_QUEUE = [
   { kind: 'Exceedance', urgency: 'now', headline: 'PFOS + PFHxS at MW05 is 37× the ANZG 2018 DGV', context: 'First occurrence · TARP Level 3 raised', project: PROJECT.code, age: '3 days open', target: 'exceedances', action: 'Review exceedance' },
   { kind: 'Notification', urgency: 'now', headline: 'Statutory notification lodged — evidence not attached', context: 'DWER condition 21 · lodged 2026-05-22 14:30 AWST', project: PROJECT.code, age: '1 day', target: 'notification', action: 'Attach receipt' },
-  { kind: 'Overdue round', urgency: 'now', headline: 'MW11 not sampled for 2026 Q2', context: 'Programme GW-QTR · window closed 2026-05-14 AWST', project: PROJECT.code, age: 'overdue by 9 days', target: 'programme', action: 'Record or reschedule' },
+  { kind: 'Overdue round', urgency: 'now', headline: 'MW11 not sampled for 2026 Q2', context: 'Programme GW-QTR · window closed 2026-05-14 AWST', project: PROJECT.code, age: Q2_OVERDUE.phrase, target: 'programme', action: 'Record or reschedule' },
   // The two live facts at the second project. Both are computed from
   // KURRAJONG rather than restated here, so the queue card and the obligation
   // register cannot come apart on a number.
@@ -1481,8 +1912,10 @@ export const FACILITY = {
  *
  * `containers` sums to 38, which is what the laboratory reconciled on arrival
  * and what the chain of custody sealed. MW11 is deliberately absent: the round
- * is nine days overdue at that bore (COMPLETENESS, OBLIGATIONS), and a manifest
- * that quietly listed it would make an overdue round read as collected.
+ * is overdue at that bore (Q2_OVERDUE, COMPLETENESS, OBLIGATIONS), and a
+ * manifest that quietly listed it would make an overdue round read as
+ * collected. `FIELD_ROUND` says what the crew found standing there, which is a
+ * different question from what the laboratory received.
  *
  * Composites are out of the slice, not omitted by oversight: FR-1.7's depth
  * intervals and increments are soil and sediment work, staged S8. Every row
@@ -1766,11 +2199,18 @@ export const SHORTCUTS = [
     { k: 'H', what: 'Hold this question’s rows and move on' },
     { k: '⌘ Z', what: 'Undo the last answer' },
   ] },
-  { group: 'Field capture', keys: [
-    { k: 'Tab', what: 'Next field, staying in the row' },
-    { k: 'Enter', what: 'Next row, same column' },
-    { k: 'D', what: 'Mark the bore dry' },
-    { k: '⌘ S', what: 'Save the round locally' },
+  /*
+   * Wave 6: the contract moved with the axis. A round entered column by
+   * column needs "next row, same column"; a round entered bore by bore does
+   * not, and a single key that marked a bore dry was right when dry was the
+   * only alternative to sampled and is wrong now there are six dispositions.
+   */
+  { group: 'Field capture — the bore session', keys: [
+    { k: 'Tab', what: 'Next field, walking down the session' },
+    { k: 'Enter', what: 'Add a reading to the open stabilisation series' },
+    { k: 'J / K', what: 'Next / previous bore in the round' },
+    { k: 'X', what: 'Disposition this bore — opens the seven states, and the reason is still typed' },
+    { k: '⌘ S', what: 'Save the session locally' },
   ] },
 ];
 
@@ -1784,51 +2224,597 @@ export const SHORTCUTS = [
  * ==================================================================== */
 
 /**
- * The purge log and the stabilisation record (low-flow sampling).
+ * The field record of 2026-Q2-GW, organised the way the work is done.
  *
- * A sample is defensible because the parameters had stabilised when it was
- * taken, not because somebody wrote a number in a box. Three consecutive
- * readings within tolerance is the standard test, and without the readings
- * behind it the whole chain of custody, lineage and evaluation below rests on
- * an assertion nobody can check. The incumbents record purge logs; nothing
- * here did.
+ * **Rebuilt 1 September 2026 (wave 6, PR-1).** A senior hydrogeologist read
+ * the drawn field-capture grid and stopped at its axis: *"I don't measure the
+ * SWL at seven bores, then return conceptually to MW05 to enter its pH."*
+ * Real field work runs **bore by bore** — arrive, look at the headworks, dip,
+ * set the pump, purge, watch the parameters, take the sample, label it, filter
+ * it, preserve it, sign it onto the chain, photograph the bore, move on. So
+ * the unit of this record is the **bore session**, and the round grid is a
+ * summary over the sessions rather than the thing being filled in.
+ *
+ * ## What changed in the data, and why each change was forced
+ *
+ * The old `PURGE` literal called itself round **2026-Q3-GW** and dated itself
+ * **2026-08-14**, while `EVENTS` says 2026-Q3-GW is *planned* with no samples
+ * and `#ecoc` says it has not been collected. Its readings end at pH 8.91 and
+ * EC 3410 µS/cm, which are MW05's **2026 Q2** values on the crosstab, in the
+ * exceedance register and in `EC_MW05_OUTLIER`. It was the Q2 record wearing
+ * the wrong round code and a date three months in the future, and three
+ * screens disagreed because of it. It is the Q2 MW05 session now, collected
+ * `2026-05-13 08:40 AWST` — the same instant `EVENT_SAMPLES` gives
+ * `WDL-26Q2-003`, read from here rather than typed twice.
+ *
+ * The old field-capture grid typed **42 L** purged at MW05 and **36 L** at
+ * MW09. The purge log said 9.1 L at MW05 (low-flow at 0.24 L/min for 38
+ * minutes) and the QA/QC register says 22 L at MW09. Both grid figures were
+ * three-casing-volume numbers on a low-flow round. Volumes are now
+ * `rate × minutes`, computed, so the grid cannot disagree with the log again.
+ *
+ * **Stabilisation is computed, never typed.** Every reading's `stable` flag
+ * used to be a hand-written boolean; it is now the result of running the
+ * tolerances over the three-reading window ending at that reading, and the
+ * verdict sentence is generated from the first reading that passes. Under the
+ * computed test MW05 stabilises one reading later than the hand-written flag
+ * claimed — the hand-written flag had dissolved oxygen moving 15.5% across
+ * its window against a ±10% tolerance.
+ *
+ * ## Three dispositions, and why the round is still open
+ *
+ * `DISPOSITIONS` is the closed list the review asked for. Six bores were
+ * **sampled**; MW11 was visited twice, found **inaccessible** on 13 May and
+ * **dry** on 14 May, and the glossary's *purge event* entry is explicit that
+ * two visits in one round are two records rather than one. Dry is not
+ * missing: the bore was reached, dipped and found empty, and that is a
+ * measurement of the aquifer rather than an absence of one.
+ *
+ * The two MW11 dispositions and MW12's photographs are still **on the device**
+ * — captured, not synced. That is why `OBLIGATIONS` and the programme still
+ * read the round overdue at MW11 ten days after the window closed: the record
+ * has no disposition, and a countdown reads the record. Capture timestamp and
+ * sync timestamp are different facts and both are kept.
  */
-export const PURGE = {
-  location: 'MW05',
-  round: '2026-Q3-GW',
-  method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
-  pump: 'Bladder pump, intake at 15.0 m btoc — mid-screen',
-  rate: '0.24 L/min',
-  startedAt: '2026-08-14 07:41 AWST',
-  sampledAt: '2026-08-14 08:19 AWST',
-  purgedVolume: '9.1 L',
-  drawdown: '0.06 m — within the 0.10 m limit for low-flow',
-  tolerance: {
-    ph: '± 0.1 pH units',
-    ec: '± 3%',
-    do: '± 10%',
-    orp: '± 10 mV',
-    turbidity: '< 10 NTU and ± 10%',
-    temp: '± 0.2 °C',
+const FIELD_DISPOSITIONS = [
+  {
+    code: 'sampled', label: 'Sampled', reason: false, tone: 'good', glyph: '●',
+    means: 'Water was recovered and one or more samples were submitted under the chain of custody.',
   },
-  readings: [
-    { t: '07:46', swl: 8.41, ph: 8.62, ec: 3180, do: 2.41, orp: 118, turb: 41.2, temp: 26.8, stable: false },
-    { t: '07:51', swl: 8.43, ph: 8.74, ec: 3260, do: 1.98, orp: 104, turb: 28.4, temp: 26.6, stable: false },
-    { t: '07:56', swl: 8.44, ph: 8.83, ec: 3330, do: 1.62, orp: 96, turb: 17.1, temp: 26.5, stable: false },
-    { t: '08:01', swl: 8.45, ph: 8.88, ec: 3380, do: 1.44, orp: 91, turb: 9.8, temp: 26.4, stable: false },
-    { t: '08:06', swl: 8.46, ph: 8.90, ec: 3396, do: 1.39, orp: 89, turb: 7.2, temp: 26.4, stable: true },
-    { t: '08:11', swl: 8.46, ph: 8.91, ec: 3404, do: 1.36, orp: 88, turb: 6.4, temp: 26.4, stable: true },
-    { t: '08:16', swl: 8.47, ph: 8.91, ec: 3410, do: 1.34, orp: 87, turb: 6.1, temp: 26.3, stable: true },
+  {
+    code: 'dry', label: 'Dry', reason: true, tone: 'warn', glyph: '○',
+    means: 'The bore was reached and dipped and held no water. A measurement of the aquifer, not a gap in the record — the hydrograph draws a break rather than a line through it and the round is satisfied as attempted.',
+  },
+  {
+    code: 'insufficient-recharge', label: 'Insufficient recharge', reason: true, tone: 'warn', glyph: '◔',
+    means: 'The bore held water, was purged dry, and did not recover enough to fill the containers before the crew had to leave.',
+  },
+  {
+    code: 'inaccessible', label: 'Inaccessible', reason: true, tone: 'warn', glyph: '⊘',
+    means: 'The bore could not be reached — a cut track, a locked gate, stock, fire, or a working area closed to entry.',
+  },
+  {
+    code: 'damaged', label: 'Damaged or obstructed', reason: true, tone: 'bad', glyph: '▲',
+    means: 'The headworks or the casing prevented the visit: a sheared riser, a seized cap, an obstruction above the screen.',
+  },
+  {
+    code: 'not-located', label: 'Not located', reason: true, tone: 'bad', glyph: '?',
+    means: 'The crew searched the surveyed position and did not find the bore. It is a finding about the register, and it routes to the location record rather than to the round.',
+  },
+  {
+    code: 'not-sampled', label: 'Not sampled', reason: true, tone: 'bad', glyph: '—',
+    means: 'The residual state, and the reason is free text because the six above did not fit. A round left with this disposition and no reason cannot be marked complete.',
+  },
+];
+
+/**
+ * The stabilisation test, written once and run over every series.
+ *
+ * The rule is the glossary's: *a run of consecutive readings whose values all
+ * sit within a stated tolerance of each other*, three of them, and the
+ * tolerances are configuration rather than code. Two readings of it are
+ * possible and the difference matters, so it is stated on the screen as well
+ * as here: the **spread across the three readings** (largest minus smallest)
+ * is what must fall inside the tolerance, measured as a percentage of their
+ * mean where the tolerance is a percentage. The looser reading — each reading
+ * within x% of the mean — allows twice the movement.
+ *
+ * Turbidity is the one disjunctive rule and that is the field convention
+ * rather than a convenience: below 10 NTU the reading is acceptable outright,
+ * and only above it does the ±10% agreement test apply. A falling turbidity
+ * curve never satisfies a percentage test on its way down, and every low-flow
+ * sample ever taken would fail a conjunctive reading of it.
+ */
+const STABILISATION = {
+  window: 3,
+  params: [
+    { key: 'ph', label: 'pH', unit: '', tol: 0.1, kind: 'absolute', text: '± 0.1 pH units' },
+    { key: 'ec', label: 'Conductivity', unit: 'µS/cm', tol: 3, kind: 'relative', text: '± 3%' },
+    { key: 'do', label: 'Dissolved oxygen', unit: 'mg/L', tol: 10, kind: 'relative', text: '± 10%' },
+    { key: 'redox', label: 'Redox', unit: 'mV', tol: 10, kind: 'absolute', text: '± 10 mV' },
+    { key: 'turb', label: 'Turbidity', unit: 'NTU', tol: 10, kind: 'turbidity', text: '< 10 NTU, or ± 10% above that' },
+    { key: 'temp', label: 'Temperature', unit: '°C', tol: 0.2, kind: 'absolute', text: '± 0.2 °C' },
   ],
-  verdict: 'Stabilised at 08:06 — three consecutive readings within tolerance on every parameter. Sample collected at 08:19.',
-  /** The case that matters more than the clean one. */
-  failing: {
-    location: 'MW09',
-    what: 'Turbidity never fell below 10 NTU across 14 readings and 22 L purged.',
-    consequence:
-      'Sampled anyway at the field officer’s judgement, and the record says so. Every metal result from this sample carries qualifier T — turbidity above the acceptance limit at collection — because a filtered metal from a turbid bore reads high and nobody can tell afterwards whether that was formation water or suspended sediment.',
-  },
+  basis: 'AS/NZS 5667.11, three consecutive readings',
 };
+
+/** Whether one parameter held still across a window of readings. */
+function held(param, window) {
+  const values = window.map((r) => r[param.key]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  if (param.kind === 'absolute') return max - min <= param.tol + 1e-9;
+  if (param.kind === 'turbidity') {
+    if (max < 10) return true;
+    return ((max - min) / mean) * 100 <= param.tol + 1e-9;
+  }
+  return ((max - min) / mean) * 100 <= param.tol + 1e-9;
+}
+
+/**
+ * One purge, with its readings scored rather than annotated.
+ *
+ * `rate` and the minutes between the start of purging and collection give the
+ * volume; nothing types a volume. Each reading carries which parameters were
+ * holding at it, so a series that stabilised on five of six parameters says
+ * which one it did not — the glossary requires stabilisation to be reported
+ * per parameter as well as overall, and "did not stabilise" without naming the
+ * parameter is the assertion this record exists to replace.
+ */
+function purgeOf({ location, method, pump, intake, rate, startedAt, sampledAt, first, step = 5, readings }) {
+  const hhmm = (t) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const clock = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+  const start = hhmm(startedAt);
+  const collected = hhmm(sampledAt);
+  const minutes = collected - start;
+  const volume = Math.round(rate * minutes * 10) / 10;
+  const rows = readings.map((r, i) => ({ ...r, t: clock(hhmm(first) + i * step) }));
+  const scored = rows.map((r, i) => {
+    if (i + 1 < STABILISATION.window) return { ...r, window: null, holding: [], moving: STABILISATION.params.map((p) => p.key), stable: false };
+    const w = rows.slice(i + 1 - STABILISATION.window, i + 1);
+    const holding = STABILISATION.params.filter((p) => held(p, w)).map((p) => p.key);
+    return {
+      ...r,
+      window: `${w[0].t}–${r.t}`,
+      holding,
+      moving: STABILISATION.params.filter((p) => !holding.includes(p.key)).map((p) => p.key),
+      stable: holding.length === STABILISATION.params.length,
+    };
+  });
+  const firstStable = scored.find((r) => r.stable) ?? null;
+  const last = scored.at(-1);
+  const neverHeld = STABILISATION.params.filter((p) => !scored.some((r) => r.holding.includes(p.key)));
+  return {
+    location,
+    method,
+    pump,
+    intake,
+    rate,
+    rateText: `${rate.toFixed(2)} L/min`,
+    startedAt,
+    sampledAt,
+    minutes,
+    volume,
+    volumeText: `${volume.toFixed(1)} L`,
+    readings: scored,
+    tolerance: STABILISATION,
+    stabilised: Boolean(firstStable),
+    stabilisedAt: firstStable ? firstStable.t : null,
+    /** Which parameters never held, so "did not stabilise" names its cause. */
+    neverHeld: neverHeld.map((p) => p.label),
+    heldAtEnd: last.holding.map((k) => STABILISATION.params.find((p) => p.key === k).label),
+    outcome: firstStable ? 'Stable' : 'Sampled by judgement',
+    verdict: firstStable
+      ? `Stabilised at ${firstStable.t} — ${STABILISATION.window} consecutive readings within tolerance on every parameter, ${firstStable.window}. Sample collected at ${sampledAt}.`
+      : `Never stabilised across ${scored.length} readings and ${volume.toFixed(1)} L — ${neverHeld.map((p) => p.label.toLowerCase()).join(' and ')} ${neverHeld.length === 1 ? 'held' : 'each held'} outside tolerance to the last reading. Sampled at ${sampledAt} on the field officer’s judgement, and the record says so.`,
+  };
+}
+
+export const FIELD_ROUND = (() => {
+  const round = '2026-Q2-GW';
+  const programme = 'GW-QTR';
+  const crew = 'A. Nakamura';
+  const device = 'Field tablet WDL-FT-02';
+
+  /*
+   * The measuring point vocabulary is the glossary's own closed list — top of
+   * casing, top of protective cover, ground level, staff gauge zero — and the
+   * dip is a **depth to water** below the point that was dipped from, which is
+   * what comes off the tape. A field sheet says SWL and the term is marked as
+   * the practitioner's word where it appears, not adopted as the product's.
+   */
+  const sessions = [
+    {
+      location: 'MW01A',
+      day: 1,
+      arrived: '2026-05-12 07:14 AWST',
+      condition: 'Cover sound, lock free, no stock damage. Concrete pad intact.',
+      access: 'Borefield access road, dry',
+      headworks: 'Steel monument, padlocked, 0.62 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 11.42,
+      totalDepth: null,
+      totalDepthWhy: 'Not required — silt check falls due on the annual round',
+      purge: purgeOf({
+        location: 'MW01A', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump', intake: '21.0 m btoc — mid-screen', rate: 0.22,
+        startedAt: '07:22', sampledAt: '07:55', first: '07:27',
+        readings: [
+          { swl: 11.40, ph: 7.44, ec: 812, do: 4.10, redox: 142, turb: 18.4, temp: 26.2 },
+          { swl: 11.41, ph: 7.38, ec: 828, do: 3.72, redox: 133, turb: 9.6, temp: 26.0 },
+          { swl: 11.42, ph: 7.34, ec: 836, do: 3.55, redox: 128, turb: 6.2, temp: 25.9 },
+          { swl: 11.42, ph: 7.32, ec: 839, do: 3.48, redox: 126, turb: 5.4, temp: 25.9 },
+          { swl: 11.42, ph: 7.31, ec: 840, do: 3.44, redox: 125, turb: 5.1, temp: 25.9 },
+        ],
+      }),
+      drawdown: '0.02 m — within the 0.10 m limit for low-flow',
+      samples: ['WDL-26Q2-001'],
+      filtration: '0.45 µm in-line capsule, changed at this bore',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottle; nutrients on ice, unpreserved',
+      observations: 'Clear, no odour. Cattle trough refilled 40 m north.',
+      photographs: 4,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-12 08:03 AWST',
+      synced: '2026-05-12 18:41 AWST',
+    },
+    {
+      location: 'MW03B',
+      day: 1,
+      arrived: '2026-05-12 09:36 AWST',
+      condition: 'Cover sound. Surface seal cracked on the northern edge — photographed, not yet a defect.',
+      access: 'Borefield access road, dry',
+      headworks: 'Steel monument, padlocked, 0.55 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 9.18,
+      totalDepth: null,
+      totalDepthWhy: 'Not required — silt check falls due on the annual round',
+      purge: purgeOf({
+        location: 'MW03B', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump', intake: '49.0 m btoc — mid-screen', rate: 0.20,
+        startedAt: '09:44', sampledAt: '10:20', first: '09:49',
+        readings: [
+          { swl: 9.16, ph: 7.72, ec: 1082, do: 1.20, redox: 22, turb: 12.8, temp: 27.6 },
+          { swl: 9.17, ph: 7.66, ec: 1104, do: 0.96, redox: 12, turb: 5.9, temp: 27.5 },
+          { swl: 9.18, ph: 7.62, ec: 1114, do: 0.88, redox: 6, turb: 3.4, temp: 27.4 },
+          { swl: 9.18, ph: 7.61, ec: 1118, do: 0.84, redox: 3, turb: 2.8, temp: 27.4 },
+          { swl: 9.18, ph: 7.60, ec: 1120, do: 0.82, redox: 1, turb: 2.5, temp: 27.4 },
+        ],
+      }),
+      drawdown: '0.02 m — within the 0.10 m limit for low-flow',
+      samples: ['WDL-26Q2-002'],
+      filtration: '0.45 µm in-line capsule, changed at this bore',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottle; nutrients on ice, unpreserved',
+      observations: 'Confined unit. Head stands above the superficial bore in the same nest — the upward gradient the location record argues from.',
+      photographs: 5,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-12 10:31 AWST',
+      synced: '2026-05-12 18:41 AWST',
+    },
+    {
+      location: 'MW05',
+      day: 2,
+      arrived: '2026-05-13 07:48 AWST',
+      condition: 'Cover sound, lock free. Faint sulfurous odour at the cap before purging.',
+      access: 'TSF perimeter road, dry',
+      headworks: 'Steel monument, padlocked, 0.48 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 8.47,
+      totalDepth: null,
+      totalDepthWhy: 'Not required — silt check falls due on the annual round',
+      purge: purgeOf({
+        location: 'MW05', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump', intake: '15.0 m btoc — mid-screen', rate: 0.24,
+        startedAt: '08:02', sampledAt: '08:40', first: '08:07',
+        readings: [
+          { swl: 8.41, ph: 8.62, ec: 3180, do: 2.41, redox: 118, turb: 41.2, temp: 26.8 },
+          { swl: 8.43, ph: 8.74, ec: 3260, do: 1.98, redox: 104, turb: 28.4, temp: 26.6 },
+          { swl: 8.44, ph: 8.83, ec: 3330, do: 1.62, redox: 96, turb: 17.1, temp: 26.5 },
+          { swl: 8.45, ph: 8.88, ec: 3380, do: 1.44, redox: 91, turb: 9.8, temp: 26.4 },
+          { swl: 8.46, ph: 8.90, ec: 3396, do: 1.39, redox: 89, turb: 7.2, temp: 26.4 },
+          { swl: 8.46, ph: 8.91, ec: 3404, do: 1.36, redox: 88, turb: 6.4, temp: 26.4 },
+          { swl: 8.47, ph: 8.91, ec: 3410, do: 1.34, redox: 87, turb: 6.1, temp: 26.3 },
+        ],
+      }),
+      drawdown: '0.06 m — within the 0.10 m limit for low-flow',
+      /*
+       * The field blank was poured here, at the bore, at 08:00 — inside this
+       * visit. The equipment blank was not: the pump was rinsed at the
+       * vehicle at 10:35, on the way to MW07, so the rinsate sits in that
+       * session. A QC sample belongs to the visit its collection time falls
+       * in, or the manifest and the field record disagree about when it was
+       * made.
+       */
+      samples: ['WDL-26Q2-003', 'WDL-26Q2-004', 'WDL-26Q2-QC1'],
+      filtration: '0.45 µm in-line capsule, changed at this bore',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottles; PFAS in HDPE, no preservative, no PTFE anywhere in the train',
+      observations: 'Slight sulfurous odour, strongest at the start of purging and gone by collection. Water clear at collection.',
+      photographs: 6,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-13 09:02 AWST',
+      synced: '2026-05-13 18:12 AWST',
+    },
+    {
+      location: 'MW07',
+      day: 2,
+      arrived: '2026-05-13 10:24 AWST',
+      condition: 'Cover sound. Bladder pump moved from MW05 and rinsed at the vehicle — the rinsate is the equipment blank.',
+      access: 'TSF perimeter road, dry',
+      headworks: 'Steel monument, padlocked, 0.51 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 7.12,
+      totalDepth: null,
+      totalDepthWhy: 'Not required — silt check falls due on the annual round',
+      purge: purgeOf({
+        location: 'MW07', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump — reused from MW05, rinsed', intake: '17.0 m btoc — mid-screen', rate: 0.26,
+        startedAt: '10:31', sampledAt: '11:05', first: '10:36',
+        readings: [
+          { swl: 7.10, ph: 7.28, ec: 1602, do: 3.10, redox: 96, turb: 22.6, temp: 26.9 },
+          { swl: 7.11, ph: 7.20, ec: 1648, do: 2.62, redox: 84, turb: 11.2, temp: 26.7 },
+          { swl: 7.12, ph: 7.16, ec: 1668, do: 2.44, redox: 78, turb: 6.8, temp: 26.6 },
+          { swl: 7.12, ph: 7.15, ec: 1676, do: 2.38, redox: 75, turb: 5.5, temp: 26.6 },
+          { swl: 7.12, ph: 7.14, ec: 1680, do: 2.35, redox: 74, turb: 5.0, temp: 26.6 },
+        ],
+      }),
+      drawdown: '0.02 m — within the 0.10 m limit for low-flow',
+      samples: ['WDL-26Q2-005', 'WDL-26Q2-008', 'WDL-26Q2-QC3'],
+      filtration: '0.45 µm in-line capsule, changed at this bore and again after the rinsate was poured',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottle; nutrients on ice, unpreserved',
+      observations: 'Equipment reused from MW05 after rinsing at the vehicle at 10:35. The rinsate blank was poured before the pump went down this bore, which is the only order in which it answers anything.',
+      photographs: 4,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-13 11:18 AWST',
+      synced: '2026-05-13 18:12 AWST',
+    },
+    {
+      location: 'MW09',
+      day: 3,
+      arrived: '2026-05-14 06:05 AWST',
+      condition: 'Cover sound. Fines visible in the standing water on the pad after overnight rain.',
+      access: 'Compliance boundary track, soft after rain',
+      headworks: 'Steel monument, padlocked, 0.44 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 6.88,
+      totalDepth: 21.4,
+      totalDepthWhy: 'Dipped because turbidity would not fall — 0.6 m of silt above the surveyed base, recorded against the location',
+      purge: purgeOf({
+        location: 'MW09', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump', intake: '18.0 m btoc — mid-screen', rate: 0.31,
+        startedAt: '06:19', sampledAt: '07:30', first: '06:24',
+        readings: [
+          { swl: 6.84, ph: 7.02, ec: 918, do: 4.60, redox: 168, turb: 68.2, temp: 26.1 },
+          { swl: 6.85, ph: 6.96, ec: 942, do: 4.22, redox: 152, turb: 44.6, temp: 26.0 },
+          { swl: 6.86, ph: 6.92, ec: 958, do: 3.98, redox: 141, turb: 31.2, temp: 25.9 },
+          { swl: 6.86, ph: 6.89, ec: 968, do: 3.84, redox: 133, turb: 24.8, temp: 25.8 },
+          { swl: 6.87, ph: 6.87, ec: 975, do: 3.74, redox: 128, turb: 19.4, temp: 25.8 },
+          { swl: 6.87, ph: 6.86, ec: 980, do: 3.68, redox: 124, turb: 26.2, temp: 25.7 },
+          { swl: 6.87, ph: 6.85, ec: 983, do: 3.63, redox: 121, turb: 17.8, temp: 25.7 },
+          { swl: 6.88, ph: 6.84, ec: 985, do: 3.60, redox: 119, turb: 22.4, temp: 25.7 },
+          { swl: 6.88, ph: 6.84, ec: 986, do: 3.57, redox: 118, turb: 15.6, temp: 25.7 },
+          { swl: 6.88, ph: 6.83, ec: 987, do: 3.55, redox: 117, turb: 20.8, temp: 25.6 },
+          { swl: 6.88, ph: 6.83, ec: 988, do: 3.54, redox: 116, turb: 14.2, temp: 25.6 },
+          { swl: 6.88, ph: 6.83, ec: 989, do: 3.52, redox: 116, turb: 18.6, temp: 25.6 },
+          { swl: 6.88, ph: 6.82, ec: 989, do: 3.51, redox: 115, turb: 12.8, temp: 25.6 },
+          { swl: 6.88, ph: 6.82, ec: 990, do: 3.50, redox: 115, turb: 16.4, temp: 25.6 },
+        ],
+      }),
+      drawdown: '0.04 m — within the 0.10 m limit for low-flow',
+      samples: ['WDL-26Q2-006'],
+      filtration: '0.45 µm in-line capsule, changed twice — the first blinded on fines',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottle; nutrients on ice, unpreserved',
+      observations: 'Turbidity would not settle. Purged 22.0 L over 71 minutes and stopped: every other parameter had held for an hour and the crew had two bores left before the cooler had to leave for the courier.',
+      photographs: 7,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-14 07:44 AWST',
+      synced: '2026-05-14 19:02 AWST',
+    },
+    {
+      location: 'MW12',
+      day: 3,
+      arrived: '2026-05-14 10:41 AWST',
+      condition: 'Cover sound, lock free. Background bore, no works within 400 m.',
+      access: 'Borefield northern track, dry',
+      headworks: 'Steel monument, padlocked, 0.58 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: 12.86,
+      totalDepth: null,
+      totalDepthWhy: 'Not required — silt check falls due on the annual round',
+      purge: purgeOf({
+        location: 'MW12', method: 'Low-flow (minimal drawdown) · AS/NZS 5667.11',
+        pump: 'Bladder pump', intake: '20.0 m btoc — mid-screen', rate: 0.25,
+        startedAt: '10:44', sampledAt: '11:20', first: '10:49',
+        readings: [
+          { swl: 12.84, ph: 7.18, ec: 594, do: 5.20, redox: 168, turb: 15.2, temp: 25.4 },
+          { swl: 12.85, ph: 7.10, ec: 612, do: 4.86, redox: 158, turb: 8.4, temp: 25.3 },
+          { swl: 12.86, ph: 7.07, ec: 617, do: 4.72, redox: 152, turb: 5.6, temp: 25.2 },
+          { swl: 12.86, ph: 7.06, ec: 619, do: 4.66, redox: 149, turb: 4.6, temp: 25.2 },
+          { swl: 12.86, ph: 7.05, ec: 620, do: 4.63, redox: 148, turb: 4.2, temp: 25.2 },
+        ],
+      }),
+      drawdown: '0.02 m — within the 0.10 m limit for low-flow',
+      samples: ['WDL-26Q2-007'],
+      filtration: '0.45 µm in-line capsule, changed at this bore',
+      preservation: 'Nitric acid to pH < 2 on the dissolved metals bottle; nutrients on ice, unpreserved',
+      observations: 'Background bore. Nothing unusual; the photographs are the routine four plus three of the northern fenceline after the rain.',
+      photographs: 7,
+      photographsPending: true,
+      disposition: 'sampled',
+      dispositionReason: null,
+      captured: '2026-05-14 11:34 AWST',
+      synced: '2026-05-14 19:02 AWST',
+    },
+    {
+      location: 'MW11',
+      day: 2,
+      visit: 1,
+      arrived: '2026-05-13 14:02 AWST',
+      condition: 'Not reached.',
+      access: 'Compliance boundary track — the Wandalup Creek crossing was running after 31 mm overnight',
+      headworks: '—',
+      measuringPoint: null,
+      depthToWater: null,
+      totalDepth: null,
+      purge: null,
+      samples: [],
+      filtration: '—',
+      preservation: '—',
+      observations: 'Turned back at the creek crossing. Photographed the crossing and the gauge board; 0.4 m over the causeway.',
+      photographs: 2,
+      disposition: 'inaccessible',
+      dispositionReason: 'Wandalup Creek crossing running 0.4 m over the causeway after 31 mm overnight',
+      captured: '2026-05-13 14:20 AWST',
+      synced: null,
+    },
+    {
+      location: 'MW11',
+      day: 3,
+      visit: 2,
+      arrived: '2026-05-14 16:31 AWST',
+      condition: 'Cover sound, lock free. Nothing wrong with the bore.',
+      access: 'Compliance boundary track, passable by the afternoon',
+      headworks: 'Steel monument, padlocked, 0.46 m stickup',
+      measuringPoint: 'Top of casing',
+      depthToWater: null,
+      totalDepth: 22.0,
+      totalDepthWhy: 'Dipped to confirm the bore is dry rather than blocked — tape wet to no mark, base reached at the surveyed depth',
+      purge: null,
+      samples: [],
+      filtration: '—',
+      preservation: '—',
+      observations: 'Dry. Tape run to 22.0 m btoc, the base of the screened interval, and came up dry to the weight. The bore is sound and the aquifer is below the screen — the fourth successive dry season reading at this bore.',
+      photographs: 3,
+      disposition: 'dry',
+      dispositionReason: 'Dipped to 22.0 m btoc, the base of the screened interval, and found dry to the weight',
+      captured: '2026-05-14 16:52 AWST',
+      synced: null,
+    },
+  ];
+
+  /*
+   * The instruments, because a field parameter is only as good as the probe
+   * that read it. Calibration before the round is what the DQO asks for; the
+   * post-round check is what says the probe had not drifted while it was
+   * reading — and one of the three has not been recorded, which the preflight
+   * counts rather than glossing.
+   */
+  const instruments = [
+    { kind: 'Multiparameter sonde', model: 'YSI ProDSS', serial: '21F0994', reads: 'pH · conductivity · dissolved oxygen · redox · temperature', calibrated: '2026-05-12 05:40 AWST', check: '2026-05-14 17:10 AWST', drift: 'pH +0.02, conductivity −0.4% — within acceptance' },
+    { kind: 'Turbidimeter', model: 'Hach 2100Q', serial: '18B4471', reads: 'turbidity', calibrated: '2026-05-12 05:55 AWST', check: null, drift: null },
+    { kind: 'Water level meter', model: 'Solinst 102', serial: '331802', reads: 'depth to water', calibrated: '2026-04-30 — tape checked against the workshop reference, 0 mm over 30 m', check: '2026-05-14 17:14 AWST', drift: 'No change against the reference mark' },
+  ];
+
+  const planned = ['MW01A', 'MW03B', 'MW05', 'MW07', 'MW09', 'MW11', 'MW12'];
+  const byCode = (code) => sessions.filter((s) => s.location === code);
+  /** The visit that decides a bore's row on the summary — the last one made. */
+  const current = planned.map((code) => byCode(code).at(-1));
+  const disposition = (code) => FIELD_DISPOSITIONS.find((d) => d.code === code);
+
+  const pending = sessions.filter((s) => !s.synced);
+  /*
+   * Mandatory fields per the round's own template. Counted off the pending
+   * records rather than asserted, because "unsynced mandatory fields" is a
+   * number a preflight has no business rounding.
+   */
+  const mandatoryOf = (s) => [
+    'arrival time',
+    'disposition',
+    s.dispositionReason ? 'disposition reason' : null,
+    s.measuringPoint ? 'measuring point' : null,
+    s.depthToWater !== null ? 'depth to water' : null,
+    s.totalDepth !== null ? 'total depth' : null,
+  ].filter(Boolean);
+  const pendingFields = pending.reduce((n, s) => n + mandatoryOf(s).length, 0);
+  const pendingPhotos = sessions.filter((s) => s.photographsPending).length;
+
+  const tally = FIELD_DISPOSITIONS.map((d) => ({
+    ...d,
+    n: current.filter((s) => s.disposition === d.code).length,
+    visits: sessions.filter((s) => s.disposition === d.code).length,
+  }));
+
+  const sampled = current.filter((s) => s.disposition === 'sampled');
+  const purges = sessions.filter((s) => s.purge);
+  const stabilised = purges.filter((s) => s.purge.stabilised);
+
+  return {
+    round,
+    programme,
+    crew,
+    device,
+    laboratory: 'Pilbara Analytical Services',
+    window: '1 Apr – 30 Jun 2026',
+    days: [
+      { n: 1, date: '2026-05-12', label: 'Day 1 — borefield' },
+      { n: 2, date: '2026-05-13', label: 'Day 2 — TSF downgradient' },
+      { n: 3, date: '2026-05-14', label: 'Day 3 — compliance boundary and background' },
+    ],
+    dispositions: FIELD_DISPOSITIONS,
+    stabilisation: STABILISATION,
+    sessions,
+    current,
+    planned,
+    instruments,
+    tally: tally.filter((d) => d.visits > 0),
+    disposition,
+    /** Everything the preflight counts, computed from the sessions above. */
+    preflight: {
+      planned: planned.length,
+      dispositioned: current.filter((s) => s.disposition).length,
+      onRecord: current.filter((s) => s.disposition && s.synced).length,
+      sampled: sampled.length,
+      dry: current.filter((s) => s.disposition === 'dry').length,
+      visits: sessions.length,
+      revisits: sessions.filter((s) => s.visit === 2).length,
+      purges: purges.length,
+      stabilised: stabilised.length,
+      byJudgement: purges.length - stabilised.length,
+      instruments: instruments.length,
+      calibrated: instruments.filter((i) => i.calibrated).length,
+      postChecked: instruments.filter((i) => i.check).length,
+      pendingRecords: pending.length + pendingPhotos,
+      pendingFields,
+      pendingPhotos,
+    },
+  };
+})();
+
+/**
+ * The purge and stabilisation record, read out of the field round.
+ *
+ * `#purge` is the deep view of the series `#field-capture` shows inline — one
+ * source, read twice, rather than a second copy of the readings that can come
+ * to disagree with the first. `location`, `round`, the readings, the volume
+ * and the verdict all resolve through `FIELD_ROUND`; nothing here is typed.
+ */
+export const PURGE = (() => {
+  const session = FIELD_ROUND.sessions.find((s) => s.location === 'MW05');
+  const failing = FIELD_ROUND.sessions.find((s) => s.purge && !s.purge.stabilised);
+  return {
+    round: FIELD_ROUND.round,
+    session,
+    ...session.purge,
+    sample: session.samples[0],
+    collected: `${FIELD_ROUND.days.find((d) => d.n === session.day).date} ${session.purge.sampledAt} AWST`,
+    drawdown: session.drawdown,
+    /** The case that matters more than the clean one. */
+    failing: {
+      location: failing.location,
+      session: failing,
+      what: `Turbidity never fell below 10 NTU across ${failing.purge.readings.length} readings and ${failing.purge.volumeText} purged.`,
+      consequence:
+        'Sampled anyway at the field officer’s judgement, and the record says so. Every metal result from this sample carries qualifier T — turbidity above the acceptance limit at collection — because a filtered metal from a turbid bore reads high and nobody can tell afterwards whether that was formation water or suspended sediment.',
+    },
+  };
+})();
 
 /** What arrived at the laboratory, and in what condition. */
 export const RECEIPT = {
@@ -1941,21 +2927,32 @@ export const CUSTODY = CUSTODY_CHAIN.transfers
  * regulator asking *why 30%* is asking the same question they ask about a
  * criterion. The machinery already existed; the QC limits were simply not put
  * through it.
+ *
+ * **The version pairing arrived with wave 6 (PR-2c).** "Re-run checks" has to
+ * say against what, and where a newer set exists the screen has to say which
+ * one the round was assessed under. `DQO` holds the pair; the rules below
+ * carry the **2025.2** numbers — the ones every finding on 2026-Q2-GW was
+ * raised against — and `next` on a rule is what 2026.1 changed it to. Two
+ * rules moved, and one of them is why a finding stops needing a hydrogeologist
+ * under the version that is current now.
  */
 export const QC_LIMITS = {
-  set: 'Wandalup data quality objectives',
-  version: '2025.2',
-  effective: '2025-07-01 →',
-  basis: 'AS/NZS 5667.1, the laboratory’s NATA-scoped QA plan, and the site’s own DQOs where these are tighter.',
+  set: DQO.set,
+  version: DQO.used.version,
+  effective: DQO.used.effective,
+  basis: DQO.basis,
+  dqo: DQO,
+  used: DQO.used,
+  current: DQO.current,
   rules: [
-    { check: 'Field duplicate RPD', limit: '≤ 30%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR', source: 'Site DQO, consistent with AS/NZS 5667.1' },
+    { check: 'Field duplicate RPD', limit: '≤ 30%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR', source: 'Site DQO, consistent with AS/NZS 5667.1', next: '≤ 25% — the 5 × LOR applicability rule unchanged' },
     { check: 'Laboratory duplicate RPD', limit: '≤ 20%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR', source: 'PAS QA plan rev 8' },
-    { check: 'Matrix spike recovery', limit: '70 – 130%', applies: 'One per 20 samples per matrix per batch', fallback: '—', source: 'PAS QA plan rev 8' },
+    { check: 'Matrix spike recovery', limit: '70 – 130%', applies: 'One per 20 samples per matrix per batch', fallback: '—', source: 'PAS QA plan rev 8', silent: 'States the limit and no consequence. A recovery outside it raises a finding; what that finding does to the batch is not written here, which is why the zinc propagation is a decision rather than a rule.' },
     { check: 'MS/MSD RPD', limit: '≤ 30%', applies: 'Where a duplicate spike was run', fallback: '—', source: 'PAS QA plan rev 8' },
     { check: 'Laboratory control sample recovery', limit: '80 – 120%', applies: 'One per batch, per method', fallback: '—', source: 'PAS QA plan rev 8' },
     { check: 'Surrogate recovery — PFAS', limit: '70 – 130%', applies: 'Every sample, isotope-labelled', source: 'USEPA 1633' },
     { check: 'Method blank', limit: '< LOR', applies: 'One per batch, per method', fallback: 'Detection above LOR qualifies every sample in the batch', source: 'PAS QA plan rev 8' },
-    { check: 'Field / trip / equipment blank', limit: '< LOR', applies: 'One field and one trip blank per event; an equipment blank per equipment reuse', source: 'Site DQO' },
+    { check: 'Field / trip / equipment blank', limit: '< LOR', applies: 'One field and one trip blank per event; an equipment blank per equipment reuse', source: 'Site DQO', next: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event' },
     { check: 'Cation–anion balance', limit: '± 5%', applies: 'TDS > 100 mg/L', fallback: '± 10% below 100 mg/L, where analytical error dominates', source: 'APHA 1030E' },
     { check: 'Field parameter stabilisation', limit: '3 consecutive readings in tolerance', applies: 'Low-flow purging', source: 'AS/NZS 5667.11' },
   ],
@@ -1965,8 +2962,8 @@ export const QC_LIMITS = {
 /** The laboratory batch — what a QC result actually covers. */
 export const BATCHES = [
   {
-    id: 'PAS-WO-268841', lab: 'Pilbara Analytical Services', method: 'USEPA 200.8 — dissolved metals',
-    samples: 9, prepared: '2026-05-16', analysed: '2026-05-17', nata: 'In scope · 2377 site 1841',
+    id: METALS_BATCH.id, lab: METALS_BATCH.laboratory, method: METALS_BATCH.method,
+    samples: METALS_BATCH.samples, prepared: '2026-05-16', analysed: '2026-05-17', nata: 'In scope · 2377 site 1841',
     qc: [
       { kind: 'Method blank', id: 'MB-268841', result: 'All analytes < LOR', outcome: 'pass' },
       { kind: 'Laboratory control sample', id: 'LCS-268841', result: 'Recovery 96 – 104% across 8 analytes', outcome: 'pass' },
@@ -2061,15 +3058,58 @@ export const BACKGROUND = {
     'The 80th percentile is computed over 42 reference results with two censored, using Kaplan–Meier rather than substitution. A site-specific trigger value derived by substituting half the limit of reporting would sit lower and manufacture exceedances.',
 };
 
-/** Data quality assessment, against the objectives set before the round. */
-export const DQA = [
-  { dim: 'Precision', measure: 'Field duplicate RPD, laboratory duplicate RPD', objective: '≤ 30% field, ≤ 20% laboratory, above 5 × LOR', achieved: '1 of 15 field pairs outside — zinc at MW05, 38.2%', verdict: 'met with exception' },
-  { dim: 'Accuracy', measure: 'LCS, matrix spike, surrogate recovery', objective: '80–120% LCS, 70–130% MS', achieved: 'LCS 96–104%. Zinc matrix spike 62% — below limit, reproducible', verdict: 'not met for zinc' },
-  { dim: 'Representativeness', measure: 'Field parameter stabilisation, purge records, sampling position', objective: '3 consecutive readings in tolerance before collection', achieved: '6 of 7 bores stabilised. MW09 turbidity never below 10 NTU', verdict: 'met with exception' },
-  { dim: 'Comparability', measure: 'Consistent methods, units and reporting limits across rounds', objective: 'No method change without a documented equivalence', achieved: 'Arsenic LOR stepped 5.0 → 1.0 µg/L at 2025-05 on a method change; recorded and drawn on the plate', verdict: 'met' },
-  { dim: 'Completeness', measure: 'Results received against results planned', objective: '≥ 95% of planned results usable', achieved: '58 of 63 received, 55 usable — 87%', verdict: 'not met' },
-  { dim: 'Sensitivity', measure: 'Reporting limit against the applicable criterion', objective: 'LOR ≤ 0.5 × criterion for every assessed analyte', achieved: 'Cadmium LOR 1.0 µg/L against a 0.54 µg/L criterion — 7 results unassessable', verdict: 'not met' },
+/**
+ * Data quality assessment, against the objectives set before the round.
+ *
+ * **Wave 6 (PR-2): each dimension now says who settled the findings under it.**
+ * A dimension's verdict rests on findings, and a reader asking "met with
+ * exception — on whose word?" had nowhere to go. `findings` names the QA/QC
+ * rows behind each row here, so the counts of *automatically dispositioned*,
+ * *dispositioned by a person* and *still needing a decision* are read off
+ * `QAQC` rather than typed beside it — and a dimension whose findings are not
+ * all settled says so, which is the whole reason an assessment is written
+ * after the checks and before the report.
+ *
+ * The representativeness figure was also wrong and is now computed: it read
+ * "6 of 7 bores stabilised" over a round in which seven bores were planned,
+ * **six were purged** and **five stabilised**. MW11 was never purged — it was
+ * dry — so it could not have been in either half of that fraction.
+ */
+const DQA_ROWS = [
+  { dim: 'Precision', measure: 'Field duplicate RPD, laboratory duplicate RPD', objective: '≤ 30% field, ≤ 20% laboratory, above 5 × LOR', achieved: '1 of 15 field pairs outside — zinc at MW05, 38.2%', verdict: 'met with exception', findings: ['FD-1', 'FD-2', 'FD-3', 'LD-1'] },
+  { dim: 'Accuracy', measure: 'LCS, matrix spike, surrogate recovery', objective: '80–120% LCS, 70–130% MS', achieved: 'LCS 96–104%. Zinc matrix spike 62% — below limit, reproducible', verdict: 'not met for zinc', findings: ['LCS-1', 'MS-1', 'SR-1', 'EB-1', 'MB-1', 'FB-1', 'TB-1', 'IB-1'] },
+  { dim: 'Representativeness', measure: 'Field parameter stabilisation, purge records, sampling position', objective: '3 consecutive readings in tolerance before collection', achieved: 'REPRESENTATIVENESS', verdict: 'met with exception', findings: ['ST-1'] },
+  { dim: 'Comparability', measure: 'Consistent methods, units and reporting limits across rounds', objective: 'No method change without a documented equivalence', achieved: 'Arsenic LOR stepped 5.0 → 1.0 µg/L at 2025-05 on a method change; recorded and drawn on the plate', verdict: 'met', findings: ['ET-1', 'SH-1', 'SH-2'] },
+  { dim: 'Completeness', measure: 'Results received against results planned', objective: '≥ 95% of planned results usable', achieved: '58 of 63 received, 55 usable — 87%', verdict: 'not met', findings: ['HT-1', 'HT-2'] },
+  { dim: 'Sensitivity', measure: 'Reporting limit against the applicable criterion', objective: 'LOR ≤ 0.5 × criterion for every assessed analyte', achieved: 'Cadmium LOR 1.0 µg/L against a 0.54 µg/L criterion — 7 results unassessable', verdict: 'not met', findings: ['LOR-1'] },
 ];
+
+export const DQA = DQA_ROWS.map((d) => {
+  const rows = d.findings.map((id) => QAQC.find((q) => q.id === id));
+  const p = FIELD_ROUND.preflight;
+  return {
+    ...d,
+    achieved:
+      d.achieved === 'REPRESENTATIVENESS'
+        ? `${p.stabilised} of ${p.purges} bores purged stabilised; ${p.planned - p.purges} of ${p.planned} planned was not purged. MW09 turbidity never below 10 NTU`
+        : d.achieved,
+    rows,
+    settled: {
+      total: rows.length,
+      automatic: rows.filter((q) => q.concept === 'automatic').length,
+      byPerson: rows.filter((q) => q.state === 'dispositioned' && q.concept === 'decision').length,
+      reviewed: rows.filter((q) => q.state === 'reviewed').length,
+      open: rows.filter((q) => q.state === 'unresolved').length,
+      who: [
+        ...new Set(
+          rows
+            .map((q) => q.disposition?.by ?? q.review?.by ?? (q.concept === 'automatic' ? `${q.rule.name} · ${q.rule.version}` : null))
+            .filter(Boolean),
+        ),
+      ],
+    },
+  };
+});
 
 /** A bore nest — the vertical dimension the register flattened. */
 export const NEST = {
@@ -2645,11 +3685,37 @@ export const GOLDEN = (() => {
  * of reporting, which is what makes the rule decisive rather than academic:
  * the same seven results read as indeterminate, compliant or 31× a guideline
  * value depending on a field on the set.
+ *
+ * ## PFHxS at MW05 was drawn as an unqualified detect below the LOR (PR-3b)
+ *
+ * The practitioner review caught it: **1.7 ng/L · detected · LOR 2.0 ng/L** is
+ * a contradiction on its face. A laboratory reporting below its limit of
+ * reporting either reports a non-detect, or reports the number and says the
+ * number is estimated. The second is what happened, and the record now says
+ * so with the three limits the glossary insists stay distinct:
+ *
+ * - **MDL 0.5 ng/L** — the lowest concentration the method detects with
+ *   confidence that the analyte is present. The review's word for it is *LOD*;
+ *   the glossary's canonical name is the **method detection limit**, and it
+ *   already carries this exact definition — *"a value between the MDL and the
+ *   LOR is real but imprecise — detected, not reliably measured"*. Minting LOD
+ *   beside it would be QB-9's fourth limit.
+ * - **LOR 2.0 ng/L** — the lowest concentration the laboratory will report as
+ *   a quantified number.
+ * - **1.7 ng/L, qualifier J — estimated.** Detected (it is above the MDL) and
+ *   not reliably quantified (it is below the LOR). `J` is USEPA's code and it
+ *   means what USEPA says it means (glossary, *qualifier scheme*); *estimated*
+ *   is the glossary's own word in the *qualifier* entry.
+ *
+ * The detect status stays `detected` — the glossary makes it two-valued on
+ * purpose, and "finer laboratory assertions about a value are qualifiers, not
+ * detect statuses". Which is why this had to be fixed at the qualifier rather
+ * than by censoring the value.
  */
 export const PFAS_COMPONENTS = [
   { location: 'MW01A', pfos: null, pfhxs: null },
   { location: 'MW03B', pfos: null, pfhxs: null },
-  { location: 'MW05', pfos: 3.1, pfhxs: 1.7 },
+  { location: 'MW05', pfos: 3.1, pfhxs: 1.7, pfhxsQualifier: 'J', pfhxsQualifierMeans: 'estimated — detected above the method detection limit and below the limit of reporting' },
   { location: 'MW07', pfos: null, pfhxs: null },
   { location: 'MW09', pfos: null, pfhxs: null },
   { location: 'MW11', pfos: null, pfhxs: null },
@@ -2711,6 +3777,45 @@ export const NON_DETECT = (() => {
     active,
     says:
       'MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. Every other bore moves, and the six of them are the whole of the difference between the four columns.',
+    /*
+     * PR-3b. An estimated detect is the case the rule is silent about until
+     * somebody asks, and the answer has to be stated rather than inferred from
+     * whichever branch the arithmetic happens to take.
+     *
+     * `J` is a **qualifier**, and `detected` is a **detect status**; the
+     * glossary keeps them apart deliberately, and the non-detect rule is keyed
+     * on the detect status. So an estimated detect is a detect: it enters the
+     * sum at its reported value, the treatment column has nothing to do with
+     * it, and the qualifier carries forward onto the derived total because a
+     * sum is no more certain than the least certain thing in it (FR-2.4, PP3).
+     *
+     * The three readings are computed below rather than argued, because "does
+     * it change the answer" is the only form of the question worth asking.
+     */
+    estimated: (() => {
+      const mw05 = PFAS_COMPONENTS.find((p) => p.location === 'MW05');
+      const at = (total) => ({
+        total: total.toFixed(1),
+        factor: `${Math.round(total / CRITERION)}×`,
+        outcome: total > CRITERION ? 'exceedance' : 'compliant',
+      });
+      return {
+        location: 'MW05',
+        component: 'PFHxS',
+        value: mw05.pfhxs,
+        qualifier: mw05.pfhxsQualifier,
+        means: mw05.pfhxsQualifierMeans,
+        rule: 'An estimated detect is a detect. It enters the sum at its reported value, the non-detect treatment does not reach it, and the J qualifier carries onto the derived total.',
+        carries: 'PFOS + PFHxS at MW05 is reported 4.8 ng/L J — estimated, because one of the two components is.',
+        readings: [
+          { as: 'Detected and quantified — what was drawn before this fix', ...at(mw05.pfos + mw05.pfhxs), note: 'Wrong: the laboratory did not quantify 1.7 against a 2.0 limit of reporting, and nothing said so.' },
+          { as: 'Detected and estimated — what the certificate says', ...at(mw05.pfos + mw05.pfhxs), note: 'The value is the same and the confidence is not. The total carries J.' },
+          { as: 'Treated as a non-detect at < 2.0, under the rule in force', ...at(mw05.pfos), note: 'Excluded from the sum, so the total is PFOS alone — a different number, the same outcome.' },
+        ],
+        decides:
+          'The outcome does not turn on it: the total exceeds the 0.13 ng/L guideline value under all three readings, and the statutory notification stands either way. What turns on it is the number in the report and how much weight it carries — which is exactly what a qualifier is for, and exactly what an unqualified 1.7 below a 2.0 limit of reporting hid.',
+      };
+    })(),
   };
 })();
 

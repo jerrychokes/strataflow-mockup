@@ -28,6 +28,10 @@ import {
   REGENERATION, REPORT_ITEMS, SIGNOFFS, SNAPSHOTS, TEMPLATE,
   WATER,
   KURRAJONG, PORTFOLIO,
+  AS_AT,
+  // Wave 6 — the field round, the decision layer, the DQO version pair, and
+  // the three limits the PFAS components are reported against.
+  DQO, FIELD_ROUND, METALS_BATCH, PFAS_LIMITS, QC_DECISIONS, Q2_OVERDUE,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -67,6 +71,25 @@ const btn = (label, kind = '') => `<button class="sf-button${kind ? ` sf-button-
 const stat = (value, label, tone = 'neutral') =>
   `<div class="mk-stat mk-stat--${tone}"><span class="mk-stat__value">${esc(value)}</span><span class="mk-stat__label">${esc(label)}</span></div>`;
 const stats = (items) => `<div class="mk-stats">${items.join('')}</div>`;
+/**
+ * One stacked cell, one flex item.
+ *
+ * Below 767 px `.sf-table--records tbody td` becomes `display: flex` so the
+ * `data-label` pseudo-element can sit beside the value — and every *inline
+ * element* inside such a cell becomes a flex item of its own on a line that
+ * does not wrap. A cell of plain text is one anonymous item and wraps
+ * normally; a cell that mixes a sentence with a link and an emphasis becomes
+ * five items, and the cell's min-content width becomes the sum of all of them.
+ * Measured on `#dqa` at 375 px: a 509 px table inside a 306 px panel, +184 px
+ * of document overflow, from three sentences that had gained a link.
+ *
+ * Wrapping the content in one element makes it one flex item again, which
+ * wraps inside itself the way the plain-text cells always did. It is a cell
+ * that carries mixed inline markup into a record list that needs this — a
+ * matrix pans and does not.
+ */
+const cell = (html) => `<span class="mk-cell">${html}</span>`;
+
 const cols = (a, b, ratio = '3fr 2fr') => `<div class="mk-cols" style="--mk-cols:${ratio}">${a}${b}</div>`;
 /**
  * Kilolitres printed as megalitres — one decimal, grouped.
@@ -617,85 +640,752 @@ const migration = () =>
   notice('default', 'Validation state and qualifiers came across, not just numbers.',
     'FR-3.11 asks for the historical validation state to survive the move. A migration that lands the values and drops twenty years of qualifiers has moved the data and lost the record.');
 
-const fieldCapture = () =>
-  head('Field capture — 2026 Q3 round', 'Water levels, field parameters and observations, recorded at the bore.', {
-    route: 'a proposal — not in the product',
-    toolbar: btn('Sync 3 pending', 'primary'),
-  }) +
-  notice('warning', 'Proposed. Nothing in FR-1 to FR-8 covers field data capture.',
-    'U1 is named the highest-frequency user and every requirement in the PRD is about what happens after a laboratory has already reported. The water level, the purge volume, the field pH and the observation that a bore was dry are collected by hand and typed in later, or lost. This is the gap that most affects the user the PRD says uses the product most.') +
-  cols(
-    (() => {
-      const COLS = ['SWL, m btoc', 'Field pH', 'EC, µS/cm', 'Purge, L', 'Observation'];
-      const rows = [
-        { code: 'MW05', v: ['8.40', '8.91', '3410', '42'], obs: 'Slight sulfurous odour', state: 'captured', cls: '' },
-        { code: 'MW07', v: ['7.12', '7.14', '1680', '38'], obs: '', state: 'captured', cls: '' },
-        { code: 'MW09', v: ['6.88', '6.82', '990', '36'], obs: 'Turbidity would not settle — 12 NTU at collection', state: 'captured', cls: 'mk-entry__row--focus' },
-        { code: 'MW11', v: ['', '', '', ''], obs: 'Bore dry — not sampled', state: 'recorded as dry', cls: 'mk-entry__row--dry' },
-      ];
-      const cell = (v, label, text = false) =>
-        `<td data-label="${esc(label)}"><input class="mk-entry__cell${text ? ' mk-entry__cell--text' : ''}" value="${esc(v)}" aria-label="${esc(label)}"></td>`;
-      return (
-        '<section><h2 class="mk-h2">Today’s run</h2>' +
-        '<table class="mk-entry"><thead><tr><th>Location</th>' +
-        COLS.map((c) => `<th>${esc(c)}</th>`).join('') +
-        '<th>State</th></tr></thead><tbody>' +
-        rows
-          .map(
-            (r) =>
-              `<tr class="${r.cls}"><td data-label="Location">${loc(r.code)}</td>` +
-              r.v.map((v, i) => cell(v, COLS[i])).join('') +
-              cell(r.obs, 'Observation', true) +
-              `<td data-label="State">${tag(r.state, r.state === 'captured' ? 'good' : 'warn')}</td></tr>`,
-          )
-          .join('') +
-        '</tbody></table>' +
-        '<p class="mk-tight mk-muted"><kbd class="mk-kbd">Tab</kbd> moves along the row, <kbd class="mk-kbd">Enter</kbd> drops to the next bore in the same column — because a round is entered column by column, one parameter at a time, not bore by bore. <kbd class="mk-kbd">D</kbd> marks a bore dry.</p>' +
-        '<p class="mk-tight">On a phone this grid <strong>stacks into one card per bore</strong> rather than panning. Everywhere else in this product a dense table pans with its identifying column frozen, which is right for a table you read — this one is typed into, standing at a bore, one-handed, and a grid that pans horizontally puts the column you are filling off the screen.</p>' +
-        `<div class="mk-actions"><a class="mk-btn" href="#purge">Open the purge log for MW05</a>${C.btn('Mark the round complete', 'primary')}</div>` +
-        '</section>'
-      );
-    })(),
-    panel('Why a dry bore is a first-class record',
-      '<p class="mk-tight">A dry bore is not a missing reading. The hydrograph draws a gap rather than a line through it, the sampling programme reads the round as attempted rather than overdue, and the report says so. ' +
-      'Left as an absence, all three of those go wrong quietly.</p>' +
-      '<p class="mk-tight mk-muted">Offline by design: the site has no signal. Captured locally, queued, and synced when the vehicle reaches the gate — with the capture timestamp kept, not the sync timestamp.</p>'),
+/* ================================================================== *
+ * The field round, rebuilt around the bore session (wave 6, PR-1)
+ *
+ * The practitioner review's strongest hesitation was about an axis, not a
+ * detail: the drawn grid entered a round **column by column across bores**,
+ * and real field work runs **bore by bore**. *"I don't measure the SWL at
+ * seven bores, then return conceptually to MW05 to enter its pH."* So the grid
+ * is demoted to a summary — which is what a grid is genuinely good for, seeing
+ * where the round is up to — and the screen's heart is the session at one
+ * bore, carrying the review's sequence in its own order.
+ *
+ * Everything below reads `FIELD_ROUND`. The purge series shown inline here is
+ * the same array `#purge` draws in full: one source, read twice.
+ * ================================================================== */
+
+/** A disposition, as a glyph and a word — never as a colour (§5.3). */
+const dispo = (code) => {
+  const d = FIELD_ROUND.disposition(code);
+  return (
+    `<span class="mk-dispo mk-dispo--${d.tone}" title="${esc(d.means)}">` +
+    `<span class="mk-dispo__glyph" aria-hidden="true">${esc(d.glyph)}</span>${esc(d.label)}</span>`
   );
+};
+
+/** One read-only fact inside a session step. The label may carry markup. */
+const sessFact = (label, value, hint) =>
+  `<div class="mk-pair"><span class="mk-pair__label">${label}</span>` +
+  `<span class="mk-pair__value">${value}</span>` +
+  (hint ? `<span class="mk-pair__hint">${hint}</span>` : '') +
+  '</div>';
+
+/**
+ * The stabilisation series, drawn where the review said it belongs (PR-1c).
+ *
+ * "Important enough that I wouldn't hide it one level below the principal
+ * field workflow" — so it is in the session, in full, with every reading's own
+ * verdict beside it rather than a summary sentence underneath. The parameter
+ * names are the glossary's: **conductivity**, **dissolved oxygen**, **redox**
+ * (what the instrument prints as Eh or ORP), **turbidity**.
+ */
+const stabilisationSeries = (p) => {
+  const T = p.tolerance;
+  const digits = { ph: 2, ec: 0, do: 2, redox: 0, turb: 1, temp: 1 };
+  const cell = (r, key) => {
+    const param = T.params.find((x) => x.key === key);
+    const holding = r.window && r.holding.includes(key);
+    return (
+      `<span class="mk-num${r.window && !holding ? ' mk-num--warn' : ''}">${esc(r[key].toFixed(digits[key]))}</span>` +
+      (r.window
+        ? `<span class="sf-visually-hidden"> ${esc(param.label)} — ${holding ? 'holding within' : 'still moving outside'} ${esc(param.text)}</span>`
+        : '')
+    );
+  };
+  return table({
+    caption: `${p.location} · tolerances ${T.params.map((x) => `${x.label.toLowerCase()} ${x.text}`).join(' · ')}.`,
+    head: [
+      'Time',
+      'Depth to water<small>m btoc</small>',
+      'pH',
+      'Conductivity<small>µS/cm</small>',
+      'Dissolved oxygen<small>mg/L</small>',
+      'Redox<small>mV</small>',
+      'Turbidity<small>NTU</small>',
+      'Temperature<small>°C</small>',
+      'Three-reading window',
+    ],
+    kind: 'matrix',
+    label: `Stabilisation readings at ${p.location}`,
+    rows: p.readings.map((r) => [
+      `<span class="mk-num">${esc(r.t)}</span>`,
+      `<span class="mk-num">${r.swl.toFixed(2)}</span>`,
+      cell(r, 'ph'),
+      cell(r, 'ec'),
+      cell(r, 'do'),
+      cell(r, 'redox'),
+      cell(r, 'turb'),
+      cell(r, 'temp'),
+      !r.window
+        ? '<span class="mk-muted">not yet three readings</span>'
+        : r.stable
+          ? C.status('all six holding', 'good')
+          : `${C.status(`${r.moving.length} still moving`, 'warn')}<small>${esc(r.moving.map((k) => T.params.find((x) => x.key === k).label.toLowerCase()).join(', '))}</small>`,
+    ]),
+  });
+};
+
+/** How the run of three is read, said once so the arithmetic is recountable. */
+const stabilisationRule = () =>
+  '<p class="mk-tight">A parameter is <strong>holding</strong> when the spread across the three readings — the largest minus the smallest — sits inside its tolerance, measured against their mean where the tolerance is a percentage. The looser reading of “± 3%”, <em>each reading</em> within 3% of the mean, allows twice the movement, and which one is meant decides whether a bore stabilised — so it is stated rather than assumed. Turbidity is the one disjunctive rule: below 10 NTU a reading is acceptable outright, and only above that does the ± 10% agreement test apply. A falling turbidity curve never satisfies a percentage test on its way down, and a conjunctive reading would fail every low-flow sample ever taken.</p>';
+
+/** The session at one bore, top to bottom, in the order the work happens. */
+const boreSession = (s) => {
+  const p = s.purge;
+  const day = FIELD_ROUND.days.find((d) => d.n === s.day);
+  const visits = FIELD_ROUND.sessions.filter((x) => x.location === s.location);
+  const samples = s.samples.map((id) => EVENT_SAMPLES.find((x) => x.id === id)).filter(Boolean);
+  const qc = samples.filter((x) => x.qc !== '—');
+  const d = FIELD_ROUND.disposition(s.disposition);
+  let n = 0;
+  const step = (label, kind, body) => {
+    n += 1;
+    return (
+      `<li class="mk-chain__step mk-chain__step--${kind}"><span class="mk-chain__n" aria-hidden="true">${n}</span>` +
+      `<div class="mk-chain__text"><span class="mk-chain__label">${esc(label)}</span>${body}</div></li>`
+    );
+  };
+
+  const header =
+    `<header class="mk-sess__head">` +
+    `<h3 class="mk-sess__code">${esc(s.location)}</h3>` +
+    `<p class="mk-sess__meta">${esc(day.label)} · ${esc(day.date)}` +
+    (visits.length > 1 ? ` · visit ${s.visit} of ${visits.length}` : '') +
+    ` · ${esc(FIELD_ROUND.crew)}</p>` +
+    `<div class="mk-sess__state">${dispo(s.disposition)}` +
+    (s.synced ? C.status('on the record', 'good') : C.status('on this device only', 'warn')) +
+    '</div></header>';
+
+  return (
+    `<section class="mk-sess" aria-label="Bore session — ${esc(s.location)}">` +
+    header +
+    '<ol class="mk-chain">' +
+    step(
+      'Arrived',
+      'source',
+      sessFact('Capture time', `<span class="sf-instant">${esc(s.arrived)}</span>`, 'The time the crew reached the bore, off the device’s own clock.') +
+        sessFact(
+          'Synced to the record',
+          s.synced
+            ? `<span class="sf-instant">${esc(s.synced)}</span>`
+            : `${C.status('not yet', 'warn')} <span class="mk-muted">held on ${esc(FIELD_ROUND.device)}</span>`,
+          s.synced
+            ? 'Both timestamps are kept. A record that overwrote the first with the second would make every bore look as though it was visited from the vehicle at the gate.'
+            : 'The site has no signal. Until this record syncs, the programme reads what the record says rather than what the crew knows.',
+        ),
+    ) +
+    step(
+      'Condition, access and headworks',
+      'input',
+      sessFact('Condition', esc(s.condition)) +
+        sessFact('Access', esc(s.access)) +
+        sessFact('Headworks', esc(s.headworks)),
+    ) +
+    step(
+      'Measuring point, depth to water, total depth',
+      'input',
+      C.field({
+        label: 'Measuring point',
+        required: true,
+        control: C.select({
+          options: ['Top of casing', 'Top of protective cover', 'Ground level', 'Staff gauge zero'],
+          value: s.measuringPoint ?? 'Top of casing',
+          disabled: !s.measuringPoint,
+        }),
+        hint: 'The point the tape was run from. It is recorded twice and the two are different assertions — the survey says which point was levelled, this says which one the crew dipped from — and where they disagree the elevation conversion refuses rather than assuming a stickup.',
+      }) +
+        (s.depthToWater === null
+          ? sessFact(
+              'Depth to water <span class="mk-muted">— the field sheet says <em>SWL</em></span>',
+              `<span class="mk-num mk-num--nil">no depth</span>`,
+              'A bore that held no water has a water-level record and no depth. Recording it as zero, or as the depth of the bore, would be a measurement nobody took.',
+            )
+          : C.field({
+              label: 'Depth to water — SWL on the field sheet',
+              required: true,
+              control: C.numberInput({ value: s.depthToWater.toFixed(2), unit: 'm btoc' }),
+              hint: 'Positive downward, because that is what comes off the dipper. Groundwater elevation is derived from it against the survey in force on this date, and is never stored.',
+            })) +
+        (s.totalDepth === null
+          ? sessFact('Total depth', '<span class="mk-num mk-num--nil">—</span>', esc(s.totalDepthWhy ?? 'Not required this round.'))
+          : C.field({
+              label: 'Total depth',
+              control: C.numberInput({ value: s.totalDepth.toFixed(1), unit: 'm btoc' }),
+              hint: esc(s.totalDepthWhy),
+            })),
+    ) +
+    (p
+      ? step(
+          'Pump, intake and flow rate',
+          'rule',
+          sessFact('Purge method', esc(p.method), 'The method decides what <em>stabilised</em> means: low-flow draws formation water past the probe and stabilisation is the test that it has arrived, where three-volume purging empties the casing and stabilisation is incidental to it.') +
+            sessFact('Pump and intake', `${esc(p.pump)} · ${esc(p.intake)}`) +
+            C.field({
+              label: 'Flow rate',
+              required: true,
+              control: C.numberInput({ value: p.rate.toFixed(2), unit: 'L/min' }),
+              hint: `The rate the volume is computed from — ${p.minutes} minutes at ${esc(p.rateText)} is <strong>${esc(p.volumeText)}</strong>. Nobody types a volume.`,
+            }) +
+            sessFact('Drawdown', esc(s.drawdown)),
+        ) +
+        step(
+          'Purge and stabilisation',
+          'derived',
+          `<p class="mk-tight">Started <span class="sf-instant">${esc(p.startedAt)}</span>, ${p.readings.length} readings at ${FIELD_ROUND.stabilisation.window > 0 ? '5-minute' : ''} intervals, <strong>${esc(p.volumeText)}</strong> purged.</p>` +
+            stabilisationSeries(p) +
+            `<p class="mk-tight"><strong>Series outcome — ${esc(p.outcome)}.</strong> ${esc(p.verdict)}</p>` +
+            (p.stabilised
+              ? ''
+              : `<p class="mk-tight">Everything else had held for an hour: ${esc(p.heldAtEnd.join(', ').toLowerCase())} were all inside tolerance at the last reading. Stabilisation is reported per parameter as well as overall, because “did not stabilise” without naming the parameter is exactly the assertion this record exists to replace.</p>`) +
+            `<div class="mk-actions"><a class="mk-btn" href="#purge">Open the full stabilisation record</a>${C.btn('Add a reading')}${C.btn('End the purge — purged dry')}</div>`,
+        )
+      : step(
+          'Purge and stabilisation',
+          'rule',
+          `<p class="mk-tight">No purge. ${esc(d.means)}</p>` +
+            '<p class="mk-tight mk-muted">Absence is meaningful and it is not the same as <em>none</em>. A passive sampler or a grab sample is purged by no method and says so; a visit with <strong>no purge record at all</strong> is one whose field sheet was never captured, and a reviewer challenges the second, not the first. This is the first.</p>',
+        )) +
+    (p
+      ? step(
+          'Field chemistry at collection',
+          'input',
+          [
+            ['pH', p.readings.at(-1).ph.toFixed(2), ''],
+            ['Conductivity', String(p.readings.at(-1).ec), 'µS/cm'],
+            ['Dissolved oxygen', p.readings.at(-1).do.toFixed(2), 'mg/L'],
+            ['Redox', String(p.readings.at(-1).redox), 'mV'],
+            ['Turbidity', p.readings.at(-1).turb.toFixed(1), 'NTU'],
+            ['Temperature', p.readings.at(-1).temp.toFixed(1), '°C'],
+          ]
+            .map(([label, value, unit]) => sessFact(esc(label), `<span class="mk-num">${esc(value)}</span> <span class="mk-muted">${esc(unit)}</span>`))
+            .join('') +
+            `<p class="mk-tight mk-muted">Read off the last stabilisation reading, at <span class="sf-instant">${esc(p.readings.at(-1).t)}</span> — not entered again. A final-parameters box a practitioner fills in by copying the last row is a box that can disagree with the row.</p>`,
+        )
+      : '') +
+    step(
+      'Samples, duplicates and QC',
+      'input',
+      samples.length === 0
+        ? `<p class="mk-tight">None — ${esc(d.label.toLowerCase())}. ${esc(s.dispositionReason ?? '')}</p>`
+        : table({
+            caption: 'Every container this bore contributed, and the role each sample plays.',
+            head: ['Sample', 'Role', 'Parent', 'Containers', 'Collected · AWST'],
+            scroll: true,
+            label: `Samples from ${s.location}`,
+            rows: samples.map((x) => [
+              `<span class="mk-file mk-file--id">${esc(x.id)}</span>`,
+              x.qc === '—' ? '<span class="mk-num mk-num--nil">primary</span>' : `<span class="mk-tag mk-tag--new">${esc(x.qc)}</span>`,
+              x.parent === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-muted">${esc(x.parent)}</span>`,
+              `<span class="mk-num">${x.containers}</span>`,
+              `<span class="sf-instant">${esc(x.collected.replace(' AWST', ''))}</span>`,
+            ]),
+          }) +
+          (qc.length
+            ? `<p class="mk-tight">${qc.length === 1 ? 'One QC sample was' : `${qc.length} QC samples were`} made at this bore — ${qc.map((x) => `<strong>${esc(x.qc)}</strong>`).join(', ')}. A blind field duplicate keeps its parent in the record and off everything the laboratory receives: the distinction the screen has to hold is between <em>the laboratory did not know</em> and <em>we do not know</em>.</p>`
+            : ''),
+    ) +
+    step(
+      'Filtration and preservation',
+      'rule',
+      sessFact('Filtration', esc(s.filtration), 'Dissolved is what the number means; filtration is what was done. Both are recorded, because a criterion expressed on a total basis is not comparable to a filtered result.') +
+        sessFact('Preservation', esc(s.preservation)),
+    ) +
+    step(
+      'Chain of custody',
+      'rule',
+      samples.length === 0
+        ? '<p class="mk-tight">Nothing to consign. A visit that produced no sample appends no transfer, and the chain’s sequence stays unbroken because nothing was skipped — there was nothing to skip.</p>'
+        : `<p class="mk-tight">These containers joined <a class="mk-ref" href="#ecoc">${esc(CUSTODY_CHAIN.id)}</a>, raised at the first bore of this round before the first container was filled. The session creates the chain; the chain is not typed up afterwards from a notebook.</p>` +
+          facts([
+            ['Custody record', `<a class="mk-ref" href="#ecoc">${esc(CUSTODY_CHAIN.id)}</a>`],
+            ['Transfer this bore fed', `<span class="mk-muted">${esc(CUSTODY_CHAIN.transfers.find((t) => t.seq === s.day)?.what ?? 'logged into the site cold store')}</span>`],
+            ['Containers from this bore', `<span class="mk-num">${samples.reduce((acc, x) => acc + x.containers, 0)}</span> of ${CUSTODY_CHAIN.containers} on the chain`],
+          ]),
+    ) +
+    step(
+      'Observations and photographs',
+      'input',
+      C.field({
+        label: 'What the crew saw',
+        control: C.textarea({ value: s.observations, rows: 3 }),
+        hint: 'Free text, kept verbatim and never rewritten. It is the only part of the record that can say something nobody thought to ask for.',
+      }) +
+        sessFact(
+          'Photographs',
+          `<span class="mk-num">${s.photographs}</span>` + (s.photographsPending ? ` ${C.status('not yet synced', 'warn')}` : ''),
+          s.photographsPending
+            ? 'Held on the device. Photographs are the largest thing a field record carries and the first thing a thin link drops.'
+            : 'Headworks, the pad, the sample train, and anything the observation names.',
+        ),
+    ) +
+    step(
+      'Completion',
+      'derived',
+      C.field({
+        label: 'Disposition',
+        required: true,
+        control: C.select({
+          options: FIELD_ROUND.dispositions.map((x) => ({ label: x.label, value: x.code })),
+          value: s.disposition,
+        }),
+        hint: `Seven states, closed. <strong>${esc(d.label)}</strong> — ${esc(d.means)}`,
+      }) +
+        C.field({
+          label: 'Reason',
+          required: d.reason,
+          control: C.input({ value: s.dispositionReason ?? '' }),
+          hint: d.reason
+            ? 'Required for every disposition but <em>Sampled</em>. A round cannot be marked complete while a location carries a reasonless one.'
+            : 'Not required — the samples are the reason.',
+        }) +
+        `<p class="mk-tight">${
+          s.synced
+            ? `Written to the record at <span class="sf-instant">${esc(s.synced)}</span>.`
+            : `<strong>Captured at <span class="sf-instant">${esc(s.captured)}</span> and not yet on the record.</strong> Everything downstream — the programme, the obligation, the completeness figure — reads the record, which is why ${esc(Q2_OVERDUE.location)} still counts as ${esc(Q2_OVERDUE.phrase)}.`
+        }</p>`,
+    ) +
+    '</ol></section>'
+  );
+};
+
+/**
+ * The preflight before "Mark round complete" (PR-1b).
+ *
+ * Every number here is counted off the sessions, which is the whole point of
+ * it: a completion control whose readiness is asserted is a completion control
+ * that marks a round complete with a bore missing.
+ */
+const roundPreflight = () => {
+  const P = FIELD_ROUND.preflight;
+  const dupes = EVENT_SAMPLES.filter((s) => s.qc === 'Field duplicate (blind)');
+  const blanks = EVENT_SAMPLES.filter((s) => s.qc !== '—' && s.qc !== 'Field duplicate (blind)');
+  const blocking = [];
+  if (P.pendingRecords) blocking.push(`${P.pendingRecords} records are on ${FIELD_ROUND.device} and not on the record`);
+  if (P.postChecked < P.instruments) blocking.push(`${P.instruments - P.postChecked} instrument has no post-round check`);
+  const rows = [
+    ['Locations dispositioned', `${P.dispositioned} of ${P.planned}`, P.dispositioned === P.planned,
+      `Every planned location carries one of the seven states. ${P.visits} visits were made to ${P.planned} bores — ${esc(Q2_OVERDUE.location)} took two.`],
+    ['…and on the record', `${P.onRecord} of ${P.planned}`, P.onRecord === P.planned,
+      `${P.planned - P.onRecord} disposition is captured on the device and has not synced. A countdown reads the record, so the programme still calls this round ${esc(Q2_OVERDUE.phrase)} at ${esc(Q2_OVERDUE.location)}.`],
+    ['Sampled', String(P.sampled), true, 'Water recovered and containers submitted under the chain of custody.'],
+    ['Dry', String(P.dry), true, 'Reached, dipped, empty. Not missing — the round is satisfied as attempted, and the hydrograph draws a break rather than a line.'],
+    ['Duplicates collected', `${dupes.length} of ${dupes.length}`, true,
+      `Blind field duplicates at ${dupes.map((x) => esc(x.location)).join(' and ')} — ${dupes.map((x) => `<span class="mk-file mk-file--id">${esc(x.id)}</span>`).join(' and ')}.`],
+    ['Other QC samples', `${blanks.length} of ${blanks.length}`, true, blanks.map((b) => esc(b.qc)).join(' · ')],
+    ['Instruments calibrated before the round', `${P.calibrated} of ${P.instruments}`, P.calibrated === P.instruments,
+      'Every probe that produced a number on this round has a calibration record ahead of it.'],
+    ['…and checked after it', `${P.postChecked} of ${P.instruments}`, P.postChecked === P.instruments,
+      'A calibration says the probe was right at the start. Only the post-round check says it had not drifted while it was reading.'],
+    ['Unsynced mandatory fields', String(P.pendingFields), P.pendingFields === 0,
+      `Across ${P.pendingRecords} unsynced records, counted field by field rather than record by record — “some data is missing” is the state in which a number matters most.`],
+    ['Chain of custody created', '1', true,
+      `<a class="mk-ref" href="#ecoc">${esc(CUSTODY_CHAIN.id)}</a> — ${CUSTODY_CHAIN.containers} containers, ${CUSTODY_CHAIN.transfers.length} transfers, state ${esc(CUSTODY_CHAIN.state)}.`],
+  ];
+  return (
+    table({
+      caption: 'Every line counted off the sessions above. Nothing here is asserted.',
+      head: ['Check', 'Count', 'State', 'What it means'],
+      scroll: true,
+      label: 'Round completion preflight',
+      rows: rows.map(([what, count, ok, why]) => [
+        `<strong>${esc(what)}</strong>`,
+        cell(`<span class="mk-num${ok ? '' : ' mk-num--warn'}">${esc(count)}</span>`),
+        ok ? C.status('clear', 'good') : C.status('holds the round', 'warn'),
+        cell(`<span class="mk-muted">${why}</span>`),
+      ]),
+    }) +
+    (blocking.length
+      ? notice(
+          'warning',
+          `The round cannot be marked complete yet — ${blocking.length === 1 ? 'one thing holds it' : `${blocking.length} things hold it`}.`,
+          `${blocking.map((b) => esc(b)).join('; and ')}. The control below states what it would write and stays refusable rather than silently disabled: a greyed-out button that will not say why is how a field officer at a gate loses an afternoon.`,
+        )
+      : '') +
+    C.blastRadius({
+      lede: `Marking <strong>${esc(FIELD_ROUND.round)}</strong> complete — what that writes, before you press it:`,
+      rows: [
+        { what: 'Sampling round marked satisfied on the programme', n: '1 — naming the sampling event that satisfied it' },
+        { what: 'Locations whose disposition becomes the round’s answer', n: `${P.planned}` },
+        { what: 'Dry locations recorded as attempted rather than missed', n: `${P.dry} — waived with the reason on it, never deleted` },
+        { what: 'Obligation countdowns that stop', n: '1 — the quarterly groundwater round' },
+        { what: 'Records that would still be on the device afterwards', n: `${P.pendingRecords} — and this is what holds it` },
+      ],
+      action: 'Mark the round complete',
+      cancel: 'Not yet',
+      reversible:
+        'Reversible while the round is open: completion is a state on the round, recorded with who set it and when, and it can be reopened with a reason. What cannot be undone is the sync — a captured record, once written, is superseded rather than replaced.',
+    })
+  );
+};
+
+const fieldCapture = () => {
+  const P = FIELD_ROUND.preflight;
+  const open = FIELD_ROUND.sessions.find((s) => s.location === 'MW05');
+  const pendingSessions = FIELD_ROUND.sessions.filter((s) => !s.synced || s.photographsPending);
+  const summaryRows = FIELD_ROUND.current.map((s) => {
+    const p = s.purge;
+    const visits = FIELD_ROUND.sessions.filter((x) => x.location === s.location);
+    return [
+      `${loc(s.location)}<small>${esc(LOCATIONS.find((l) => l.code === s.location).position)}</small>`,
+      `<span class="sf-instant">${esc(FIELD_ROUND.days.find((day) => day.n === s.day).date)}</span>` +
+        (visits.length > 1
+          ? `<small>${visits.length} visits — ${esc(visits.map((v) => FIELD_ROUND.disposition(v.disposition).label.toLowerCase()).join(', then '))}</small>`
+          : ''),
+      dispo(s.disposition),
+      s.depthToWater === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${s.depthToWater.toFixed(2)}</span>`,
+      p ? `<span class="mk-num">${esc(p.volumeText)}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+      p ? C.status(p.outcome, p.stabilised ? 'good' : 'warn') : '<span class="mk-muted">no purge</span>',
+      s.samples.length ? `<span class="mk-num">${s.samples.length}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+      s.synced ? C.status('on the record', 'good') : C.status('on the device', 'warn'),
+      C.btn(`Open ${s.location}`, s.location === open.location ? 'primary' : ''),
+    ];
+  });
+
+  return (
+    head(`Field capture — ${FIELD_ROUND.round}`, 'One bore at a time, in the order the work happens — with the round grid as the summary over them.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.btn(`Sync ${P.pendingRecords} pending`, 'primary') + C.btn('Round preflight'),
+    }) +
+    notice(
+      'warning',
+      'Proposed — and redesigned rather than deepened. Nothing in FR-1 to FR-8 covers field data capture.',
+      'U1 is named the highest-frequency user, and every requirement in the PRD is about what happens after a laboratory has already reported. The water level, the purge volume, the field pH and the observation that a bore was dry are still collected by hand and typed in later, or lost. What changed is the <em>axis</em>: the first drawing entered a round column by column across bores, and a senior hydrogeologist read it and said that is not how the work runs — <em>“I don’t measure the SWL at seven bores, then return conceptually to MW05 to enter its pH.”</em> The grid below is now the summary, and the session under it is the screen.',
+    ) +
+    stats([
+      stat(`${P.dispositioned} of ${P.planned}`, 'locations dispositioned'),
+      stat(String(P.sampled), 'sampled', 'good'),
+      stat(String(P.dry), 'dry — not missing', 'warn'),
+      stat(`${P.stabilised} of ${P.purges}`, 'purges stabilised', 'warn'),
+      stat(String(P.pendingRecords), 'records still on the device', 'warn'),
+    ]) +
+    '<h2 class="mk-h2">The round, at a glance</h2>' +
+    `<p class="mk-tight">${P.planned} planned locations, ${P.visits} visits across ${FIELD_ROUND.days.length} days, collected by ${esc(FIELD_ROUND.crew)}. This is what a grid is genuinely good for — seeing where a round is up to — and it is no longer where the round is typed.</p>` +
+    table({
+      caption: 'One row per planned location, showing the visit that decides its answer. Selecting a bore opens its session.',
+      head: ['Location', 'Visited', 'Disposition', 'Depth to water<small>m btoc</small>', 'Purged', 'Series outcome', 'Samples', 'Record', 'Session'],
+      scroll: true,
+      label: 'Round summary by location',
+      rows: summaryRows,
+    }) +
+    (() => {
+      /*
+       * The containers add up, and the two that do not belong to a bore are
+       * the finding rather than a rounding error: a trip blank belongs to the
+       * cooler and travelled with the samples for three days, so no session
+       * can own it. Counted here rather than asserted, so a sample added to
+       * the manifest and not to a session shows up as a number that stops
+       * agreeing.
+       */
+      const owned = new Set(FIELD_ROUND.sessions.flatMap((s) => s.samples));
+      const inSessions = EVENT_SAMPLES.filter((x) => owned.has(x.id)).reduce((n, x) => n + x.containers, 0);
+      const orphans = EVENT_SAMPLES.filter((x) => !owned.has(x.id));
+      const all = EVENT_SAMPLES.reduce((n, x) => n + x.containers, 0);
+      return (
+        `<p class="mk-tight">The sessions account for <strong>${inSessions} of the ${all} containers</strong> on the ` +
+        `<a class="mk-ref" href="#ecoc">chain of custody</a>. The ${orphans.reduce((n, x) => n + x.containers, 0)} that belong to no session are ` +
+        `${orphans.map((x) => `${esc(x.qc.toLowerCase())} <span class="mk-file mk-file--id">${esc(x.id)}</span>`).join(' and ')} — a trip blank belongs to the ` +
+        `cooler and travelled with the samples for three days, so no bore visit can own it. That is the arithmetic working, not failing: a sample on the ` +
+        `<a class="mk-ref" href="#events">manifest</a> that no session claims is either a control with no bore or a visit somebody forgot to record, and the ` +
+        `two are told apart by which it is.</p>`
+      );
+    })() +
+    cols(
+      panel(
+        'The seven dispositions, and why “dry” is one of them',
+        table({
+          caption: 'A closed list. Every state but the first requires a reason, and the last one is the residual.',
+          head: ['State', 'Reason', 'This round', 'What it means'],
+          scroll: true,
+          label: 'Disposition states',
+          rows: FIELD_ROUND.dispositions.map((d) => {
+            const visits = FIELD_ROUND.sessions.filter((s) => s.disposition === d.code).length;
+            const current = FIELD_ROUND.current.filter((s) => s.disposition === d.code).length;
+            return [
+              dispo(d.code),
+              d.reason ? C.status('required', 'warn') : '<span class="mk-muted">not required</span>',
+              visits
+                ? `<span class="mk-num">${current}</span> <span class="mk-muted">now${visits !== current ? ` · ${visits} across visits` : ''}</span>`
+                : '<span class="mk-num mk-num--nil">0</span>',
+              `<span class="mk-muted">${esc(d.means)}</span>`,
+            ];
+          }),
+        }) +
+          '<p class="mk-tight"><strong>A dry bore is not a missing reading.</strong> The hydrograph draws a break rather than a line through it, the sampling programme reads the round as attempted rather than uncollected, and the report says so. Left as an absence all three go wrong quietly, and the register cannot tell a bore nobody visited from a bore with no water in it.</p>' +
+          `<p class="mk-tight mk-muted">The vocabulary is exercised rather than declared: this round used ${FIELD_ROUND.tally.length} of the seven. ${esc(Q2_OVERDUE.location)} was <strong>inaccessible</strong> on ${esc(FIELD_ROUND.days[1].date)} — the creek crossing was running — and <strong>dry</strong> when the crew got back to it on ${esc(FIELD_ROUND.days[2].date)}. Two visits in one round are two records, not one overwriting the other.</p>`,
+      ),
+      panel(
+        'Captured is not synced, and the board can tell',
+        `<p class="mk-tight">${P.pendingRecords} records sit on <strong>${esc(FIELD_ROUND.device)}</strong> and not on the record, holding <strong>${P.pendingFields} mandatory fields</strong> between them.</p>` +
+          `<p class="mk-tight">That is why the <a class="mk-ref" href="#obligations">obligation board</a> and the <a class="mk-ref" href="#programme">programme</a> still read this round <strong>${esc(Q2_OVERDUE.phrase)}</strong> at ${esc(Q2_OVERDUE.location)} — ${esc(Q2_OVERDUE.due)} to ${esc(AS_AT)}, counted rather than typed. A countdown reads the record, and the record does not know what the crew knows.</p>` +
+          C.card({
+            tone: 'warn',
+            head: `<span class="mk-queue__kind">${esc(FIELD_ROUND.device)}</span><span class="mk-queue__age">${P.pendingRecords} pending</span>`,
+            body: pendingSessions
+              .map(
+                (s) =>
+                  `<p class="mk-tight"><strong>${esc(s.location)}</strong>${s.visit ? ` · visit ${s.visit}` : ''} — ${
+                    s.synced
+                      ? `${s.photographs} photographs`
+                      : `${esc(FIELD_ROUND.disposition(s.disposition).label.toLowerCase())}, captured <span class="sf-instant">${esc(s.captured)}</span>`
+                  }</p>`,
+              )
+              .join(''),
+            foot: '<span class="mk-tag mk-tag--warn">The capture timestamp is kept, not the sync timestamp</span>',
+          }) +
+          '<p class="mk-tight mk-muted">Offline by design: the site has no signal. Records are captured locally, queued, and written when the vehicle reaches the gate — and the record keeps the time the crew stood at the bore, because a round that reads as though every bore was visited at 18:41 from the highway is a round nobody can defend.</p>',
+      ),
+    ) +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The bore session — ${esc(open.location)}</h2>` +
+    `<p class="mk-tight">This is the screen. It walks top to bottom in the order the work happens: arrive · look at the headworks · dip · set the pump · purge and watch the parameters · take the sample · label it · filter and preserve it · sign it onto the chain · photograph the bore · say what happened · disposition it. The grid above is a summary over ${FIELD_ROUND.sessions.length} of these.</p>` +
+    C.segmented({
+      label: 'Bore session',
+      value: open.location,
+      options: FIELD_ROUND.current.map((s) => ({ label: s.location, value: s.location })),
+    }) +
+    boreSession(open) +
+    stabilisationRule() +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Before the round can be marked complete</h2>' +
+    `<p class="mk-tight">The preflight the review asked for. It is not a checklist somebody ticks: every count is derived from the ${FIELD_ROUND.sessions.length} sessions above, so a round with a bore outstanding cannot read as ready however carefully the list was filled in.</p>` +
+    roundPreflight() +
+    cols(
+      panel(
+        'One-handed, at a bore, on a phone',
+        '<p class="mk-tight">375 px is the primary layout for this screen and the desktop is the secondary one, which is the opposite of every other screen in this catalogue. A field officer is standing at a headworks in the sun with a tablet in one hand and a dipper in the other.</p>' +
+          '<p class="mk-tight">So the session <strong>stacks</strong> rather than pans: every step is full width, every control clears 44 px under a coarse pointer, and the sequence runs vertically because a thumb scrolls down. The stabilisation series is the one thing that pans, with its time column frozen — nine columns cannot stack without losing the comparison between consecutive readings, which is the only thing the series is for.</p>' +
+          `<p class="mk-tight mk-muted">The keyboard contract moved with the axis. ${C.kbd('Tab')} walks down the session, ${C.kbd('Enter')} adds a reading to the open series, and ${C.kbd('D')} is gone: a single key that marked a bore dry was right when dry was the only alternative to sampled, and it is wrong now there are six.</p>`,
+      ),
+      panel(
+        'What this screen does not own',
+        `<p class="mk-tight"><strong><a class="mk-ref" href="#purge">Purge and stabilisation</a></strong> is the same series read in full, with the tolerances, the field-against-laboratory conductivity check and the bore that never stabilised. A deeper view of these rows, not a second copy of them.</p>` +
+          `<p class="mk-tight"><strong><a class="mk-ref" href="#ecoc">Chain of custody</a></strong> owns the containers once they leave the bore — the transfers, the seals, and the disagreement about one seal number. The session creates the chain; it does not hold it.</p>` +
+          `<p class="mk-tight"><strong><a class="mk-ref" href="#events">Sampling events</a></strong> owns the round as a record: the manifest, the QC taxonomy and what the laboratory received. <strong><a class="mk-ref" href="#programme">The programme</a></strong> owns what was owed, and when.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#purge">The stabilisation record</a><a class="mk-btn" href="#ecoc">The chain this round created</a><a class="mk-btn" href="#events">The round as a record</a><a class="mk-btn" href="#location">${esc(open.location)}</a></div>`,
+      ),
+    )
+  );
+};
 
 /* ================================================================== *
  * J2 — Know the data is right
  * ================================================================== */
 
-const qcWorkspace = () =>
-  head('QA/QC — 2026-Q2-GW', 'Every check the round was held to, and what each one did to the data.', {
-    route: '/projects/:projectId/qaqc',
-    toolbar: btn('Re-run checks') + btn('Advance to validated', 'primary'),
-  }) +
-  stats([
-    stat(String(QAQC.length), 'checks run'),
-    stat(String(QAQC.filter((q) => q.outcome === 'pass').length), 'passed', 'good'),
-    stat(String(QAQC.filter((q) => q.outcome === 'warn').length), 'warnings', 'warn'),
-    stat(String(QAQC.filter((q) => q.outcome === 'fail').length), 'failed', 'bad'),
-  ]) +
-  table({
-    caption: 'A check that fails does something to the data, and the action column says what.',
-    head: ['Check', 'Scope', 'Outcome', 'Finding', 'Action taken'],
-    rows: QAQC.map((q) => [
-      esc(q.check),
-      `<span class="mk-muted">${esc(q.scope)}</span>`,
-      tag(q.outcome, toneFor(q.outcome)),
-      esc(q.detail),
-      q.action === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-muted">${esc(q.action)}</span>`,
-    ]),
-  }) +
-  notice(
-    'default',
-    'Every check names the batch it ran in and the limit it was measured against.',
-    'A control sample applies to a laboratory batch, not to a sample — so “which results does this failed spike qualify” is answerable rather than a judgement call. And the acceptance limits are a versioned set with a stated source, because “why 30%?” is the same question a regulator asks about a criterion.',
-  ) +
-  notice('warning', 'A reporting limit above the criterion is not a pass.',
-    'Cadmium was reported at &lt;1.0 µg/L against an ANZG 2018 guideline value of 0.54 µg/L. Nothing was measured either way, so the outcome is <strong>indeterminate</strong> and it is drawn as its own mark. Recording that as compliance is the single most consequential error this product exists to prevent.') +
-  historyOutlierPanel();
+/* ================================================================== *
+ * The QA/QC workspace, rebuilt around "what is still mine to decide?"
+ * (wave 6, PR-2)
+ *
+ * The review called the analytical logic one of the strongest parts of the
+ * mockup and then said exactly what was wrong with the surface over it: eyes
+ * go from *"10 passed · 6 warnings · 3 failed"* to *"Advance to validated"*
+ * and stop. Pass, warn and fail are the **outcome** of a check. They are not
+ * the question a hydrogeologist arrives with, which is what is still theirs to
+ * decide — and NEPM's own principle is that QA/QC must let a practitioner
+ * evaluate precision and accuracy rather than stamp a dataset pass/fail.
+ *
+ * So the decision counts are the headline, the workflow **Unresolved →
+ * Reviewed → Dispositioned → Ready for validation** is the organising axis,
+ * and pass/warn/fail survives as each check's QC outcome: one attribute among
+ * several, and still the one that says what the check did to the data.
+ * ================================================================== */
+
+/** Where a qualifier came from, in the glossary's own four words (PR-2b). */
+const BASIS_LABEL = {
+  laboratory: 'Laboratory qualifier — applies batch-wide',
+  dqo: 'Project data quality objective rule',
+  disposition: 'A hydrogeologist’s disposition',
+  sample: 'Sample-specific only',
+};
+const BASIS_GLYPH = { laboratory: '◈', dqo: '§', disposition: '✍', sample: '·' };
+
+const basisChip = (kind) =>
+  `<span class="mk-dispo mk-dispo--${kind === 'disposition' ? 'warn' : 'neutral'}">` +
+  `<span class="mk-dispo__glyph" aria-hidden="true">${esc(BASIS_GLYPH[kind])}</span>${esc(BASIS_LABEL[kind])}</span>`;
+
+/** One finding that still needs a hydrogeologist, with what each way out writes. */
+const decisionCard = (q) => {
+  const d = q.decision;
+  return (
+    '<article class="mk-decide">' +
+    '<header class="mk-decide__head">' +
+    '<span class="mk-decide__flag">Need decision</span>' +
+    `<h3 class="mk-decide__title">${esc(q.check)} — ${esc(q.scope)}</h3>` +
+    `${tag(q.outcome, toneFor(q.outcome))}<span class="mk-muted">QC outcome</span>` +
+    '</header>' +
+    `<p class="mk-decide__q"><strong>${esc(d.question)}</strong></p>` +
+    `<p class="mk-decide__why">${esc(q.detail)}</p>` +
+    `<p class="mk-decide__why">${esc(d.matters)}</p>` +
+    table({
+      caption: 'Every way out, what it writes, and whether it is available on this evidence.',
+      head: ['Option', 'Propagation basis', 'What it writes', 'Available', ''],
+      scroll: true,
+      label: `Ways to decide ${q.check} — ${q.scope}`,
+      rows: d.options.map((o) => [
+        `<strong>${esc(o.label)}</strong>`,
+        basisChip(o.basis),
+        `<span class="mk-muted">${esc(o.writes)}</span>`,
+        o.available
+          ? `${C.status('available', 'good')}<small>${esc(o.why)}</small>`
+          : `${C.status('not on this evidence', 'bad')}<small>${esc(o.why)}</small>`,
+        o.available ? C.btn('Take this') : C.btn('Take this', '', { disabled: true, title: o.why }),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>Refused:</strong> ${esc(d.refused)}</p>` +
+    `<p class="mk-tight mk-muted">Whichever is taken is written with <strong>your name, the time and your reason</strong> on it, and the finding moves to <em>Dispositioned</em>. A manual qualifier carries who applied it and why; a laboratory one carries neither, because the laboratory said it and the import records who loaded the file.</p>` +
+    '</article>'
+  );
+};
+
+const qcWorkspace = () => {
+  const D = QC_DECISIONS;
+  const R = D.rerunUnderCurrent;
+  const spike = QAQC.find((q) => q.id === 'MS-1');
+  const settled = QAQC.filter((q) => q.qualifier && !q.proposed);
+
+  return (
+    head(`QA/QC — ${esc(ROUND.code)}`, 'What the round was held to, what followed automatically, and what is still yours to decide.', {
+      route: '/projects/:projectId/qaqc',
+      toolbar:
+        C.btn(`Re-run using DQO ${DQO.used.version}`) +
+        C.btn(`Re-run using DQO ${DQO.current.version} — current`) +
+        C.btn('Advance to validated', 'primary', {
+          disabled: true,
+          title: `${D.needDecision} findings need a decision first`,
+        }),
+    }) +
+    /*
+     * PR-2a. These five tiles are the redesign. The pass/warn/fail triad is
+     * still on the page — it is the second row, where an outcome belongs —
+     * and what a practitioner's eye lands on first is the number of findings
+     * that are theirs.
+     */
+    stats([
+      stat(String(D.checks), 'checks run'),
+      stat(String(D.clear), 'passed — nothing owed', 'good'),
+      stat(String(D.automatic), 'automatically dispositioned'),
+      stat(String(D.reviewed + D.dispositionedByPerson), 'reviewed or dispositioned by a person'),
+      stat(String(D.needDecision), 'NEED DECISION', 'bad'),
+    ]) +
+    notice(
+      'warning',
+      `${D.needDecision} findings stand between this round and validation, and each one needs a hydrogeologist rather than a rule.`,
+      `${D.needDecisionRows.map((q) => `<strong>${esc(q.check)} — ${esc(q.scope)}</strong>`).join(' · ')}. Between them they hold <strong>${D.resultsAwaiting} results</strong> whose qualifiers have been proposed and not applied. <em>Advance to validated</em> is refused until they are settled, and it says so rather than being greyed out with no reason: a control that will not explain itself is a control people learn to work around.`,
+    ) +
+    '<h2 class="mk-h2">The workflow, and where the round sits on it</h2>' +
+    '<div class="mk-board">' +
+    D.workflow
+      .map(
+        (w, i) =>
+          `<div class="mk-board__col${w.state === 'unresolved' ? ' mk-board__col--current' : ''}">` +
+          `<span class="mk-board__state">${i + 1}. ${esc(w.label)}</span>` +
+          `<span class="mk-board__count">${w.n}</span>` +
+          `<span class="mk-board__note">${esc(w.means)}</span></div>`,
+      )
+      .join('') +
+    '</div>' +
+    `<p class="mk-tight">The round moves right only when the first column empties. <strong>This is a different axis from the validation state</strong> — <code class="mk-file">imported → screened → validated → approved → published</code> runs over <em>results</em>, and this one runs over <em>findings</em>. Conflating them is how a round advances with three open questions on it: the results were all screened, so the button looked ready.</p>` +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The ${D.needDecision} findings that are yours</h2>` +
+    D.needDecisionRows.map(decisionCard).join('') +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Every check, and which of the three things it is</h2>` +
+    notice(
+      'default',
+      'Three concepts were mixed under one word: the QC outcome, the automatic consequence, and the professional disposition.',
+      'A holding time exceeded quarantines a result and a reporting limit above a criterion records an indeterminate outcome — both deterministic, both named by the rule that did it. Equipment-blank contamination and a step in a bore’s own conductivity are not: they need somebody accountable. The column that used to say <em>pass / warn / fail</em> now says all three things, and the outcome is the one that says what the check did to the data.',
+    ) +
+    table({
+      caption: 'Nineteen checks. The outcome is what the check found; the concept is what happened next, and who it was that made it happen.',
+      head: ['Check', 'Scope', 'QC outcome', 'Concept', 'State', 'What it did to the data', 'Results reached'],
+      kind: 'matrix',
+      label: 'QA/QC checks, by concept and workflow state',
+      rows: QAQC.map((q) => [
+        `<strong>${esc(q.check)}</strong>`,
+        `<span class="mk-muted">${esc(q.scope)}</span>`,
+        tag(q.outcome, toneFor(q.outcome)),
+        q.concept === 'outcome'
+          ? '<span class="mk-muted">nothing followed</span>'
+          : q.concept === 'automatic'
+            ? `${C.status('automatic', 'good')}<small>${esc(q.rule.name)} · ${esc(q.rule.version)}</small>`
+            : `${C.status('professional disposition', 'warn')}<small>${esc(q.state === 'unresolved' ? 'not yet made' : q.state === 'reviewed' ? `reviewed by ${q.review.by}` : `by ${q.disposition.by}, ${q.disposition.at}`)}</small>`,
+        q.state === 'unresolved'
+          ? '<span class="mk-tag mk-tag--bad">Unresolved</span>'
+          : q.state === 'reviewed'
+            ? '<span class="mk-tag mk-tag--warn">Reviewed</span>'
+            : q.state === 'dispositioned'
+              ? '<span class="mk-tag mk-tag--good">Dispositioned</span>'
+              : '<span class="mk-tag mk-tag--neutral">Ready for validation</span>',
+        `<span class="mk-muted">${esc(q.action)}</span><br><span class="mk-muted">${esc(q.detail)}</span>`,
+        q.results
+          ? `<span class="mk-num${q.proposed ? ' mk-num--warn' : ''}">${q.results}</span>${q.proposed ? '<small>proposed, not applied</small>' : ''}`
+          : '<span class="mk-num mk-num--nil">0</span>',
+      ]),
+    }) +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Where every qualifier came from</h2>` +
+    notice(
+      'warning',
+      'A propagated qualifier states its basis, on every result it reached.',
+      '“Why did this qualifier propagate to these results?” is exactly the type of thing an auditor may ask five years later, and the answer is one of four: the laboratory said it in the deliverable · a project data quality objective rule applies · a named person dispositioned it · it is specific to the sample it was raised on. A qualifier with no basis on it cannot be told from an inference, and only one of those survives a challenge.',
+    ) +
+    table({
+      caption: 'Every qualifier that reached a result on this round, with the basis it travelled on.',
+      head: ['Qualifier', 'Means', 'Raised by', 'Propagation basis', 'Results', 'Reaches'],
+      scroll: true,
+      label: 'Qualifier propagation basis',
+      rows: [
+        ...settled.map((q) => [
+          `<span class="mk-tag mk-tag--warn">${esc(q.qualifier)}</span>`,
+          `<span class="mk-muted">${esc(q.action)}</span>`,
+          `${esc(q.check)}<small>${esc(q.scope)}</small>`,
+          basisChip(q.basis.kind),
+          `<span class="mk-num">${q.results}</span>`,
+          `<span class="mk-muted">${esc(q.reaches ?? q.basis.says)}</span>`,
+        ]),
+        ...QAQC.filter((q) => q.proposed).map((q) => [
+          `<span class="mk-tag mk-tag--bad">${esc(q.qualifier)}</span><small>proposed</small>`,
+          `<span class="mk-muted">${esc(q.action)}</span>`,
+          `${esc(q.check)}<small>${esc(q.scope)}</small>`,
+          `<span class="mk-tag mk-tag--bad">not chosen</span>`,
+          `<span class="mk-num mk-num--warn">${q.results}</span><small>if applied</small>`,
+          `<span class="mk-muted">Nothing has been written. The basis is the decision, and the decision has not been made.</span>`,
+        ]),
+      ],
+    }) +
+    cols(
+      panel(
+        `The one the review named — ${esc(spike.scope)}`,
+        `<p class="mk-tight">The drawn version of this said <em>“Qualifier L — biased low — on all 9 zinc results in the batch”</em> and stopped. Read at speed that is a rule firing. It is not: <strong>${esc(METALS_BATCH.id)}</strong> reports the recovery on its QC page and qualifies no sample result, and DQO ${esc(DQO.used.version)}’s matrix spike rule states the 70–130% limit and no consequence. So the propagation had no basis, and the honest basis is the third one — somebody has to decide it and own it.</p>` +
+          facts([
+            ['Spiked sample', `<span class="mk-file mk-file--id">${esc(METALS_BATCH.spiked)}</span> · ${loc(METALS_BATCH.spikedFrom)}`],
+            ['Batch', `<a class="mk-ref" href="#batches">${esc(METALS_BATCH.id)}</a> · ${METALS_BATCH.samples} samples`],
+            ['Recovery', '<span class="mk-num mk-num--bad">62%</span> against 70–130%, reproduced at 64%'],
+            ['Results at stake', `<span class="mk-num mk-num--warn">${spike.results}</span> — every zinc result in the batch, if the batch-wide option is taken`],
+            ['Written so far', '<span class="mk-num mk-num--nil">0</span> — the qualifier is proposed, not applied'],
+          ]) +
+          '<p class="mk-tight">Which direction the bias runs is the finding, and the decision does not change it: a recovery below 100% biases low, so a qualified exceedance is <em>understated</em> rather than doubtful. What the decision changes is how many results carry the caveat, and who said they should.</p>',
+      ),
+      panel(
+        `Re-running, and what it would be re-run against (${esc(DQO.used.version)} · ${esc(DQO.current.version)})`,
+        `<p class="mk-tight"><strong>${esc(DQO.used.version)} was used for this round · ${esc(DQO.current.version)} is current.</strong> The findings above were raised on <span class="sf-instant">${esc(DQO.raisedAt)}</span> under ${esc(DQO.used.version)}, which was in force ${esc(DQO.used.effective)}. ${esc(DQO.current.version)} took effect ${esc(DQO.current.effective)} — ${esc(DQO.current.why)}</p>` +
+          table({
+            caption: 'What the current version would change on this round, computed rather than promised.',
+            head: ['', 'Under ' + esc(DQO.used.version), 'Under ' + esc(DQO.current.version)],
+            rows: [
+              ['Checks whose outcome moves', '<span class="mk-muted">—</span>', `<span class="mk-num${R.outcomesMoved ? ' mk-num--warn' : ' mk-num--nil'}">${R.outcomesMoved}</span>`],
+              ['Checks that stop needing a decision', `<span class="mk-num">${D.needDecision}</span> <span class="mk-muted">open</span>`, `<span class="mk-num mk-num--good">${R.conceptsMoved}</span> <span class="mk-muted">becomes automatic</span>`],
+              ['Results newly qualified by rule', '<span class="mk-num mk-num--nil">0</span>', `<span class="mk-num mk-num--warn">${R.resultsNewlyQualified}</span>`],
+              ['Findings already raised that are re-judged', '<span class="mk-muted">—</span>', '<span class="mk-num mk-num--nil">0</span>'],
+            ],
+          }) +
+          R.rows
+            .filter((q) => q.rerun.conceptMoves)
+            .map((q) => `<p class="mk-tight"><strong>${esc(q.check)} — ${esc(q.scope)}:</strong> ${esc(q.rerun.says)}</p>`)
+            .join('') +
+          `<p class="mk-tight mk-muted">A re-run does not re-judge a finding already raised: it produces a second assessment under a second version and both stay readable, because every finding carries the rule version it was raised under. That is the same property a criteria set has, and it is why the button says which version rather than just “Re-run checks”. <a class="mk-ref" href="#qc-limits">The objectives, both versions</a>.</p>`,
+      ),
+    ) +
+    notice('warning', 'A reporting limit above the criterion is not a pass.',
+      'Cadmium was reported at &lt;1.0 µg/L against an ANZG 2018 guideline value of 0.54 µg/L. Nothing was measured either way, so the outcome is <strong>indeterminate</strong> and it is drawn as its own mark. Recording that as compliance is the single most consequential error this product exists to prevent — and it is one of the four consequences above that follow automatically, because the comparison is arithmetic on two numbers and there is nothing in it for anybody to decide.') +
+    historyOutlierPanel()
+  );
+};
 
 /**
  * A finding raised against the location's own record (FR-4.5).
@@ -1968,7 +2658,7 @@ const programme = () =>
         ['Responsible', 'A. Nakamura — Hydrogeologist'],
         ['Next round opens', '2026-07-01 00:00 AWST'],
       ]) +
-      '<p class="mk-tight mk-muted">MW11 is nine days overdue and has been alerted on and escalated. The round is not marked complete while a location is outstanding — a programme that reads as satisfied with a bore missing is worse than one that reads as nothing at all.</p>'),
+      `<p class="mk-tight mk-muted">${esc(Q2_OVERDUE.location)} is ${esc(Q2_OVERDUE.phrase)} — ${esc(Q2_OVERDUE.due)} to ${esc(AS_AT)}, counted rather than typed — and has been alerted on and escalated. The <a class="mk-ref" href="#field-capture">field record</a> says the bore was found dry on ${esc(FIELD_ROUND.days[2].date)} and that the disposition has not left the tablet, which is why this countdown is still running. The round is not marked complete while a location is outstanding — a programme that reads as satisfied with a bore missing is worse than one that reads as nothing at all.</p>`),
     '3fr 2fr',
   ) +
   notice(
@@ -2205,8 +2895,19 @@ const lineage = () =>
         <span class="mk-chain__what">${esc(c.what)}</span>
         <span class="mk-chain__detail">${esc(c.detail)}</span>
       </div></li>`).join('')}</ol>` +
-  notice('default', 'Nine steps, one query.',
-    'From the laboratory’s own file to the statutory notification it eventually caused. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).');
+  notice('default', `${LINEAGE.chain.length} steps, one query.`,
+    'From the laboratory’s own file to the statutory notification it eventually caused. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).') +
+  /*
+   * PR-3b, representation only. The chain above is unchanged in shape — the
+   * provenance redesign the review asked for (PR-3a, PR-3c) is wave 7's — and
+   * what changed is that component 2 no longer reports an unqualified detect
+   * below the limit of reporting.
+   */
+  notice(
+    'warning',
+    `The component that made this fix necessary: PFHxS at ${esc(PFAS_LIMITS.mdl.toFixed(1))} &lt; 1.7 &lt; ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)}.`,
+    `Step 5 read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)} (${esc(PFAS_LIMITS.scheme)}), origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
+  );
 
 const auditTrail = () =>
   head('Audit trail', 'Every mutation, who made it, and what it changed.', {
@@ -2365,17 +3066,43 @@ const nonDetectBinding = () => {
       panel(
         'What the components actually are',
         table({
-          caption: 'The two results behind each derived total, as the laboratory reported them.',
+          caption: `The two results behind each derived total, as the laboratory reported them. MDL ${esc(PFAS_LIMITS.mdl.toFixed(1))} · LOR ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)} on both components — three limits, kept apart.`,
           head: ['Location', 'PFOS', 'PFHxS'],
           scroll: true,
           label: 'PFAS components by location',
           rows: PFAS_COMPONENTS.map((p) => [
             loc(p.location),
             p.pfos === null ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(N.lor.toFixed(1))}</span></span>` : `<span class="mk-num">${esc(String(p.pfos))}</span>`,
-            p.pfhxs === null ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(N.lor.toFixed(1))}</span></span>` : `<span class="mk-num">${esc(String(p.pfhxs))}</span>`,
+            p.pfhxs === null
+              ? `<span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(N.lor.toFixed(1))}</span></span>`
+              : /*
+                 * PR-3b. This cell read a bare 1.7 against a 2.0 limit of
+                 * reporting — an unqualified detect below the LOR, which no
+                 * laboratory reports. The qualifier is what carries the
+                 * assertion, and it is drawn beside the number rather than
+                 * left to a footnote.
+                 */
+                `<span class="mk-num">${esc(String(p.pfhxs))}</span>` +
+                (p.pfhxsQualifier
+                  ? ` <span class="mk-tag mk-tag--warn">${esc(p.pfhxsQualifier)}</span> <small>${esc(PFAS_LIMITS.qualifierMeans)} — above the MDL ${esc(PFAS_LIMITS.mdl.toFixed(1))}, below the LOR ${esc(PFAS_LIMITS.lor.toFixed(1))}</small>`
+                  : ''),
           ]),
         }) +
-          `<p class="mk-tight mk-muted">${esc(N.says)}</p>`,
+          `<p class="mk-tight mk-muted">${esc(N.says)}</p>` +
+          `<p class="mk-tight"><strong>${esc(N.estimated.component)} at ${esc(N.estimated.location)} is ${esc(String(N.estimated.value))} ${esc(PFAS_LIMITS.unit)} ${esc(N.estimated.qualifier)} — ${esc(N.estimated.means)}.</strong> ${esc(N.estimated.rule)} ${esc(N.estimated.carries)}</p>` +
+          table({
+            caption: 'The same total under the three readings of that one component. The outcome is the column that does not move.',
+            head: ['How the component is read', 'Total', 'Against the criterion', 'What it means'],
+            scroll: true,
+            label: 'The derived total under three readings of the estimated component',
+            rows: N.estimated.readings.map((r) => [
+              esc(r.as),
+              `<span class="mk-num${r.outcome === 'exceedance' ? ' mk-num--bad' : ''}">${esc(r.total)}</span>`,
+              `<span class="mk-num mk-num--bad">${esc(r.factor)}</span>`,
+              `<span class="mk-muted">${esc(r.note)}</span>`,
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">${esc(N.estimated.decides)}</p>`,
       ),
       '2fr 3fr',
     ) +
@@ -2834,83 +3561,164 @@ const indeterminateRegister = () => (
   )
 );
 
-/** Purging and stabilisation — why the sample is defensible before the number is. */
+/**
+ * Purge and stabilisation — the deep view of the series the session shows.
+ *
+ * **Refolded 1 September 2026 (wave 6, PR-1c).** The review said the
+ * stabilisation series is "important enough that I wouldn't hide it one level
+ * below the principal field workflow", so it now runs inline in the bore
+ * session on `#field-capture`. That does not make this screen redundant: it
+ * makes it the *deep* view — every reading against every tolerance, the
+ * field-against-laboratory conductivity check, the failing bore in full, and
+ * the record a reviewer challenges — and it stays the product path
+ * (`/projects/:projectId/purge`) while field capture stays a proposal.
+ *
+ * The two read **one source**. `PURGE` is derived from the MW05 session in
+ * `FIELD_ROUND`; the readings on this screen and the readings inside the
+ * session are the same array, and the volumes, the verdict and the
+ * stabilisation flags are computed from it rather than written twice.
+ */
 const purgeLog = () => {
   const P = PURGE;
-  const row = (r, i) => {
-    const cells = [
-      `<span class="mk-num">${esc(r.t)}</span>`,
-      `<span class="mk-num">${r.swl.toFixed(2)}</span>`,
-      `<span class="mk-num">${r.ph.toFixed(2)}</span>`,
-      `<span class="mk-num">${r.ec}</span>`,
-      `<span class="mk-num">${r.do.toFixed(2)}</span>`,
-      `<span class="mk-num">${r.orp}</span>`,
-      `<span class="mk-num${r.turb > 10 ? ' mk-num--warn' : ''}">${r.turb.toFixed(1)}</span>`,
-      `<span class="mk-num">${r.temp.toFixed(1)}</span>`,
-      r.stable ? C.status('in tolerance', 'good') : C.status('still moving', 'neutral'),
-    ];
-    return cells;
-  };
+  const T = P.tolerance;
+  const S = P.session;
+  const failing = PURGE.failing;
+  const fp = failing.session.purge;
+  const digits = { ph: 2, ec: 0, do: 2, redox: 0, turb: 1, temp: 1 };
+  const readingRow = (r) => [
+    `<span class="mk-num">${esc(r.t)}</span>`,
+    `<span class="mk-num">${r.swl.toFixed(2)}</span>`,
+    ...T.params.map((param) => {
+      const holding = r.window && r.holding.includes(param.key);
+      return (
+        `<span class="mk-num${r.window && !holding ? ' mk-num--warn' : ''}">${esc(r[param.key].toFixed(digits[param.key]))}</span>` +
+        (r.window
+          ? `<span class="sf-visually-hidden"> ${esc(param.label)} — ${holding ? 'holding within' : 'still moving outside'} ${esc(param.text)}</span>`
+          : '')
+      );
+    }),
+    !r.window
+      ? '<span class="mk-muted">not yet three readings</span>'
+      : r.stable
+        ? C.status(`all ${T.params.length} holding`, 'good')
+        : `${C.status(`${r.moving.length} still moving`, 'warn')}<small>${esc(r.moving.map((k) => T.params.find((x) => x.key === k).label.toLowerCase()).join(', '))}</small>`,
+  ];
+  const heads = [
+    'Time',
+    'Depth to water<small>m btoc</small>',
+    ...T.params.map((param) => `${esc(param.label)}<small>${esc(param.unit || '—')}</small>`),
+    'Three-reading window',
+  ];
+  const last = P.readings.at(-1);
+
   return (
-    head('Purge and stabilisation — MW05', 'What the bore was doing before the sample was taken.', {
+    head(`Purge and stabilisation — ${esc(P.location)}`, 'What the bore was doing before the sample was taken, reading by reading.', {
       route: '/projects/:projectId/purge',
-      toolbar: C.exportMenu() + C.btn('Open the field round'),
+      toolbar: C.exportMenu() + C.btn('Open the bore session'),
     }) +
     notice(
       'default',
       'A sample is defensible because the parameters had stabilised, not because a number was written in a box.',
-      'Three consecutive readings within tolerance is the test. Without the readings behind it, every certificate, lineage record and evaluation downstream rests on an assertion nobody can check — and it is the first thing a reviewer challenges when a result is inconvenient.',
+      'Three consecutive readings within tolerance is the test. Without the readings behind it, every certificate, lineage record and evaluation downstream rests on an assertion nobody can check — and it is the first thing a reviewer challenges when a result is inconvenient. This screen is the deep view of the series the <a class="mk-ref" href="#field-capture">bore session</a> carries inline: the same readings, read once and drawn twice, with the tolerances and the working shown here.',
     ) +
     facts([
+      ['Round', `<a class="mk-ref" href="#events">${esc(P.round)}</a>`],
+      ['Sample', `<span class="mk-file mk-file--id">${esc(P.sample)}</span>`],
       ['Method', esc(P.method)],
-      ['Pump and intake', esc(P.pump)],
-      ['Rate', esc(P.rate)],
-      ['Purging started', `<span class="sf-instant">${esc(P.startedAt)}</span>`],
-      ['Sample collected', `<span class="sf-instant">${esc(P.sampledAt)}</span>`],
-      ['Volume purged', esc(P.purgedVolume)],
+      ['Pump and intake', `${esc(P.pump)} · ${esc(P.intake)}`],
+      ['Flow rate', esc(P.rateText)],
+      ['Purging started', `<span class="sf-instant">${esc(P.startedAt)} AWST</span>`],
+      ['Sample collected', `<span class="sf-instant">${esc(P.sampledAt)} AWST</span> <span class="mk-muted">— ${esc(P.collected)}</span>`],
+      ['Volume purged', `<strong>${esc(P.volumeText)}</strong> <span class="mk-muted">— ${P.minutes} min × ${esc(P.rateText)}, computed</span>`],
       ['Drawdown', esc(P.drawdown)],
+      ['Measuring point', esc(S.measuringPoint)],
     ]) +
     '<h2 class="mk-h2" style="margin-top:1.2rem">The readings</h2>' +
     table({
-      caption: `Tolerances — pH ${P.tolerance.ph} · EC ${P.tolerance.ec} · DO ${P.tolerance.do} · ORP ${P.tolerance.orp} · turbidity ${P.tolerance.turbidity} · temperature ${P.tolerance.temp}.`,
-      head: ['Time', 'SWL m btoc', 'pH', 'EC µS/cm', 'DO mg/L', 'ORP mV', 'Turbidity NTU', 'Temp °C', 'State'],
-      rows: P.readings.map(row),
+      caption: `Tolerances — ${T.params.map((x) => `${x.label.toLowerCase()} ${x.text}`).join(' · ')}.`,
+      head: heads,
+      rows: P.readings.map(readingRow),
       kind: 'matrix',
       label: 'Purge and stabilisation readings',
     }) +
+    `<p class="mk-tight">A parameter is <strong>holding</strong> when the spread across the three readings in the window — largest minus smallest — sits inside its tolerance, taken against their mean where the tolerance is a percentage. Every flag in the last column is computed from the numbers to its left rather than recorded beside them, which is the difference between a stabilisation record and a note saying the bore stabilised. The looser reading of ± 3% — <em>each</em> reading within 3% of the mean — allows twice the movement and would have called this bore stable ${P.readings.findIndex((r) => r.stable) === -1 ? 'earlier' : 'one reading earlier'}.</p>` +
     C.receipt({
       headline: esc(P.verdict),
       facts: [
-        ['Stabilised at', '08:06 AWST'],
-        ['Readings in tolerance', '3 consecutive'],
-        ['Collected', '08:19 AWST'],
-        ['Field EC at collection', '3410 µS/cm'],
+        ['Stabilised at', `${esc(P.stabilisedAt)} AWST`],
+        ['Readings in tolerance', `${T.window} consecutive, on all ${T.params.length} parameters`],
+        ['Collected', `${esc(P.sampledAt)} AWST`],
+        ['Field conductivity at collection', `${last.ec} µS/cm`],
       ],
       next: { label: 'The results this sample produced', target: 'crosstab' },
     }) +
     cols(
       panel(
-        'The field EC and the laboratory EC should agree, and here they do',
+        'The field conductivity and the laboratory conductivity should agree, and here they do',
         table({
           head: ['Measured', 'Value', 'Difference'],
           rows: [
-            ['Field, at collection', '<span class="mk-num">3410 µS/cm</span>', '—'],
-            ['Laboratory, on receipt', '<span class="mk-num">3396 µS/cm</span>', '<span class="mk-num mk-num--good">0.4%</span>'],
+            ['Field, at collection', `<span class="mk-num">${last.ec} µS/cm</span>`, '—'],
+            ['Laboratory, on receipt', '<span class="mk-num">3396 µS/cm</span>', `<span class="mk-num mk-num--good">${(((last.ec - 3396) / last.ec) * 100).toFixed(1)}%</span>`],
           ],
         }) +
-          '<p class="mk-tight">A large disagreement between the two means the sample changed between the bore and the bench — degassing, a temperature artefact, or a mislabelled container — and it is worth catching before the whole suite is interpreted. It is a consistency check that costs nothing and nobody runs it.</p>',
+          '<p class="mk-tight">A large disagreement between the two means the sample changed between the bore and the bench — degassing, a temperature artefact, or a mislabelled container — and it is worth catching before the whole suite is interpreted. It is a consistency check that costs nothing and nobody runs it.</p>' +
+          '<p class="mk-tight mk-muted">The percentage is computed from the two numbers beside it. A difference typed next to two values it does not follow from is the commonest way a check like this survives being wrong.</p>',
       ),
       panel(
-        'The bore that did not stabilise, and what the record says',
-        C.card({
-          tone: 'warn',
-          head: `<span class="mk-queue__kind">${esc(PURGE.failing.location)}</span><span class="mk-queue__age">14 readings · 22 L</span>`,
-          body:
-            `<p class="mk-tight">${esc(PURGE.failing.what)}</p>` +
-            `<p class="mk-tight">${esc(PURGE.failing.consequence)}</p>`,
-          foot: '<span class="mk-tag mk-tag--warn">Qualifier T carried to every metal result</span>',
+        'Every bore on the round, and how its series ended',
+        table({
+          caption: 'Six purges, one round. The outcome column is the series’ own verdict, not a summary of it.',
+          head: ['Bore', 'Readings', 'Purged', 'Stabilised at', 'Outcome'],
+          scroll: true,
+          label: 'Stabilisation outcome by bore',
+          rows: FIELD_ROUND.sessions
+            .filter((s) => s.purge)
+            .map((s) => [
+              loc(s.location),
+              `<span class="mk-num">${s.purge.readings.length}</span>`,
+              `<span class="mk-num">${esc(s.purge.volumeText)}</span>`,
+              s.purge.stabilised
+                ? `<span class="mk-num">${esc(s.purge.stabilisedAt)}</span>`
+                : '<span class="mk-num mk-num--nil">never</span>',
+              C.status(s.purge.outcome, s.purge.stabilised ? 'good' : 'warn'),
+            ]),
         }) +
-          '<p class="mk-tight">The field officer sampled anyway, which is the right call at a remote bore on a day rate — and the record makes it a stated judgement rather than an invisible one. A product that only accepts stabilised samples would simply have no record of this bore at all.</p>',
+          `<p class="mk-tight">${FIELD_ROUND.preflight.stabilised} of ${FIELD_ROUND.preflight.purges} purges stabilised. The seventh planned location was never purged — <a class="mk-ref" href="#field-capture">${esc(Q2_OVERDUE.location)} was dry</a> — so it is in neither half of that fraction, which is the arithmetic the data quality assessment used to get wrong.</p>`,
+      ),
+    ) +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The bore that did not stabilise — ${esc(failing.location)}</h2>` +
+    notice(
+      'warning',
+      esc(failing.what),
+      `${esc(failing.consequence)} The series is below in full, because a judgement recorded as a sentence is a judgement nobody can check.`,
+    ) +
+    table({
+      caption: `${esc(failing.location)} · ${fp.readings.length} readings, ${esc(fp.volumeText)} purged at ${esc(fp.rateText)} · tolerances as above.`,
+      head: heads,
+      rows: fp.readings.map(readingRow),
+      kind: 'matrix',
+      label: `Stabilisation readings at ${failing.location}`,
+    }) +
+    cols(
+      panel(
+        'What “did not stabilise” actually means here',
+        `<p class="mk-tight">Five of the six parameters held: ${esc(fp.heldAtEnd.join(', ').toLowerCase())} were all inside tolerance at the last reading. <strong>${esc(fp.neverHeld.join(' and '))}</strong> never was — it stayed above 10 NTU for every one of the ${fp.readings.length} readings and moved by more than ± 10% across every window of three, which is a bore mobilising fines rather than a bore settling.</p>` +
+          '<p class="mk-tight">Stabilisation is reported <em>per parameter</em> as well as overall, because a purge recorded only as “not stabilised” tells a reviewer nothing about which measurement to distrust. Here it is exactly one, and it is the one that decides whether a filtered metal reads high.</p>' +
+          C.card({
+            tone: 'warn',
+            head: `<span class="mk-queue__kind">${esc(failing.location)}</span><span class="mk-queue__age">${fp.readings.length} readings · ${esc(fp.volumeText)}</span>`,
+            body:
+              `<p class="mk-tight">${esc(failing.session.observations)}</p>` +
+              `<p class="mk-tight">Total depth was dipped at this bore and nowhere else this round: ${esc(failing.session.totalDepthWhy)}.</p>`,
+            foot: '<span class="mk-tag mk-tag--warn">Qualifier T carried to every metal result from this sample</span>',
+          }),
+      ),
+      panel(
+        'A judgement, recorded as one',
+        '<p class="mk-tight">The field officer sampled anyway, which is the right call at a remote bore on a day rate — and the record makes it a stated judgement rather than an invisible one. A product that only accepted stabilised samples would simply have no record of this bore at all.</p>' +
+          `<p class="mk-tight">The series outcome is one of three words and this is the second: <strong>Stable</strong> · <strong>Sampled by judgement</strong> · <strong>Purged dry</strong>. It travels with the sample: <a class="mk-ref" href="#qc">QA/QC</a> reads it as the stabilisation check, and the qualifier it produced is applied by rule rather than by anybody deciding case by case.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#field-capture">The session this series came from</a><a class="mk-btn" href="#qc">What QA/QC did with it</a><a class="mk-btn" href="#dqa">The representativeness objective</a><a class="mk-btn" href="#receipt">What arrived at the laboratory</a></div>`,
       ),
     )
   );
@@ -3142,25 +3950,55 @@ const qcLimits = () => (
     'A guideline value gets a version, an effective date and a source. A QC limit is the same kind of object and was not treated as one.',
     'A regulator asking “why 30%?” is asking exactly the question they ask about a criterion. Hard-coding the answer means the product cannot say, and means a customer whose own data quality objectives are tighter has no way to apply them without a release.',
   ) +
+  /*
+   * PR-2c. The version pairing, carried consistently with `#qc`: the round
+   * was assessed under 2025.2 and 2026.1 is what is in force now, so this
+   * screen shows both and every rule that moved says what it moved to.
+   */
+  table({
+    caption: 'Two versions of one set. A limit is versioned with an effective span exactly as a criteria set is, and a finding carries the version it was raised under.',
+    head: ['Version', 'Effective', 'State', 'Approved', 'Why this version exists'],
+    scroll: true,
+    label: 'Data quality objective versions',
+    rows: [
+      [
+        `<strong>${esc(DQO.used.version)}</strong>`,
+        `<span class="sf-instant">${esc(DQO.used.effective)}</span>`,
+        `${C.status('superseded', 'neutral')}<small>used for ${esc(ROUND.code)}</small>`,
+        '<span class="mk-muted">—</span>',
+        `<span class="mk-muted">${esc(DQO.used.why)}</span>`,
+      ],
+      [
+        `<strong>${esc(DQO.current.version)}</strong>`,
+        `<span class="sf-instant">${esc(DQO.current.effective)}</span>`,
+        C.status('in force', 'good'),
+        `${esc(DQO.current.by)}<small>${esc(DQO.current.approved)}</small>`,
+        `<span class="mk-muted">${esc(DQO.current.why)}</span>`,
+      ],
+    ],
+  }) +
+  `<p class="mk-tight"><strong>${esc(DQO.used.version)} was used for ${esc(ROUND.code)} · ${esc(DQO.current.version)} is current.</strong> The round\u2019s findings were raised on <span class="sf-instant">${esc(DQO.raisedAt)}</span>, before ${esc(DQO.current.version)} took effect, and they keep the version they were judged under \u2014 the span reaches forward only. <a class="mk-ref" href="#qc">The QA/QC workspace</a> names the same pair on its re-run control, and computes what re-running would and would not move.</p>` +
   facts([
     ['Set', `<strong>${esc(QC_LIMITS.set)}</strong>`],
-    ['Version', esc(QC_LIMITS.version)],
-    ['Effective', esc(QC_LIMITS.effective)],
+    ['Shown below', `${esc(DQO.used.version)} \u2014 the version this round was assessed under`],
+    ['In force now', `${esc(DQO.current.version)}, from ${esc(DQO.current.effective)}`],
     ['Basis', esc(QC_LIMITS.basis)],
   ]) +
   table({
-    caption: 'Each limit with the population it applies to, and what happens where it does not apply.',
-    head: ['Check', 'Acceptance limit', 'Applies when', 'Otherwise', 'Source'],
+    caption: 'Each limit with the population it applies to, what happens where it does not apply, and what 2026.1 changed it to.',
+    head: ['Check', `Limit<small>${esc(DQO.used.version)}</small>`, 'Applies when', 'Otherwise', `Under ${esc(DQO.current.version)}`, 'Source'],
     rows: QC_LIMITS.rules.map((r) => [
-      `<strong>${esc(r.check)}</strong>`,
+      `<strong>${esc(r.check)}</strong>` + (r.silent ? `<small>states no consequence</small>` : ''),
       `<span class="mk-num">${esc(r.limit)}</span>`,
       esc(r.applies),
-      r.fallback && r.fallback !== '—' ? `<span class="mk-muted">${esc(r.fallback)}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+      r.fallback && r.fallback !== '\u2014' ? `<span class="mk-muted">${esc(r.fallback)}</span>` : '<span class="mk-num mk-num--nil">\u2014</span>',
+      r.next ? `<span class="mk-num mk-num--warn">${esc(r.next)}</span>` : '<span class="mk-muted">unchanged</span>',
       `<span class="mk-muted">${esc(r.source)}</span>`,
     ]),
     kind: 'matrix',
     label: 'Data quality objectives',
   }) +
+  `<p class="mk-tight">Two of the ten rules moved in ${esc(DQO.current.version)}, and the second is the interesting one. The matrix spike rule <strong>states a limit and no consequence</strong> \u2014 which is why a failed spike on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a> raises a finding that needs a hydrogeologist rather than a qualifier that applies itself. The blank rule had the same shape until ${esc(DQO.current.version)} gave it one, and that single addition is what moves one finding on the last round out of the decision queue. A rule that states a number and not what follows from it is a rule that hands every instance of itself to a person.</p>` +
   cols(
     panel(
       'The applicability rule is the part that was wrong',
@@ -3176,17 +4014,28 @@ const qcLimits = () => (
     panel(
       'Changing a limit reaches forward only',
       `<p class="mk-tight">${esc(QC_LIMITS.changed)}</p>` +
-        C.blastRadius({
-          lede: 'Tightening the field duplicate limit from 30% to 25% would:',
+        `<p class="mk-tight">And it happened again on ${esc(DQO.current.effective.replace(' \u2192', ''))}: ${DQO.changes.map((c) => `<strong>${esc(c.check)}</strong> went from ${esc(c.was)} to ${esc(c.now)}`).join(', and ')}.</p>` +
+        table({
+          caption: `What ${esc(DQO.current.version)} did to the round already assessed under ${esc(DQO.used.version)} \u2014 computed on <a class="mk-ref" href="#qc">the QA/QC workspace</a>, not promised here.`,
+          head: ['', 'Count'],
           rows: [
-            { what: 'Future pairs newly failing, on last year’s data', n: '4' },
+            ['QC outcomes rewritten on the last round', `<span class="mk-num mk-num--nil">${QC_DECISIONS.rerunUnderCurrent.outcomesMoved}</span>`],
+            ['Findings that stop needing a hydrogeologist', `<span class="mk-num mk-num--good">${QC_DECISIONS.rerunUnderCurrent.conceptsMoved}</span>`],
+            ['Results a rule would newly qualify', `<span class="mk-num mk-num--warn">${QC_DECISIONS.rerunUnderCurrent.resultsNewlyQualified}</span>`],
+            ['Reports already issued that change', '<span class="mk-num mk-num--nil">0</span>'],
+          ],
+        }) +
+        C.blastRadius({
+          lede: `Tightening the field duplicate limit again \u2014 from ${esc(DQO.changes[0].now)} to \u2264 20% \u2014 would:`,
+          rows: [
+            { what: 'Future pairs newly failing, on last year\u2019s data', n: '4' },
             { what: 'Historical QC outcomes rewritten', n: '0' },
             { what: 'Reports already issued that would change', n: '0' },
-            { what: 'New version created', n: '1 — 2026.1, effective on a date you choose' },
+            { what: 'New version created', n: '1 \u2014 2026.2, effective on a date you choose' },
           ],
-          action: 'Create version 2026.1',
+          action: 'Create version 2026.2',
           reversible:
-            'A limit is versioned with an effective date, exactly as a criteria set is. A result evaluated under 2025.2 keeps that verdict, and the version that produced it is on the result.',
+            `A limit is versioned with an effective date, exactly as a criteria set is. A result evaluated under ${esc(DQO.used.version)} keeps that verdict, and the version that produced it is on the result.`,
         }),
     ),
   )
@@ -3325,38 +4174,60 @@ const dataQuality = () => (
     toolbar: C.exportMenu() + C.btn('Generate report §3', 'primary'),
   }) +
   stats([
-    stat('3 of 6', 'objectives met', 'warn'),
-    stat('2', 'met with exception', 'warn'),
-    stat('3', 'not met', 'bad'),
+    /*
+     * Counted, and the count moved. This tile read "3 of 6 objectives met"
+     * over a set holding one `met`, two `met with exception` and three `not
+     * met` — it was counting the exceptions as met, which is the softening
+     * the panel below says the product does not do. One, two and three now
+     * partition the six.
+     */
+    stat(`${DQA.filter((d) => d.verdict === 'met').length} of ${DQA.length}`, 'objectives met', 'warn'),
+    stat(String(DQA.filter((d) => d.verdict === 'met with exception').length), 'met with exception', 'warn'),
+    stat(String(DQA.filter((d) => d.verdict.startsWith('not met')).length), 'not met', 'bad'),
     stat('87%', 'usable completeness', 'bad'),
+    stat(String(DQA.reduce((n, d) => n + d.settled.open, 0)), 'findings still undecided', 'bad'),
   ]) +
   notice(
     'warning',
-    'Three objectives were not met, and the report has to say which and what follows.',
-    'A QA/QC table lists checks. An assessment says whether the data is fit for the purpose it was collected for — which is a judgement made against objectives written down beforehand, not a verdict assembled afterwards from whatever passed.',
+    `${DQA.filter((d) => d.verdict.startsWith('not met')).length} objectives were not met, and ${DQA.reduce((n, d) => n + d.settled.open, 0)} findings across the six dimensions have not been dispositioned — including one under a dimension whose verdict reads met.`,
+    'A QA/QC table lists checks. An assessment says whether the data is fit for the purpose it was collected for — which is a judgement made against objectives written down beforehand, not a verdict assembled afterwards from whatever passed. And a verdict rests on findings, so each row below says <strong>how many of its findings were settled and by whom</strong>: a rule that named itself, or a person who did. A dimension carrying an open finding is provisional however confident its verdict reads.',
   ) +
+  /*
+   * PR-2, the dqa half. Each dimension names the findings behind it and how
+   * they were settled, read off `QAQC` rather than typed here — so a verdict
+   * cannot claim more certainty than the decision layer actually has. The
+   * nineteen checks partition across the six dimensions exactly once each,
+   * which is the property that makes the counts recountable.
+   */
   table({
-    caption: 'Each dimension against the objective set for this programme.',
-    head: ['Dimension', 'Measured by', 'Objective', 'Achieved', 'Verdict'],
+    caption: `Each dimension against the objective set for this programme, with the findings under it and who settled them. All ${QAQC.length} checks sit under exactly one dimension.`,
+    head: ['Dimension', 'Measured by', 'Objective', 'Achieved', 'Findings', 'Settled by', 'Verdict'],
     rows: DQA.map((d) => [
       `<strong>${esc(d.dim)}</strong>`,
       `<span class="mk-muted">${esc(d.measure)}</span>`,
       esc(d.objective),
       esc(d.achieved),
-      C.status(d.verdict, d.verdict === 'met' ? 'good' : d.verdict === 'met with exception' ? 'warn' : 'bad'),
+      `<span class="mk-num">${d.settled.total}</span>` +
+        `<small>${d.settled.automatic ? `${d.settled.automatic} automatic · ` : ''}${d.settled.byPerson ? `${d.settled.byPerson} by a person · ` : ''}${d.settled.reviewed ? `${d.settled.reviewed} reviewed · ` : ''}${d.settled.open ? `${d.settled.open} open` : 'none open'}</small>`,
+      d.settled.who.length
+        ? `<span class="mk-muted">${esc(d.settled.who.join(' · '))}</span>`
+        : '<span class="mk-muted">nobody yet</span>',
+      C.status(d.verdict, d.verdict === 'met' ? 'good' : d.verdict === 'met with exception' ? 'warn' : 'bad') +
+        (d.settled.open ? `<small>provisional — ${d.settled.open} finding${d.settled.open === 1 ? '' : 's'} undecided</small>` : ''),
     ]),
     kind: 'matrix',
     label: 'Data quality assessment',
   }) +
+  `<p class="mk-tight">The <strong>Settled by</strong> column is the one the practitioner review asked for. Where it names a rule and a version — <em>${esc(DQA[0].settled.who[0] ?? '')}</em> — the consequence was deterministic and nobody had to decide it. Where it names a person, somebody did, and their reason is on <a class="mk-ref" href="#qc">the finding</a>. Where it says <em>nobody yet</em>, the dimension’s verdict is a statement about data whose qualifiers have not been applied.</p>` +
   cols(
     panel(
       'What “not met” actually costs',
       table({
         head: ['Not met', 'Consequence for the assessment'],
         rows: [
-          ['Sensitivity — cadmium', 'Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3.'],
-          ['Accuracy — zinc', 'Nine zinc results are qualified biased low. The MW05 exceedance stands and is understated; no result is corrected.'],
-          ['Completeness — 87%', 'Below the 95% objective. MW11 was not sampled and MW09 is two results short — one cracked container, one holding time. The round is reported as incomplete rather than as a clean 58 results.'],
+          ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits above the criterion and the comparison is arithmetic.')],
+          ['Accuracy — zinc', cell(`Nine zinc results would be qualified biased low — <strong>and none of them is yet</strong>. The propagation basis is the open decision on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a>: the certificate carries no result-level qualifier and DQO ${esc(DQO.used.version)} states no consequence for the failed spike, so a hydrogeologist has to say how far it reaches. The MW05 exceedance stands and is understated either way; no result is corrected.`)],
+          ['Completeness — 87%', cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is two results short, one cracked container and one holding time. The round is reported as incomplete rather than as a clean 58 results, and the dry bore is reported as attempted rather than missed.`)],
         ],
       }),
     ),
@@ -3796,7 +4667,7 @@ const projectHome = () => {
           head: ['What', 'Where', 'Since', ''],
           rows: [
             ['PFOS + PFHxS 37× the DGV', loc('MW05'), '2026-05-19', `<a class="mk-ref" href="#exceedances">Exceedance register</a>`],
-            ['Round not collected', loc('MW11'), 'overdue 9 days', `<a class="mk-ref" href="#programme">Programme</a>`],
+            ['Round not collected', loc(Q2_OVERDUE.location), esc(Q2_OVERDUE.chip), `<a class="mk-ref" href="#programme">Programme</a>`],
             ['3 questions block a commit', 'IMP-0239', '2026-05-18', `<a class="mk-ref" href="#import-review">Review</a>`],
             ['3 rows held after commit', 'IMP-0239', '2026-05-19', `<a class="mk-ref" href="#quarantine">Quarantine</a>`],
             ['Instrument silent 41 h', loc('TSF-VWP-03'), '2026-08-21', `<a class="mk-ref" href="#tarp">TARP board</a>`],
@@ -3864,7 +4735,7 @@ const locationRegistry = () => {
     l.lifecycle
       ? C.status(l.lifecycle, 'neutral')
       : l.code === 'MW11'
-        ? C.status('overdue 9 days', 'bad')
+        ? C.status(Q2_OVERDUE.chip, 'bad')
         : l.code === 'MW12'
           ? C.status('no criteria selectable', 'neutral')
           : takeOf(l.code)
@@ -4125,8 +4996,59 @@ const samplingEvents = () => (
       'number on the custody form is the first thing a challenge finds.</p>' +
       notice(
         'warning',
-        'MW11 is not on this manifest, and that is the finding rather than an omission.',
-        'The 2026 Q2 window closed on 14 May in Australia/Perth and the bore was not sampled — it is nine days overdue on the <a class="mk-ref" href="#programme">programme</a> and short nine results on the <a class="mk-ref" href="#dqa">data quality assessment</a>. A manifest that quietly listed it, or that omitted the row without saying so, would let an overdue round read as collected.',
+        `${esc(Q2_OVERDUE.location)} is not on this manifest, and that is the finding rather than an omission.`,
+        `The 2026 Q2 window closed on ${esc(Q2_OVERDUE.due)} in Australia/Perth and the bore yielded no sample — it is <strong>${esc(Q2_OVERDUE.phrase)}</strong> on the <a class="mk-ref" href="#programme">programme</a> and short nine results on the <a class="mk-ref" href="#dqa">data quality assessment</a>. A manifest that quietly listed it, or that omitted the row without saying so, would let an overdue round read as collected. What the <a class="mk-ref" href="#field-capture">field record</a> adds is <em>why</em>: the crew turned back at a flooded creek crossing on 13 May and found the bore <strong>dry</strong> on 14 May — and both dispositions are still on the tablet, which is precisely why the countdown is still running.`,
+      ) +
+      /*
+       * PR-1, the round-level half. `#field-capture` owns the session; this
+       * screen owns the round as a record, so it carries the dispositions and
+       * the preflight as a summary. Every number is the same computation the
+       * session screen makes, run over the same sessions — a second count
+       * written here would be the register-disagrees-with-the-detail failure
+       * this file's header names.
+       */
+      panel(
+        'What the field crew found, location by location',
+        table({
+          caption: `The round's seven planned locations and the disposition each one carries. Sampled is one of seven states, and the other six are not absences.`,
+          head: ['Location', 'Visits', 'Disposition', 'Reason', 'Samples on the manifest', 'On the record'],
+          scroll: true,
+          label: 'Field dispositions for round 2026-Q2-GW',
+          rows: FIELD_ROUND.current.map((sn) => {
+            const visits = FIELD_ROUND.sessions.filter((x) => x.location === sn.location);
+            const d = FIELD_ROUND.disposition(sn.disposition);
+            return [
+              loc(sn.location),
+              visits.length > 1
+                ? `<span class="mk-num mk-num--warn">${visits.length}</span><small>${esc(visits.map((v) => FIELD_ROUND.disposition(v.disposition).label.toLowerCase()).join(', then '))}</small>`
+                : `<span class="mk-num">1</span>`,
+              `<span class="mk-dispo mk-dispo--${d.tone}"><span class="mk-dispo__glyph" aria-hidden="true">${esc(d.glyph)}</span>${esc(d.label)}</span>`,
+              sn.dispositionReason ? `<span class="mk-muted">${esc(sn.dispositionReason)}</span>` : '<span class="mk-num mk-num--nil">not required</span>',
+              sn.samples.length ? `<span class="mk-num">${sn.samples.length}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+              sn.synced ? C.status('yes', 'good') : C.status('on the device', 'warn'),
+            ];
+          }),
+        }) +
+          `<p class="mk-tight">${FIELD_ROUND.preflight.sampled} sampled · ${FIELD_ROUND.preflight.dry} dry · ${FIELD_ROUND.preflight.visits} visits to ${FIELD_ROUND.preflight.planned} bores. The manifest above lists ${EVENT_SAMPLES.filter((x) => x.qc === '—').length} primary samples from ${FIELD_ROUND.preflight.sampled} bores, and the two counts agree because they are the same sessions read twice.</p>`,
+      ) +
+      panel(
+        'The round is not complete, and this is what holds it',
+        table({
+          caption: 'The preflight, summarised at round level. The full version, and the control it gates, are on the field record.',
+          head: ['Check', 'Count', 'State'],
+          rows: [
+            ['Locations dispositioned', `${FIELD_ROUND.preflight.dispositioned} of ${FIELD_ROUND.preflight.planned}`, C.status('clear', 'good')],
+            ['…and written to the record', `${FIELD_ROUND.preflight.onRecord} of ${FIELD_ROUND.preflight.planned}`, C.status('holds the round', 'warn')],
+            ['Sampled · dry', `${FIELD_ROUND.preflight.sampled} · ${FIELD_ROUND.preflight.dry}`, C.status('clear', 'good')],
+            ['Duplicates collected', `${EVENT_SAMPLES.filter((x) => x.qc === 'Field duplicate (blind)').length} of ${EVENT_SAMPLES.filter((x) => x.qc === 'Field duplicate (blind)').length}`, C.status('clear', 'good')],
+            ['Instruments with a post-round check', `${FIELD_ROUND.preflight.postChecked} of ${FIELD_ROUND.preflight.instruments}`, C.status('holds the round', 'warn')],
+            ['Unsynced mandatory fields', String(FIELD_ROUND.preflight.pendingFields), C.status('holds the round', 'warn')],
+            ['Chain of custody created', `1 — <a class="mk-ref" href="#ecoc">${esc(CUSTODY_CHAIN.id)}</a>`, C.status('clear', 'good')],
+          ].map(([what, count, state]) => [`<strong>${esc(what)}</strong>`, cell(count), state]),
+        }) +
+          `<p class="mk-tight">Three of the seven lines hold the round. A round marked complete with a bore outstanding is the failure the <a class="mk-ref" href="#programme">programme</a> has named since the third pass, and the completion control refuses rather than being greyed out with no reason.</p>` +
+          `<p class="mk-tight mk-muted"><strong>Two states, and they are not the same claim.</strong> The register above reads <em>results-complete</em>, which says every sample that was collected has its results back. This says the <em>round</em> is not complete, which is a fact about the field record — one disposition still on a tablet, one instrument with no post-round check. A product that ran the two together would let a round close because a laboratory finished.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#field-capture">The field record, bore by bore</a><a class="mk-btn" href="#purge">The stabilisation series</a><a class="mk-btn" href="#programme">What the round owes</a></div>`,
       ) +
       panel(
         'The QC taxonomy, closed — and split by where each control is made',
@@ -4878,7 +5800,7 @@ const licenceScreen = () => {
           { name: 'Governs MW09 and MW11', detail: 'Membership resolved through the “Compliance boundary” location group, in force since 2019-03-01.', state: 'done' },
           { name: 'Evaluated against Licence Table 4 v2024.2', detail: '12 analytes · effective 2024-07-01 · the version in force at each result’s collection date.', state: 'done' },
           { name: 'Monitored by programme GW-QTR', detail: 'Quarterly, fiscal quarters ending June, resolved in Australia/Perth.', state: 'done' },
-          { name: '2026 Q2 round', detail: 'MW09 collected 2026-05-14, one result short. MW11 not collected — overdue by 9 days.', state: 'fail', rerun: true },
+          { name: '2026 Q2 round', detail: `MW09 collected 2026-05-14, one result short. ${Q2_OVERDUE.location} yielded no sample — found dry on ${FIELD_ROUND.days[2].date}, disposition not yet synced, so the round reads ${Q2_OVERDUE.phrase}.`, state: 'fail', rerun: true },
           { name: 'Discharged by the quarterly report', detail: 'Not yet issued for 2026 Q2. The last discharge was WDL-QGR-2026Q1 on 2026-04-28.', state: 'wait' },
         ]),
     )
@@ -4983,7 +5905,20 @@ const projectSettings = () => (
         'Identity',
         C.field({ label: 'Project code', control: C.input({ value: 'MOCK-WDL', mono: true }), hint: 'Appears in the header, in every export filename and on every report cover. Changing it does not change the URL, which is a UUID.', required: true }) +
           C.field({ label: 'Project name', control: C.input({ value: 'Wandalup Operations' }), required: true }) +
-          C.field({ label: 'Facility', control: C.select({ options: ['Wandalup mine and TSF', 'Kurrajong water supply', 'Wanjina waste facility'], value: 'Wandalup mine and TSF' }), hint: 'The facility supplies the area hierarchy every location hangs from.' }) +
+          /*
+           * The options are the facilities the seed actually holds, read off
+           * `PROJECTS`. They were typed, and the third one — "Wanjina waste
+           * facility" — named a facility no project has ever had, while the
+           * second dropped a word from Kurrajong's. A select offering a
+           * facility that does not exist is a select somebody can bind a
+           * project to nothing with, and it was invisible because nothing
+           * derived it. Wave 5's audit corroborated it; this is the fix.
+           */
+          C.field({
+            label: 'Facility',
+            control: C.select({ options: PROJECTS.map((pr) => pr.facility), value: PROJECT.facility }),
+            hint: `The facility supplies the area hierarchy every location hangs from. The list is the ${PROJECTS.length} facilities on this instance, read from the projects that hold them — not a typed list that can name one nobody has.`,
+          }) +
           C.field({ label: 'Jurisdiction', control: C.select({ options: ['Western Australia — DWER', 'Queensland — DES', 'New South Wales — EPA', 'Northern Territory — DEPWS'], value: 'Western Australia — DWER' }) }) +
           C.field({
             label: 'Timezone',
@@ -5869,9 +6804,17 @@ const coverage = () => {
     ['4', 'Certificate amendment', 'covered',
       [['Original', 'certificate'], ['Amendment', 'certificate'], ['Supersession comparison', 'supersession'], ['Impacted results', 'supersession'], ['Recalculated derivations', 'hardness'], ['Changed exceedances', 'exceedances'], ['Changed trigger states', 'tarp'], ['Affected reports', 'snapshot'], ['Decision', 'certificate']],
       ''],
+    /*
+     * Wave 6. The status does NOT move: `field-capture` is still `proposed`
+     * and assignment still rides the work-queue proposal, and a journey is
+     * owned only when every step lands on a drawn screen that is not a
+     * proposal. What changed is the note — the field half of this walk was
+     * redesigned to a practitioner's axis rather than deepened on the drawn
+     * one — and saying that precisely is the whole of the register update.
+     */
     ['5', 'Programme → completed field work', 'partially',
       [['Programme', 'programme'], ['Recurrence', 'programme'], ['Round', 'events'], ['Locations / suites', 'events'], ['Assignment', 'home'], ['Field work', 'field-capture'], ['Samples / QC', 'field-capture'], ['eCOC', 'ecoc'], ['Custody transfer', 'ecoc'], ['Laboratory receipt', 'receipt'], ['Completion', 'programme']],
-      'Two holes left, both proposals rather than gaps: field capture, and assignment on the work queue (findings §7)'],
+      'Field work is now designed to the practitioner’s own axis — the bore session, with the disposition vocabulary and the completion preflight — after a senior hydrogeologist judged the drawn column-by-column entry model wrong (1 Sep 2026). The status stays partially: field capture remains a proposal, so two of its eleven steps land on one, and assignment rides the work-queue proposal kept by decision (findings §7). Redesigning a proposal does not make it a product route'],
     ['6', 'Statutory notification', 'covered',
       [['Licence condition', 'licence'], ['Triggering result', 'result-detail'], ['Became aware', 'notification'], ['Deadline', 'notification'], ['Evidence review', 'documents'], ['Approval', 'signoff'], ['Submission', 'notification'], ['Proof', 'documents'], ['Closure', 'notification'], ['Audit', 'audit']],
       ''],
@@ -6004,7 +6947,8 @@ const coverage = () => {
       panel(
         'What a green row here does not mean',
         '<p class="mk-tight">It means the expectation has been <em>drawn</em>. It does not mean it is built, and it does not mean it is right.</p>' +
-          '<p class="mk-tight">Both design oracles this catalogue is drawn to were self-approved and neither has been printed. A practitioner has not looked at any of it. The screens where five minutes of a hydrogeologist’s attention would be worth more than another day of drawing are exactly the ones with the most invention in them — the QA/QC workspace, the lineage panel, the interpretation editor and the field-capture grid.</p>' +
+          '<p class="mk-tight">Both design oracles this catalogue is drawn to were self-approved and neither has been printed. <strong>A practitioner has now looked at four of these screens</strong> — a senior hydrogeologist reviewed the field-capture grid, the QA/QC workspace, the lineage panel and the interpretation editor on 1 September 2026, the four with the most invention in them, and returned four P0 design changes and a binding keep-list. Two of the four are answered here: field capture is rebuilt around the bore session and QA/QC around the decision layer. The other two — provenance beginning at the bore, and evidence for an inference rather than for its citations — are not, and the rows they touch are green on completeness alone.</p>' +
+          '<p class="mk-tight">The lesson of that review is the one worth keeping past it: the drawn version of both screens was internally consistent, carefully argued and <em>wrong on an axis</em>, and no amount of re-reading would have found it. Five minutes of a practitioner’s attention was worth more than the day of drawing that produced them.</p>' +
           '<p class="mk-tight">A catalogue is easy to make look complete while the judgements inside it are wrong, and this table measures completeness only.</p>',
       ),
       panel(

@@ -173,8 +173,20 @@ export function table({ caption, head, rows, kind = 'records', label, scroll = f
     : inner;
 }
 
+/**
+ * A header cell's text, for the `data-label` a stacked row shows.
+ *
+ * Tags become a **space**, not nothing. A header that carries its unit in a
+ * `<small>` — `Depth to water<small>m btoc</small>` — used to reduce to
+ * `Depth to waterm btoc`, and the two words ran together in every stacked
+ * cell on a phone. Nothing measured it: the label is an attribute, it is
+ * drawn by a `::before`, and it is the right width for the wrong string.
+ */
 function stripTags(value) {
-  return String(value).replace(/<[^>]*>/g, '');
+  return String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
