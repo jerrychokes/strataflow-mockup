@@ -3735,10 +3735,10 @@ const coverage = () => {
     ['G-EXP-2', 'Working screens are grid-dense', 'crosstab · locations · exceedances', 'Row height and cell padding come from the product’s own tokens. Consumer-app spacing reads as a toy to a practitioner who has used EQuIS.'],
     ['G-EXP-3', 'Any value opens its lineage in place', 'result-detail · crosstab · lineage', 'A slide-over rather than a route, because the question is asked while comparing a number to its neighbours and an answer that costs the comparison is worth less.'],
     ['G-EXP-4', 'Censored values render as censored everywhere', 'result-detail · crosstab · hydrochem · statistics · report', 'The laboratory’s own notation, kept verbatim. Never zero, never the bare limit, never a substituted half-limit — on the grid, in the figure, in the tooltip and in the export.'],
-    ['G-EXP-5', 'Reversibility is stated before the click', 'quarantine · facility · project-settings · mapping · import-commit', 'Every consequential control carries a blast radius or a reversibility line. Where an action is genuinely irreversible the control says that instead.'],
+    ['G-EXP-5', 'Reversibility is stated before the click', 'quarantine · facility · project-settings · mapping-profiles · import-commit', 'Every consequential control carries a blast radius or a reversibility line. Where an action is genuinely irreversible the control says that instead.'],
     ['G-EXP-6', 'Ambiguity becomes a visible decision', 'import-review · quarantine', 'No silent defaults. The format is chosen and never defaulted; an unmappable validation state holds rows rather than guessing one.'],
     ['G-EXP-7', 'Four states designed for every surface', 'data-states, and in situ throughout', 'Empty, loading, partial, error. Two kinds of empty, because a finished queue and an unstarted register are different sentences.'],
-    ['G-EXP-8', 'Every encoding survives greyscale', 'Every screen · state-plate', 'Marks are shapes; statuses carry a glyph; the confidence bar carries its number. Colour is the redundant channel and never the carrying one.'],
+    ['G-EXP-8', 'Every encoding survives greyscale', 'Every screen · data-states', 'Marks are shapes; statuses carry a glyph; the confidence bar carries its number. Colour is the redundant channel and never the carrying one.'],
     ['G-EXP-9', 'Queues are fully keyboard-operable', 'assistance · import-review · crosstab · field-capture', 'The contract is written down rather than discovered. A two-hundred-question queue is a session, not an afternoon.'],
     ['G-EXP-10', 'Timezone and unit honesty', 'project-settings · units · events · programme', 'Timestamps carry their zone; values carry their unit; display conversion is marked and never mutates what is stored.'],
     ['G-EXP-11', 'An audit tab on every entity detail', 'location · result-detail · licence · events · facility · project-settings', 'A convention, not a destination. There is no global log viewer, because “who changed this” is asked about a thing.'],
@@ -3846,12 +3846,171 @@ const coverage = () => {
     ['Layout', 'The results grid across rounds', 'crosstab', 'The comparison a review is, and the only layout that shows a reporting limit stepping mid-series.'],
   ];
 
+  /**
+   * The fourth pass adds three more enumerations — 1 September 2026, under
+   * EXPANSION_BRIEF.md Phase 2. Same rule as the tables above: each list is
+   * closed, each row names its owner, and a row that cannot honestly be
+   * claimed is marked rather than counted. Statuses here speak about what is
+   * DRAWN in this catalogue; the rail dots carry built-ness, re-derived the
+   * same day. Re-run each list against its source rather than reading this.
+   */
+  const PRD = [
+    // [id, requirement, status, owners, priority, note]
+    ['FR-1.1', 'Facility → area → location hierarchy with typed classes', 'covered', 'facility · locations', 'P0', ''],
+    ['FR-1.2', 'Coordinates with explicit CRS and ANZ↔global transformation', 'partially', 'location · project-settings', 'P2', 'The conversion-with-provenance surface is not drawn'],
+    ['FR-1.3', 'Elevation and datum with survey epochs, converted by measurement date', 'covered', 'location · hydrograph', 'P0', ''],
+    ['FR-1.4', 'Bore construction detail sufficient to reproduce a construction log', 'covered', 'location', 'P1', ''],
+    ['FR-1.5', 'Screened intervals to hydrostratigraphic units; nested clusters', 'covered', 'location', 'P1', ''],
+    ['FR-1.6', 'Event → sample → test → result, QC types linked to parents', 'covered', 'events · receipt · qc', 'P0', ''],
+    ['FR-1.7', 'Depth intervals and composites with increment traceability', 'deferred', '—', 'P3', 'Soil, sediment and vapour matrices are S8; nothing drawn'],
+    ['FR-1.8', 'Analyte dictionary: CAS, synonyms, speciation, congener families', 'covered', 'dictionary', 'P1', ''],
+    ['FR-1.9', 'LOR, MDL and PQL distinct; detect status first-class', 'covered', 'result-detail · crosstab', 'P0', ''],
+    ['FR-1.10', 'Logger and telemetry series, raw and corrected (S8)', 'deferred', '—', 'P4', 'Domain K, deferred with the telemetry journey'],
+    ['FR-1.11', 'Versioned criteria library with effective dates and applicability', 'covered', 'criteria', 'P0', ''],
+    ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'partially', 'licence · obligations · tarp', 'P1', 'Entitlements have a product route (/water) and no drawn screen'],
+    ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
+    ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'partially', 'criteria', 'P1', 'The binding is stated on the drawing, not operable in it'],
+    ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', ''],
+    ['FR-2.4', 'Never overwrite a reported value; derivation additive, reversible', 'covered', 'supersession · result-detail', 'P0', ''],
+    ['FR-2.5', 'Speciation conversion with the basis recorded on the result', 'partially', 'result-detail', 'P2', 'The basis is shown; the conversion surface is not'],
+    ['FR-3.1', 'Laboratory EDD formats as configuration, not code', 'covered', 'formats', 'P1', ''],
+    ['FR-3.2', 'Per-laboratory mapping profiles that persist decisions', 'covered', 'mapping-profiles', 'P0', ''],
+    ['FR-3.3', 'Fuzzy matching with confidence, routed to a review queue', 'covered', 'import-review', 'P0', ''],
+    ['FR-3.4', 'Parse → map → validate → review → commit, each stage inspectable', 'covered', 'imports · import-review · import-commit', 'P0', ''],
+    ['FR-3.5', 'Partial accept: commit valid rows, quarantine the remainder', 'covered', 'quarantine', 'P0', ''],
+    ['FR-3.6', 'Import batch first-class; source file retained; full reversal', 'covered', 'import-commit', 'P0', ''],
+    ['FR-3.7', 'Idempotent on re-import of the same file', 'covered', 'imports', 'P0', 'The duplicate banner is the visible surface of a behaviour'],
+    ['FR-3.8', 'Original certificate retained and linked to every result', 'covered', 'certificate · documents', 'P0', ''],
+    ['FR-3.9', 'Amended certificates supersede, cascading without orphaning', 'covered', 'certificate · supersession', 'P0', ''],
+    ['FR-3.10', 'Logger and telemetry import with barometric compensation (S8)', 'deferred', '—', 'P4', ''],
+    ['FR-3.11', 'Import from ESdat, HGA+ and EQuIS with a reconciliation proof', 'covered', 'migration', 'P1', ''],
+    ['FR-4.1', 'Holding times by matrix and method', 'covered', 'qc', 'P0', ''],
+    ['FR-4.2', 'A reporting limit above the criterion is flagged', 'covered', 'indeterminate · crosstab', 'P0', 'Claim B5 — the register the incumbents lack'],
+    ['FR-4.3', 'Duplicate RPD, blanks and recoveries against configurable limits', 'covered', 'qc · qc-limits', 'P0', ''],
+    ['FR-4.4', 'Internal consistency: total/dissolved, ionic balance, TDS, EC', 'covered', 'consistency', 'P0', ''],
+    ['FR-4.5', 'Spikes and outliers against the location’s own history', 'partially', 'qc', 'P2', 'No drawn queue raises it as a finding type'],
+    ['FR-4.6', 'Validation state machine with attribution, including bulk', 'covered', 'validation', 'P0', ''],
+    ['FR-4.7', 'Data lock for periods reported to a regulator', 'covered', 'qualifiers', 'P1', ''],
+    ['FR-4.8', 'Manual qualifiers from a controlled reason-code list', 'covered', 'qualifiers', 'P0', ''],
+    ['FR-5.1', 'All applicable criteria concurrently, an outcome per criterion', 'covered', 'crosstab · exceedances', 'P0', ''],
+    ['FR-5.2', 'Consecutive-exceedance and rolling-window conditions', 'partially', 'exceedances', 'P1', 'Drawn deciding nothing — no window condition shown producing an outcome'],
+    ['FR-5.3', 'TARP state with escalation, acknowledgement and response', 'covered', 'tarp · alerts', 'P0', ''],
+    ['FR-5.4', 'Automatic re-evaluation on data change, reflected in lineage', 'covered', 'certificate · supersession', 'P0', ''],
+    ['FR-5.5', 'Mass load from volume and concentration, by reporting period', 'missing', '—', 'P2', 'Belongs with the undrawn water screen'],
+    ['FR-5.6', 'Extraction against entitlement with approaching-limit flags', 'missing', '—', 'P1', 'The product ships /water; this catalogue never drew it'],
+    ['FR-5.7', 'Water level to groundwater elevation via the datum in force', 'covered', 'hydrograph', 'P0', ''],
+    ['FR-5.8', 'Censored statistics: Kaplan-Meier and robust ROS, never silent half-LOR', 'covered', 'statistics', 'P0', 'Claim B2'],
+    ['FR-5.9', 'Mann-Kendall, seasonal Kendall, Sen’s slope, sample-size warnings', 'covered', 'statistics', 'P0', ''],
+    ['FR-6.1', 'Hydrographs with rainfall, criteria lines, multi-location comparison', 'covered', 'hydrograph', 'P0', ''],
+    ['FR-6.2', 'Censored values rendered censored — never zero, never dropped', 'covered', 'hydrograph · statistics', 'P0', ''],
+    ['FR-6.3', 'Crosstab tables with per-criterion exceedance shading', 'covered', 'crosstab', 'P0', ''],
+    ['FR-6.4', 'Map symbology by exceedance and TARP state, with print layout', 'partially', 'map', 'P1', 'The print layout is not drawn'],
+    ['FR-6.5', 'Piper, Stiff, Durov and Schoeller with censored handling', 'partially', 'hydrochem', 'P1', 'Durov sits outside the twelve approved plates — a grammar proposal, Jerry’s call'],
+    ['FR-6.6', 'Vector export at print fidelity; chart configuration persists', 'partially', 'report-figures · saved-views', 'P1', 'Persisted configuration rides on a proposed screen'],
+    ['FR-6.7', 'Spatial export as shapefile and GeoJSON', 'partially', 'map', 'P2', 'Named in the export menu; the export decision surface is not drawn'],
+    ['FR-7.1', 'Reports from templates to Word, Excel and PDF; Word primary', 'covered', 'report', 'P0', ''],
+    ['FR-7.2', 'Styling, figure and table numbering, cross-references, captions', 'partially', 'report-figures', 'P1', 'Corporate template configuration is not drawn'],
+    ['FR-7.3', 'A data snapshot with every issued report; identical regeneration', 'covered', 'snapshot', 'P0', ''],
+    ['FR-7.4', 'Customer-branded output; Strataflow attribution metadata only', 'covered', 'report', 'P1', 'A property of the output, stated on the composer'],
+    ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'partially', 'report', 'P1', 'The OP 5.12 sections are drawn; the golden-output comparison surface is not'],
+    ['FR-7.6', 'Regulator-format and EQuIS-compatible EDD export (S8)', 'deferred', '—', 'P4', ''],
+    ['FR-8.1', 'Sampling programs with due and overdue tracking', 'covered', 'programme · obligations', 'P0', ''],
+    ['FR-8.2', 'Exceedance and trigger alerts with acknowledgement and escalation', 'covered', 'alerts', 'P0', ''],
+    ['FR-8.3', 'Approval and sign-off distinct from data validation', 'covered', 'signoff', 'P0', ''],
+    ['FR-8.4', 'Statutory notification: became-aware, countdown, evidence, record', 'covered', 'notification', 'P0', ''],
+    ['QB-1', 'A figure is placed into a regulatory submission unedited', 'no screen', '—', 'P0', 'Gated by the §7.4 print test, not by a drawing (G-76b)'],
+    ['QB-2', 'A full monthly report without opening Excel', 'covered', 'report', 'P0', ''],
+    ['QB-3', 'The regenerated figure is identical but for the new data', 'covered', 'snapshot', 'P0', ''],
+    ['QB-4', 'Vector output survives the customer’s Word template', 'no screen', '—', 'P0', 'The same gate as QB-1'],
+    ['QB-5', 'Zero exits to another tool across the core loop', 'covered', 'imports · import-review · import-commit · qc · exceedances · report', 'P0', 'Walked as Journey 1 below'],
+    ['QB-6', 'Zero hand-edits of a source laboratory file', 'covered', 'import-review', 'P0', ''],
+    ['QB-7', 'Destructive actions reversible, and visibly so before acting', 'covered', 'data-states', 'P0', 'Stated on every consequential control (G-EXP-5)'],
+    ['QB-8', 'A first import with no training, coming from ESdat or EQuIS', 'no screen', '—', 'P0', 'An observed practitioner session, still outstanding (ia-rationale §5)'],
+    ['QB-9', 'Practitioner terminology exactly; LOR/MDL/PQL never collapsed', 'covered', 'result-detail · dictionary', 'P0', ''],
+    ['QB-10', 'Ambiguity is a decision the user makes, never a silent default', 'covered', 'import-review · quarantine', 'P0', ''],
+    ['OM-1', 'Customer-initiated diagnostic bundle', 'covered', 'diagnostics', 'P2', 'Preview-before-export is the trust feature'],
+    ['OM-2', 'Version visibility across the deployment estate', 'partially', 'instance', 'P3', 'One instance shows itself; the estate view is the vendor’s, out of frame here'],
+    ['OM-3', 'Upgrade coordination: scheduling, approval, pre-flight, rollback', 'covered', 'upgrade', 'P2', ''],
+    ['OM-4', 'Entitlement and contract enforcement with defined expiry behaviour', 'covered', 'entitlement', 'P2', ''],
+    ['OM-5', 'Configuration portability, versioned independently of the app', 'partially', 'formats · criteria', 'P2', 'Versions are shown; the package import/export surface is not drawn'],
+    ['DR-1', 'All customer data in the customer’s own tenancy; no egress', 'no screen', '—', 'P0', 'Architecture; stated on the instance screen'],
+    ['DR-2', 'No vendor telemetry; diagnostics are customer-initiated', 'covered', 'diagnostics', 'P0', ''],
+    ['DR-3', 'No integration routes customer data through vendor infrastructure', 'no screen', '—', 'P1', 'A standing constraint on Domain R, recorded before anything is drawn there'],
+  ];
+
+  const BASELINE = [
+    // [source, capability, tier, response, owners, note]
+    ['ESdat §2.1', 'Meta Standards combine standards into one before evaluation', '✅', 'exceed', 'crosstab · exceedances', 'Concurrent outcomes with a mark per criterion; attribution never lost to a merge'],
+    ['ESdat §2.1', 'Conditional action levels on pH, hardness, depth and matrix', '✅', 'match', 'criteria · hardness', 'Parity on capability; showing the working is the difference'],
+    ['ESdat §2.2', 'Four distinct detection limits carried and exportable', '✅', 'match', 'result-detail', 'QB-9 is an internal bar, not a claim against the market'],
+    ['ESdat §2.3', 'A reporting limit above the criterion renders as a pass by default', '◐', 'exceed', 'indeterminate · crosstab', 'Claim B5 — a distinct state on every surface, never a setting'],
+    ['ESdat §2.4', 'LabSync: laboratories deliver with no user involvement', '✅', 'reject', 'imports', 'G-79 chose file-first deliberately; the concession is permanent'],
+    ['ESdat §2.4', 'Import errors are file-level; content problems go back to the laboratory', '✅', 'exceed', 'quarantine · import-review', 'PP5: commit the good rows, hold the rest with the way out on each'],
+    ['ESdat §2.5 · EQuIS §3.3', 'Censored statistics answered by export to ProUCL', '✅', 'exceed', 'statistics', 'Claim B2: Kaplan-Meier and robust ROS in-tool, the same estimator everywhere'],
+    ['ESdat §2.6', 'Charts export PNG and PDF; no vector format mentioned', '◐', 'exceed', 'report-figures', 'Narrowed by EQuIS §3.2; the drawn claim inherits the unprinted-grammar caveat'],
+    ['ESdat §2.6', 'Piper, Durov and Schoeller free as a public web app', '✅', 'match', 'hydrochem', 'A table stake (§7.2); Durov needs a grammar proposal first'],
+    ['ESdat §2.6', 'Report-ready bore logs, free', '✅', 'match', 'location', ''],
+    ['ESdat §2.6', 'Power BI, ArcGIS, MapInfo and QGIS export', '✅', 'defer', 'map', 'Domain R, P3; display and spatial export only (NG4)'],
+    ['ESdat §2.8', 'Web interface usable with no training', '✅', 'match', '—', 'QB-8’s observed session is the test, and it is outstanding'],
+    ['EQuIS §3.1', 'Concurrent evaluation against all applicable action levels', '✅', 'match', 'crosstab · exceedances', 'Capability parity; presentation is the open half, and may not be laundered into a beat'],
+    ['EQuIS §3.2', 'SVG vector output, placed into Word via template files', '✅', 'match', 'report-figures', 'B3 narrowed: the vector axis is closed; unedited placement is untested for all four'],
+    ['EQuIS §3.3', 'Any report scheduled or triggered on data load, emailed', '✅', 'match', 'alerts', ''],
+    ['EQuIS §3.3', 'Esri ArcGIS embedded', '✅', 'concede', 'map', 'NG4; display and export only'],
+    ['EQuIS §7.3', 'Dashboards composed from widgets, by a specialist', '✅', 'reject', 'project-settings', 'Countered on a different axis: self-service without the desktop client (G8)'],
+    ['HGA+ §4', 'Twenty-plus geochemical and statistical plots', '✅', 'simplify', 'hydrochem · statistics', 'The twelve approved plates, extended only through the grammar fence'],
+    ['HGA+ §4', 'Mann-Kendall, seasonal Mann-Kendall, Sen’s slope, Spearman', '✅', 'match', 'statistics', ''],
+    ['HGA+ §4', 'Non-detects extracted or excluded — filtering, not estimation', '◐', 'exceed', 'statistics', 'Claim B2, from the other side'],
+    ['HGA+ §4', 'Exceedance reports for multiple water-quality standards', '◐', 'match', 'exceedances', 'The same phrase meant merge-into-one at ESdat; unresolved there, unverified here'],
+    ['EnviroSys §5', 'Missing-data notification as a headline feature', '◐', 'match', 'programme · obligations', 'Programme completeness with never-collected called out by name'],
+    ['EnviroSys §5', 'Breadth across air, noise, waste, flora and fauna', '◐', 'defer', '—', 'Wider than the slice; S8 widening, not a screen gap'],
+    ['EnviroSys §5', 'Criteria, exceedance semantics and figures — undocumented', '⚠️', 'unverified', '—', 'Recorded as silence; no requirement derived from it'],
+  ];
+
+  const JOURNEYS_WALK = [
+    // [n, name, status, [ [step, screenId|null], … ], note]
+    ['1', 'Laboratory EDD → approved data', 'partially',
+      [['Programme', 'programme'], ['Round', 'events'], ['Sampling event', 'events'], ['eCOC', null], ['Certificate', 'certificate'], ['Import batch', 'imports'], ['Parse', 'imports'], ['Map', 'import-review'], ['Validate', 'import-review'], ['Exceptions', 'quarantine'], ['Partial accept', 'import-commit'], ['QA/QC', 'qc'], ['DQA', 'dqa'], ['Approval', 'validation'], ['Results', 'crosstab']],
+      'eCOC has no owner: receipt covers the laboratory side; creating one in the field has none'],
+    ['2', 'Result → exceedance response', 'partially',
+      [['Result', 'result-detail'], ['Applicable criteria', 'criteria'], ['Derivation', 'hardness'], ['Exceedance', 'exceedances'], ['Evaluation', 'exceedances'], ['TARP / obligation', 'tarp'], ['Acknowledge', 'alerts'], ['Assign', 'home'], ['Evidence', 'documents'], ['Approve', 'signoff'], ['Close', 'tarp']],
+      'Assignment rides on the contested work queue (pass-4 findings §2)'],
+    ['3', 'Result → issued report', 'covered',
+      [['Result', 'crosstab'], ['Validation', 'validation'], ['Evaluation', 'exceedances'], ['Figure / table', 'report-figures'], ['Snapshot', 'snapshot'], ['Assembly', 'report'], ['Quality review', 'report'], ['Approval', 'signoff'], ['Issue', 'submissions'], ['Archive', 'submissions'], ['Regenerate', 'snapshot']],
+      ''],
+    ['4', 'Certificate amendment', 'covered',
+      [['Original', 'certificate'], ['Amendment', 'certificate'], ['Supersession comparison', 'supersession'], ['Impacted results', 'supersession'], ['Recalculated derivations', 'hardness'], ['Changed exceedances', 'exceedances'], ['Changed trigger states', 'tarp'], ['Affected reports', 'snapshot'], ['Decision', 'certificate']],
+      ''],
+    ['5', 'Programme → completed field work', 'partially',
+      [['Programme', 'programme'], ['Recurrence', 'programme'], ['Round', 'events'], ['Locations / suites', 'events'], ['Assignment', 'home'], ['Field work', 'field-capture'], ['Samples / QC', 'field-capture'], ['eCOC', null], ['Custody transfer', 'receipt'], ['Laboratory receipt', 'receipt'], ['Completion', 'programme']],
+      'Field capture is a proposal; eCOC is unowned; assignment is contested'],
+    ['6', 'Statutory notification', 'covered',
+      [['Licence condition', 'licence'], ['Triggering result', 'result-detail'], ['Became aware', 'notification'], ['Deadline', 'notification'], ['Evidence review', 'documents'], ['Approval', 'signoff'], ['Submission', 'notification'], ['Proof', 'documents'], ['Closure', 'notification'], ['Audit', 'audit']],
+      ''],
+    ['7', 'Groundwater interpretation', 'partially',
+      [['Bore nest', 'location'], ['Water levels', 'hydrograph'], ['Datum conversion', 'hydrograph'], ['Elevation', 'hydrograph'], ['Hydrograph', 'hydrograph'], ['Potentiometric surface', 'map'], ['Reliability', 'map'], ['Interpretation', 'narrative'], ['Saved figure', 'saved-views'], ['Report', 'report-figures']],
+      'Two steps rest on proposed screens'],
+    ['8', 'Configuration → operational effect', 'partially',
+      [['Criteria / QA rule', 'criteria'], ['Version', 'criteria'], ['Test against records', 'criteria'], ['Impact preview', 'criteria'], ['Approval', 'signoff'], ['Activation', 'criteria'], ['Affected results', 'exceedances'], ['Re-evaluation', 'exceedances'], ['Audit', 'audit'], ['Rollback', 'criteria']],
+      'Test-against-real-records is asserted on the criteria screen, not drawn as an interaction'],
+    ['9', 'Portfolio → evidence', 'partially',
+      [['Portfolio', 'obligations'], ['Project issue', 'project-home'], ['Location / obligation', 'location'], ['Triggering data', 'result-detail'], ['Response', 'tarp'], ['Report / notification', 'notification'], ['Evidence', 'documents'], ['Audit trail', 'audit']],
+      'A one-site seed cannot draw a portfolio honestly; the second MOCK- project is the prerequisite'],
+  ];
+
+  const STATUS_TONE = { covered: 'good', partially: 'warn', missing: 'bad', deferred: 'neutral', 'no screen': 'neutral', unverified: 'neutral' };
+  const prdCovered = PRD.filter((r) => r[2] === 'covered').length;
+  const journeysOwned = JOURNEYS_WALK.filter((j) => j[2] === 'covered').length;
+  const owners = (list) =>
+    list === '—'
+      ? '<span class="mk-muted">—</span>'
+      : list.split(' · ').map((w) => `<a class="mk-ref" href="#${w}">${esc(w)}</a>`).join(' · ');
+
   const covered = SURFACES.length;
   const added = SURFACES.filter((s) => s[3] === 'new').length;
   const answered = FINDINGS.filter((f) => !f[3].startsWith('n/a')).length;
 
   return (
-    head('Coverage', 'The three enumerations this catalogue is exhaustive against, and the screen that answers each row.', {
+    head('Coverage', 'The six enumerations this catalogue is exhaustive against, and the screen that answers each row.', {
       route: 'The viewer’s own audit — not a product screen',
       toolbar: C.exportMenu(),
     }) +
@@ -3861,12 +4020,15 @@ const coverage = () => {
       stat('14 / 14', 'global expectations drawn', 'good'),
       stat(`${answered} / 27`, 'audit findings answered', 'warn'),
       stat(String(DOMAIN.length), 'domain gaps closed', 'good'),
+      stat(`${prdCovered} / ${PRD.length}`, 'PRD rows drawn (1 Sep)', 'warn'),
+      stat(String(BASELINE.length), 'incumbent rows answered', 'good'),
+      stat(`${journeysOwned} / ${JOURNEYS_WALK.length}`, 'journeys fully owned', 'warn'),
     ]) +
     `<p class="mk-tight mk-muted">Twenty screens were added in this pass and ${added} of them are register surfaces. The other three are J10 — the data states, the keyboard contract and this page — which answer cross-cutting expectations rather than owning a section. Two numbers, two denominators, and they are not the same claim.</p>` +
     notice(
       'warning',
-      'Exhaustive relative to three closed lists, and no further.',
-      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list and the twenty-seven findings of the 22–23 August audit — and it has a hole the moment any of those grows. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
+      'Exhaustive relative to six closed lists, and no further.',
+      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
     ) +
     '<h2 class="mk-h2">Global expectations — every screen, no exceptions</h2>' +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Ref</th><th>Expectation</th><th>Drawn on</th><th>How</th></tr></thead><tbody>${GLOBAL.map(
@@ -3906,6 +4068,48 @@ const coverage = () => {
           .map((w) => (w.includes(' ') || w.startsWith('n/a') ? `<span class="mk-muted">${esc(w)}</span>` : `<a class="mk-ref" href="#${w}">${esc(w)}</a>`))
           .join(' · ')}</td><td>${how}</td></tr>`,
     ).join('')}</tbody></table></div>` +
+    '<h2 class="mk-h2">The PRD register — every requirement row, and what owns it here (added 1 Sep 2026)</h2>' +
+    notice(
+      'default',
+      'Statuses speak about what is drawn, not what is built.',
+      'The rail dots carry built-ness, re-derived the same day. <code class="mk-file">no screen</code> names a requirement whose surface is a behaviour, an output property or a protocol — claiming a screen for it would be coverage theatre. Priorities follow EXPANSION_BRIEF.md: P0 the vertical-slice loop, P1 competitive v1, P2 customer readiness, P3 comprehensive, P4 specialist and future.',
+    ) +
+    `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Req</th><th>Requirement</th><th>Status</th><th>Owner</th><th>Priority</th><th>Note</th></tr></thead><tbody>${PRD.map(
+      ([id, what, status, own, prio, note]) =>
+        `<tr><td class="mk-cover__id">${esc(id)}</td><td>${esc(what)}</td>` +
+        `<td>${tag(status, STATUS_TONE[status])}</td>` +
+        `<td>${owners(own)}</td>` +
+        `<td class="mk-cover__id">${esc(prio)}</td>` +
+        `<td>${note ? esc(note) : '<span class="mk-muted">—</span>'}</td></tr>`,
+    ).join('')}</tbody></table></div>` +
+    '<h2 class="mk-h2">The incumbent baseline — every capability row, answered (added 1 Sep 2026)</h2>' +
+    notice(
+      'default',
+      'The evidence tiers are the baseline’s own, and an unverified capability never becomes a requirement.',
+      '✅ verified from vendor documentation · ◐ lesser-standing vendor material · ⚠️ unverified. Responses follow the brief: match, simplify, exceed, defer, reject, concede, unverified. The source rows live in <code class="mk-file">docs/reference/incumbent-baseline.md</code> in the app repo, retrieved 10 August 2026.',
+    ) +
+    `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Source</th><th>Capability</th><th>Tier</th><th>Response</th><th>Answered on</th><th>Note</th></tr></thead><tbody>${BASELINE.map(
+      ([sourceRef, what, tier, resp, own, note]) =>
+        `<tr><td class="mk-cover__id">${esc(sourceRef)}</td><td>${esc(what)}</td><td>${esc(tier)}</td>` +
+        `<td>${tag(resp, resp === 'exceed' ? 'good' : resp === 'unverified' ? 'neutral' : resp === 'reject' || resp === 'concede' ? 'neutral' : resp === 'defer' ? 'warn' : 'neutral')}</td>` +
+        `<td>${owners(own)}</td>` +
+        `<td>${note ? esc(note) : '<span class="mk-muted">—</span>'}</td></tr>`,
+    ).join('')}</tbody></table></div>` +
+    '<h2 class="mk-h2">The nine journeys, walked step by step (added 1 Sep 2026)</h2>' +
+    notice(
+      'default',
+      'A journey is owned when every step lands on a drawn screen that is not a proposal.',
+      'Each step below is a link, or a named hole. The deferred telemetry journey is not walked: EXPANSION_BRIEF.md defers it with Domain K, matching the PRD’s S8 marking, and walking it would require inventing the screens it defers.',
+    ) +
+    `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>J</th><th>Journey</th><th>Status</th><th>The walk</th><th>Note</th></tr></thead><tbody>${JOURNEYS_WALK.map(
+      ([n, name, status, steps, note]) =>
+        `<tr><td class="mk-cover__id">${esc(n)}</td><td><strong>${esc(name)}</strong></td>` +
+        `<td>${tag(status, STATUS_TONE[status])}</td>` +
+        `<td>${steps
+          .map(([label, sid]) => (sid ? `<a class="mk-ref" href="#${sid}">${esc(label)}</a>` : `<span class="mk-tag mk-tag--bad" title="No screen owns this step">${esc(label)}</span>`))
+          .join(' <span class="mk-muted">→</span> ')}</td>` +
+        `<td>${note ? esc(note) : '<span class="mk-muted">—</span>'}</td></tr>`,
+    ).join('')}</tbody></table></div>` +
     cols(
       panel(
         'What a green row here does not mean',
@@ -3923,6 +4127,9 @@ const coverage = () => {
               ['Surfaces', 'The register’s §15 matrix', 'Every glossary entity has an owning screen'],
               ['Findings', 'The August audit report', 'Every F-number appears once above'],
               ['Entities', 'The glossary and the schema', 'A new table is a new row here'],
+              ['PRD register', 'docs/PRD.md §7–§9, §12 (app repo)', 'Every FR, QB, OM and DR id appears exactly once above'],
+              ['Incumbent baseline', 'docs/reference/incumbent-baseline.md', 'Every §2–§5 capability row appears once above'],
+              ['Journeys', 'EXPANSION_BRIEF.md §8', 'Every step renders as a link, or is flagged unowned'],
             ],
           }) +
           '<p class="mk-tight">The state dots in the rail are the other half of the honesty: most of what is drawn here is tested library code with no route, and four screens are proposals against no requirement at all.</p>',

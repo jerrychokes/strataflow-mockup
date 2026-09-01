@@ -573,10 +573,23 @@ console.log(`${added} added in pass 3 · ${anchors} anchors`);
 
 /* The two invariants the first build got wrong, checked rather than claimed. */
 const dangling = Object.entries(RELATED).flatMap(([from, tos]) => tos.filter((t) => !labelOf[t]).map((t) => `${from} → ${t}`));
+/*
+ * And a third, added by pass 4 after it caught two dead links the RELATED
+ * check could never see: every in-document href must land on a screen. The
+ * RELATED graph is the declared architecture; hrefs written inline in screen
+ * bodies and tables are the undeclared one, and they rot separately.
+ */
+const knownAnchors = new Set([...Object.keys(labelOf), 'lineage-panel']);
+const deadHrefs = [...new Set([...html.matchAll(/href="#([a-z0-9-]+)"/g)].map((m) => m[1]))].filter((t) => !knownAnchors.has(t));
 const noExit = ALL.filter((s) => (RELATED[s.id] ?? []).length === 0).map((s) => s.id);
 const pointedAt = new Set(Object.values(RELATED).flat());
 const orphans = ALL.filter((s) => !pointedAt.has(s.id)).map((s) => s.id);
 if (dangling.length) console.error(`dangling: ${dangling.join(', ')}`);
 if (noExit.length) console.error(`no exit: ${noExit.join(', ')}`);
 if (orphans.length) console.error(`nothing points at: ${orphans.join(', ')}`);
-if (!dangling.length && !noExit.length && !orphans.length) console.log('link graph: no dangling targets, no dead ends, no orphans');
+if (deadHrefs.length) console.error(`dead hrefs: ${deadHrefs.map((t) => `#${t}`).join(', ')}`);
+if (dangling.length || noExit.length || orphans.length || deadHrefs.length) {
+  process.exitCode = 1; // a failed check that exits 0 is a claim, not a check
+} else {
+  console.log('link graph: no dangling targets, no dead ends, no orphans, no dead hrefs');
+}
