@@ -211,7 +211,9 @@ about.
 
 What pass 4 does **not** claim is unchanged from pass 3: `shipped` means the route
 exists, loads, is scoped and renders — not that the product screen matches this
-drawing; no practitioner has looked at any of it; and G-76b's print test is still
+drawing; no practitioner has looked at any of it (**true when written; corrected
+1 September 2026, wave 6** — a senior hydrogeologist has now, and the review is
+`audits/2026-09-01-practitioner-review.md`); and G-76b's print test is still
 outstanding, so every figure here is drawn to a grammar that has never been on
 paper. The audit trail for all of the above is in `audits/`.
 

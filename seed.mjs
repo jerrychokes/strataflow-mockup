@@ -428,6 +428,19 @@ export const ANALYTES = [
  */
 const C = 'compliant', E = 'exceedance', I = 'indeterminate', N = 'not_evaluated';
 
+/*
+ * KNOWN CONTRADICTION — recorded 1 September 2026 (wave 6 audit, W6-A-1),
+ * owned by wave 7 as a carried rider. The MW11 column below (sixth cell of
+ * every row) carries populated, evaluated results, and the rest of the Q2
+ * record says MW11 was never sampled: the field round (two visits, found
+ * dry, zero samples), the sample manifest, COMPLETENESS and the home screen
+ * all agree with each other and disagree with this table. Both sides predate
+ * wave 6. The fix is to blank the column — `#data-states` describes exactly
+ * that pattern — but blanking moves the censored counts and every surface
+ * computed over this table, so it is wave 7's change made deliberately, not
+ * this one's made in passing. The visible half of this record is the notice
+ * on `#crosstab`.
+ */
 export const CROSSTAB = [
   { analyte: 'pH', cells: [
     { v: '7.42', o: [N, C] }, { v: '7.18', o: [N, C] }, { v: '8.91', o: [N, E] },
@@ -2815,6 +2828,15 @@ export const PURGE = (() => {
     },
   };
 })();
+
+// W6-A-5: the QA/QC register's ST-1 row states the same failing purge this
+// record derives, and its two numbers were typed copies — the drift mechanism
+// this wave removed for the round countdown and the purge volumes. The row is
+// declared long before the field round exists, so its detail is composed here,
+// beside the source; the register row and the failing panel on `#purge` are
+// now one sentence read twice.
+QAQC.find((r) => r.id === 'ST-1').detail =
+  `${PURGE.failing.what} Sampled at the field officer’s judgement.`;
 
 /** What arrived at the laboratory, and in what condition. */
 export const RECEIPT = {

@@ -720,7 +720,7 @@ const stabilisationSeries = (p) => {
       !r.window
         ? '<span class="mk-muted">not yet three readings</span>'
         : r.stable
-          ? C.status('all six holding', 'good')
+          ? C.status(`all ${T.params.length} holding`, 'good')
           : `${C.status(`${r.moving.length} still moving`, 'warn')}<small>${esc(r.moving.map((k) => T.params.find((x) => x.key === k).label.toLowerCase()).join(', '))}</small>`,
     ]),
   });
@@ -730,7 +730,17 @@ const stabilisationSeries = (p) => {
 const stabilisationRule = () =>
   '<p class="mk-tight">A parameter is <strong>holding</strong> when the spread across the three readings — the largest minus the smallest — sits inside its tolerance, measured against their mean where the tolerance is a percentage. The looser reading of “± 3%”, <em>each reading</em> within 3% of the mean, allows twice the movement, and which one is meant decides whether a bore stabilised — so it is stated rather than assumed. Turbidity is the one disjunctive rule: below 10 NTU a reading is acceptable outright, and only above that does the ± 10% agreement test apply. A falling turbidity curve never satisfies a percentage test on its way down, and a conjunctive reading would fail every low-flow sample ever taken.</p>';
 
-/** The session at one bore, top to bottom, in the order the work happens. */
+/**
+ * The session at one bore, top to bottom, in the order the work happens.
+ *
+ * One deliberate deviation from the review’s listed sequence (“SWL →
+ * condition → pump…”), stated rather than passed off as fidelity (W6-A-3):
+ * condition, access and headworks come **before** the depth-to-water dip,
+ * because the headworks are inspected before the bore is opened — a damaged
+ * cap, a blocked casing or a wasp nest is found by looking, not with the
+ * dipper already down the hole. From the dip onward the order is the
+ * review’s own.
+ */
 const boreSession = (s) => {
   const p = s.purge;
   const day = FIELD_ROUND.days.find((d) => d.n === s.day);
@@ -1742,6 +1752,11 @@ const crosstab = () => {
       rows,
     }) +
     C.pager({ from: 1, to: 11, total: 11, unit: 'analytes', pageSize: 50 }) +
+    notice(
+      'warning',
+      'Known contradiction, recorded here rather than left to be noticed: the MW11 column should be empty.',
+      'The field record for this round says MW11 was visited twice, found <strong>dry</strong>, and yielded no samples — the manifest, the completeness figure and the preflight all agree — yet this grid draws evaluated MW11 results. Both sides predate the field record. <a class="mk-ref" href="#data-states">Data states</a> describes the empty column this grid owes; blanking it moves the censored counts and every surface computed from this table, so the correction is wave 7’s, made deliberately rather than in passing.',
+    ) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">The same grid, across rounds</h2>' +
     `<p class="sf-lede mk-tight">${C.segmented({ options: ['This round', 'By round', 'By location'], value: 'By round', label: 'Layout' })}</p>` +
     notice(
@@ -3606,7 +3621,7 @@ const purgeLog = () => {
   const heads = [
     'Time',
     'Depth to water<small>m btoc</small>',
-    ...T.params.map((param) => `${esc(param.label)}<small>${esc(param.unit || '—')}</small>`),
+    ...T.params.map((param) => `${esc(param.label)}${param.unit ? `<small>${esc(param.unit)}</small>` : ''}`),
     'Three-reading window',
   ];
   const last = P.readings.at(-1);
@@ -6393,7 +6408,7 @@ const dataStates = () => {
         C.stateBlock('partial', {
           headline: '58 of 63 planned results are in. 3 are held and 2 were never collected.',
           detail:
-            'MW11 was not sampled in the 2026 Q2 window, which closed 2026-05-14 in Australia/Perth. The crosstab below is complete for every other location, and the MW11 column is drawn empty rather than omitted — a missing column reads as a bore that does not exist.',
+            'MW11 was not sampled in the 2026 Q2 window, which closed 2026-05-14 in Australia/Perth. The pattern this state asks for: the crosstab stays complete for every other location and MW11’s column is drawn empty rather than omitted — a missing column reads as a bore that does not exist. The catalogue’s own crosstab does not draw this yet: its MW11 column still carries evaluated results, a contradiction recorded on that screen and owned by wave 7.',
           action: 'Open the 3 held rows',
           secondary: 'Record why MW11 was missed',
         }),
