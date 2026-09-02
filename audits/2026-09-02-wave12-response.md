@@ -20,3 +20,24 @@ round's verdict rests entirely on measurements the file records.
 **State at close:** build exit 0, rebuild byte-identical (`afb8e5d2…`), the 23 Aug
 census state counts unchanged; verify exit 0 across all nine families. Round 2
 goes back to the standing auditor lineage against this commit.
+
+---
+
+# Wave 12 — response to the audit, round 2: closed
+
+**The gate passed — zero P0/P1 — and Wave 12 closes under §11.** Round 2 verified
+the P0 closed by reference (both surfaces resolving through one export, zero
+occurrences of the hand-typed date), the P1's quotation verbatim against the
+workflow, and the regression battery clean. Its two remaining notes are settled
+in this closing commit:
+
+| Item | Response |
+|---|---|
+| W12-A-3, the surviving half — the rendered warn card on `#estate` still said `#diagnostics` names 4 things "and the configuration category is not among them" | **Fixed with the one clause the auditor named:** the card now says the screen names configuration among a bundle's categories and then enumerates four things that never include it — agreeing with the corrected seed record it points to. |
+| The precision note — "both record their first drafts" held for the anchors bullet only | **Accepted as stated;** this addendum is the record. The rendered provenance sentence carries the corrected claim without a first-draft footnote, which the auditor judged immaterial to the gate, and the anchors bullet beside it carries the full history. |
+
+**State at close:** build exit 0, rebuild byte-identical (`6d3132ce…`), the 23 Aug
+census state counts unchanged; verify exit 0 across all nine families. Wave 12 —
+the configuration package with import as a decision, the estate view framed as
+the vendor's, and the first P0 the loop ever raised, fixed by derivation — is
+closed on the auditor's round 2 against `783f805` plus this one-clause fix.
