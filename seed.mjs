@@ -2451,7 +2451,7 @@ export const MAPPING_ENTRIES = [
 export const QUARANTINE = [
   { row: 18, subject: 'Nitrate as N · MW09 · 2026-05-14', reason: 'Analysed 6 days after collection against a 2-day holding-time window (APHA 4500-NO₃⁻). A nitrate result outside its window understates the true concentration.', rule: 'holding-time · APHA 4500-NO₃⁻ · 2 d', wayOut: 'Request a re-analysis, or accept with qualifier H and record why', state: 'held' },
   { row: 24, subject: 'Sulfate as SO₄ · MW09 · 2026-05-14', reason: 'The laboratory reported this as analysis_aborted, which is not a concentration. Storing it as a number would invent a measurement.', rule: 'sentinel −999 · ESdat ELDF-4', wayOut: 'Request a re-analysis. There is nothing to accept.', state: 'held' },
-  { row: 31, subject: 'Validation state "QA-Hold" · rows 31–36', reason: '"QA-Hold" is not a validation state this format maps. Defaulting it would erase or invent a review judgement (PP4).', rule: 'format field validation_state · ESdat ELDF-4', wayOut: 'Add the mapping to the Yarra Regional profile, or hold these rows', state: 'held' },
+  { row: 31, subject: 'Validation state "QA-Hold" · rows 31–36', reason: '"QA-Hold" is not a validation state this format maps. Defaulting it would erase or invent a review judgement (PP4).', rule: 'Validation_Status · ESdat export vocabulary', wayOut: 'Add the mapping to the Yarra Regional profile, or hold these rows', state: 'held' },
   { row: 12, subject: 'Zinc (filtered) · MW05-DUP · 2026-05-13', reason: 'Field duplicate RPD of 38.2% against a 30% acceptance limit. Both results are above the reporting limit, so this is a real disagreement rather than noise near the limit.', rule: 'field-duplicate-rpd · 30%', wayOut: 'Accepted with qualifier J — estimated', state: 'resolved' },
 ];
 
@@ -6770,9 +6770,9 @@ export const EXCHANGE = (() => {
       owner: 'EScIS — the ESdat publisher',
       kind: 'Laboratory deliverable',
       preserves:
-        'Analyte, value, unit, sample code, sample date, method, the EQL and MDL limits, the laboratory’s own qualifier codes in their own scheme, and a validation-state field.',
+        'Analyte, value, unit, sample code, sample date, method, the EQL and MDL limits, and the laboratory’s own qualifier codes in their own scheme.',
       cannotCarry:
-        'A PQL — the format carries four limits and none of them is verified as one. A field duplicate, a field blank or an equipment blank — there is no code for any of the three, and a blind duplicate reaches a laboratory as Normal.',
+        'A validation state — the deliverable’s published columns hold none, so the state a row acquires here is assigned on the way in, never read from the file (the legacy system export is the format that carries one, in Validation_Status). A PQL — the format carries four limits and none of them is verified as one. A field duplicate, a field blank or an equipment blank — there is no code for any of the three, and a blind duplicate reaches a laboratory as Normal.',
       where: 'imports',
       whereLabel: 'Import runs',
     },
@@ -6908,12 +6908,12 @@ export const EXCHANGE = (() => {
       basis: 'The inbound mapping ADR-0009 records, read outward. ESdat’s EQL becomes LOR on the way in; LOR becomes EQL on the way out, and neither direction is silent.' },
     { domain: 'Method detection limit (MDL)', writes: 'MDL', tier: 'established',
       basis: 'Same name, same meaning, in both directions.' },
-    { domain: 'Analyte', writes: 'ChemName', tier: 'established',
-      basis: 'The ELDF-4 definition this instance already reads, run backwards. The dictionary’s canonical name is written, never a synonym it happened to arrive under.' },
+    { domain: 'Analyte', writes: 'ChemCode + OriginalChemName', tier: 'established',
+      basis: 'The spec names the analyte across two fields — ChemCode is the key (“eg. CAS number”) and OriginalChemName the name — so the export writes the dictionary’s canonical name into OriginalChemName and its CAS-keyed code into ChemCode, never a synonym it happened to arrive under. The first draft of this row wrote “ChemName”, a field the Chemistry file does not have (W10-A-1).' },
     { domain: 'Result value', writes: 'Result', tier: 'established',
       basis: 'Written as reported. A non-detect keeps the laboratory’s own censoring notation rather than becoming a substituted number.' },
-    { domain: 'Unit', writes: 'Units', tier: 'established',
-      basis: 'The canonical unit, with any conversion this instance applied recorded in lineage here — the file carries the number and the unit, not the conversion.' },
+    { domain: 'Unit', writes: 'Result_Unit', tier: 'established',
+      basis: 'The spec’s unit column, distinct from Detection_Limit_Units — the two units the file keeps apart stay apart. The canonical unit is written, with any conversion this instance applied recorded in lineage here — the file carries the number and the unit, not the conversion.' },
     { domain: 'Sample', writes: 'SampleCode', tier: 'established',
       basis: 'The sample identifier as collected, which is the identifier the chain of custody and the certificate both name.' },
     { domain: 'Fraction — dissolved', writes: 'Total_or_Filtered', tier: 'established',
@@ -6926,8 +6926,8 @@ export const EXCHANGE = (() => {
     { domain: 'Sample type — matrix spike', writes: 'MS', tier: 'established',
       basis: 'ELDF §5. It is a sample type and never a result type, and the export does not put it in the other column.' },
     { domain: 'Sample type — matrix spike duplicate', writes: 'MS_D', tier: 'established', basis: 'ELDF §5.' },
-    { domain: 'Validation state', writes: 'validation_state', tier: 'established',
-      basis: 'The field the held rows are held on. A state the target does not know is a decision, not a default — which is exactly how it is treated on the way in.' },
+    { domain: 'Validation state', writes: 'nothing', tier: 'refused',
+      basis: 'No published field carries it — the Chemistry file’s thirty columns and the Sample file’s twelve include no validation state, and writing this instance’s own column name into somebody else’s file would invent a field. The state stays on the record; the transmittal can say it, the file cannot. The first draft of this row claimed the column existed (W10-A-1).' },
     { domain: 'Qualifier — laboratory scheme', writes: 'the code, unchanged', tier: 'established',
       basis: 'A U in an ESdat deliverable is USEPA’s U and means what USEPA says it means. The code belongs to its scheme, so it crosses without translation.' },
 
@@ -6939,7 +6939,7 @@ export const EXCHANGE = (() => {
       basis: 'The format carries a fourth limit no practitioner says. On the way in it must not be dropped; on the way out there is nothing to put in it, and the column is written empty rather than filled from a neighbour.' },
 
     { domain: 'Sample type — field duplicate', writes: 'no code exists', tier: 'none',
-      basis: 'ELDF has no field-duplicate code. A blind duplicate reaches a laboratory as Normal, so the pairing is the sampler’s knowledge — and writing Normal loses the parent link an RPD is computed across.' },
+      basis: 'ELDF has no field-duplicate code, though it does carry the pairing: Parent_Sample links a QC sample to its parent, and the export writes it. What cannot cross is the kind — a Normal row with a filled Parent_Sample is a parented sample of undefined type, so the RPD pairing’s meaning is lost while its link survives.' },
     { domain: 'Sample type — field blank', writes: 'no code exists', tier: 'none', basis: 'No code found in the published code list.' },
     { domain: 'Sample type — equipment blank', writes: 'no code exists', tier: 'none', basis: 'No code found in the published code list.' },
     { domain: 'Exceedance outcome', writes: 'no column exists', tier: 'none',
@@ -7131,9 +7131,9 @@ export const EXCHANGE = (() => {
       where: 'events',
       whereLabel: 'the round’s manifest',
       checked:
-        'Six of the nine sample types this domain uses map to a published code and three do not. The three unmapped ones are exactly the field controls, which is not an accident: a laboratory receives a blind duplicate as an ordinary sample and never knew it was one.',
+        'Six of the nine sample types this domain uses map to a published code and three do not — and the Sample file does carry Parent_Sample, which links a QC sample to its parent, so the export writes the pairing. The three unmapped ones are exactly the field controls, which is not an accident: a laboratory receives a blind duplicate as an ordinary sample and never knew it was one.',
       reads:
-        'A field duplicate written as Normal loses the parent link the RPD was computed across, and the two blanks have no code at all. The controls that answer “did the sampling introduce this” are the ones that do not survive the crossing.',
+        'A field duplicate crosses as Normal with its Parent_Sample filled — a parented sample of undefined kind, so the RPD pairing’s meaning is lost while its link survives — and the two blanks have no code at all. The controls that answer “did the sampling introduce this” do not survive the crossing as what they are.',
     },
     {
       what: 'The basis a qualifier travelled on',

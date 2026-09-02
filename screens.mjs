@@ -891,7 +891,7 @@ const exchangeFormats = () => {
         /*
          * A list rather than a three-column table. The middle column would be
          * a number and the third a sentence, inside a 2fr panel — which is
-         * the same 90 px prose column the estate table was split to avoid.
+         * the same 90 px prose column the inventory table was split to avoid.
          */
         `<ul class="mk-list">${Object.entries(T)
           .map(([k, t]) => `<li>${tier(k)} — <strong>${X.outwardCounts[k]} rows.</strong> ${esc(t.means)}</li>`)
@@ -974,7 +974,7 @@ const exchangeFormats = () => {
         'What the export does about it, which is not nothing',
         '<p class="mk-tight">Every loss above is surfaced <strong>before</strong> the file is written, as a decision with named consequences rather than a warning to click past. Ambiguity is a decision the user makes, never a silent default — the same rule the exception queue keeps on the way in.</p>' +
           /*
-           * A list, for the reason the estate table was split: three prose
+           * A list, for the reason the inventory table was split: three prose
            * columns inside a 1fr panel is a 110 px column per sentence.
            */
           `<p class="mk-tight mk-muted">The three ways out, and the product does not choose between them.</p>` +

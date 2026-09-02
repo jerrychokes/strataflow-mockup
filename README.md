@@ -715,9 +715,10 @@ participant as an EQuIS-compatible EDD, in three parts:
 - **The outward mapping is ADR-0009 rendered.** The domain says **LOR** and the file receives
   `EQL`, and the rename is a recorded table with a basis on every row rather than something the
   writer does silently. Twenty-three rows in three tiers, and the tiers are the app repo's own
-  inbound table read the other way: **14 land** on a mapping this project already evidenced,
-  **3 are refused** — a PQL is not written into `RDL` on the strength of the names, because the
-  *importer* declined that trade on the same evidence — and **6 have nothing on the other side
+  inbound table read the other way: **13 land** on a mapping this project already evidenced,
+  **4 are refused** — a validation state is not written into a column the spec does not have,
+  and a PQL is not written into `RDL` on the strength of the names, because the *importer*
+  declined that trade on the same evidence — and **6 have nothing on the other side
   at all**. A mapping not evidenced enough to trust on the way in is not evidenced enough to
   write on the way out, and the table stops where the evidence does instead of continuing with
   plausible-looking columns nobody can cite.
