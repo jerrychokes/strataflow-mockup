@@ -4921,7 +4921,7 @@ const configPackage = () => {
       panel(
         `${P.counts.exportable} items this instance could export`,
         table({
-          caption: 'Counted off the registers themselves, so a format added on the registry appears here without anybody remembering to.',
+          caption: 'Counted off the registers themselves — and, for formats, off the configuration inventory, because an export can only carry a versioned item. A format added with a revision appears here without anybody remembering to.',
           head: ['Kind', 'Items here', 'Where they are kept'],
           scroll: true,
           label: 'What this instance could export as a package',
@@ -4930,7 +4930,7 @@ const configPackage = () => {
             k.exports === 0 ? '<span class="mk-num mk-num--nil">0</span>' : `<span class="mk-num">${k.exports}</span>`,
             cell(
               k.kind === 'edd-format'
-                ? '<a class="mk-ref" href="#formats">The format registry</a>'
+                ? '<a class="mk-ref" href="#formats">The format registry</a> — 2 of its 4: the two declaring no revision cannot cross, and this panel said 4 (and 9 in its heading) before it read the inventory'
                 : k.kind === 'criteria-library'
                   ? '<a class="mk-ref" href="#criteria">The criteria library</a>'
                   : '<a class="mk-ref" href="#report">The report composer’s template panel</a> — none held as a portable item yet',
@@ -10105,6 +10105,7 @@ const entitlementScreen = () => (
           ],
         }) +
         `<p class="mk-tight mk-muted">The ${BUNDLE_CONTENTS.counts.excluded} omissions are named in the manifest rather than left to be noticed — an omission stated is a promise and an omission unstated is a gap — and the manifest itself is not selectable because an archive that could be sent without its own inventory is one nobody can check.</p>` +
+        `<p class="mk-tight mk-muted">What this panel said before the configuration inventory was enumerated (wave 13): 3.6 MB, and 2 omissions. Both moved because both derive now — the size is the sum of the categories and the omissions are the generator’s own list — and the old numbers stay stated here for the same reason the import tiles state theirs.</p>` +
         C.blastRadius({
           lede: 'Generating this bundle would write one file, here, and send nothing:',
           rows: [

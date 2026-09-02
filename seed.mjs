@@ -8101,6 +8101,14 @@ export const OPS_AS_AT = '2026-08-23';
  *   - the golden comparison run at `2026-09-01 08:12` (`#report`) — the one
  *     the first draft of this note missed, which is why it was measured.
  *
+ * And two rendered dates are neither records nor on a clock at all: the
+ * `2026-09-01 → if activated` previews of the criteria draft's effective
+ * date, drawn on `#criteria` and in `#package`'s would-write panel. A
+ * preview of a conditional future event has no as-at to be after; the
+ * enumeration missed them on its first pass and the auditor's own count
+ * found them (W13-A-3), which is the second time this note has been
+ * corrected by measurement — the reason it exists.
+ *
  * All four are event dates, so the rule above puts them outside a clock — but
  * a reader who noticed would be right to ask, so each is named on its own
  * screen beside the clock statement rather than left to be found. This wave
@@ -8180,9 +8188,12 @@ export const OPS_CLOCK = {
  * a reader find two counts of one thing.
  *
  * Every checksum here is fictional on the same convention as every digest and
- * identifier in this seed. What is not fictional is the shape: twelve hex
- * characters of a SHA-256, shown truncated exactly as the product's own
- * manifest renders one (`sha256.slice(0, 16)`).
+ * identifier in this seed. What is not fictional is the shape: hex characters
+ * of a SHA-256, truncated. The product's own manifest renders sixteen
+ * (`sha256.slice(0, 16)`); this catalogue's columns carry twelve, trimmed
+ * further for the narrow cells — a display choice stated here rather than
+ * misattributed to the product. The first draft claimed the truncations
+ * matched (W13-A-2).
  */
 export const CONFIG_INVENTORY = (() => {
   const anzg = CRITERIA_LIBRARY.find((c) => c.set === CRITERIA[0].name && c.state === 'active');
@@ -8781,10 +8792,22 @@ export const CONFIG_PACKAGE = (() => {
     },
   ];
 
-  /** Building one here, which is the other half of portability. */
+  /**
+   * Building one here, which is the other half of portability. The EDD count
+   * reads the configuration inventory rather than the format registry,
+   * because an export can only carry a versioned item — versionOf() refuses
+   * the two formats that declare no revision, so the registry's 4 and the
+   * exportable 2 are different facts. The first draft counted FORMATS.length
+   * here, which put two sources for one count on one screen — the settlement
+   * this wave exists to remove — and said 9 items where the inventory
+   * supports 7 (W13-A-1).
+   */
   const exportable = KINDS.map((k) => ({
     ...k,
-    exports: k.kind === 'edd-format' ? FORMATS.length : k.kind === 'criteria-library' ? CRITERIA_LIBRARY.length : 0,
+    exports:
+      k.kind === 'edd-format'
+        ? CONFIG_INVENTORY.items.filter((i) => i.kind === 'edd-format').length
+        : k.kind === 'criteria-library' ? CRITERIA_LIBRARY.length : 0,
   }));
 
   return {
