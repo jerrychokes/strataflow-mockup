@@ -31,3 +31,26 @@ missed: the falsified sentence was mine. Both findings accepted and fixed:
 **State at close:** build exit 0, rebuild byte-identical (`a792aedc…`), the 23 Aug
 census state counts unchanged; verify exit 0 across all nine families. Round 3
 goes back to the standing auditor lineage against this commit.
+
+---
+
+# Wave 10 — response to the audit, round 3: closed at the cap, unpassed
+
+**Round 3 did not close the gate, and there is no round 4 — Wave 10 is the first
+wave to reach §11's three-round cap without passing.** That is the loop working,
+not failing: three rounds produced eight findings, every one real, and the record
+below is what the cap is for — an honest stopping point rather than an
+open-ended argument with the evidence.
+
+| Finding | Severity | Disposition |
+|---|---|---|
+| W10-A-6 — the format inventory typed `Fields: 61` for ELDF-4 and `28` for the legacy export against the spec's 30 + 12 = 42 and the fixture's 21-column header, contradicting the page's own "thirty columns … twelve" sentence | P1 | **Fix applied post-cap as wave 11's carried rider, unverified by this wave's loop.** The two literals — unchanged since 23 August — now read 42 and 21, with the correction, its evidence and its first drafts recorded in the seed comment above `FORMATS`. Per the auditor's own recommendation, **re-verification is assigned to wave 11's audit round**, which must check both rendered values against the spec and the fixture before wave 11 can close. |
+| W10-A-7 — the round-2 closure enumeration missed two innocent bare-"Units" occurrences ("pH, pH Units"; "Units and reference data") | P3 | **Accepted; the corrected enumeration is this one:** at this commit the whole-page sweep finds `validation_state` 0 · standalone `ChemName` 1 (the first-draft record) · bare `Units` 9 (the first-draft record, six screen-title occurrences, and the two innocent phrases the previous enumeration missed). |
+
+**Wave 10's honest closing state:** everything the wave built passed measurement —
+the estate, the export record, the 23-row mapping (corrected twice and now held
+to its own tier definition), the 10-check reconciliation, the six-loss statement,
+the DR-2 rendering, the three enhancements — and the wave still stands as the
+pipeline's reminder that a screen about evidence discipline attracts exactly that
+discipline. Deferrals carried: the qualifier scheme gap (wave 10's own), and
+**W10-A-6's re-verification, binding on wave 11's audit round**.

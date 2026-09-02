@@ -1975,11 +1975,21 @@ export const CRITERIA_LIBRARY = [
   { set: 'Site-specific trigger values — TSF', version: '2025.1', effective: '2025-01-01 →', matrix: 'Groundwater', applies: 'MW05, MW07 (downgradient of TSF)', analytes: 6, state: 'active' },
 ];
 
-/** EDD format definitions — configuration, never code (FR-3.1). */
+/**
+ * EDD format definitions — configuration, never code (FR-3.1).
+ *
+ * Two field counts corrected 2 September 2026 (W10-A-6, raised at the wave 10
+ * cap and fixed as wave 11's carried rider): ELDF-4 typed 61 where the spec's
+ * two files publish 30 + 12 = 42 columns, and the legacy export typed 28 where
+ * the only legacy artifact in evidence carries a 21-column header — both
+ * literals unchanged since 23 August, both contradicted by the page's own
+ * "thirty columns … twelve" sentence one screen away. The Yarra and EQuIS
+ * counts have no in-repo evidence either way and stand as drawn.
+ */
 export const FORMATS = [
-  { name: 'ESdat ELDF-4', version: '4.0', files: 'Sample + Chemistry pair', fields: 61, labs: 'Pilbara Analytical Services, Yarra Regional Analytical', state: 'active' },
+  { name: 'ESdat ELDF-4', version: '4.0', files: 'Sample + Chemistry pair', fields: 42, labs: 'Pilbara Analytical Services, Yarra Regional Analytical', state: 'active' },
   { name: 'Yarra Regional v2', version: '2.3', files: 'Single CSV', fields: 34, labs: 'Yarra Regional Analytical', state: 'active' },
-  { name: 'ESdat legacy export', version: '—', files: 'Single CSV', fields: 28, labs: 'migration only', state: 'migration' },
+  { name: 'ESdat legacy export', version: '—', files: 'Single CSV', fields: 21, labs: 'migration only', state: 'migration' },
   { name: 'EQuIS EDD (4-file)', version: '—', files: 'Four CSV', fields: 88, labs: 'migration only', state: 'migration' },
 ];
 
