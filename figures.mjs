@@ -25,7 +25,8 @@
  */
 
 import {
-  ARSENIC_MW05, CROSSTAB, CROSSTAB_COLUMNS, LOCATIONS, MAJOR_IONS, RAINFALL, WATER_LEVELS,
+  ARSENIC_MW05, CONSTRUCTION, CROSSTAB, CROSSTAB_COLUMNS, CROSSTAB_SHAPE, FIELD_ROUND, LOCATIONS,
+  MAJOR_IONS, RAINFALL, WATER_LEVELS,
 } from './seed.mjs';
 import { esc } from './ui.mjs';
 
@@ -623,7 +624,14 @@ export function schoeller() {
 export function boxPlot() {
   const W = 760, H = 320;
   const x = 58, w = W - x - 18, y = 12, h = H - y - 62;
-  const codes = ['MW01A', 'MW03B', 'MW05', 'MW07', 'MW09', 'MW11'];
+  /*
+   * Wave 7: the six bores are read off the grid rather than listed here. The
+   * list drew MW11 — a bore this round found dry — and omitted MW12, the
+   * background bore the whole seepage argument is made against. Both were
+   * typed, and both were wrong in the same way a typed list always eventually
+   * is.
+   */
+  const codes = CROSSTAB_SHAPE.sampledColumns;
   const data = codes.map((code, ci) => {
     const base = code === 'MW05' ? 14 : 2.6;
     const spread = code === 'MW05' ? 9 : 1.5;
@@ -802,17 +810,25 @@ const PROJECTION = 'GDA2020 / MGA zone 50 (EPSG:7850)';
 
 export function boreLog(code = 'MW05') {
   const loc = LOCATIONS.find((l) => l.code === code) ?? LOCATIONS[2];
+  /*
+   * Wave 7: the construction is a record now (`CONSTRUCTION`), not four
+   * literals inside a renderer. The strata, the screen, the blank casing and
+   * the drilling line all resolve through it, and the standing water level
+   * comes off the field session rather than being typed — it read 8.40 here
+   * while the bore session recorded 8.47 m below top of casing at the same
+   * visit, which is the small drift a drawing acquires the moment it holds
+   * its own copy of a number.
+   */
+  const b = CONSTRUCTION.of(code);
+  const session = FIELD_ROUND.sessions.find((s) => s.location === code && s.depthToWater !== null);
   const W = 380, H = 470;
   const x = 116, w = 92, y = 40, h = 360;
-  const depthMax = 24;
+  const depthMax = b.totalDepth;
   const ys = scale(0, depthMax, y, y + h);
 
-  const strata = [
-    { from: 0, to: 3.2, name: 'Sand, aeolian', pattern: 'dots' },
-    { from: 3.2, to: 9.6, name: 'Clayey sand', pattern: 'dash' },
-    { from: 9.6, to: 19.4, name: 'Weathered granite', pattern: 'cross' },
-    { from: 19.4, to: 24, name: 'Fresh granite', pattern: 'brick' },
-  ];
+  const strata = b.strata;
+  const blank = b.casing.find((c) => c.component === 'Blank casing');
+  const screen = { from: b.screenFrom, to: b.screenTo };
 
   let body = `<text class="mk-annot" x="20" y="18" fill="${INK}" font-weight="600">${esc(loc.code)} — construction log</text>`;
 
@@ -829,35 +845,37 @@ export function boreLog(code = 'MW05') {
 
   // Casing and screen, drawn inside the borehole.
   const cw = 22, cx = x + w / 2;
+  const slots = 12;
   body +=
-    `<rect x="${round(cx - cw / 2)}" y="${round(ys(0))}" width="${cw}" height="${round(ys(12) - ys(0))}" fill="#ffffff" stroke="${INK}" stroke-width="1"/>` +
-    `<rect x="${round(cx - cw / 2)}" y="${round(ys(12))}" width="${cw}" height="${round(ys(18) - ys(12))}" fill="none" stroke="${ACCENT}" stroke-width="1.4"/>` +
-    Array.from({ length: 12 }, (_, i) =>
-      `<line x1="${round(cx - cw / 2)}" y1="${round(ys(12) + ((ys(18) - ys(12)) / 12) * i)}" x2="${round(cx + cw / 2)}" y2="${round(ys(12) + ((ys(18) - ys(12)) / 12) * i)}" stroke="${ACCENT}" stroke-width="0.8"/>`).join('') +
+    `<rect x="${round(cx - cw / 2)}" y="${round(ys(blank.from))}" width="${cw}" height="${round(ys(blank.to) - ys(blank.from))}" fill="#ffffff" stroke="${INK}" stroke-width="1"/>` +
+    `<rect x="${round(cx - cw / 2)}" y="${round(ys(screen.from))}" width="${cw}" height="${round(ys(screen.to) - ys(screen.from))}" fill="none" stroke="${ACCENT}" stroke-width="1.4"/>` +
+    Array.from({ length: slots }, (_, i) =>
+      `<line x1="${round(cx - cw / 2)}" y1="${round(ys(screen.from) + ((ys(screen.to) - ys(screen.from)) / slots) * i)}" x2="${round(cx + cw / 2)}" y2="${round(ys(screen.from) + ((ys(screen.to) - ys(screen.from)) / slots) * i)}" stroke="${ACCENT}" stroke-width="0.8"/>`).join('') +
     // Below the interval rather than beside its midpoint: the screen runs
     // through the middle of the weathered granite, so a label at its centre
     // lands on that unit's own name. A leader keeps it attached.
-    `<path d="M${round(cx + cw / 2)} ${round((ys(12) + ys(18)) / 2)}H${x + w + 4}V${round(ys(18)) + 16}h4" fill="none" stroke="${ACCENT}" stroke-width="0.8"/>` +
-    `<text class="mk-annot" x="${x + w + 12}" y="${round(ys(18)) + 19}" fill="${ACCENT}">Screen 12.0 – 18.0 m</text>`;
+    `<path d="M${round(cx + cw / 2)} ${round((ys(screen.from) + ys(screen.to)) / 2)}H${x + w + 4}V${round(ys(screen.to)) + 16}h4" fill="none" stroke="${ACCENT}" stroke-width="0.8"/>` +
+    `<text class="mk-annot" x="${x + w + 12}" y="${round(ys(screen.to)) + 19}" fill="${ACCENT}">Screen ${screen.from.toFixed(1)} – ${screen.to.toFixed(1)} m</text>`;
 
   // Standing water level, at the measurement date. Never stored — derived
   // through the datum in force on the day (packages/db/src/datum.ts).
-  const swl = 8.4;
+  const swl = session.depthToWater;
   body +=
     `<path d="M${x - 10} ${round(ys(swl))}h${w + 20}" stroke="${ACCENT}" stroke-width="1.2"/>` +
     `<path d="M${x - 10} ${round(ys(swl))}l6 -5h-12Z" fill="${ACCENT}"/>` +
-    `<text class="mk-annot" x="${x - 16}" y="${round(ys(swl)) + 3.5}" text-anchor="end" fill="${ACCENT}">SWL 8.40</text>`;
+    `<text class="mk-annot" x="${x - 16}" y="${round(ys(swl)) + 3.5}" text-anchor="end" fill="${ACCENT}">SWL ${swl.toFixed(2)}</text>`;
 
+  const drilledOn = FIELD_ROUND.days.find((d) => d.n === session.day).date;
   body +=
     `<text class="mk-annot" x="${x}" y="${y - 8}" fill="${MUTED}">Depth, m bgl</text>` +
     provenance(20, H - 34, [
       `TOC ${loc.toc.toFixed(2)} m AHD · GDA2020 MGA50 ${loc.easting}E ${loc.northing}N`,
-      'Drilled 2019-04-11 · 150 mm mud rotary · 50 mm Class 18 uPVC · SWL at 2026-05-13',
+      `Drilled ${b.drilled} · ${b.method} · ${blank.material} · SWL at ${drilledOn}`,
     ]);
 
   return (
     svgOpen(W, H, `${loc.code} construction log`,
-      `${loc.code} is screened from 12 to 18 metres in weathered granite, with a standing water level of 8.4 metres below ground level at the May 2026 round.`) +
+      `${loc.code} is screened from ${screen.from} to ${screen.to} metres in ${strata.find((s) => s.from <= screen.from && s.to >= screen.to)?.name.toLowerCase() ?? 'the logged unit'}, with a standing water level of ${swl.toFixed(2)} metres below the top of casing at the May 2026 round.`) +
     body + '</svg>'
   );
 }
@@ -957,6 +975,16 @@ export function probabilityPlot() {
  * south-east. A monitoring network that is a single line of bores cannot
  * produce a two-dimensional surface, and adding points to it that are also on
  * the line does not help.
+ *
+ * ## MW11 carries no head, and the plate says so (wave 7)
+ *
+ * The field record for this round has MW11 dipped to the base of its screened
+ * interval and found **dry**. A dry bore has no standing level, so it has no
+ * head, and it was contributing 195.8 m AHD to this fit — a water table
+ * fifteen metres above where the tape found nothing. It stays in the table
+ * with `h: null`, because *dry is not missing*: the position is real, the
+ * plate draws the bore, and what it does not do is pretend the surface passes
+ * through it. The fit runs over the control points that have a head.
  */
 const HEADS = [
   { code: 'MW12', e: 511420, n: 7654890, h: 205.6 },
@@ -966,8 +994,11 @@ const HEADS = [
   { code: 'MW07', e: 514430, n: 7652940, h: 198.7 },
   { code: 'STY02', e: 515000, n: 7653400, h: 198.1 },
   { code: 'MW09', e: 515120, n: 7652410, h: 197.0 },
-  { code: 'MW11', e: 515640, n: 7652120, h: 195.8 },
+  { code: 'MW11', e: 515640, n: 7652120, h: null, dry: true },
 ];
+
+/** The points that carry a head. A dry bore contributes a position and nothing else. */
+const HEAD_CONTROL = HEADS.filter((p) => p.h !== null);
 
 /** Least-squares plane h = a·e + b·n + c, solved by 3×3 elimination. */
 function fitPlane(pts) {
@@ -999,6 +1030,38 @@ function fitPlane(pts) {
   return { a: x[0], b: x[1], c: x[2], e0, n0, at: (e, n) => x[0] * ((e - e0) / 1000) + x[1] * ((n - n0) / 1000) + x[2] };
 }
 
+/**
+ * The fit, computed once and read by both the plate and the prose beside it.
+ *
+ * The panel on `#map` used to state the flow direction, the gradient and the
+ * largest residual as typed sentences next to a plate that computed all three.
+ * They agreed until the day they did not: removing MW11's phantom head moved
+ * the gradient and the residual, and a typed "0.04 m" would have gone stale in
+ * exactly the way this catalogue keeps finding.
+ */
+export const POTENTIOMETRIC_FIT = (() => {
+  const plane = fitPlane(HEAD_CONTROL);
+  const gx = -plane.a, gy = -plane.b;
+  const mag = Math.hypot(gx, gy);
+  const bearing = ((Math.atan2(gx, gy) * 180) / Math.PI + 360) % 360;
+  const residuals = HEAD_CONTROL.map((p) => ({ code: p.code, r: p.h - plane.at(p.e, p.n) }));
+  const worst = residuals.reduce((m, p) => Math.max(m, Math.abs(p.r)), 0);
+  return {
+    plane,
+    control: HEAD_CONTROL.length,
+    drawn: HEADS.length,
+    dry: HEADS.filter((p) => p.dry).map((p) => p.code),
+    excluded: ['MW03B'],
+    bearing,
+    bearingText: `${bearing.toFixed(0)}°`,
+    gradient: mag,
+    gradientText: `${mag.toFixed(2)} m/km`,
+    worst,
+    worstText: `${worst.toFixed(2)} m`,
+    residuals,
+  };
+})();
+
 export function potentiometric() {
   const W = 620, H = 460;
   const x = 46, y = 16, w = W - x - 20, h = 340;
@@ -1007,7 +1070,7 @@ export function potentiometric() {
   const xs = scale(Math.min(...es) - padE, Math.max(...es) + padE, x, x + w);
   const ys = scale(Math.min(...ns) - padN, Math.max(...ns) + padN, y + h, y);
 
-  const plane = fitPlane(HEADS);
+  const plane = POTENTIOMETRIC_FIT.plane;
   const corners = [
     [xs.domain[0], ys.domain[0]], [xs.domain[1], ys.domain[0]],
     [xs.domain[0], ys.domain[1]], [xs.domain[1], ys.domain[1]],
@@ -1057,6 +1120,21 @@ export function potentiometric() {
 
   body += HEADS.map((p) => {
     const px = xs(p.e), py = ys(p.n);
+    // A dry bore is drawn and is not a control point: an open dashed ring
+    // rather than the solid one, and the word instead of a head. Omitting it
+    // would remove a bore from a network map because it held no water that
+    // week, which is the reading a compliance boundary can least afford.
+    if (p.dry) {
+      return (
+        hoverable(
+          `<circle cx="${round(px)}" cy="${round(py)}" r="3.2" fill="#ffffff" stroke="${MUTED}" stroke-width="1.2" stroke-dasharray="2 1.6"/>`,
+          `${p.code} · dry at this round — dipped to the base of the screened interval and found dry, so it carries no head and is not a control point on this fit`,
+          px, py,
+        ) +
+        `<text class="mk-annot" x="${round(px + 7)}" y="${round(py + 3)}" fill="${MUTED}">${esc(p.code)}` +
+        `<tspan fill="${MUTED}" dx="4">dry</tspan></text>`
+      );
+    }
     const resid = p.h - plane.at(p.e, p.n);
     return (
       hoverable(
@@ -1072,7 +1150,7 @@ export function potentiometric() {
   }).join('');
 
   // Residuals, printed rather than hidden — the fit's own honesty check.
-  const worst = HEADS.map((p) => Math.abs(p.h - plane.at(p.e, p.n))).reduce((a, b) => Math.max(a, b), 0);
+  const worst = POTENTIOMETRIC_FIT.worst;
   // Short enough to sit inside the viewBox. SVG text does not wrap, so a long
   // line simply runs past the frame and off the page at a phone width — which
   // is what happened here. The argument for the method belongs in the panel
@@ -1080,8 +1158,8 @@ export function potentiometric() {
   // its provenance, not two lines of reasoning.
   const ry = y + h + 22;
   body +=
-    `<text class="mk-annot" x="${x}" y="${ry}" fill="${INK}" font-weight="600">Planar least-squares fit · 8 superficial bores</text>` +
-    `<text class="mk-annot" x="${x}" y="${ry + 14}" fill="${MUTED}">Largest residual ${worst.toFixed(2)} m · MW03B excluded (confined unit)</text>`;
+    `<text class="mk-annot" x="${x}" y="${ry}" fill="${INK}" font-weight="600">Planar least-squares fit · ${POTENTIOMETRIC_FIT.control} superficial bores</text>` +
+    `<text class="mk-annot" x="${x}" y="${ry + 14}" fill="${MUTED}">Largest residual ${worst.toFixed(2)} m · MW03B excluded (confined) · ${POTENTIOMETRIC_FIT.dry.join(', ')} dry</text>`;
 
   body += provenance(x, H - 16, [
     'MOCK-WDL · 2026-Q2-GW · heads derived at the measurement date through the datum then in force · GDA2020 MGA50',

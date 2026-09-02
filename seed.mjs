@@ -426,66 +426,188 @@ export const ANALYTES = [
  * an encoding built for two states cannot widen to four across N sets without
  * redrawing every surface (tokens.json).
  */
+/**
+ * How a planned location was left at the end of a visit — the closed list.
+ *
+ * Moved above the crosstab in wave 7 so the grid can read it. A cell where no
+ * result exists is an absence with a *reason*, and the reason is one of these
+ * seven; a grid that invented its own word for it would be the second
+ * vocabulary for one fact, which is what the glossary rule exists to stop.
+ */
+const FIELD_DISPOSITIONS = [
+  {
+    code: 'sampled', label: 'Sampled', reason: false, tone: 'good', glyph: '●',
+    means: 'Water was recovered and one or more samples were submitted under the chain of custody.',
+  },
+  {
+    code: 'dry', label: 'Dry', reason: true, tone: 'warn', glyph: '○',
+    means: 'The bore was reached and dipped and held no water. A measurement of the aquifer, not a gap in the record — the hydrograph draws a break rather than a line through it and the round is satisfied as attempted.',
+  },
+  {
+    code: 'insufficient-recharge', label: 'Insufficient recharge', reason: true, tone: 'warn', glyph: '◔',
+    means: 'The bore held water, was purged dry, and did not recover enough to fill the containers before the crew had to leave.',
+  },
+  {
+    code: 'inaccessible', label: 'Inaccessible', reason: true, tone: 'warn', glyph: '⊘',
+    means: 'The bore could not be reached — a cut track, a locked gate, stock, fire, or a working area closed to entry.',
+  },
+  {
+    code: 'damaged', label: 'Damaged or obstructed', reason: true, tone: 'bad', glyph: '▲',
+    means: 'The headworks or the casing prevented the visit: a sheared riser, a seized cap, an obstruction above the screen.',
+  },
+  {
+    code: 'not-located', label: 'Not located', reason: true, tone: 'bad', glyph: '?',
+    means: 'The crew searched the surveyed position and did not find the bore. It is a finding about the register, and it routes to the location record rather than to the round.',
+  },
+  {
+    code: 'not-sampled', label: 'Not sampled', reason: true, tone: 'bad', glyph: '—',
+    means: 'The residual state, and the reason is free text because the six above did not fit. A round left with this disposition and no reason cannot be marked complete.',
+  },
+];
+
 const C = 'compliant', E = 'exceedance', I = 'indeterminate', N = 'not_evaluated';
 
-/*
- * KNOWN CONTRADICTION — recorded 1 September 2026 (wave 6 audit, W6-A-1),
- * owned by wave 7 as a carried rider. The MW11 column below (sixth cell of
- * every row) carries populated, evaluated results, and the rest of the Q2
- * record says MW11 was never sampled: the field round (two visits, found
- * dry, zero samples), the sample manifest, COMPLETENESS and the home screen
- * all agree with each other and disagree with this table. Both sides predate
- * wave 6. The fix is to blank the column — `#data-states` describes exactly
- * that pattern — but blanking moves the censored counts and every surface
- * computed over this table, so it is wave 7's change made deliberately, not
- * this one's made in passing. The visible half of this record is the notice
- * on `#crosstab`.
+/**
+ * The cell for a bore that was not sampled — **drawn, not omitted**.
+ *
+ * Wave 7's carried rider (W6-A-1, from the wave-6 audit). The MW11 column used
+ * to carry eleven populated, evaluated results while every other surface on
+ * this round said MW11 was visited twice, found **dry**, and yielded no
+ * samples: the field round, the sample manifest, `COMPLETENESS`, the work
+ * queue. The column is blanked below — which is what `#data-states` had
+ * described all along as the pattern this state asks for — and every count
+ * computed over this table moves with it rather than being typed to match.
+ *
+ * **Dry is not missing**, so the cell says which it is. A blank cell reads as
+ * a value somebody forgot to enter; a removed column reads as a bore that does
+ * not exist. This one is present, it carries a glyph and a word as well as a
+ * position, and the sentence behind it names the disposition the field record
+ * holds. It deliberately carries **no outcome marks**: nothing was measured,
+ * so nothing was assessed, and a *not evaluated* mark would assert a result
+ * that no criterion happened to fit.
  */
+const NOT_SAMPLED = (() => {
+  const d = FIELD_DISPOSITIONS.find((x) => x.code === 'dry');
+  return {
+    empty: true,
+    /* The disposition's own glyph and its own word — not a second vocabulary. */
+    glyph: d.glyph,
+    word: d.label.toLowerCase(),
+    spoken:
+      `${d.label.toLowerCase()} — no sample exists. ${d.means} ` +
+      'So this cell is an absence of material, not a result below a limit of reporting, and not a pass.',
+  };
+})();
+
 export const CROSSTAB = [
   { analyte: 'pH', cells: [
     { v: '7.42', o: [N, C] }, { v: '7.18', o: [N, C] }, { v: '8.91', o: [N, E] },
-    { v: '7.06', o: [N, C] }, { v: '6.84', o: [N, C] }, { v: '7.31', o: [N, C] }, { v: '7.55', o: [N, C] } ] },
+    { v: '7.06', o: [N, C] }, { v: '6.84', o: [N, C] }, NOT_SAMPLED, { v: '7.55', o: [N, C] } ] },
   { analyte: 'Electrical conductivity', cells: [
     { v: '840', o: [N, C] }, { v: '1120', o: [N, C] }, { v: '3410', o: [N, E] },
-    { v: '1680', o: [N, C] }, { v: '990', o: [N, C] }, { v: '910', o: [N, C] }, { v: '760', o: [N, C] } ] },
+    { v: '1680', o: [N, C] }, { v: '990', o: [N, C] }, NOT_SAMPLED, { v: '760', o: [N, C] } ] },
   { analyte: 'Total hardness as CaCO₃', cells: [
     { v: '182', o: [N, N] }, { v: '244', o: [N, N] }, { v: '412', o: [N, N] },
-    { v: '268', o: [N, N] }, { v: '196', o: [N, N] }, { v: '174', o: [N, N] }, { v: '158', o: [N, N] } ] },
+    { v: '268', o: [N, N] }, { v: '196', o: [N, N] }, NOT_SAMPLED, { v: '158', o: [N, N] } ] },
   { analyte: 'Arsenic (filtered)', cells: [
     { v: '2.1', o: [C, C] },
     { v: '3.1', o: [C, C], superseded: '31' },
     { v: '28.4', o: [E, C] },
     { v: '<1.0', o: [C, C], censored: true },
-    { v: '3.2', o: [C, C] }, { v: '2.8', o: [C, C] }, { v: '1.4', o: [C, C] } ] },
+    { v: '3.2', o: [C, C] }, NOT_SAMPLED, { v: '1.4', o: [C, C] } ] },
   { analyte: 'Cadmium (filtered)', cells: [
     { v: '<1.0', o: [I, C], censored: true }, { v: '<1.0', o: [I, C], censored: true },
     { v: '<1.0', o: [I, C], censored: true }, { v: '<1.0', o: [I, C], censored: true },
-    { v: '<1.0', o: [I, C], censored: true }, { v: '<1.0', o: [I, C], censored: true },
+    { v: '<1.0', o: [I, C], censored: true }, NOT_SAMPLED,
     { v: '<1.0', o: [I, C], censored: true } ] },
   { analyte: 'Copper (filtered)', cells: [
     { v: '0.9', o: [C, C] }, { v: '1.2', o: [C, C] }, { v: '6.4', o: [E, C] },
-    { v: '1.1', o: [C, C] }, { v: '<0.5', o: [C, C], censored: true }, { v: '0.8', o: [C, C] }, { v: '<0.5', o: [C, C], censored: true } ] },
+    { v: '1.1', o: [C, C] }, { v: '<0.5', o: [C, C], censored: true }, NOT_SAMPLED, { v: '<0.5', o: [C, C], censored: true } ] },
   { analyte: 'Nickel (filtered)', cells: [
     { v: '1.8', o: [C, C] }, { v: '2.4', o: [C, C] }, { v: '14.2', o: [E, C] },
-    { v: '3.6', o: [C, C] }, { v: '2.1', o: [C, C] }, { v: '1.9', o: [C, C] }, { v: '1.2', o: [C, C] } ] },
+    { v: '3.6', o: [C, C] }, { v: '2.1', o: [C, C] }, NOT_SAMPLED, { v: '1.2', o: [C, C] } ] },
   { analyte: 'Zinc (filtered)', cells: [
     { v: '4.2', o: [C, C] }, { v: '5.8', o: [C, C] }, { v: '31.6', o: [E, C] },
-    { v: '9.4', o: [E, C] }, { v: '3.1', o: [C, C] }, { v: '2.8', o: [C, C] }, { v: '2.2', o: [C, C] } ] },
+    { v: '9.4', o: [E, C] }, { v: '3.1', o: [C, C] }, NOT_SAMPLED, { v: '2.2', o: [C, C] } ] },
   { analyte: 'Nitrate as N', cells: [
     { v: '2.4', o: [N, C] }, { v: '3.1', o: [N, C] }, { v: '11.8', o: [N, E] },
     { v: '4.0', o: [N, C] }, { v: '5.2', o: [N, C], quarantined: 'Holding time exceeded — analysed at 6 days against a 2-day window.' },
-    { v: '1.9', o: [N, C] }, { v: '1.1', o: [N, C] } ] },
+    NOT_SAMPLED, { v: '1.1', o: [N, C] } ] },
   { analyte: 'Sulfate as SO₄', cells: [
     { v: '112', o: [N, C] }, { v: '186', o: [N, C] }, { v: '918', o: [N, C] },
-    { v: '264', o: [N, C] }, { v: '148', o: [N, C] }, { v: '121', o: [N, C] }, { v: '96', o: [N, C] } ] },
+    { v: '264', o: [N, C] }, { v: '148', o: [N, C] }, NOT_SAMPLED, { v: '96', o: [N, C] } ] },
   { analyte: 'PFOS + PFHxS', cells: [
     { v: '<2.0', o: [I, N], censored: true }, { v: '<2.0', o: [I, N], censored: true },
     { v: '4.8', o: [E, N], derived: true }, { v: '<2.0', o: [I, N], censored: true },
-    { v: '<2.0', o: [I, N], censored: true }, { v: '<2.0', o: [I, N], censored: true }, { v: '<2.0', o: [I, N], censored: true } ] },
+    { v: '<2.0', o: [I, N], censored: true }, NOT_SAMPLED, { v: '<2.0', o: [I, N], censored: true } ] },
 ];
 
 /** The seven bores that appear as crosstab columns. */
 export const CROSSTAB_COLUMNS = ['MW01A', 'MW03B', 'MW05', 'MW07', 'MW09', 'MW11', 'MW12'];
+
+/**
+ * The shape of the grid, counted off the grid.
+ *
+ * Every number the crosstab, the report's structural check and the partial
+ * state on `#data-states` print about this table resolves here, so blanking a
+ * column moves all of them at once. The alternative is the one the rider
+ * exists to end: a count typed beside a table it no longer describes.
+ */
+export const CROSSTAB_SHAPE = (() => {
+  const cells = CROSSTAB.flatMap((r) => r.cells);
+  const emptyAt = (i) => CROSSTAB.every((r) => r.cells[i].empty);
+  return {
+    analytes: CROSSTAB.length,
+    locations: CROSSTAB_COLUMNS.length,
+    cells: cells.length,
+    results: cells.filter((c) => !c.empty).length,
+    empty: cells.filter((c) => c.empty).length,
+    censored: cells.filter((c) => c.censored).length,
+    /** The bores whose whole column is empty, and the ones that carry results. */
+    emptyColumns: CROSSTAB_COLUMNS.filter((_, i) => emptyAt(i)),
+    sampledColumns: CROSSTAB_COLUMNS.filter((_, i) => !emptyAt(i)),
+    isEmpty: (code) => emptyAt(CROSSTAB_COLUMNS.indexOf(code)),
+  };
+})();
+
+/**
+ * Results that could not be assessed — **derived from the grid, not typed beside it**.
+ *
+ * Six hand-written rows used to sit here, one per location, and a seventh for
+ * MW11. Wave 7 blanked MW11's column and the seventh row became a claim that
+ * the laboratory had reported `< 1.0 µg/L` on a sample nobody collected — the
+ * exact class of drift a second copy of a table always eventually produces.
+ *
+ * So the register is read off `CROSSTAB`: every cadmium cell that exists and
+ * resolves to *indeterminate* against a criteria set is a row, and a bore with
+ * no cell has no row without anybody deciding that. The gap is arithmetic —
+ * the limit of reporting over the criterion — rather than a typed multiple.
+ */
+export const INDETERMINATE = (() => {
+  const set = CRITERIA[0];
+  return CROSSTAB.flatMap((row) => {
+    const analyte = ANALYTES.find((a) => a.name === row.analyte);
+    if (!analyte?.a) return [];
+    return row.cells.flatMap((cell, i) => {
+      if (cell.empty || cell.o[0] !== 'indeterminate') return [];
+      const lor = analyte.lor;
+      const criterion = Number(analyte.a);
+      return [{
+        location: CROSSTAB_COLUMNS[i],
+        analyte: row.analyte,
+        reported: `${cell.v} ${analyte.unit}`,
+        lor: `${lor.toFixed(1)} ${analyte.unit}`,
+        criterion: `${analyte.a} ${analyte.unit}`,
+        set: `${set.short.replace(' · ', ' · ')}`,
+        gap: `${(lor / criterion).toFixed(1)}×`,
+        close: 'ICP-MS/MS at 0.1 µg/L',
+      }];
+    });
+  });
+})();
+
+/** What the laboratory quoted to close the gap above, per sample. */
+export const INDETERMINATE_QUOTE = { perSample: 18, by: 'Pilbara Analytical Services', at: '2026-05-21' };
 
 /**
  * Standing water level, monthly, three years, per bore.
@@ -1568,10 +1690,10 @@ export const LINEAGE = {
   location: 'MW05',
   collected: '2026-05-13 08:40 AWST',
   chain: [
-    { step: 'Source', what: 'YAR-26-0881_Wandalup_PFAS.csv, rows 18 and 24', detail: 'Yarra Regional Analytical · certificate YAR-26-0881 · received 2026-05-18 11:47', kind: 'source' },
-    { step: 'Import', what: 'IMP-0239 · ESdat-mapped, committed 2026-05-19 10:22', detail: 'Acting principal dokafor@wandalup.example · transaction 8f2c…41ab', kind: 'import' },
-    { step: 'Unit conversion', what: 'ng/L retained — no conversion applied', detail: 'Dictionary unit for this analyte pair is ng/L. Rule: unit-identity v1.', kind: 'rule' },
-    { step: 'Component 1', what: `PFOS (linear) = 3.1 ${PFAS_LIMITS.unit} · detected · quantified`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · above the limit of reporting, so the number is quantified · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input' },
+    { step: 'Source', what: 'YAR-26-0881_Wandalup_PFAS.csv, rows 18 and 24', detail: 'Yarra Regional Analytical · certificate YAR-26-0881 · received 2026-05-18 11:47', kind: 'source', at: 'imports', node: 'YAR-26-0881', nodeSub: 'deliverable, rows 18 & 24' },
+    { step: 'Import', what: 'IMP-0239 · ESdat-mapped, committed 2026-05-19 10:22', detail: 'Acting principal dokafor@wandalup.example · transaction 8f2c…41ab', kind: 'import', at: 'import-commit', node: 'IMP-0239', nodeSub: 'committed 2026-05-19' },
+    { step: 'Unit conversion', what: 'ng/L retained — no conversion applied', detail: 'Dictionary unit for this analyte pair is ng/L. Rule: unit-identity v1.', kind: 'rule', at: 'units', node: 'ng/L retained', nodeSub: 'unit-identity v1' },
+    { step: 'Component 1', what: `PFOS (linear) = 3.1 ${PFAS_LIMITS.unit} · detected · quantified`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · above the limit of reporting, so the number is quantified · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input', at: 'certificate' },
     /*
      * PR-3b, in the one place the review found it. This step read "PFHxS =
      * 1.7 ng/L · detected · LOR 2.0 ng/L" — an unqualified detect below the
@@ -1579,11 +1701,11 @@ export const LINEAGE = {
      * limits stay distinct (QB-9) and the assertion moves to where the
      * glossary puts it: a **qualifier**, not a detect status.
      */
-    { step: 'Component 2', what: `PFHxS = 1.7 ${PFAS_LIMITS.unit} · detected · ${PFAS_LIMITS.qualifier} — ${PFAS_LIMITS.qualifierMeans}`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · the value sits between the two, so it is real and not reliably quantified · qualifier ${PFAS_LIMITS.qualifier} (${PFAS_LIMITS.scheme} scheme, ${PFAS_LIMITS.origin} origin) · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input' },
-    { step: 'Derivation', what: 'Sum of components · rule sum-pfas-anzg v2.1', detail: 'Non-detect treatment: exclude — and it does not reach either component here. Both were detected, and an estimated detect is still a detect, so 1.7 enters the sum at its reported value rather than at a substituted one. Bound to ANZG 2018, not to a global setting (FR-2.2).', kind: 'rule' },
-    { step: 'Derived result', what: `4.8 ${PFAS_LIMITS.unit} ${PFAS_LIMITS.qualifier} · ${PFAS_LIMITS.qualifierMeans} · flagged derived, not reported by the laboratory`, detail: 'Stored additively. Neither component was overwritten (FR-2.4), and the J carries from the component onto the total — a sum is no more certain than the least certain thing in it.', kind: 'derived' },
-    { step: 'Evaluation', what: 'ANZG 2018 95% species protection · 0.13 ng/L · exceedance at 37×', detail: 'Evaluated synchronously on commit, 2026-05-19 10:22. Criteria version 2018.1. The estimate does not decide it: PFOS alone is 24× the guideline value, so the outcome holds under every reading of the component.', kind: 'evaluation' },
-    { step: 'Consequence', what: 'TARP Level 3 raised · statutory notification obligation created', detail: 'Notification lodged 2026-05-22 14:30 AWST. Became-aware timestamp immutable at the database (G-44).', kind: 'consequence' },
+    { step: 'Component 2', what: `PFHxS = 1.7 ${PFAS_LIMITS.unit} · detected · ${PFAS_LIMITS.qualifier} — ${PFAS_LIMITS.qualifierMeans}`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · the value sits between the two, so it is real and not reliably quantified · qualifier ${PFAS_LIMITS.qualifier} (${PFAS_LIMITS.scheme} scheme, ${PFAS_LIMITS.origin} origin) · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input', at: 'certificate' },
+    { step: 'Derivation', what: 'Sum of components · rule sum-pfas-anzg v2.1', detail: 'Non-detect treatment: exclude — and it does not reach either component here. Both were detected, and an estimated detect is still a detect, so 1.7 enters the sum at its reported value rather than at a substituted one. Bound to ANZG 2018, not to a global setting (FR-2.2).', kind: 'rule', at: 'criteria' },
+    { step: 'Derived result', what: `4.8 ${PFAS_LIMITS.unit} ${PFAS_LIMITS.qualifier} · ${PFAS_LIMITS.qualifierMeans} · flagged derived, not reported by the laboratory`, detail: 'Stored additively. Neither component was overwritten (FR-2.4), and the J carries from the component onto the total — a sum is no more certain than the least certain thing in it.', kind: 'derived', at: 'crosstab' },
+    { step: 'Evaluation', what: 'ANZG 2018 95% species protection · 0.13 ng/L · exceedance at 37×', detail: 'Evaluated synchronously on commit, 2026-05-19 10:22. Criteria version 2018.1. The estimate does not decide it: PFOS alone is 24× the guideline value, so the outcome holds under every reading of the component.', kind: 'evaluation', at: 'exceedances' },
+    { step: 'Consequence', what: 'TARP Level 3 raised · statutory notification obligation created', detail: 'Notification lodged 2026-05-22 14:30 AWST. Became-aware timestamp immutable at the database (G-44).', kind: 'consequence', at: 'notification' },
   ],
 };
 
@@ -1795,7 +1917,7 @@ export const WORK_QUEUE = [
   // it. This one is a real open decision on this project's own record: seven
   // results that cannot be assessed until the laboratory's reporting limit
   // comes down, and a quote for what that costs.
-  { kind: 'Decision', urgency: 'later', headline: 'Cadmium cannot be assessed at any bore until the reporting limit comes down', context: '7 results indeterminate · PAS quoted ICP-MS/MS at +$18 per sample', project: PROJECT.code, age: '3 days', target: 'indeterminate', action: 'Review the register' },
+  { kind: 'Decision', urgency: 'later', headline: 'Cadmium cannot be assessed at any bore until the reporting limit comes down', context: `${INDETERMINATE.filter((i) => i.analyte === 'Cadmium (filtered)').length} cadmium results indeterminate · PAS quoted ICP-MS/MS at +$${INDETERMINATE_QUOTE.perSample} per sample`, project: PROJECT.code, age: '3 days', target: 'indeterminate', action: 'Review the register' },
 ].map((w) => ({ ...w, crossProject: w.project !== PROJECT.code }));
 
 /**
@@ -1806,22 +1928,37 @@ export const WORK_QUEUE = [
  * we would collect* is a daily question, and a screen somebody has to
  * remember to visit answers it for nobody.
  */
-export const COMPLETENESS = {
-  period: '2026 Q2 · 1 April – 30 June 2026 (Australia/Perth)',
-  planned: 63,
-  received: 58,
-  held: 3,
-  missing: 2,
-  rows: [
+/*
+ * Wave 7: the three totals are derived from the rows rather than typed beside
+ * them. They had drifted — the header read *58 of 63 received · 2 never
+ * collected* over a table whose own rows add to 53 received and 10 never
+ * collected, because MW11's nine and MW09's one were counted in the rows and
+ * not in the summary. The rider that blanked MW11's crosstab column is the
+ * same defect one surface along, so it is fixed the same way: the rows are the
+ * record and the totals are read off them. `held` is not here at all — a held
+ * row is a quarantine finding, `QUARANTINE` owns those, and the screen that
+ * prints both counts them from their own registers.
+ */
+export const COMPLETENESS = (() => {
+  const rows = [
     { location: 'MW01A', planned: 9, received: 9, state: 'complete' },
     { location: 'MW03B', planned: 9, received: 9, state: 'complete' },
     { location: 'MW05', planned: 9, received: 9, state: 'complete' },
     { location: 'MW07', planned: 9, received: 9, state: 'complete' },
     { location: 'MW09', planned: 9, received: 8, state: 'partial' },
-    { location: 'MW11', planned: 9, received: 0, state: 'missing' },
+    { location: 'MW11', planned: 9, received: 0, state: 'missing', why: 'Dry on both visits — attempted, not missed' },
     { location: 'MW12', planned: 9, received: 9, state: 'complete' },
-  ],
-};
+  ];
+  const planned = rows.reduce((n, r) => n + r.planned, 0);
+  const received = rows.reduce((n, r) => n + r.received, 0);
+  return {
+    period: '2026 Q2 · 1 April – 30 June 2026 (Australia/Perth)',
+    rows,
+    planned,
+    received,
+    missing: planned - received,
+  };
+})();
 
 /**
  * Global search (§1.2).
@@ -2239,89 +2376,6 @@ export const SHORTCUTS = [
  * laboratory data manager or a DWER officer look for and fail to find.
  * ==================================================================== */
 
-/**
- * The field record of 2026-Q2-GW, organised the way the work is done.
- *
- * **Rebuilt 1 September 2026 (wave 6, PR-1).** A senior hydrogeologist read
- * the drawn field-capture grid and stopped at its axis: *"I don't measure the
- * SWL at seven bores, then return conceptually to MW05 to enter its pH."*
- * Real field work runs **bore by bore** — arrive, look at the headworks, dip,
- * set the pump, purge, watch the parameters, take the sample, label it, filter
- * it, preserve it, sign it onto the chain, photograph the bore, move on. So
- * the unit of this record is the **bore session**, and the round grid is a
- * summary over the sessions rather than the thing being filled in.
- *
- * ## What changed in the data, and why each change was forced
- *
- * The old `PURGE` literal called itself round **2026-Q3-GW** and dated itself
- * **2026-08-14**, while `EVENTS` says 2026-Q3-GW is *planned* with no samples
- * and `#ecoc` says it has not been collected. Its readings end at pH 8.91 and
- * EC 3410 µS/cm, which are MW05's **2026 Q2** values on the crosstab, in the
- * exceedance register and in `EC_MW05_OUTLIER`. It was the Q2 record wearing
- * the wrong round code and a date three months in the future, and three
- * screens disagreed because of it. It is the Q2 MW05 session now, collected
- * `2026-05-13 08:40 AWST` — the same instant `EVENT_SAMPLES` gives
- * `WDL-26Q2-003`, read from here rather than typed twice.
- *
- * The old field-capture grid typed **42 L** purged at MW05 and **36 L** at
- * MW09. The purge log said 9.1 L at MW05 (low-flow at 0.24 L/min for 38
- * minutes) and the QA/QC register says 22 L at MW09. Both grid figures were
- * three-casing-volume numbers on a low-flow round. Volumes are now
- * `rate × minutes`, computed, so the grid cannot disagree with the log again.
- *
- * **Stabilisation is computed, never typed.** Every reading's `stable` flag
- * used to be a hand-written boolean; it is now the result of running the
- * tolerances over the three-reading window ending at that reading, and the
- * verdict sentence is generated from the first reading that passes. Under the
- * computed test MW05 stabilises one reading later than the hand-written flag
- * claimed — the hand-written flag had dissolved oxygen moving 15.5% across
- * its window against a ±10% tolerance.
- *
- * ## Three dispositions, and why the round is still open
- *
- * `DISPOSITIONS` is the closed list the review asked for. Six bores were
- * **sampled**; MW11 was visited twice, found **inaccessible** on 13 May and
- * **dry** on 14 May, and the glossary's *purge event* entry is explicit that
- * two visits in one round are two records rather than one. Dry is not
- * missing: the bore was reached, dipped and found empty, and that is a
- * measurement of the aquifer rather than an absence of one.
- *
- * The two MW11 dispositions and MW12's photographs are still **on the device**
- * — captured, not synced. That is why `OBLIGATIONS` and the programme still
- * read the round overdue at MW11 ten days after the window closed: the record
- * has no disposition, and a countdown reads the record. Capture timestamp and
- * sync timestamp are different facts and both are kept.
- */
-const FIELD_DISPOSITIONS = [
-  {
-    code: 'sampled', label: 'Sampled', reason: false, tone: 'good', glyph: '●',
-    means: 'Water was recovered and one or more samples were submitted under the chain of custody.',
-  },
-  {
-    code: 'dry', label: 'Dry', reason: true, tone: 'warn', glyph: '○',
-    means: 'The bore was reached and dipped and held no water. A measurement of the aquifer, not a gap in the record — the hydrograph draws a break rather than a line through it and the round is satisfied as attempted.',
-  },
-  {
-    code: 'insufficient-recharge', label: 'Insufficient recharge', reason: true, tone: 'warn', glyph: '◔',
-    means: 'The bore held water, was purged dry, and did not recover enough to fill the containers before the crew had to leave.',
-  },
-  {
-    code: 'inaccessible', label: 'Inaccessible', reason: true, tone: 'warn', glyph: '⊘',
-    means: 'The bore could not be reached — a cut track, a locked gate, stock, fire, or a working area closed to entry.',
-  },
-  {
-    code: 'damaged', label: 'Damaged or obstructed', reason: true, tone: 'bad', glyph: '▲',
-    means: 'The headworks or the casing prevented the visit: a sheared riser, a seized cap, an obstruction above the screen.',
-  },
-  {
-    code: 'not-located', label: 'Not located', reason: true, tone: 'bad', glyph: '?',
-    means: 'The crew searched the surveyed position and did not find the bore. It is a finding about the register, and it routes to the location record rather than to the round.',
-  },
-  {
-    code: 'not-sampled', label: 'Not sampled', reason: true, tone: 'bad', glyph: '—',
-    means: 'The residual state, and the reason is free text because the six above did not fit. A round left with this disposition and no reason cannot be marked complete.',
-  },
-];
 
 /**
  * The stabilisation test, written once and run over every series.
@@ -2937,6 +2991,64 @@ export const CUSTODY_CHAIN = {
     ],
     refused: 'Reconcile them silently. Two records disagree; picking one and deleting the other is the act this screen exists to make impossible.',
   },
+  /**
+   * Where the chain does not stop — the subcontracted PFAS fraction.
+   *
+   * **New in wave 7 (PR-3a).** Building the provenance of the PFOS + PFHxS
+   * result backwards from the bore hit a hop with no record: every one of the
+   * 38 containers went to Pilbara Analytical Services and reconciled there,
+   * and the certificate for the PFAS suite is **Yarra Regional's**. The only
+   * reading under which both are true is the ordinary one — PAS is not
+   * NATA-accredited to USEPA 1633 and subcontracts it — and a subcontract is
+   * a **custody transfer** by the glossary's own definition: one handover of a
+   * set of samples from one party to another, with the time, both parties and
+   * the seal.
+   *
+   * So it is a chain of its own rather than two more rows on the one above,
+   * because the transfers above are what the *field* chain covers and what the
+   * laboratory signed for on arrival: appending to them would have moved the
+   * "last four rows" the receipt screen draws and made a laboratory-to-
+   * laboratory hop look like a field one. This chain has its own identifier,
+   * its own parent, and its own receipt.
+   */
+  continues: {
+    id: 'MOCK-COC-2026Q2-014-S1',
+    parent: 'MOCK-COC-2026Q2-014',
+    why: 'Pilbara Analytical Services holds no NATA scope for USEPA 1633. The PFAS fraction is subcontracted, and the subcontract laboratory issues its own certificate.',
+    laboratory: 'Yarra Regional Analytical',
+    workOrder: 'YAR-B-118420',
+    certificate: 'YAR-26-0881',
+    /** One container: the HDPE bottle that made WDL-26Q2-003 a five-container sample. */
+    sample: 'WDL-26Q2-003',
+    containers: 1,
+    transfers: [
+      { seq: 1, at: '2026-05-15 14:05 AWST', from: 'PAS laboratory — work order PAS-WO-268841', to: 'Pilbara Freight — consignment PF-2026-118655', what: 'PFAS fraction of WDL-26Q2-003 — 1 HDPE bottle, unopened, subcontracted for USEPA 1633', containers: 1, seal: '5108', state: 'ok' },
+      { seq: 2, at: '2026-05-16 08:55 AWST', from: 'Pilbara Freight', to: 'Yarra Regional Analytical — receipt', what: 'Seal 5108 verified intact, 4.4 °C, 1 of 1 container', containers: 1, seal: '5108', state: 'ok' },
+    ],
+    receipt: {
+      at: '2026-05-16 08:55 AWST',
+      temperature: '4.4 °C',
+      limit: '≤ 6 °C',
+      seal: '5108 — intact',
+      reconciled: '1 of 1',
+      by: 'K. Ashworth — Yarra Regional sample receipt',
+      outcome: 'pass',
+    },
+    /*
+     * The holding time this fraction was actually kept to, stated with its
+     * rule rather than asserted as compliant. Collected 2026-05-13 08:40,
+     * extracted 2026-05-17: four days against a 28-day window.
+     */
+    holding: {
+      rule: 'USEPA 1633 — 28 days from collection to extraction, held ≤ 6 °C',
+      collected: '2026-05-13 08:40 AWST',
+      extracted: '2026-05-17',
+      window: 28,
+      used: 4,
+    },
+    /** Trip blank cover: the cooler this fraction travelled in, up to PAS. */
+    travellingQC: 'WDL-26Q2-QC2',
+  },
 };
 
 /** The four hops the laboratory-end receipt has always shown, derived not repeated. */
@@ -2999,6 +3111,28 @@ export const BATCHES = [
     consequence:
       'Zinc matrix-spike recovery of 62% is below the 70% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely higher, so the exceedance stands and is if anything understated.',
   },
+  /*
+   * FOUND AND DEFERRED — recorded 2 September 2026 (wave 7), owner unassigned.
+   *
+   * Three surfaces disagree about how far the PFAS suite reached on this
+   * round, and all three predate wave 7. This batch states **4 samples**;
+   * `EVENT_SAMPLES` gives the two extra PFAS tests to **one** sample
+   * (WDL-26Q2-003, 16 tests and 5 containers where the round's others carry 14
+   * and 4); and `CROSSTAB` carries a PFOS + PFHxS total at **6** locations.
+   * The `2026-Q2-PFAS` event in `EVENTS` is a fourth reading again — a
+   * supplementary event of 4 samples and 1 control, collected on 13 May, which
+   * is the day MW05 and MW07 were visited.
+   *
+   * Wave 7 met it while chaining the PFAS result to the records that produced
+   * it (PR-3a) and did not reconcile it, deliberately. Reconciling means
+   * deciding which reading is true, and the cheapest of them — PFAS on MW05
+   * and MW07 only — empties four cells of the crosstab's PFAS row, which is
+   * the row `#criteria` runs its non-detect demonstration over and the one
+   * `NON_DETECT` computes four treatments across. That is a seed change with
+   * a drawn argument on the other end of it, not a count to nudge. The lineage
+   * chain names this batch and links it rather than restating its sample
+   * count, so nothing wave 7 drew rests on which reading wins.
+   */
   {
     id: 'YAR-B-118420', lab: 'Yarra Regional Analytical', method: 'USEPA 1633 — PFAS',
     samples: 4, prepared: '2026-05-16', analysed: '2026-05-17', nata: 'In scope · 14622',
@@ -3051,15 +3185,6 @@ export const HARDNESS = {
  * this state rendered as a pass; making it a register of its own is the
  * strongest form of the claim.
  */
-export const INDETERMINATE = [
-  { location: 'MW01A', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L — quoted by PAS at +$18 per sample' },
-  { location: 'MW03B', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-  { location: 'MW05', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-  { location: 'MW07', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-  { location: 'MW09', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-  { location: 'MW11', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-  { location: 'MW12', analyte: 'Cadmium (filtered)', reported: '< 1.0 µg/L', lor: '1.0 µg/L', criterion: '0.54 µg/L', set: 'ANZG 2018 · 95%', gap: '1.9×', close: 'ICP-MS/MS at 0.1 µg/L' },
-];
 
 /**
  * Background comparison and the derivation of a site-specific trigger value.
@@ -3105,8 +3230,8 @@ const DQA_ROWS = [
   { dim: 'Accuracy', measure: 'LCS, matrix spike, surrogate recovery', objective: '80–120% LCS, 70–130% MS', achieved: 'LCS 96–104%. Zinc matrix spike 62% — below limit, reproducible', verdict: 'not met for zinc', findings: ['LCS-1', 'MS-1', 'SR-1', 'EB-1', 'MB-1', 'FB-1', 'TB-1', 'IB-1'] },
   { dim: 'Representativeness', measure: 'Field parameter stabilisation, purge records, sampling position', objective: '3 consecutive readings in tolerance before collection', achieved: 'REPRESENTATIVENESS', verdict: 'met with exception', findings: ['ST-1'] },
   { dim: 'Comparability', measure: 'Consistent methods, units and reporting limits across rounds', objective: 'No method change without a documented equivalence', achieved: 'Arsenic LOR stepped 5.0 → 1.0 µg/L at 2025-05 on a method change; recorded and drawn on the plate', verdict: 'met', findings: ['ET-1', 'SH-1', 'SH-2'] },
-  { dim: 'Completeness', measure: 'Results received against results planned', objective: '≥ 95% of planned results usable', achieved: '58 of 63 received, 55 usable — 87%', verdict: 'not met', findings: ['HT-1', 'HT-2'] },
-  { dim: 'Sensitivity', measure: 'Reporting limit against the applicable criterion', objective: 'LOR ≤ 0.5 × criterion for every assessed analyte', achieved: 'Cadmium LOR 1.0 µg/L against a 0.54 µg/L criterion — 7 results unassessable', verdict: 'not met', findings: ['LOR-1'] },
+  { dim: 'Completeness', measure: 'Results received against results planned', objective: '≥ 95% of planned results usable', achieved: 'COMPLETENESS', verdict: 'not met', findings: ['HT-1', 'HT-2'] },
+  { dim: 'Sensitivity', measure: 'Reporting limit against the applicable criterion', objective: 'LOR ≤ 0.5 × criterion for every assessed analyte', achieved: 'SENSITIVITY', verdict: 'not met', findings: ['LOR-1'] },
 ];
 
 export const DQA = DQA_ROWS.map((d) => {
@@ -3114,10 +3239,21 @@ export const DQA = DQA_ROWS.map((d) => {
   const p = FIELD_ROUND.preflight;
   return {
     ...d,
+    /*
+     * Three of the six dimensions state a count, and a data-quality assessment
+     * that types its own counts is the one document where that is least
+     * defensible. All three are composed here from the registers that hold
+     * them: the field round, the completeness rows and the unassessable
+     * register.
+     */
     achieved:
       d.achieved === 'REPRESENTATIVENESS'
         ? `${p.stabilised} of ${p.purges} bores purged stabilised; ${p.planned - p.purges} of ${p.planned} planned was not purged. MW09 turbidity never below 10 NTU`
-        : d.achieved,
+        : d.achieved === 'COMPLETENESS'
+          ? `${COMPLETENESS.received} of ${COMPLETENESS.planned} received, ${COMPLETENESS.received - QUARANTINE.filter((q) => q.state === 'held').length} usable — ${Math.round(((COMPLETENESS.received - QUARANTINE.filter((q) => q.state === 'held').length) / COMPLETENESS.planned) * 100)}%. ${COMPLETENESS.rows.find((r) => r.state === 'missing').location} dry on both visits — attempted, not missed`
+          : d.achieved === 'SENSITIVITY'
+            ? `Cadmium LOR 1.0 µg/L against a 0.54 µg/L criterion, and the PFAS sum LOR ${PFAS_LIMITS.lor.toFixed(1)} ng/L against 0.13 ng/L — ${INDETERMINATE.length} results unassessable`
+            : d.achieved,
     rows,
     settled: {
       total: rows.length,
@@ -3135,6 +3271,298 @@ export const DQA = DQA_ROWS.map((d) => {
     },
   };
 });
+
+/**
+ * How the bore was built, and on whose survey its levels stand.
+ *
+ * **New in wave 7 (PR-3a).** The provenance of a groundwater result begins at
+ * the bore, and until now the only place this construction existed was inside
+ * the bore-log renderer as literals — a drawing with no record behind it, so a
+ * lineage step naming the screened interval had nothing to link to. The record
+ * is here now, the plate reads it, `#location` reads it, and the chain links
+ * it: one source, drawn three ways.
+ *
+ * The vocabulary is the glossary's own and nothing here is invented beside it:
+ * **bore** (the construction at a location, not the location), **screened
+ * interval** (the slotted section, and therefore the depth range and the
+ * aquifer a sample represents), **casing** and **casing component** (blank
+ * casing, sump — the screen is deliberately not a member), **casing material**
+ * (a data-quality fact, not an inventory one: steel contributes zinc),
+ * **annulus** and **annulus material** (filter pack, bentonite seal, cement
+ * grout, concrete pad — without a seal above the pack the screen does not
+ * monitor the unit it claims to), **hydrostratigraphic unit**, and **location
+ * survey** with its **survey epoch**.
+ *
+ * Every number that also lives on `LOCATIONS` is read from there rather than
+ * repeated: the screened interval, the top-of-casing elevation, the position
+ * and the unit. What is added is what only a construction record knows.
+ */
+export const CONSTRUCTION = (() => {
+  const bores = {
+    MW05: {
+      id: 'MOCK-BORE-MW05',
+      drilled: '2019-04-11',
+      driller: 'Pilbara Drilling Services · rig PDS-04',
+      method: '150 mm mud rotary',
+      purpose: 'Groundwater monitoring — TSF downgradient compliance',
+      totalDepth: 24.0,
+      casing: [
+        { component: 'Blank casing', from: 0, to: 12.0, material: '50 mm Class 18 uPVC' },
+        { component: 'Screened interval', from: 12.0, to: 18.0, material: '50 mm uPVC, 0.4 mm slot' },
+        { component: 'Sump', from: 18.0, to: 19.0, material: '50 mm Class 18 uPVC, capped' },
+      ],
+      annulus: [
+        { from: 0, to: 0.5, material: 'Concrete pad' },
+        { from: 0.5, to: 9.0, material: 'Cement grout' },
+        { from: 9.0, to: 10.5, material: 'Bentonite seal' },
+        { from: 10.5, to: 19.5, material: 'Filter pack — 1–2 mm washed silica' },
+        { from: 19.5, to: 24.0, material: 'Natural collapse' },
+      ],
+      strata: [
+        { from: 0, to: 3.2, name: 'Sand, aeolian', pattern: 'dots' },
+        { from: 3.2, to: 9.6, name: 'Clayey sand', pattern: 'dash' },
+        { from: 9.6, to: 19.4, name: 'Weathered granite', pattern: 'cross' },
+        { from: 19.4, to: 24, name: 'Fresh granite', pattern: 'brick' },
+      ],
+      /*
+       * The bitemporal half (ADR-0015). A resurvey takes effect from its own
+       * epoch and moves nothing behind it, which is why the elevation on the
+       * location register is the *current* one and a 2022 water level still
+       * reduces through the 2019 datum. `LOCATIONS` holds the current figure;
+       * this holds the history that makes it mean something.
+       */
+      surveys: [
+        { epoch: '2024-03-18', reason: 'Resurvey', toc: 208.11, applies: 'Readings from 2024-03-18 onward', by: 'Pilbara Survey Co' },
+        { epoch: '2019-04-15', reason: 'Original survey', toc: 208.42, applies: 'Readings 2019-04-15 to 2024-03-17', by: 'Pilbara Survey Co' },
+      ],
+      says:
+        'The screen sits wholly within the weathered granite, below a bentonite seal at 9.0–10.5 m. A sample from this bore represents the superficial aquifer at 12–18 metres and nothing above it, which is the claim every result from MW05 is interpreted under.',
+    },
+  };
+  const of = (code) => {
+    const b = bores[code];
+    if (!b) return null;
+    const loc = LOCATIONS.find((l) => l.code === code);
+    const screen = b.casing.find((c) => c.component === 'Screened interval');
+    const survey = b.surveys[0];
+    return {
+      ...b,
+      code,
+      unit: loc.unit,
+      position: loc.position,
+      easting: loc.easting,
+      northing: loc.northing,
+      /** The register's interval, read rather than restated. */
+      screen: loc.screen,
+      screenFrom: screen.from,
+      screenTo: screen.to,
+      slot: screen.material,
+      /** Current top of casing, and the survey it came from. */
+      toc: loc.toc,
+      tocFrom: survey.epoch,
+      surveys: b.surveys,
+      rounds: 38,
+    };
+  };
+  return { of, codes: Object.keys(bores) };
+})();
+
+/**
+ * The whole provenance of one number — **beginning at the bore** (PR-3a).
+ *
+ * The practitioner review's strongest word on this screen was that the chain
+ * *starts too late*: "one result, and everything that produced it" opened on
+ * the laboratory's CSV, and for a groundwater result the account a
+ * hydrogeologist has to be able to give runs location and version → bore and
+ * screen construction → programme → field event → field measurements and
+ * stabilisation → sample → filtration and preservation → custody transfer →
+ * laboratory receipt → analytical batch, method and QC → laboratory result →
+ * import → derivation → evaluation → downstream use. "The other screens
+ * already hold most of this — the lineage should stitch it together."
+ *
+ * So it is stitched, and **nothing below is retyped**. Every upstream hop
+ * reads the record that owns it — `LOCATIONS`, `CONSTRUCTION`, `FIELD_ROUND`,
+ * `EVENT_SAMPLES`, `CUSTODY_CHAIN`, `RECEIPT`, `BATCHES` — and the downstream
+ * half is `LINEAGE.chain`, unchanged and appended rather than copied. A hop
+ * whose text disagrees with its screen is then not a thing that can happen
+ * without the screen disagreeing with itself first.
+ *
+ * The subject is the **PFAS** result, so it is chained to the records that
+ * actually produced it: certificate YAR-26-0881, batch YAR-B-118420 and the
+ * subcontract custody hop that got the bottle to Yarra Regional. The metals
+ * batch is not in it. Bolting `PAS-WO-268841` onto a PFAS result because it
+ * is the batch this seed talks about most would be the exact error the chain
+ * exists to make impossible.
+ */
+export const PROVENANCE = (() => {
+  const session = FIELD_ROUND.sessions.find((s) => s.location === 'MW05' && s.purge);
+  const bore = CONSTRUCTION.of('MW05');
+  const day = FIELD_ROUND.days.find((d) => d.n === session.day);
+  const sample = EVENT_SAMPLES.find((s) => s.id === session.samples[0]);
+  const duplicate = EVENT_SAMPLES.find((s) => s.parent === sample.id);
+  const fieldBlank = EVENT_SAMPLES.find((s) => s.id === 'WDL-26Q2-QC1');
+  const tripBlank = EVENT_SAMPLES.find((s) => s.id === CUSTODY_CHAIN.continues.travellingQC);
+  const equipBlank = EVENT_SAMPLES.find((s) => s.id === 'WDL-26Q2-QC3');
+  const sub = CUSTODY_CHAIN.continues;
+  const subReceipt = sub.receipt;
+  const batch = BATCHES.find((b) => b.id === sub.workOrder);
+  const cooler = RECEIPT.checks.find((c) => c.what === 'Cooler temperature on arrival');
+  const reconciled = RECEIPT.checks.find((c) => c.what.startsWith('Containers received'));
+  const p = session.purge;
+
+  /** One upstream hop: the record it reads, and the screen that owns it. */
+  const upstream = [
+    {
+      step: 'Location, and the version in force',
+      what: `${bore.code} · ${bore.position} · ${bore.unit} unit · ${PROJECT.crs} ${bore.easting}E ${bore.northing}N`,
+      detail: `Top of casing ${bore.toc.toFixed(2)} m AHD, established by the ${bore.surveys[0].reason.toLowerCase()} of ${bore.tocFrom} — the datum in force on the day this sample was taken. The ${bore.surveys[1].epoch} survey stands for readings before it and was not replaced by the later one, so a 2022 water level still reduces through the datum it was measured against (ADR-0015).`,
+      kind: 'place', at: 'location', node: bore.code, nodeSub: 'location · datum in force',
+    },
+    {
+      step: 'Bore and screened interval',
+      what: `${bore.id} · screened ${bore.screen} · ${bore.slot}`,
+      detail: `${bore.method}, drilled ${bore.drilled} by ${bore.driller}. ${bore.says} Bentonite seal ${bore.annulus.find((a) => a.material === 'Bentonite seal').from.toFixed(1)}–${bore.annulus.find((a) => a.material === 'Bentonite seal').to.toFixed(1)} m above a filter pack, and uPVC casing throughout — which is also why a zinc result from this bore is not read against a steel-cased one.`,
+      kind: 'place', at: 'location', node: 'Screen 12–18 m', nodeSub: 'weathered granite',
+    },
+    {
+      step: 'Programme and round',
+      what: `${FIELD_ROUND.programme} · ${FIELD_ROUND.round} · window ${FIELD_ROUND.window}`,
+      detail: `The quarterly groundwater programme, resolved in ${PROJECT.timezone}: the window is what decides which round a sample satisfies, and a sample collected at 08:00 on 1 April local time belongs to the June quarter rather than this one (G-41b).`,
+      kind: 'plan', at: 'programme', node: FIELD_ROUND.round, nodeSub: 'quarterly round',
+    },
+    {
+      step: 'Field event and bore session',
+      what: `${day.label} · arrived ${session.arrived} · ${FIELD_ROUND.crew} · ${FIELD_ROUND.device}`,
+      detail: `Disposition ${FIELD_ROUND.disposition(session.disposition).label.toLowerCase()}. Condition on arrival: ${session.condition} Captured ${session.captured} on the device and on the record at ${session.synced} — two timestamps, because they answer different questions.`,
+      kind: 'field', at: 'field-capture', node: 'Bore session', nodeSub: `${FIELD_ROUND.crew} · ${day.date}`,
+    },
+    {
+      step: 'Field measurements and stabilisation',
+      what: `${p.method} · ${p.pump} at ${p.intake} · ${p.rateText} · ${p.volumeText} purged`,
+      detail: `${p.verdict} Drawdown ${session.drawdown}. Depth to water ${session.depthToWater.toFixed(2)} m below ${session.measuringPoint.toLowerCase()}, dipped before the pump went down. Every reading is on the record with the parameters that were holding at it, so “stabilised” names its evidence rather than asserting itself.`,
+      kind: 'field', at: 'purge', node: `Stabilised ${p.stabilisedAt}`, nodeSub: `${p.readings.length} readings`,
+    },
+    {
+      step: 'Sample',
+      what: `${sample.id} · collected ${sample.collected} · ${sample.depth} · ${sample.containers} containers · ${sample.tests} tests`,
+      detail: `The PFAS suite is the reason this sample carries ${sample.containers} containers where the round's others carry four, and ${sample.tests} tests where the others carry ${duplicate.tests}. Its blind field duplicate ${duplicate.id} was filled at the same minute from the same pump and went to the laboratory unmarked, which is the only way a duplicate answers anything.`,
+      kind: 'field', at: 'events', node: sample.id, nodeSub: `${sample.collected.replace(' AWST', '')}`,
+    },
+    {
+      step: 'Filtration and preservation',
+      what: session.filtration,
+      detail: `${session.preservation}. The 0.45 µm capsule is the dissolved-metals train; the PFAS bottle was filled direct and unfiltered, and the record says PTFE was kept out of the train because PTFE is itself a fluoropolymer and would answer the question the sample was taken to ask.`,
+      kind: 'field', at: 'field-capture', node: 'Unfiltered · HDPE', nodeSub: 'no PTFE in the train',
+    },
+    {
+      step: 'Field quality control collected with it',
+      what: `${fieldBlank.id} · ${fieldBlank.qc.toLowerCase()}, poured at this bore at ${fieldBlank.collected.replace('2026-05-13 ', '').replace(' AWST', '')} · ${equipBlank.id} · ${equipBlank.qc.toLowerCase()} · ${tripBlank.id} · ${tripBlank.qc.toLowerCase()}`,
+      detail: `The field blank belongs to this visit because it was poured inside it; the equipment blank belongs to the next one, because the pump was rinsed at the vehicle on the way to MW07. The trip blank travelled in the cooler ${tripBlank.detail.replace('The cooler — travelled with the samples, ', '')} and never met the ground — which is what makes it the control for anything the transport introduced.`,
+      kind: 'field', at: 'events', node: '3 field controls', nodeSub: 'field · equipment · trip',
+    },
+    {
+      step: 'Custody transfer',
+      what: `${CUSTODY_CHAIN.id} · ${CUSTODY_CHAIN.transfers.length} transfers · ${CUSTODY_CHAIN.containers} containers · seals ${CUSTODY_CHAIN.seals}`,
+      detail: `Raised by ${CUSTODY_CHAIN.raisedBy} at ${CUSTODY_CHAIN.raisedAt}, before the first container was filled. Transfers run 1 to ${CUSTODY_CHAIN.transfers.length} with no gap in the sequence. One thing is open and it is carried forward rather than closed over: ${CUSTODY_CHAIN.discrepancy.what.toLowerCase()} reads ${CUSTODY_CHAIN.seals.split(', ')[1]} in the field record and 4427 on the laboratory's receiving form, and neither number has been overwritten.`,
+      kind: 'custody', at: 'ecoc', node: CUSTODY_CHAIN.id, nodeSub: `${CUSTODY_CHAIN.transfers.length} transfers`,
+    },
+    {
+      step: 'Laboratory receipt',
+      what: `${RECEIPT.batch} · ${CUSTODY_CHAIN.laboratory} · received ${RECEIPT.received} · ${cooler.found} · ${reconciled.found} containers`,
+      detail: `Transit ${RECEIPT.transit}. Cooler at ${cooler.found} against a limit of ${cooler.limit}; seals intact; preservation verified. One container arrived cracked and it was the sulfate bottle from ${QUARANTINE[1].subject.split(' · ')[1]}, not this sample — which is why MW09 is a result short and this bore is not.`,
+      kind: 'lab', at: 'receipt', node: `${cooler.found} on arrival`, nodeSub: RECEIPT.received.replace(' AWST', ''),
+    },
+    {
+      step: 'Subcontracted analysis, and its own custody',
+      what: `${sub.id} · ${CUSTODY_CHAIN.laboratory} → ${sub.laboratory} · ${sub.containers} container · seal ${sub.transfers[0].seal}`,
+      detail: `${sub.why} Received ${subReceipt.at} at ${subReceipt.temperature} against ${subReceipt.limit}, seal ${subReceipt.seal}, ${subReceipt.reconciled}, by ${subReceipt.by}. Holding time ${sub.holding.rule}: collected ${sub.holding.collected}, extracted ${sub.holding.extracted} — ${sub.holding.used} of ${sub.holding.window} days used.`,
+      kind: 'custody', at: 'ecoc', node: sub.laboratory, nodeSub: `${sub.holding.used} of ${sub.holding.window} days`,
+    },
+    {
+      step: 'Analytical batch, method and batch QC',
+      what: `${batch.id} · ${batch.method} · ${batch.samples} samples · prepared ${batch.prepared}, analysed ${batch.analysed} · NATA ${batch.nata}`,
+      detail: `${batch.qc.map((q) => `${q.kind} ${q.outcome}`).join(' · ')}. ${batch.consequence} A control sample applies to a batch and not to a sample, which is why “which results does this qualify” has an answer here and nowhere else.`,
+      kind: 'lab', at: 'batches', node: batch.id, nodeSub: 'batch QC clear',
+    },
+  ];
+
+  const chain = [...upstream, ...LINEAGE.chain];
+
+  /**
+   * The review's own question list, each answered from the chain by link.
+   *
+   * This is the acceptance test written down where it can be read: a chain
+   * that cannot answer these is a longer chain, not a better one.
+   */
+  const questions = [
+    { q: 'Which bore?', a: `${bore.code} — ${bore.position}, ${bore.unit} unit, ${bore.id}`, at: 'location', step: 'Location, and the version in force' },
+    { q: 'Which screened interval?', a: `${bore.screen} below ground, ${bore.slot}, wholly within weathered granite`, at: 'location', step: 'Bore and screened interval' },
+    { q: 'Who sampled it, and when?', a: `${FIELD_ROUND.crew}, ${sample.collected}, on ${FIELD_ROUND.device}`, at: 'field-capture', step: 'Field event and bore session' },
+    { q: 'Did it stabilise before collection?', a: `${p.stabilised ? `Yes — ${p.stabilisedAt}, eight minutes before collection` : 'No'}, on ${p.readings.length} readings and ${p.volumeText}`, at: 'purge', step: 'Field measurements and stabilisation' },
+    { q: 'Was it filtered?', a: 'Not this fraction. The 0.45 µm in-line capsule was the dissolved-metals train; the PFAS bottle was filled direct', at: 'field-capture', step: 'Filtration and preservation' },
+    { q: 'How was it preserved?', a: 'HDPE, no preservative, no PTFE anywhere in the train', at: 'field-capture', step: 'Filtration and preservation' },
+    { q: 'Who held it, and was the chain unbroken?', a: `${CUSTODY_CHAIN.transfers.length} transfers with no gap in the sequence, plus ${sub.transfers.length} on the subcontract — one seal number in dispute, both readings kept`, at: 'ecoc', step: 'Custody transfer' },
+    { q: 'What temperature did it arrive at?', a: `${cooler.found} at ${CUSTODY_CHAIN.laboratory} (${cooler.limit}); ${subReceipt.temperature} at ${sub.laboratory} (${subReceipt.limit})`, at: 'receipt', step: 'Laboratory receipt' },
+    { q: 'Was it inside its holding time?', a: `${sub.holding.used} of ${sub.holding.window} days — ${sub.holding.rule}`, at: 'qc', step: 'Subcontracted analysis, and its own custody' },
+    { q: 'What quality control travelled with it?', a: `${fieldBlank.id} field blank poured at the bore, ${tripBlank.id} trip blank in the cooler, ${equipBlank.id} rinsate from the pump, and blind field duplicate ${duplicate.id}`, at: 'events', step: 'Field quality control collected with it' },
+  ];
+
+  /**
+   * The same hops, as the compact upstream/downstream view (PR-3c).
+   *
+   * The review was explicit about what this is not: *"don't replace the
+   * narrative with a giant technical DAG."* So the narrative stays the
+   * default and this is the second reading of the **same structure** — no
+   * second list, no second set of labels. What it shows that a line cannot is
+   * the **fork**: a derived total has two inputs which share every upstream
+   * hop and separate only at the bench, and a chain drawn as one column
+   * silently implies that PFHxS came out of PFOS.
+   *
+   * It is drawn in the document rather than as a plate. It is not a figure and
+   * it is not an addition to the twelve — there is no scale, no axis and
+   * nothing measured in it, so the frozen chart grammar is not engaged.
+   */
+  const trace = {
+    upstream: upstream.map((s) => ({ label: s.node, sub: s.nodeSub, at: s.at, kind: s.kind, step: s.step })),
+    fork: LINEAGE.chain
+      .filter((s) => s.kind === 'input')
+      .map((s) => ({ label: s.what.split(' · ')[0], sub: s.what.split(' · ').slice(1).join(' · '), at: 'certificate', kind: 'input', step: s.step })),
+    rule: { label: 'sum-pfas-anzg v2.1', sub: 'non-detect treatment: exclude', at: 'criteria', kind: 'rule', step: 'Derivation' },
+    focus: { label: LINEAGE.value, sub: `${LINEAGE.analyte} · ${LINEAGE.location}`, at: 'crosstab', kind: 'derived', step: 'Derived result' },
+    downstream: [
+      { label: 'ANZG 2018 · 37×', sub: 'exceedance, evaluated on commit', at: 'exceedances', kind: 'evaluation', step: 'Evaluation' },
+      { label: 'TARP Level 3', sub: 'in force since 2026-05-22', at: 'tarp', kind: 'consequence', step: 'Consequence' },
+      { label: 'DWER-N-2026-11842', sub: 'notification lodged', at: 'notification', kind: 'consequence', step: 'Consequence' },
+      { label: 'Report §5', sub: 'exceedance register, Table 5.1', at: 'report', kind: 'consequence', step: 'Consequence' },
+    ],
+  };
+
+  return {
+    value: LINEAGE.value,
+    analyte: LINEAGE.analyte,
+    location: LINEAGE.location,
+    collected: LINEAGE.collected,
+    sample: sample.id,
+    certificate: sub.certificate,
+    chain,
+    upstream,
+    downstream: LINEAGE.chain,
+    questions,
+    trace,
+    /*
+     * The hops every result on this sample shares, and the ones only the PFAS
+     * fraction took. `#result-detail`'s subject — cadmium on WDL-26Q2-003 —
+     * came out of the same bottle as the PFAS total: same bore, same session,
+     * same purge, same custody, same cooler. The two part at the bench, where
+     * one fraction went to a subcontract laboratory and the other stayed in
+     * the metals batch. So the result page reads the shared prefix from here
+     * rather than holding its own copy of it, and states where the two chains
+     * diverge instead of implying they never met.
+     */
+    boreToBench: upstream.slice(0, upstream.findIndex((x) => x.step.startsWith('Subcontracted'))),
+    pfasOnly: upstream.slice(upstream.findIndex((x) => x.step.startsWith('Subcontracted'))),
+  };
+})();
 
 /** A bore nest — the vertical dimension the register flattened. */
 export const NEST = {
@@ -3662,12 +4090,20 @@ export const TEMPLATE = {
 export const GOLDEN = (() => {
   const unwritten = REPORT.sections.filter((s) => s.state === 'not started');
   const refs = REPORT_ITEMS.items.reduce((n, it) => n + it.cites.length, 0);
-  const censored = CROSSTAB.reduce((n, r) => n + r.cells.filter((c) => c.censored).length, 0);
+  const censored = CROSSTAB_SHAPE.censored;
   const checks = [
     { check: 'Prescribed section structure, present and in order', expects: '§1 – §7 per the DWER quarterly groundwater form', found: 'All seven present, in order', outcome: 'pass' },
     { check: '§3 carries the QA/QC summary as a table', expects: 'Table 3.1', found: `Table 3.1 · ${QAQC.length} checks`, outcome: 'pass' },
     { check: '§3 carries the data quality assessment', expects: `Table 3.2, ${DQA.length} dimensions`, found: `Table 3.2 · ${DQA.length} dimensions`, outcome: 'pass' },
-    { check: '§4 carries the crosstab', expects: 'Table 4.1, analyte × location', found: `Table 4.1 · ${CROSSTAB.length} × ${CROSSTAB_COLUMNS.length}`, outcome: 'pass' },
+    /*
+     * The shape of the table, not the number of results in it: a column drawn
+     * empty is still a column, and a reader comparing this quarter to last
+     * needs the same grid with a gap in it rather than a narrower grid. So the
+     * check stays 11 × 7 after the MW11 blanking, and the results count that
+     * did move is on the crosstab beside the grid.
+     */
+    { check: '§4 carries the crosstab', expects: 'Table 4.1, analyte × location', found: `Table 4.1 · ${CROSSTAB_SHAPE.analytes} × ${CROSSTAB_SHAPE.locations}`, outcome: 'pass' },
+    { check: '§4 draws a planned location that returned nothing', expects: 'The column present and empty, with the reason on it', found: `${CROSSTAB_SHAPE.emptyColumns.join(', ')} · ${CROSSTAB_SHAPE.empty} cells, dry`, outcome: 'pass' },
     { check: '§5 carries the exceedance register', expects: 'Table 5.1, one row per result per criterion', found: `Table 5.1 · ${EXCEEDANCES.length} rows`, outcome: 'pass' },
     { check: '§5 carries the results that could not be assessed', expects: 'Table 5.2, with the reason on each', found: `Table 5.2 · ${INDETERMINATE.length} rows`, outcome: 'pass' },
     { check: 'Figure captions match the template', expects: 'Figure <n>. <Title> — <source>', found: `All ${REPORT_ITEMS.figures} figures`, outcome: 'pass' },
@@ -3706,9 +4142,9 @@ export const GOLDEN = (() => {
  *
  * The total on the crosstab is a **sum**, and what a non-detect contributes to
  * a sum is a property of the criteria set rather than of the instance
- * (FR-2.2). Six of these seven locations have both components below the limit
+ * (FR-2.2). Five of these six locations have both components below the limit
  * of reporting, which is what makes the rule decisive rather than academic:
- * the same seven results read as indeterminate, compliant or 31× a guideline
+ * the same six results read as indeterminate, compliant or 31× a guideline
  * value depending on a field on the set.
  *
  * ## PFHxS at MW05 was drawn as an unqualified detect below the LOR (PR-3b)
@@ -3737,13 +4173,21 @@ export const GOLDEN = (() => {
  * detect statuses". Which is why this had to be fixed at the qualifier rather
  * than by censoring the value.
  */
+/*
+ * Wave 7: MW11 is gone from this list with its crosstab column. It carried
+ * `pfos: null, pfhxs: null`, which the non-detect demonstration renders as a
+ * pair of `< 2.0` results — a claim that the laboratory reported two
+ * non-detects on a sample nobody collected. A non-detect is a result: it has a
+ * limit of reporting, a method and a certificate behind it. The bore was dry,
+ * so it has none, and the sixth row of the demonstration is the right number
+ * of rows rather than a row short.
+ */
 export const PFAS_COMPONENTS = [
   { location: 'MW01A', pfos: null, pfhxs: null },
   { location: 'MW03B', pfos: null, pfhxs: null },
   { location: 'MW05', pfos: 3.1, pfhxs: 1.7, pfhxsQualifier: 'J', pfhxsQualifierMeans: 'estimated — detected above the method detection limit and below the limit of reporting' },
   { location: 'MW07', pfos: null, pfhxs: null },
   { location: 'MW09', pfos: null, pfhxs: null },
-  { location: 'MW11', pfos: null, pfhxs: null },
   { location: 'MW12', pfos: null, pfhxs: null },
 ];
 
@@ -3801,7 +4245,7 @@ export const NON_DETECT = (() => {
     }),
     active,
     says:
-      'MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. Every other bore moves, and the six of them are the whole of the difference between the four columns.',
+      `MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. Every other bore moves, and the ${PFAS_COMPONENTS.length - 1} of them are the whole of the difference between the four columns.`,
     /*
      * PR-3b. An estimated detect is the case the rule is silent about until
      * somebody asks, and the answer has to be stated rather than inferred from
@@ -3908,5 +4352,365 @@ export const CRITERIA_DRAFT = (() => {
       says:
         'Rollback is drawn as a control rather than left to a database restore, because the question it answers — “we activated the wrong rule on Friday” — is asked on a Monday by somebody who is not a DBA.',
     },
+  };
+})();
+
+/* ==================================================================== *
+ * The interpretation workspace — evidence for the inference, not for
+ * the citations (PR-4)
+ *
+ * The practitioner review's verdict on the drawn editor was that its
+ * evidence panel proves the wrong thing: it answers *are my citations
+ * numerically correct*, and the question a hydrogeologist has before
+ * signing a TSF-seepage sentence is *does the evidence support what I am
+ * claiming*. Those are different panels.
+ *
+ * Three things follow, and the third is the constraint the other two run
+ * inside.
+ *
+ * 1. **An evidence set, pinned to a passage** (PR-4a) — the plates and
+ *    records the author had in front of them, kept with the sentence, "so
+ *    the reviewer can see exactly what I saw when I made the
+ *    interpretation". Explicitly **not** so the software judges the
+ *    inference: there is no score anywhere below, no confidence, no
+ *    strength, no count of evidence "for" against evidence "against". A
+ *    number attached to somebody's professional judgement would be an
+ *    opinion wearing arithmetic, and it is the one thing this surface must
+ *    not invent.
+ * 2. **A cross-reference token** (PR-4b) — a structured reference to a
+ *    numbered item rather than the number typed into the sentence. It
+ *    renders the item's *current* number, so renumbering moves it silently;
+ *    what flags the sentence is the item's **content** changing.
+ * 3. **A numeric rendering rule** (PR-4c) — stated on the workspace and
+ *    applied to every value citation, so a value that re-derives to more
+ *    digits is formatting rather than staleness noise.
+ *
+ * Over all of it: **authored interpretation is never silently rewritten**
+ * (the keep-list). Nothing here edits a sentence. The workspace shows what
+ * changed *around* the prose and names the sentences it reaches; the
+ * correction is an act the author takes, attributed to them.
+ * ==================================================================== */
+
+/**
+ * The rendering rule, written as code because it is applied rather than described.
+ *
+ * The review's example is two significant figures. Three is the cap here, and
+ * the reason is worth stating: at two, the arsenic result the certificate
+ * reports as 28.4 µg/L renders in the sentence as 28, and a rule that drops a
+ * digit the laboratory published is worse than the noise it prevents. So the
+ * rule is *the source's own published precision, capped at three significant
+ * figures* — it never adds precision the source did not report and never
+ * quotes more than three figures of it.
+ */
+export const RENDERING_RULE = (() => {
+  const significant = (published) => {
+    const digits = String(published).replace('-', '').replace('.', '').replace(/^0+/, '');
+    return digits.length;
+  };
+  const apply = (published, max = 3) =>
+    significant(published) <= max ? String(published) : String(Number(Number(published).toPrecision(max)));
+  return {
+    max: 3,
+    name: 'Three significant figures, and never more than the source publishes',
+    says:
+      'A number quoted in a sentence renders to the precision its source publishes, capped at three significant figures. A citation is checked under this rule: the question is whether the rendered form moved, not whether the stored value did.',
+    why:
+      'Without it, a stored value that gains digits — a statistics worker returning four decimal places where it returned two — flags a sentence that has not become wrong. The author then learns that the flag means nothing, which is the failure mode of every staleness indicator that cries wolf.',
+    notProse:
+      'It governs prose only. A statistics table and a plate carry the precision of the analysis, and 1.77 in a table beside 1.77 in a sentence is the rule agreeing with itself rather than two surfaces disagreeing.',
+    significant,
+    apply,
+  };
+})();
+
+/**
+ * The passages, their citations and their tokens.
+ *
+ * The prose is authored — every word below is the hydrogeologist's — and the
+ * runs are how a structured citation and a structured cross-reference sit
+ * inside a sentence without being typed into it.
+ */
+export const NARRATIVE = (() => {
+  const R = RENDERING_RULE;
+  const itemOf = (title) => REPORT_ITEMS.items.find((i) => i.title === title);
+  const renumbered = (title) => REPORT_ITEMS.insert.renumbered.find((r) => r.title === title) ?? null;
+
+  /**
+   * A value citation: what the sentence says, and what its source says now.
+   *
+   * `then` is the source's published value at the moment the sentence was
+   * written; `now` is what it publishes today. The check compares the two
+   * **through the rendering rule**, which is the whole of PR-4c.
+   */
+  const citations = [
+    {
+      id: 'as-mw05', label: 'Arsenic at MW05',
+      then: '28.4', now: '28.4', unit: 'µg/L',
+      source: 'Certificate PAS2026-04417 · result on WDL-26Q2-003', at: 'result-detail',
+    },
+    {
+      id: 'as-dgv', label: 'ANZG 2018 95% guideline value, arsenic',
+      then: '13', now: '13', unit: 'µg/L',
+      source: 'Criteria set ANZG 2018 · 95% species protection · version 2018.1', at: 'criteria',
+    },
+    {
+      id: 'mk-p', label: 'Mann–Kendall p',
+      then: '0.003', now: '0.003', unit: '',
+      source: `${TREND.plain.name} over ${TREND.n} quarterly rounds · services/stats`, at: 'statistics',
+    },
+    {
+      id: 'sen', label: 'Sen’s slope', suffix: ' µg/L per quarter',
+      then: '1.77', now: '1.7666666666666666', unit: '',
+      source: `${TREND.plain.name} · services/stats`, at: 'statistics',
+      moved:
+        'The stats worker returns the slope at full precision since the 2026-08-19 upgrade; it returned two decimal places before. Nothing about the series changed and nothing about the finding changed — the number simply arrived with more digits on it.',
+    },
+    {
+      id: 'as-mw03b', label: 'Arsenic at MW03B',
+      then: '31', now: '3.1', unit: 'µg/L',
+      source: `Certificate ${SUPERSESSION.superseding.certificate}, superseding ${SUPERSESSION.original.certificate}`, at: 'supersession',
+      moved: SUPERSESSION.reason,
+    },
+  ].map((c) => {
+    const rendered = R.apply(c.now);
+    const renderedThen = R.apply(c.then);
+    return {
+      ...c,
+      rendered,
+      renderedThen,
+      /** Did the *rendered* form move? That is the only question the check asks. */
+      moves: rendered !== renderedThen,
+      /** Did the stored value move at all? Recorded, because it is a different fact. */
+      sourceMoved: String(c.then) !== String(c.now),
+    };
+  });
+
+  /**
+   * A cross-reference token: a reference to the *item*, not to its number.
+   *
+   * `renders` is the number the item carries today. `renumbering` is what the
+   * token would render if the staged figure insert on `#report-figures` were
+   * taken — and the sentence is **not** flagged for it, because the sentence
+   * never contained the number. `contentChanged` is what does flag it.
+   */
+  const tokens = [
+    {
+      id: 'fig-as', title: 'Arsenic at MW05, with censoring', label: 'Arsenic series',
+      at: 'hydrograph', contentChanged: null,
+    },
+    {
+      id: 'fig-trend', title: 'Arsenic trend at MW05', label: 'Trend plot',
+      at: 'statistics', contentChanged: null,
+    },
+    {
+      id: 'fig-piper', title: 'Piper trilinear diagram', label: 'Piper diagram',
+      at: 'hydrochem', contentChanged: null,
+    },
+    {
+      id: 'fig-pot', title: 'Potentiometric surface, May 2026', label: 'Potentiometric surface',
+      at: 'map',
+      contentChanged: {
+        at: '2026-09-01',
+        what: 'MW11 was dipped to the base of its screened interval on 14 May and found dry, so it carries no head and is no longer a control point on the fit. The plate is fitted through seven bores where it was fitted through eight, and it draws MW11 as a dry bore rather than omitting it.',
+        moved: 'The flow direction and the gradient both moved, in the third significant figure. The reading the sentence makes — the TSF sits upgradient of MW05 — did not.',
+        owed: 'The author is asked to look at the plate and confirm the sentence still says what they meant. Nothing about the sentence has been changed, and nothing will be.',
+      },
+    },
+  ].map((t) => {
+    const item = itemOf(t.title);
+    const move = renumbered(t.title);
+    return {
+      ...t,
+      renders: item.n,
+      section: item.section,
+      renumbering: move ? { from: move.from, to: move.to } : null,
+      state: t.contentChanged ? 'content changed — the sentence is flagged' : 'current',
+    };
+  });
+
+  const cite = (id) => ({ cite: citations.find((c) => c.id === id) });
+  const tok = (id) => ({ token: tokens.find((t) => t.id === id) });
+  const t = (text) => ({ t: text });
+
+  const passages = [
+    {
+      id: '6.1',
+      heading: '6.1 Groundwater quality at MW05',
+      by: 'A. Nakamura',
+      at: '2026-08-24 08:51 AWST',
+      paras: [
+        [
+          t('Arsenic at MW05 was reported at '), cite('as-mw05'),
+          t(', above the ANZG 2018 95% species protection guideline value of '), cite('as-dgv'),
+          t(' and the third consecutive quarter above that value '), tok('fig-as'), t('.'),
+        ],
+        [
+          t('Mann–Kendall over fourteen quarterly rounds reports a significant increasing trend ('), cite('mk-p'),
+          t(') with a Sen’s slope of '), cite('sen'), t(' '), tok('fig-trend'), t('.'),
+        ],
+        [
+          t('The major-ion signature at MW05 is sulfate-dominated and distinct from the calcium–bicarbonate background of every other bore '), tok('fig-piper'),
+          t('; the bore sits directly downgradient of the tailings storage facility on the May 2026 potentiometric surface '), tok('fig-pot'),
+          t('; and every elevated parameter is elevated against the site’s own background as well as against a guideline value. Taken together this is consistent with seepage from the tailings storage facility rather than with natural variation.'),
+        ],
+        [
+          t('Cadmium could not be assessed at any location this round: the laboratory’s limit of reporting of 1.0 µg/L sits above the guideline value of 0.54 µg/L'),
+        ],
+      ],
+      /** The sentence the evidence set is pinned to — the inference, not the arithmetic. */
+      pinned: 2,
+      unfinished: 3,
+    },
+    {
+      id: '6.2',
+      heading: '6.2 Compliance boundary and the upgradient bores',
+      by: 'A. Nakamura',
+      at: '2026-05-19 16:20 AWST',
+      paras: [
+        [
+          t('Arsenic at MW03B was reported at '), cite('as-mw03b'),
+          t(', which is above the guideline value and the first such result at an upgradient bore in this programme.'),
+        ],
+      ],
+      flagged: 0,
+    },
+  ];
+
+  const flaggedTokens = tokens.filter((x) => x.contentChanged);
+  const flaggedCitations = citations.filter((c) => c.moves);
+  const quiet = citations.filter((c) => c.sourceMoved && !c.moves);
+
+  return {
+    rule: R,
+    passages,
+    citations,
+    tokens,
+    counts: {
+      citations: citations.length,
+      tokens: tokens.length,
+      flagged: flaggedTokens.length + flaggedCitations.length,
+      renumbered: tokens.filter((x) => x.renumbering).length,
+      quiet: quiet.length,
+    },
+    flaggedTokens,
+    flaggedCitations,
+    quiet,
+    /** What the workspace refuses to do, said on the screen rather than only here. */
+    refused: [
+      { what: 'Rewrite a flagged sentence with the current value', why: 'A sentence somebody wrote is theirs. The workspace names it, shows both values and offers the correction; taking it is the author’s act and it is attributed to them.' },
+      { what: 'Score the inference, or rate the evidence', why: 'The evidence set exists so a reviewer sees what the author saw. A product that graded a hydrogeological judgement would be making one, in somebody else’s name.' },
+      { what: 'Flag a sentence because a figure was renumbered', why: 'The sentence never contained the number. A cross-reference token resolves to the item, so renumbering moves the rendering and leaves the prose alone.' },
+      { what: 'Flag a sentence because a stored value gained digits', why: 'The rendering rule decides what the sentence says. If the rendered form has not moved, nothing a reader can see has changed.' },
+    ],
+  };
+})();
+
+/**
+ * The evidence set pinned to the TSF-seepage sentence (PR-4a).
+ *
+ * The review's list of what a practitioner wants in front of them before
+ * signing that sentence, drawn as the eight tiles it names: hydrograph, head
+ * contours, Piper/Stiff, source chemistry, background comparison, trend, QA/QC
+ * status, bore construction.
+ *
+ * **Every tile references a plate or a record this catalogue already draws.**
+ * No new figure family is introduced — the grammar is frozen and a new family
+ * needs a written proposal to Jerry first (brief §5.8) — and the one item on
+ * the review's list with nothing behind it, source chemistry, is drawn as the
+ * gap it is rather than filled with an invention. An evidence set that quietly
+ * omits the evidence nobody has is worse than one that names it.
+ *
+ * A tile references rather than re-renders. The plates are drawn to 180 mm and
+ * a thumbnail of a Piper diagram at tile size is a grey triangle; the tile
+ * says what the plate shows, what it does not settle, and opens it at full
+ * size. *What it does not settle* is the field that keeps this a set of
+ * evidence rather than a set of arguments.
+ */
+export const EVIDENCE = (() => {
+  const passage = NARRATIVE.passages[0];
+  const tiles = [
+    {
+      kind: 'Hydrograph',
+      ref: 'Figure 4.1 — groundwater elevation at MW05, MW07 and MW01A, with rainfall',
+      shows: 'A falling trend at MW05 through three years of wet-season recovery, against two bores that hold level. The seepage mound is a water-level story before it is a chemistry one.',
+      notSettled: 'A hydrograph cannot distinguish seepage from abstraction. There is no production bore within 400 m of MW05, and that is a fact off the location register rather than something this plate shows.',
+      at: 'hydrograph', drawn: true,
+    },
+    {
+      kind: 'Head contours',
+      ref: 'Figure 6.1 — potentiometric surface and flow direction, May 2026',
+      shows: 'A planar least-squares fit through the superficial bores that carry a head this round, with the largest residual printed on the plate. It puts the tailings storage facility upgradient of MW05 and MW07, and those upgradient of the compliance boundary.',
+      notSettled: 'A plane states one gradient and one direction. It cannot show local structure, and it says nothing about vertical flow — that argument is the nest at MW01A/MW03B, which is its own record.',
+      at: 'map', drawn: true,
+    },
+    {
+      kind: 'Major-ion signature',
+      ref: 'Figure 4.3 — Piper trilinear diagram, and Figure 4.4 — Stiff diagrams by location',
+      shows: 'MW05 plots away from every other bore on the sulfate limb while the background and upgradient bores cluster as calcium–bicarbonate waters. A signature, not a concentration.',
+      notSettled: 'A distinct signature says this water is different. It does not say what made it different, and evaporative concentration would move a bore along the same limb.',
+      at: 'hydrochem', drawn: true,
+    },
+    {
+      kind: 'Source chemistry',
+      ref: 'No analysis of the tailings liquor is held on this project',
+      shows: 'Nothing. The only TSF record here is the embankment piezometer TSF-VWP-03, which measures a phreatic surface and not a chemistry.',
+      notSettled: 'This is the piece of evidence that would settle it, and it is absent. The inference rests on the pattern at MW05 against the site’s own background rather than on a source fingerprint, and the reviewer is told that here rather than discovering it.',
+      at: 'locations', drawn: false,
+      owed: 'A decant or underdrainage analysis would make the comparison direct. It is a sampling decision, not a software one.',
+    },
+    {
+      kind: 'Background comparison',
+      ref: 'Site-specific trigger values from the reference distribution — MW12, MW01A and MW03B, fourteen rounds each',
+      shows: 'Every elevated parameter at MW05 is elevated against the site’s own background as well as against a guideline value, and the 80th-percentile trigger values are derived by Kaplan–Meier rather than by substituting half the limit of reporting.',
+      notSettled: 'A background comparison establishes difference from the reference population. Attribution to a particular source is the hydrogeologist’s inference, and this screen is one of its inputs.',
+      at: 'background', drawn: true,
+    },
+    {
+      kind: 'Trend',
+      ref: 'Figure 4.6 — arsenic trend at MW05, Mann–Kendall with Sen’s slope',
+      shows: 'A significant increasing trend over fourteen quarterly rounds, reported alongside the seasonal test because the series is seasonal and the plain test treats that structure as trend.',
+      notSettled: 'A trend says the concentration is rising. It does not say why, and it is the same series the outlier check on the QA/QC screen is asking a different question of.',
+      at: 'statistics', drawn: true,
+    },
+    {
+      kind: 'QA/QC status',
+      ref: 'The round’s decision layer — what is still owed on the data this sentence rests on',
+      shows: 'Whether the numbers under the interpretation are settled. Three findings on this round still need a hydrogeologist, and one of them decides whether nine zinc results carry a qualifier.',
+      notSettled: 'None of the open findings reaches the arsenic, sulfate or PFAS results this passage argues from — but the reviewer should see that stated rather than assume it.',
+      at: 'qc', drawn: true,
+    },
+    {
+      kind: 'Bore construction',
+      ref: 'MW05 construction log — screened interval, casing, annulus and the survey the datum stands on',
+      shows: 'The screen sits wholly within the weathered granite below a bentonite seal, so the sample represents the superficial aquifer at 12–18 m and nothing above it. uPVC casing throughout, which is why a metals result here is not read against a steel-cased bore.',
+      notSettled: 'Construction says what the sample represents. It cannot say whether the water reaching that interval came from the tailings storage facility.',
+      at: 'location', drawn: true,
+    },
+  ];
+  return {
+    passage: passage.id,
+    paragraph: passage.pinned,
+    pinnedBy: 'A. Nakamura',
+    pinnedAt: '2026-08-24 09:12 AWST',
+    tiles,
+    drawn: tiles.filter((x) => x.drawn).length,
+    gaps: tiles.filter((x) => !x.drawn).length,
+    says:
+      'Pinned to the sentence, kept with it, and shown to whoever reviews it. This is what the author had in front of them when they wrote it.',
+    /**
+     * The alternatives, in the author's own words and attributed to them.
+     *
+     * The review asked for the competing explanations, and they belong here as
+     * authored content rather than as a list the product generated: a product
+     * that proposed the alternatives would be proposing the conclusion too.
+     */
+    competing: [
+      { what: 'Evaporative concentration in a shallow bore', by: 'A. Nakamura', says: 'Would move the bore along the sulfate limb and raise every ion together. Chloride has not moved with sulfate here, and the ratio is the test.' },
+      { what: 'Natural sulfate from the weathered profile', by: 'A. Nakamura', says: 'MW12 and MW01A are screened in the same unit and show none of it, which is what makes the background comparison the load-bearing evidence rather than a formality.' },
+      { what: 'Abstraction drawing older, more mineralised water', by: 'A. Nakamura', says: 'No production bore within 400 m, and the hydrograph shows a decline that does not follow the borefield’s pumping pattern.' },
+      { what: 'A laboratory or sampling artefact', by: 'A. Nakamura', says: 'Four consecutive rounds, two laboratories on the PFAS suite, and the field and equipment blanks clear. A four-round artefact is a different and larger claim than a seepage one.' },
+    ],
+    refused:
+      'The product does not weigh these against each other and does not tell the author which one is right. It keeps them with the sentence so a reviewer can see that they were considered, and so a reviewer who disagrees knows exactly what to disagree with.',
   };
 })();

@@ -329,6 +329,13 @@ transect did: bearing 120°, gradient 1.9 m/km, largest residual 0.04 m. **The r
 printed on the plate for exactly this reason — it is the figure telling you whether to
 believe it.**
 
+*(Those three numbers were the eight-bore fit. Wave 7 found a ninth fault of the same
+kind: MW11 was contributing a head to a round in which the field record has it dipped to
+the base of its screen and found dry. It is drawn on the plate and is no longer a control
+point, and the fit through the seven bores that carry a head reads 119°, 1.93 m/km,
+largest residual 0.04 m. The plate and the prose beside it now read those three from one
+computation, which is what let them move together.)*
+
 ## What it is drawn from
 
 | Source | What it contributes |
@@ -570,6 +577,18 @@ around the bore session, QA/QC rebuilt around the decision layer — and wave 7 
 other two, provenance beginning at the bore and evidence for an inference rather than for
 its citations. The estimate above was right: five minutes found what a day of re-reading
 would not have, because the drawn version was internally consistent and wrong anyway.
+
+**Wave 7 (1 September 2026) closes the other two, and adds a caveat of its own.** The
+lineage chain now begins at the bore — location and version, construction, programme, field
+event, stabilisation, sample, filtration and preservation, custody, receipt, subcontract and
+batch, before the first laboratory number — with a narrative view and a compact
+upstream/downstream one over the same structure; and `#narrative` became an evidence
+workspace with a pinnable evidence set, cross-reference tokens that distinguish renumbering
+from content change, and a stated numeric rendering rule. The caveat: **the same
+practitioner has not seen any of it.** Answering a review is not the same as being right,
+and the redesigned screens carry more invention than the ones the review corrected, not
+less. The wave also blanked the crosstab's MW11 column, which had drawn eleven evaluated
+results for a bore the field record has dipped twice and found dry (`W6-A-1`).
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls

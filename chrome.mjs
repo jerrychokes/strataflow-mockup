@@ -1074,6 +1074,104 @@ html, body { background: var(--mk-chrome); }
 .mk-decide__q { font-size: 13px; margin: .2rem 0 .35rem; }
 .mk-decide__why { font-size: 11.5px; color: var(--sf-ink-muted); line-height: 1.55; margin: 0 0 .5rem; }
 
+/* ==================================================================== *
+ * Wave 7 — provenance from the bore, and the interpretation workspace
+ * ==================================================================== */
+
+/*
+ * A crosstab cell where no result exists.
+ *
+ * Muted, but never *only* muted: a glyph and a word carry the state, because
+ * colour is never the sole channel (the photocopier rule) and an empty cell
+ * distinguished only by weight is indistinguishable from a value nobody
+ * entered. The nowrap keeps the glyph and the word on one line —
+ * the wave-6 lesson about inline content in a stacked cell applies here too.
+ */
+.mk-nocell { display: inline-flex; align-items: baseline; gap: .3rem; white-space: nowrap; color: var(--sf-ink-muted); }
+.mk-nocell__glyph { font-family: var(--sf-font-data); font-size: 12px; }
+.mk-nocell__word { font-size: 11.5px; font-style: italic; }
+
+/* The link out of a chain step, into the record that step reads. */
+.mk-chain__link { font-size: 11px; margin-top: .15rem; }
+.mk-chain__step--place .mk-chain__n,
+.mk-chain__step--plan .mk-chain__n { box-shadow: inset 0 0 0 1.5px var(--sf-rule-strong); }
+.mk-chain__step--field .mk-chain__n { box-shadow: inset 0 0 0 1.5px var(--mk-good-line); color: var(--mk-good); }
+.mk-chain__step--custody .mk-chain__n { box-shadow: inset 0 0 0 1.5px var(--mk-warn-line); color: var(--mk-warn); }
+.mk-chain__step--lab .mk-chain__n { box-shadow: inset 0 0 0 1.5px var(--mk-new-line); color: var(--mk-new); }
+
+/*
+ * Trace it — the compact upstream/downstream view.
+ *
+ * A wrapping row of nodes rather than an SVG, so it reflows to one column on a
+ * phone instead of panning, and so every node is a real link with a real
+ * accessible name. The arrow between nodes is a ::before on each node but the
+ * first, which means a wrapped line never leaves a dangling arrow at its end.
+ */
+.mk-trace { display: grid; gap: .7rem; margin: .2rem 0 1.1rem; }
+.mk-trace__band { background: var(--sf-ground); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--sf-rule); padding: .7rem .8rem; }
+.mk-trace__band--fork { box-shadow: inset 0 0 0 1px var(--mk-new-line); }
+.mk-trace__band--focus { box-shadow: inset 0 0 0 1.5px var(--sf-ink); background: var(--sf-surface); }
+.mk-trace__cap { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--sf-ink-muted); margin: 0 0 .5rem; }
+.mk-trace__row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: .35rem .1rem; }
+.mk-trace__row--fork { gap: .35rem .8rem; }
+.mk-trace__node { display: flex; align-items: center; min-width: 0; }
+.mk-trace__node + .mk-trace__node::before {
+  content: "\\2192"; color: var(--sf-ink-muted); font-size: 12px; padding: 0 .3rem; flex: none;
+}
+.mk-trace__row--fork .mk-trace__node + .mk-trace__node::before { content: "+"; }
+.mk-trace__hit {
+  display: grid; gap: 1px; min-width: 0; padding: .35rem .5rem; border-radius: 3px;
+  background: var(--sf-surface); box-shadow: inset 0 0 0 1px var(--sf-rule-strong);
+  text-decoration: none; color: inherit; min-height: 44px; align-content: center;
+}
+.mk-trace__hit:hover { box-shadow: inset 0 0 0 1px var(--sf-accent); }
+.mk-trace__hit:focus-visible { outline: none; box-shadow: var(--mk-focus); }
+.mk-trace__label { font-size: 12px; font-weight: 600; }
+.mk-trace__sub { font-size: 10.5px; color: var(--sf-ink-muted); }
+.mk-trace__node--field .mk-trace__hit { box-shadow: inset 0 0 0 1px var(--mk-good-line); }
+.mk-trace__node--custody .mk-trace__hit { box-shadow: inset 0 0 0 1px var(--mk-warn-line); }
+.mk-trace__node--lab .mk-trace__hit,
+.mk-trace__node--input .mk-trace__hit { box-shadow: inset 0 0 0 1px var(--mk-new-line); }
+.mk-trace__node--evaluation .mk-trace__hit,
+.mk-trace__node--consequence .mk-trace__hit { box-shadow: inset 0 0 0 1px var(--mk-bad-line); }
+.mk-trace__rule { font-size: 11.5px; margin: .5rem 0 0; }
+.mk-trace__arrow { color: var(--mk-new); }
+.mk-trace__focus { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin: 0; }
+.mk-trace__value { font-family: var(--sf-font-data); font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+
+/*
+ * The interpretation workspace.
+ *
+ * A cross-reference token is visibly a token — a section mark, a dotted rule
+ * under it — so a reader can tell it from a number somebody typed. Its flagged
+ * state adds a word, never only a colour.
+ */
+.mk-editor__by { font-size: 11px; color: var(--sf-ink-muted); margin: -.3rem 0 .8rem; }
+.mk-editor__pinned { border-left: 3px solid var(--mk-new); padding-left: .6rem; }
+.mk-token {
+  display: inline-flex; align-items: baseline; gap: .15rem; font-family: var(--sf-font-data); font-size: 12.5px;
+  background: var(--sf-surface); border-bottom: 1px dotted var(--sf-ink-muted); padding: 0 .2em; white-space: nowrap;
+}
+.mk-token__glyph { color: var(--sf-ink-muted); font-size: 11px; }
+.mk-token--flagged { background: var(--mk-warn-bg); border-bottom: 1px solid var(--mk-warn); }
+.mk-token__mark, .mk-cite__mark { font-size: 10px; font-weight: 700; color: var(--mk-warn); margin-left: .2rem; }
+.mk-cite--flagged { background: var(--mk-warn-bg); border-bottom-color: var(--mk-warn); }
+
+.mk-evid__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .7rem; margin-bottom: 1.1rem; }
+.mk-evid {
+  background: var(--sf-ground); border-radius: 4px; padding: .75rem .85rem;
+  box-shadow: inset 0 0 0 1px var(--sf-rule-strong); display: grid; gap: .35rem; align-content: start;
+}
+.mk-evid--gap { box-shadow: inset 0 0 0 1px var(--mk-warn-line); background: var(--mk-warn-bg); }
+.mk-evid__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .6rem; }
+.mk-evid__kind { font-size: 13px; font-weight: 700; margin: 0; }
+.mk-evid__ref { font-size: 11.5px; color: var(--sf-ink-muted); margin: 0; }
+.mk-evid p { margin: 0; font-size: 11.5px; line-height: 1.55; }
+.mk-evid__go { margin-top: .2rem; }
+
+.mk-list { margin: .3rem 0 0; padding-left: 1.1rem; font-size: 12px; line-height: 1.6; }
+.mk-list li { margin-bottom: .35rem; }
+
 /*
  * A segmented control with seven options is wider than a phone.
  *

@@ -32,6 +32,10 @@ import {
   // Wave 6 — the field round, the decision layer, the DQO version pair, and
   // the three limits the PFAS components are reported against.
   DQO, FIELD_ROUND, METALS_BATCH, PFAS_LIMITS, QC_DECISIONS, Q2_OVERDUE,
+  INDETERMINATE_QUOTE,
+  // Wave 7 — provenance from the bore, the interpretation workspace, and the
+  // shape of the crosstab now that a column is drawn empty.
+  CONSTRUCTION, CROSSTAB_SHAPE, EVIDENCE, NARRATIVE, PROVENANCE, RENDERING_RULE,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -1467,6 +1471,21 @@ const historyOutlierPanel = () => {
   );
 };
 
+/*
+ * Two things found here in wave 7 and handled differently, both recorded.
+ *
+ * **Fixed:** the MW11 row asserted a cation–anion balance, a TDS ratio and a
+ * verdict of `consistent` for a bore the field record has dipped twice and
+ * found dry. It is drawn as not sampled rather than removed.
+ *
+ * **Deferred, and recorded rather than left to be noticed:** the balances
+ * below are not derived from `MAJOR_IONS`, and recomputing them from that
+ * table gives different numbers — including for MW05, whose −7.8% imbalance
+ * the panel beside the table reasons from at length. Reconciling the two is a
+ * seed change that moves the drawn argument on this screen and the Piper and
+ * Stiff plates that read the same ions, so it is not made in passing here.
+ * MW12 has results and no row, which is the same debt one column along.
+ */
 const consistency = () =>
   head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: '/projects/:projectId/consistency' }) +
   cols(
@@ -1479,7 +1498,15 @@ const consistency = () =>
         [loc('MW05'), '<span class="mk-num mk-num--warn">−7.8%</span>', '<span class="mk-num">1.11</span>', '<span class="mk-num">0.67</span>', tag('review raised', 'warn')],
         [loc('MW07'), '<span class="mk-num">+3.1%</span>', '<span class="mk-num">0.96</span>', '<span class="mk-num">0.63</span>', tag('consistent', 'good')],
         [loc('MW09'), '<span class="mk-num">−1.8%</span>', '<span class="mk-num">1.01</span>', '<span class="mk-num">0.65</span>', tag('consistent', 'good')],
-        [loc('MW11'), '<span class="mk-num">+0.9%</span>', '<span class="mk-num">0.99</span>', '<span class="mk-num">0.62</span>', tag('consistent', 'good')],
+        /*
+         * Wave 7. This row carried a cation–anion balance, a TDS ratio and a
+         * verdict of `consistent` for a bore that was dipped twice and found
+         * dry — an internal-consistency check run over a chemistry that does
+         * not exist. It is drawn rather than deleted, for the reason the
+         * crosstab's blanked column is drawn: a bore that vanishes from a
+         * register reads as a bore that was never on the programme.
+         */
+        [loc('MW11'), ...Array(3).fill('<span class="mk-num mk-num--nil">—</span>'), tag('not sampled — dry', 'neutral')],
       ],
     }),
     panel('MW05 — what the imbalance means',
@@ -1593,7 +1620,7 @@ const exceedances = () =>
     ]),
   }) +
   notice('warning', `${INDETERMINATE.length} results could not be assessed at all, and they are not on this register.`,
-    'Cadmium at every bore was reported below a limit that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen.') +
+    `Cadmium at every bore that returned water, and the PFAS sum at ${INDETERMINATE.filter((i) => i.analyte === 'PFOS + PFHxS').length} of them, were reported below a limit of reporting that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong> and on <a class="mk-ref" href="#indeterminate">their own register</a>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen.`) +
   windowConditionPanel();
 
 /**
@@ -1699,6 +1726,17 @@ const crosstab = () => {
     `Downgradient of TSF (${inArea('TSF')})`,
     `Background (${wells.filter((l) => l.position === 'Background').length})`,
   ];
+  /*
+   * A column whose every cell is empty says so in its own head as well as in
+   * its cells. The reason travels with the identifier, so a reader panning the
+   * matrix who lands mid-column still has it — and the stacked `data-label` a
+   * phone draws carries it too.
+   */
+  const columnHead = (code) => {
+    if (!CROSSTAB_SHAPE.isEmpty(code)) return loc(code);
+    const d = FIELD_ROUND.disposition(FIELD_ROUND.current.find((x) => x.location === code).disposition);
+    return `${loc(code)}<small>${esc(d.label.toLowerCase())} — no sample</small>`;
+  };
   const rows = CROSSTAB.map((r) => {
     const analyte = ANALYTES.find((a) => a.name === r.analyte);
     const crit = [
@@ -1734,7 +1772,7 @@ const crosstab = () => {
         C.chip('Groundwater', { prefix: 'matrix' }),
         C.chip('added zinc', { prefix: 'edited', tone: 'new' }),
       ],
-      count: '11 analytes × 7 locations · 77 results',
+      count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results · ${CROSSTAB_SHAPE.empty} cells at a bore that returned nothing`,
     }) +
     `<p class="sf-lede mk-tight">${esc(ROUND.code)} · collected ${esc(ROUND.collected)} · ${esc(ROUND.laboratory)} certificate ${esc(ROUND.certificate)} · validation state <strong>${esc(ROUND.validationState)}</strong> · all times ${esc(PROJECT.timezone)}</p>` +
     `<section aria-label="Criteria applied">${criteriaLegend(CRITERIA)}${outcomeLegend()}</section>` +
@@ -1748,14 +1786,14 @@ const crosstab = () => {
       caption: 'Results by analyte and location — 2026 Q2. Two marks per value, always in the same order.',
       label: 'Results by analyte and location — 2026 Q2',
       kind: 'matrix',
-      head: ['Analyte<small>criteria applied</small>', 'Unit', ...CROSSTAB_COLUMNS.map(loc)],
+      head: ['Analyte<small>criteria applied</small>', 'Unit', ...CROSSTAB_COLUMNS.map(columnHead)],
       rows,
     }) +
     C.pager({ from: 1, to: 11, total: 11, unit: 'analytes', pageSize: 50 }) +
     notice(
-      'warning',
-      'Known contradiction, recorded here rather than left to be noticed: the MW11 column should be empty.',
-      'The field record for this round says MW11 was visited twice, found <strong>dry</strong>, and yielded no samples — the manifest, the completeness figure and the preflight all agree — yet this grid draws evaluated MW11 results. Both sides predate the field record. <a class="mk-ref" href="#data-states">Data states</a> describes the empty column this grid owes; blanking it moves the censored counts and every surface computed from this table, so the correction is wave 7’s, made deliberately rather than in passing.',
+      'default',
+      `${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} is drawn empty, and the column says why.`,
+      `The field record for this round has ${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} visited twice and found <strong>dry</strong> — dipped to the base of the screened interval, tape dry to the weight — so it yielded no samples and there is nothing to put in these ${CROSSTAB_SHAPE.empty} cells. The column stays: <strong>a column that disappears reads as a bore that does not exist</strong>, and a cell left blank reads as a value somebody forgot to enter. Neither is what happened. The cells carry the round’s own <em>dry</em> disposition — its glyph and its word, read from the same list <a class="mk-ref" href="#field-capture">the bore session</a> dispositions against, so the grid does not invent a second vocabulary for one fact — and the sentence a screen reader gets carries the whole of what dry means, and the ${CROSSTAB_SHAPE.results} results counted above are the ones that exist. <a class="mk-ref" href="#field-capture">The bore session</a> holds the disposition; <a class="mk-ref" href="#data-states">Data states</a> is where the pattern is set out.`,
     ) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">The same grid, across rounds</h2>' +
     `<p class="sf-lede mk-tight">${C.segmented({ options: ['This round', 'By round', 'By location'], value: 'By round', label: 'Layout' })}</p>` +
@@ -1885,31 +1923,44 @@ const alerts = () =>
   notice('default', 'Raising an alert is synchronous with the data that raised it.',
     'Only the escalation countdown is scheduled. An exceedance that lands at 09:14 raises its alert at 09:14, inside the same transaction — not on the next tick of a worker that might not run.');
 
-const locationDetail = () =>
+const locationDetail = () => {
+  const B = CONSTRUCTION.of('MW05');
+  return (
   head('MW05', 'One monitoring location: where it is, how it is built, and what it has told us.', {
     route: '/projects/:projectId/locations',
     toolbar: btn('Export construction log') + btn('Resurvey'),
   }) +
   cols(
+    /*
+     * Wave 7: every fact below resolves through `CONSTRUCTION` and
+     * `LOCATIONS`. They were ten typed strings beside a plate that held its
+     * own copies of the same four numbers, which is how a screened interval
+     * comes to read 12.0 – 18.0 m in one place and something else in another.
+     * The lineage chain reads the same record, so the bore is described once.
+     */
     facts([
       ['Class', 'Groundwater monitoring bore'],
-      ['Area', 'TSF'],
-      ['Position', 'Downgradient of TSF'],
-      ['Hydrostratigraphic unit', 'Superficial'],
-      ['Screened interval', '12.0 – 18.0 m bgl'],
-      ['Coordinates', `513910 mE, 7653180 mN · ${esc(PROJECT.crs)}`],
-      ['Top of casing', '208.11 m AHD'],
-      ['Drilled', '2019-04-11 · 150 mm mud rotary'],
-      ['Rounds on record', '<span class="mk-num">38</span>'],
+      ['Bore', `<span class="mk-file">${esc(B.id)}</span>`],
+      ['Area', esc(LOCATIONS.find((l) => l.code === B.code).area)],
+      ['Position', esc(B.position)],
+      ['Hydrostratigraphic unit', esc(B.unit)],
+      ['Screened interval', `${esc(B.screen)} bgl<small>${esc(B.slot)}</small>`],
+      ['Coordinates', `${B.easting} mE, ${B.northing} mN · ${esc(PROJECT.crs)}`],
+      ['Top of casing', `${B.toc.toFixed(2)} m AHD<small>${esc(B.surveys[0].reason.toLowerCase())} of ${esc(B.tocFrom)}</small>`],
+      ['Drilled', `${esc(B.drilled)} · ${esc(B.method)}`],
+      ['Rounds on record', `<span class="mk-num">${B.rounds}</span>`],
       ['Current state', tag('exceedance', 'bad')],
     ]) +
     table({
       caption: 'Survey history. A resurvey takes effect from its own epoch and moves nothing behind it; a correction supersedes and reaches back.',
       head: ['Epoch', 'Kind', 'Top of casing', 'Applies to', 'By'],
-      rows: [
-        ['2024-03-18', 'Resurvey', '<span class="mk-num">208.11</span>', '<span class="mk-muted">Readings from 2024-03-18 onward</span>', 'Pilbara Survey Co'],
-        ['2019-04-15', 'Original survey', '<span class="mk-num">208.42</span>', '<span class="mk-muted">Readings 2019-04-15 to 2024-03-17</span>', 'Pilbara Survey Co'],
-      ],
+      rows: B.surveys.map((v) => [
+        esc(v.epoch),
+        esc(v.reason),
+        `<span class="mk-num">${v.toc.toFixed(2)}</span>`,
+        `<span class="mk-muted">${esc(v.applies)}</span>`,
+        esc(v.by),
+      ]),
     }) +
     notice('default', 'Groundwater elevation is derived at the measurement date, never stored.',
       'A depth-to-water reading taken in 2022 reduces through the 2019 datum; the same depth taken last week reduces through the 2024 one. Storing the elevation would freeze whichever datum happened to be in force the day it was calculated, and a resurvey would silently invalidate years of hydrograph.'),
@@ -1938,7 +1989,47 @@ const locationDetail = () =>
         body:
           '<p class="mk-tight">A containment argument is made or lost on the vertical gradient, and it is invisible in every screen that treats a bore as a point. Two rows in a register, sorted alphabetically, with the number that matters being the difference between them.</p>',
       }),
+  ) +
+  /*
+   * The construction as a record rather than only as a drawing (PR-3a). The
+   * plate beside it is the same data; this is the part a reviewer reads when
+   * they are asking whether the screen monitors the unit it claims to, which
+   * is a question about the annulus and not about the screen.
+   */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">How this bore is built</h2>' +
+  `<p class="mk-tight">${esc(B.says)}</p>` +
+  cols(
+    table({
+      caption: 'The string from surface to base, in the lengths it was installed in. The screened interval is its own row, not a kind of casing — it carries a unit and a slot aperture that no length of blank pipe has.',
+      head: ['Component', 'From<small>m bgl</small>', 'To<small>m bgl</small>', 'Material'],
+      rows: B.casing.map((c) => [
+        esc(c.component),
+        `<span class="mk-num">${c.from.toFixed(1)}</span>`,
+        `<span class="mk-num">${c.to.toFixed(1)}</span>`,
+        esc(c.material),
+      ]),
+    }),
+    table({
+      caption: 'What fills the space between the borehole wall and the casing, over each interval. A bentonite seal above the filter pack is what makes a screen monitor the unit it claims to; without one the result describes a mixture.',
+      head: ['From<small>m bgl</small>', 'To<small>m bgl</small>', 'Material'],
+      rows: B.annulus.map((a) => [
+        `<span class="mk-num">${a.from.toFixed(1)}</span>`,
+        `<span class="mk-num">${a.to.toFixed(1)}</span>`,
+        esc(a.material),
+      ]),
+    }),
+    '1fr 1fr',
+  ) +
+  cols(
+    notice('default', 'Casing material is a data-quality fact, not an inventory one.',
+      `${esc(B.casing[0].material)} throughout. Steel casing contributes iron, manganese and zinc to a sample, so a metals exceedance in a galvanised-steel bore is a different conversation from the same number in a uPVC one — and this bore's is uPVC, which is one of the reasons the zinc result here is read as formation water.`),
+    notice('default', 'Natural collapse is an answer, not a blank.',
+      'The interval below the filter pack is recorded as formation material falling back around the casing. Leaving it out would say the same thing as “nobody wrote it down”, and those are different facts (PP4).'),
+    '1fr 1fr',
+  ) +
+  `<div class="mk-actions"><a class="mk-btn" href="#lineage">Where this construction sits in the lineage of a result</a><a class="mk-btn" href="#purge">The purge this bore's last sample came from</a></div>`
   );
+};
 
 /* ================================================================== *
  * J4 — Understand it and explain it
@@ -1960,7 +2051,7 @@ const hydrographWorkspace = () =>
         .map((c) => `<div class="mk-config__row">${esc(c)}</div>`).join('') +
       '</div>' +
       '<p class="mk-tight mk-muted">Saved with the figure, not with the session. QB-3 is that next quarter’s figure is identical except for the new data — which means the configuration is a stored object, not something rebuilt by hand.</p>' +
-      '<p class="mk-tight mk-muted"><strong>A dry bore is a gap.</strong> MW11 was dry in April and the trace breaks rather than drawing a line through it. A polyline across a null asserts a water level nobody measured.</p>'),
+      `<p class="mk-tight mk-muted"><strong>A dry bore is a gap.</strong> ${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} was dipped to the base of its screened interval on the May round and found dry, so its trace breaks rather than drawing a line through it — and it contributes no point to <a class="mk-ref" href="#map">the potentiometric surface</a> either. A polyline across a null asserts a water level nobody measured.</p>`),
     '2fr 1fr',
   ) +
   figure('4.2', 'Arsenic at MW05, with censoring shown', F.censoredSeries(),
@@ -2083,14 +2174,15 @@ const mapScreen = () =>
     panel(
       'Which way the water goes',
       '<p class="mk-tight">Every location on this project carries a position — <em>upgradient</em>, <em>downgradient of TSF</em>, <em>compliance boundary</em> — and until this plate those were attributes somebody typed. This derives them.</p>' +
-        '<p class="mk-tight">The surface is a planar least-squares fit through the eight superficial bores. That is the honest method for eight points: it states one gradient and one direction and cannot invent local structure the data does not support. Interpolating a curved surface through eight wells draws detail nobody measured, and it is the picture that gets argued with.</p>' +
+        `<p class="mk-tight">The surface is a planar least-squares fit through the ${F.POTENTIOMETRIC_FIT.control} superficial bores that carry a head this round. That is the honest method for a network this size: it states one gradient and one direction and cannot invent local structure the data does not support. Interpolating a curved surface through seven bores draws detail nobody measured, and it is the picture that gets argued with.</p>` +
+        `<p class="mk-tight"><strong>${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} is drawn and is not a control point.</strong> It was dipped to the base of its screened interval on 14 May and found dry, so it has no standing level and therefore no head — it had been contributing one, a water table fifteen metres above where the tape found nothing. The bore stays on the plate with an open mark and the word: a compliance-boundary bore that disappears from a network map because it held no water that week is the reading this figure can least afford.</p>` +
         '<p class="mk-tight"><strong>The network geometry decides whether this figure is possible at all.</strong> Six of these bores sit almost on one line, and a plane fitted through collinear points is barely constrained across that line — the first version of this plate returned a flow direction of due south on a site whose every other screen says south-east, with a residual of 1.46 m against its own one-metre limit. Two bores genuinely off the transect fixed it. That is why the residual is printed on the plate rather than kept in a log: it is the figure telling you whether to believe it.</p>' +
         '<p class="mk-tight"><strong>MW03B is excluded.</strong> It screens the confined unit. Contouring two aquifers as one surface is the commonest error on a plate like this, and it produces a flow direction that is an average of two systems and true of neither.</p>' +
         C.card({
           tone: 'good',
           head: '<span class="mk-queue__kind">What it confirms</span>',
           body:
-            '<p class="mk-tight">Flow runs from the north-west to the east-south-east at about 2 m/km, on a largest residual of 0.04 m — a planar surface fits this network almost exactly. The TSF sits upgradient of MW05 and MW07, which sit upgradient of the compliance boundary at MW09 and MW11. The stored positions are correct — and now they are derived rather than asserted, so a resurvey or a new bore changes the plate rather than leaving a stale string on a record.</p>',
+            `<p class="mk-tight">Flow runs from the north-west to the east-south-east — ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, on a largest residual of ${esc(F.POTENTIOMETRIC_FIT.worstText)} — so a planar surface fits this network almost exactly. The TSF sits upgradient of MW05 and MW07, which sit upgradient of the compliance boundary at MW09 and MW11. The stored positions are correct — and these three numbers are read off the fit rather than typed beside it, which is what let removing a phantom head move them without leaving a stale sentence behind.</p>`,
         }),
     ),
     '3fr 2fr',
@@ -2286,13 +2378,22 @@ const reportBuilder = () => {
  * renumbering can be *previewed*, which is the difference between an insert
  * you decide and an insert you discover.
  *
- * Two kinds of reference, and only one of them is safe to move. A **live
- * reference** is a pointer the document resolves at generation, so renumbering
- * updates it and nothing is owed. A reference inside **authored prose** is a
- * sentence somebody wrote; the product will not rewrite it, so a renumbering
- * that reaches one is raised as a finding against the author. Silently
- * rewriting a hydrogeologist's paragraph is the same class of act as silently
- * substituting half a reporting limit.
+ * Two kinds of reference, and only one of them used to be safe to move. A
+ * **live reference** is a pointer the document resolves at generation, so
+ * renumbering updates it and nothing is owed. A reference inside authored
+ * prose was a sentence somebody wrote with a number typed into it, and a
+ * renumbering that reached one was raised as a finding against the author,
+ * because silently rewriting a hydrogeologist's paragraph is the same class of
+ * act as silently substituting half a reporting limit.
+ *
+ * **Wave 7 removed the second case rather than managing it** (PR-4b). The
+ * interpretation workspace writes a **cross-reference token**: the sentence
+ * holds a reference to the *item*, and the number is rendered from wherever
+ * that item now sits. So a renumbering moves the rendering and leaves the
+ * prose untouched and unflagged — nothing is owed, because the sentence never
+ * contained the number. What flags an authored sentence is the referenced
+ * figure's *content* changing, which is a different fact and is raised on the
+ * workspace beside the passage it reaches.
  */
 const reportFigures = () => {
   const I = REPORT_ITEMS;
@@ -2335,6 +2436,7 @@ const reportFigures = () => {
           .join('') +
           `<p class="mk-tight">Table 5.1 was generated before the laboratory amended PAS2026-04398: arsenic at ${loc('MW03B')} went from 31 to 3.1 and stopped being an exceedance. Figure 5.1 draws the four rounds of condition 12(c), two of whose series the <a class="mk-ref" href="#certificate">staged amendment</a> reaches.</p>` +
           '<p class="mk-tight">Both are <strong>marked stale rather than silently regenerated</strong>. A figure that changes underneath a paragraph somebody has already written is how a report comes to contradict itself — and one of these two would change on a decision nobody has taken yet.</p>' +
+          `<p class="mk-tight mk-muted"><strong>Stale is not the same as changed.</strong> Figure 6.1 is <em>current</em> on this register and does not appear above: it regenerated cleanly when MW11 stopped contributing a head. What that regeneration reached is a sentence in <a class="mk-ref" href="#narrative">§6.1</a> that cites it, and the flag sits there, against the passage, rather than here against the plate. A figure being out of date and a figure having changed under an author are two findings and they belong on two screens.</p>` +
           `<div class="mk-actions">${btn('Regenerate Table 5.1', 'primary')}<a class="mk-btn" href="#certificate">Decide the amendment first</a></div>`,
       ),
       panel(
@@ -2360,7 +2462,7 @@ const reportFigures = () => {
           `<code class="mk-file mk-file--id">${esc(r.to)}</code>`,
           `<span class="mk-muted">${esc(r.cites.join(', '))}</span>`,
           r.prose
-            ? `${C.status('prose — review', 'warn')} <a class="mk-ref" href="#narrative">§6</a>`
+            ? `${C.status('token — follows it', 'good')} <a class="mk-ref" href="#narrative">§6</a>`
             : `${C.status('live — follows it', 'good')}`,
         ]),
       }),
@@ -2372,7 +2474,8 @@ const reportFigures = () => {
             { what: 'Figures renumbered', n: `${ins.renumbered.length}` },
             { what: 'Tables renumbered', n: '0 — figures and tables number independently' },
             { what: 'Live cross-references updated automatically', n: `${ins.liveRefs}` },
-            { what: 'References in authored prose to review', n: `${ins.proseRefs}` },
+            { what: 'Cross-reference tokens in authored prose that follow it', n: `${ins.proseRefs} — in §6, and neither sentence is flagged` },
+            { what: 'References in authored prose to review', n: '0 — since the tokens landed' },
             { what: 'Sentences the product would rewrite', n: '0 — a sentence somebody wrote is theirs' },
             { what: 'Issued reports affected', n: '0 — a lodged document is numbered by its own snapshot' },
           ],
@@ -2385,40 +2488,226 @@ const reportFigures = () => {
       '3fr 2fr',
     ) +
     notice(
-      'warning',
-      `${ins.proseRefs} cross-references would break, and they are shown as a finding rather than allowed to break.`,
-      `<a class="mk-ref" href="#narrative">§6 Interpretation</a> cites ${ins.renumbered.filter((r) => r.prose).map((r) => `<code>${esc(r.from)}</code>`).join(' and ')} inside sentences a hydrogeologist wrote. The numbers those sentences name would no longer be the numbers those figures carry. The product does not edit the prose and it does not renumber quietly: it names both sentences, beside the control that would cause it, before the control is pressed.`,
+      'default',
+      `${ins.proseRefs} references in authored prose, and neither of them breaks — which is a change this wave made rather than a claim it inherited.`,
+      `<a class="mk-ref" href="#narrative">§6 Interpretation</a> refers to ${ins.renumbered.filter((r) => r.prose).map((r) => `<code>${esc(r.from)}</code>`).join(' and ')}. Until wave 7 those were numbers typed into sentences a hydrogeologist wrote, the insert would have made both wrong, and the product’s answer was to raise them as findings and refuse to edit the prose. They are <strong>cross-reference tokens</strong> now: the sentence refers to the item, the number is rendered from wherever the item sits, and the insert moves both renderings without touching a word or raising anything. The prose is still never rewritten — there is simply nothing left in it to rewrite. What still flags a sentence is the referenced figure’s <em>content</em> changing, and one of §6’s four tokens is flagged for exactly that today.`,
     )
   );
 };
 
-const narrative = () =>
-  head('Interpretation — §6', 'Where the hydrogeologist writes, with the evidence beside them.', {
-    route: 'a proposal — not in the product',
-  }) +
-  notice('warning', 'Proposed. FR-7 generates a report but nothing authors one.',
-    'FR-7.1 to FR-7.6 cover templates, numbering, snapshots and branding — the mechanics of assembly. A monitoring report is roughly half interpretive prose, and nothing in the requirement set says where that prose is written. Today the answer is Word, which reintroduces exactly the round trip QB-2 exists to remove.') +
-  cols(
-    `<section class="mk-editor"><h2 class="mk-h2">6.1 Groundwater quality at MW05</h2>
-      <div class="mk-editor__body">
-        <p>Arsenic at MW05 was reported at <span class="mk-cite">28.4 µg/L</span>, above the ANZG 2018 95% species protection guideline value of <span class="mk-cite">13 µg/L</span> and the third consecutive quarter above that value <span class="mk-cite">[Figure 4.2]</span>.</p>
-        <p>Mann-Kendall over fourteen quarterly rounds reports a significant increasing trend <span class="mk-cite">(p = 0.003)</span> with a Sen’s slope of <span class="mk-cite">1.7 µg/L per quarter</span> <span class="mk-cite">[Figure 4.6]</span>. The major-ion signature at MW05 is sulfate-dominated and distinct from the calcium-bicarbonate background of every other bore <span class="mk-cite">[Figure 4.3]</span>, which is consistent with TSF seepage rather than natural variation.</p>
-        <p class="mk-editor__cursor">Cadmium could not be assessed at any location this round: the laboratory’s limit of reporting of 1.0 µg/L sits above the guideline value of 0.54 µg/L<span class="mk-caret"></span></p>
-      </div></section>`,
-    panel('Evidence to hand',
-      '<p class="mk-tight mk-muted">Every citation is a live reference. If Figure 4.6 is regenerated, the number in the sentence is flagged — not silently updated, because a sentence somebody wrote is theirs.</p>' +
-      table({
-        head: ['Cited', 'Now reads', 'State'],
-        rows: [
-          ['28.4 µg/L', '28.4 µg/L', tag('agrees', 'good')],
-          ['13 µg/L', '13 µg/L', tag('agrees', 'good')],
-          ['p = 0.003', 'p = 0.003', tag('agrees', 'good')],
-          ['1.7 µg/L/qtr', '1.72 µg/L/qtr', tag('rounding', 'warn')],
-        ],
-      }) +
-      '<p class="mk-tight mk-muted">The unfinished sentence is the point. A practitioner writing about cadmium needs the indeterminate outcome in front of them, not in another tab.</p>'),
-    '3fr 2fr',
+/**
+ * The interpretation workspace (PR-4).
+ *
+ * The review's finding on the drawn editor was that its evidence panel proves
+ * the wrong thing — it checks that the citations are numerically correct, and
+ * the question before signing a TSF-seepage sentence is whether the evidence
+ * supports the claim. So the panel that checked arithmetic is still here,
+ * doing its smaller job properly under a stated rendering rule, and beside it
+ * is the thing the review actually asked for: the set of plates and records
+ * the author had in front of them, pinned to the sentence and kept with it.
+ *
+ * Three rules govern every pixel below and they are stated on the screen too,
+ * because a reader has to be able to check them: the software does not score
+ * the inference, does not rewrite the prose, and does not flag a sentence for
+ * a change a reader could not see.
+ */
+const narrative = () => {
+  const N = NARRATIVE;
+  const R = N.rule;
+
+  /** One run of a sentence: authored text, a value citation, or a token. */
+  const run = (r) => {
+    if (r.t !== undefined) return esc(r.t);
+    if (r.cite) {
+      const c = r.cite;
+      /*
+       * **The sentence renders what its author wrote**, never what the source
+       * says now. Substituting the current value would be the silent rewrite
+       * the keep-list forbids, and it would do it in the one place a reader
+       * would never think to check. So the run shows `renderedThen`, the flag
+       * says the source has moved, and the table beside the editor shows both.
+       */
+      const shown = `${c.renderedThen}${c.suffix ?? (c.unit ? ` ${c.unit}` : '')}`;
+      const spoken = c.moves
+        ? `cited value, flagged: the sentence says ${c.then} and the source now publishes ${c.now}`
+        : c.sourceMoved
+          ? `cited value, agreeing: the source moved to ${c.now} and renders unchanged under the rendering rule`
+          : 'cited value, agreeing with its source';
+      return (
+        `<span class="mk-cite${c.moves ? ' mk-cite--flagged' : ''}" title="${esc(c.source)}">` +
+        `${esc(shown)}${c.moves ? '<span class="mk-cite__mark" aria-hidden="true">▲</span>' : ''}` +
+        `<span class="sf-visually-hidden"> — ${esc(spoken)}</span></span>`
+      );
+    }
+    const t = r.token;
+    return (
+      `<span class="mk-token${t.contentChanged ? ' mk-token--flagged' : ''}" title="${esc(t.title)}">` +
+      `<span class="mk-token__glyph" aria-hidden="true">§</span>${esc(t.renders)}` +
+      `${t.contentChanged ? '<span class="mk-token__mark" aria-hidden="true">▲ changed</span>' : ''}` +
+      `<span class="sf-visually-hidden"> — cross-reference token to “${esc(t.title)}”${t.contentChanged ? ', flagged because the referenced figure’s content changed' : ''}</span></span>`
+    );
+  };
+
+  const para = (runs, extra = '') => `<p${extra}>${runs.map(run).join('')}</p>`;
+
+  const passage = (p) =>
+    `<section class="mk-editor"><h2 class="mk-h2">${esc(p.heading)}</h2>` +
+    `<p class="mk-editor__by">${esc(p.by)} · <span class="sf-instant">${esc(p.at)}</span></p>` +
+    '<div class="mk-editor__body">' +
+    p.paras
+      .map((runs, i) =>
+        i === p.unfinished
+          ? para([...runs], ' class="mk-editor__cursor"').replace('</p>', '<span class="mk-caret"></span></p>')
+          : para(runs, i === p.pinned ? ' class="mk-editor__pinned"' : ''),
+      )
+      .join('') +
+    '</div></section>';
+
+  const tile = (x) =>
+    `<article class="mk-evid mk-evid--${x.drawn ? 'drawn' : 'gap'}">` +
+    `<header class="mk-evid__head"><h3 class="mk-evid__kind">${esc(x.kind)}</h3>` +
+    `${x.drawn ? C.status('drawn on this project', 'good') : C.status('not held — stated, not filled', 'warn')}</header>` +
+    `<p class="mk-evid__ref">${esc(x.ref)}</p>` +
+    `<p class="mk-evid__shows"><strong>Shows:</strong> ${esc(x.shows)}</p>` +
+    `<p class="mk-evid__not"><strong>Does not settle:</strong> ${esc(x.notSettled)}</p>` +
+    (x.owed ? `<p class="mk-evid__owed"><strong>Owed:</strong> ${esc(x.owed)}</p>` : '') +
+    `<p class="mk-evid__go"><a class="mk-btn mk-btn--sm" href="#${esc(x.at)}">${x.drawn ? 'Open it at full size' : 'Open the record that would hold it'}</a></p>` +
+    '</article>';
+
+  return (
+    head('Interpretation — §6', 'Where the hydrogeologist writes, with the evidence for the claim beside them.', {
+      route: 'a proposal — not in the product',
+      toolbar: btn('Pin evidence to this passage') + btn('Place §6 in the report', 'primary'),
+    }) +
+    notice('warning', 'Proposed. FR-7 generates a report but nothing authors one.',
+      'FR-7.1 to FR-7.6 cover templates, numbering, snapshots and branding — the mechanics of assembly. A monitoring report is roughly half interpretive prose, and nothing in the requirement set says where that prose is written. Today the answer is Word, which reintroduces exactly the round trip QB-2 exists to remove.') +
+    notice(
+      'default',
+      'The rule this workspace applies to every number in a sentence: ' + esc(R.name) + '.',
+      `${esc(R.says)} ${esc(R.why)} <strong>${esc(R.notProse)}</strong>`,
+    ) +
+    cols(
+      passage(N.passages[0]) + passage(N.passages[1]),
+      panel(
+        'What changed around the prose',
+        `<p class="mk-tight">Nothing below has been altered in the text. ${N.counts.flagged} of ${N.counts.citations + N.counts.tokens} references are flagged, and each one names the sentence it reaches rather than fixing it.</p>` +
+          table({
+            head: ['Reference', 'State', 'Why'],
+            rows: [
+              ...N.tokens.map((t) => [
+                `<span class="mk-token${t.contentChanged ? ' mk-token--flagged' : ''}">${esc(t.renders)}</span> <span class="mk-muted">${esc(t.label)}</span>`,
+                t.contentChanged ? C.status('flagged — content changed', 'bad') : C.status('current', 'good'),
+                t.contentChanged
+                  ? '<span class="mk-muted">The diagram changed, not its number.</span>'
+                  : t.renumbering
+                    ? `<span class="mk-muted">Would render <code>${esc(t.renumbering.to)}</code> under the staged insert. Not a flag.</span>`
+                    : '<span class="mk-muted">Unchanged.</span>',
+              ]),
+              ...N.citations.map((c) => [
+                `<span class="mk-cite${c.moves ? ' mk-cite--flagged' : ''}">${esc(c.renderedThen)}</span> <span class="mk-muted">${esc(c.label)}</span>`,
+                c.moves ? C.status('flagged — the value moved', 'bad') : c.sourceMoved ? C.status('agrees under the rule', 'good') : C.status('agrees', 'good'),
+                `<span class="mk-muted">${esc(c.moves ? 'The rendered form moved.' : c.sourceMoved ? 'The stored value gained digits; the rendered form did not move.' : 'Source unchanged.')}</span>`,
+              ]),
+            ],
+          }) +
+          '<p class="mk-tight mk-muted">The unfinished cadmium sentence is the point of the layout. A practitioner writing about cadmium needs the indeterminate outcome in front of them, not in another tab.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The evidence set, pinned to the sentence</h2>' +
+    `<p class="sf-lede mk-tight">§${esc(EVIDENCE.passage)}, third paragraph — the seepage inference. Pinned by ${esc(EVIDENCE.pinnedBy)} · <span class="sf-instant">${esc(EVIDENCE.pinnedAt)}</span> · ${EVIDENCE.tiles.length} items, ${EVIDENCE.drawn} of them drawn on this project.</p>` +
+    notice(
+      'default',
+      esc(EVIDENCE.says),
+      `The panel beside the editor answers <em>are my citations numerically correct</em>. This one answers the harder question — <em>does the evidence support what I am claiming</em> — and it answers it by <strong>showing the evidence, not by judging it</strong>. There is no score here, no confidence, no strength, and no count of evidence for against evidence against. Every tile says what it shows <em>and what it does not settle</em>, because the second is what keeps a set of evidence from becoming a set of arguments. Each opens the plate or the record at full size: a Piper diagram drawn to 180&nbsp;mm is a grey triangle at tile width, so the tile is a reference rather than a thumbnail.`,
+    ) +
+    `<div class="mk-evid__grid">${EVIDENCE.tiles.map(tile).join('')}</div>` +
+    cols(
+      panel(
+        'The one piece of evidence this project does not hold',
+        `<p class="mk-tight">Of the ${EVIDENCE.tiles.length} items on the list, ${EVIDENCE.gaps} has nothing behind it: <strong>${esc(EVIDENCE.tiles.find((x) => !x.drawn).kind)}</strong>. No analysis of the tailings liquor exists on this project, and it is the one comparison that would make the inference direct rather than circumstantial.</p>` +
+          `<p class="mk-tight">It is drawn as the gap it is. An evidence set that quietly omitted the evidence nobody has would let a reviewer assume it had been considered and found consistent — which is the opposite of what happened.</p>` +
+          `<p class="mk-tight mk-muted">${esc(EVIDENCE.tiles.find((x) => !x.drawn).owed)}</p>` +
+          `<p class="mk-tight mk-muted">No new figure family was drawn for any of this. The head-contour tile references the potentiometric plate the catalogue already has; the grammar is frozen and a new family is a written proposal to Jerry before it is a rendering.</p>`,
+      ),
+      panel(
+        'The competing explanations, in the author’s own words',
+        `<p class="mk-tight">A reviewer asking <em>did you consider the alternatives</em> should not have to ask. These are recorded with the passage and attributed, and they are authored content — a product that proposed the alternatives would be proposing the conclusion.</p>` +
+          table({
+            head: ['Alternative', 'What the author recorded'],
+            rows: EVIDENCE.competing.map((c) => [`<strong>${esc(c.what)}</strong><small>${esc(c.by)}</small>`, `<span class="mk-muted">${esc(c.says)}</span>`]),
+          }) +
+          `<p class="mk-tight mk-muted"><strong>Refused:</strong> ${esc(EVIDENCE.refused)}</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A number that moved, and a number that did not</h2>' +
+    `<p class="mk-tight">Every value citation, under the rendering rule. The check compares the <strong>rendered</strong> forms, which is what makes ${N.counts.quiet} of these five silent and one of them loud.</p>` +
+    table({
+      caption: 'Cited, current, and what the rule renders each as. A sentence is flagged when the rendered form moves — never when only the stored value does.',
+      head: ['Cited value', 'Sentence renders', 'Source now publishes', 'Rule renders', 'Sentence'],
+      kind: 'matrix',
+      label: 'Value citations under the rendering rule',
+      rows: N.citations.map((c) => [
+        `<strong>${esc(c.label)}</strong><small>${esc(c.source)}</small>`,
+        `<span class="mk-num">${esc(c.renderedThen)}</span>`,
+        `<span class="mk-num${c.sourceMoved ? ' mk-num--warn' : ''}">${esc(c.now)}</span>`,
+        `<span class="mk-num">${esc(c.rendered)}</span>`,
+        c.moves ? C.status('flagged', 'bad') : C.status('not flagged', 'good'),
+      ]),
+    }) +
+    cols(
+      panel(
+        'Not flagged — the value gained digits and the sentence did not change',
+        `<p class="mk-tight"><strong>${esc(N.quiet[0].label)}.</strong> The sentence was written when the source published <code>${esc(N.quiet[0].then)}</code>. It publishes <code>${esc(N.quiet[0].now)}</code> now. ${esc(N.quiet[0].moved)}</p>` +
+          `<p class="mk-tight">Under the rule both render <strong>${esc(N.quiet[0].rendered)}</strong>, so the sentence says exactly what it said and <strong>it is not flagged</strong>. This is the case the review named: 1.7 against 1.72 is formatting, and a workspace that flagged it would teach the author that flags mean nothing.</p>` +
+          `<p class="mk-tight mk-muted">${esc(R.notProse)}</p>`,
+      ),
+      panel(
+        'Flagged — the value moved, and so did the outcome it carried',
+        `<p class="mk-tight"><strong>${esc(N.flaggedCitations[0].label)}.</strong> The §6.2 sentence was written on <code>${esc(N.flaggedCitations[0].then)} ${esc(N.flaggedCitations[0].unit)}</code>. The laboratory re-issued the certificate: ${esc(N.flaggedCitations[0].moved)} The record now says <code>${esc(N.flaggedCitations[0].now)} ${esc(N.flaggedCitations[0].unit)}</code>, and ${esc(SUPERSESSION.superseding.outcome)}.</p>` +
+          `<p class="mk-tight">So the sentence is wrong, and it stays on the screen exactly as its author wrote it. The workspace names it, shows both values, and offers the correction — <strong>taking it is the author’s act</strong>, attributed to them like any other write.</p>` +
+          `<div class="mk-actions">${btn('Show me the corrected sentence', 'primary')}<a class="mk-btn" href="#supersession">What the re-issue changed</a></div>` +
+          `<p class="mk-tight mk-muted">A product that had silently rewritten this would have produced a report whose §6.2 nobody had read, standing on a value nobody had checked.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A number that changed, and a diagram that changed</h2>' +
+    cols(
+      panel(
+        'Renumbering does not flag a sentence',
+        `<p class="mk-tight">The Piper reference in §6.1 is a <strong>cross-reference token</strong>, not the characters <code>Figure ${esc(N.tokens.find((t) => t.id === 'fig-piper').renders.replace('Figure ', ''))}</code> typed into the prose. It resolves to the item and renders whatever number that item carries.</p>` +
+          table({
+            head: ['Token', 'Renders now', 'Under the staged insert', 'Sentence'],
+            rows: N.tokens
+              .filter((t) => t.renumbering)
+              .map((t) => [
+                `<span class="mk-token">${esc(t.label)}</span>`,
+                `<code>${esc(t.renders)}</code>`,
+                `<code>${esc(t.renumbering.to)}</code>`,
+                C.status('not flagged', 'good'),
+              ]),
+          }) +
+          `<p class="mk-tight"><a class="mk-ref" href="#report-figures">Inserting a figure</a> after Figure 4.2 renumbers ${N.counts.renumbered} of the items §6.1 cites. Both tokens would silently render their new numbers, and <strong>neither sentence is flagged</strong>, because neither sentence ever contained a number.</p>` +
+          `<p class="mk-tight mk-muted">This is the distinction the review asked for. Renumbering is a fact about the document’s ordering; it tells an author nothing and asking them to re-read four sentences for it is how a flag becomes noise.</p>`,
+      ),
+      panel(
+        'A diagram that changed does flag it',
+        `<p class="mk-tight">The same sentence cites <span class="mk-token mk-token--flagged">${esc(N.flaggedTokens[0].renders)}<span class="mk-token__mark" aria-hidden="true">▲ changed</span></span> — the potentiometric surface. Its number has not moved. Its <strong>content</strong> has.</p>` +
+          `<p class="mk-tight">${esc(N.flaggedTokens[0].contentChanged.what)}</p>` +
+          `<p class="mk-tight"><strong>What moved:</strong> ${esc(N.flaggedTokens[0].contentChanged.moved)} The fit now runs through ${F.POTENTIOMETRIC_FIT.control} bores rather than ${F.POTENTIOMETRIC_FIT.drawn}: flow ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, largest residual ${esc(F.POTENTIOMETRIC_FIT.worstText)}.</p>` +
+          `<p class="mk-tight"><strong>What is owed:</strong> ${esc(N.flaggedTokens[0].contentChanged.owed)}</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#map">Open the plate as it stands now</a><a class="mk-btn" href="#field-capture">Why MW11 carries no head</a></div>`,
+      ),
+      '1fr 1fr',
+    ) +
+    notice(
+      'warning',
+      'Four things this workspace will not do, drawn as refusals rather than left unimplemented.',
+      `<ul class="mk-list">${N.refused.map((x) => `<li><strong>${esc(x.what)}.</strong> ${esc(x.why)}</li>`).join('')}</ul>`,
+    )
   );
+};
 
 /**
  * Two regenerations, because they answer two different questions.
@@ -2892,37 +3181,148 @@ const signoff = () => {
  * J7 — Prove what was known, and when
  * ================================================================== */
 
-const lineage = () =>
-  head('Why is this number what it is?', 'One result, and everything that produced it.', {
-    route: 'a proposal — the product carries lineage as a panel and the result page, not a route',
-    toolbar: btn('Copy as evidence') + btn('Open certificate'),
-  }) +
-  notice('warning', 'Proposed as a surface. The engine is complete and nothing shows it.',
-    'FR-5, G-09b and the bitemporal survey model are the deepest architectural investment in this product, and “why is this number what it is” is the question no incumbent answers well. There is a lineage graph with single-query answerability underneath, and not one pixel on top of it. This is the highest-value missing screen in the catalogue.') +
-  `<div class="mk-lineage__subject">
-    <span class="mk-lineage__value">${esc(LINEAGE.value)}</span>
-    <span class="mk-lineage__meta">${esc(LINEAGE.analyte)} · ${esc(LINEAGE.location)} · collected ${esc(LINEAGE.collected)}</span>
-  </div>` +
-  `<ol class="mk-chain">${LINEAGE.chain.map((c, i) => `<li class="mk-chain__step mk-chain__step--${c.kind}">
-      <span class="mk-chain__n">${i + 1}</span>
+/**
+ * The chain, drawn as a numbered narrative — the default view (PR-3c).
+ *
+ * `#result-detail` renders the upstream half from this same builder over the
+ * same array, so the two screens cannot come to describe the bore differently.
+ */
+const chainList = (steps, { from = 0 } = {}) =>
+  `<ol class="mk-chain">${steps.map((c, i) => `<li class="mk-chain__step mk-chain__step--${c.kind}">
+      <span class="mk-chain__n">${from + i + 1}</span>
       <div class="mk-chain__text">
         <span class="mk-chain__label">${esc(c.step)}</span>
         <span class="mk-chain__what">${esc(c.what)}</span>
         <span class="mk-chain__detail">${esc(c.detail)}</span>
-      </div></li>`).join('')}</ol>` +
-  notice('default', `${LINEAGE.chain.length} steps, one query.`,
-    'From the laboratory’s own file to the statutory notification it eventually caused. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).') +
-  /*
-   * PR-3b, representation only. The chain above is unchanged in shape — the
-   * provenance redesign the review asked for (PR-3a, PR-3c) is wave 7's — and
-   * what changed is that component 2 no longer reports an unqualified detect
-   * below the limit of reporting.
-   */
-  notice(
-    'warning',
-    `The component that made this fix necessary: PFHxS at ${esc(PFAS_LIMITS.mdl.toFixed(1))} &lt; 1.7 &lt; ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)}.`,
-    `Step 5 read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)} (${esc(PFAS_LIMITS.scheme)}), origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
+        ${c.at ? `<span class="mk-chain__link"><a class="mk-ref" href="#${esc(c.at)}">Open the record this step reads</a></span>` : ''}
+      </div></li>`).join('')}</ol>`;
+
+/**
+ * The compact upstream/downstream view — **Trace it** (PR-3c).
+ *
+ * The review's words were *"provenance is a small graph, not a line"* and, in
+ * the same breath, *"don't replace the narrative with a giant technical DAG"*.
+ * So this is small, it is the second reading of the same structure rather than
+ * a second structure, and it is the alternative view rather than the default.
+ *
+ * What it shows that the narrative cannot is the **fork**. A derived total has
+ * two inputs; they share every hop from the bore to the bench and separate
+ * only at the analysis. Drawn as one column, PFHxS appears to come out of
+ * PFOS, and the one relationship the whole derivation turns on is the one the
+ * line cannot draw.
+ *
+ * It is not a plate. There is no scale, no axis and nothing measured in it, so
+ * the frozen chart grammar is not engaged and this adds nothing to the twelve.
+ */
+const traceGraph = (T) => {
+  const node = (n, extra = '') =>
+    `<li class="mk-trace__node mk-trace__node--${n.kind}${extra}">` +
+    `<a class="mk-trace__hit" href="#${esc(n.at)}">` +
+    `<span class="mk-trace__label">${esc(n.label)}</span>` +
+    `<span class="mk-trace__sub">${esc(n.sub)}</span>` +
+    `<span class="sf-visually-hidden"> — ${esc(n.step)}</span></a></li>`;
+  return (
+    '<div class="mk-trace">' +
+    '<section class="mk-trace__band">' +
+    `<h3 class="mk-trace__cap">Upstream — the ${T.upstream.length} hops that produced it</h3>` +
+    `<ol class="mk-trace__row">${T.upstream.map((n) => node(n)).join('')}</ol>` +
+    '</section>' +
+    '<section class="mk-trace__band mk-trace__band--fork">' +
+    `<h3 class="mk-trace__cap">Two inputs, one bench — the fork a line cannot draw</h3>` +
+    `<ol class="mk-trace__row mk-trace__row--fork">${T.fork.map((n) => node(n)).join('')}</ol>` +
+    `<p class="mk-trace__rule"><span class="mk-trace__arrow" aria-hidden="true">▼</span> ` +
+    `<a class="mk-ref" href="#${esc(T.rule.at)}">${esc(T.rule.label)}</a> <span class="mk-muted">${esc(T.rule.sub)}</span></p>` +
+    '</section>' +
+    '<section class="mk-trace__band mk-trace__band--focus">' +
+    '<h3 class="mk-trace__cap">The result in focus</h3>' +
+    `<p class="mk-trace__focus"><span class="mk-trace__value">${esc(T.focus.label)}</span>` +
+    `<span class="mk-trace__sub">${esc(T.focus.sub)}</span></p>` +
+    '</section>' +
+    '<section class="mk-trace__band">' +
+    `<h3 class="mk-trace__cap">Downstream — what it reached</h3>` +
+    `<ol class="mk-trace__row">${T.downstream.map((n) => node(n)).join('')}</ol>` +
+    '</section>' +
+    '</div>'
   );
+};
+
+const lineage = () => {
+  const P = PROVENANCE;
+  return (
+    head('Why is this number what it is?', 'One result, and everything that produced it — beginning at the bore.', {
+      route: 'a proposal — the product carries lineage as a panel and the result page, not a route',
+      toolbar: btn('Copy as evidence') + btn('Open certificate'),
+    }) +
+    notice('warning', 'Proposed as a surface. The engine is complete and nothing shows it.',
+      'FR-5, G-09b and the bitemporal survey model are the deepest architectural investment in this product, and “why is this number what it is” is the question no incumbent answers well. There is a lineage graph with single-query answerability underneath, and not one pixel on top of it. This is the highest-value missing screen in the catalogue.') +
+    `<div class="mk-lineage__subject">
+      <span class="mk-lineage__value">${esc(P.value)}</span>
+      <span class="mk-lineage__meta">${esc(P.analyte)} · ${loc(P.location)} · sample <span class="mk-file">${esc(P.sample)}</span> · collected ${esc(P.collected)} · certificate <span class="mk-file">${esc(P.certificate)}</span></span>
+    </div>` +
+    notice(
+      'default',
+      `The chain starts at the bore, not at the laboratory’s file — ${P.upstream.length} hops before the first number.`,
+      'A senior hydrogeologist reviewing this screen said the chain began too late: it opened on the deliverable, and for a groundwater result the account that has to be given runs location and version → bore and screened interval → programme → field event → field measurements and stabilisation → sample → filtration and preservation → custody transfer → laboratory receipt → analytical batch, method and QC → laboratory result, and only then import, derivation, evaluation and use. Every hop below reads the record that owns it and links to the screen that draws it. Nothing here is a copy: the field half resolves through the bore session, the custody half through the chain of custody, and the laboratory half through the batch.',
+    ) +
+    `<p class="sf-lede mk-tight">${C.segmented({ options: ['Explain it', 'Trace it'], value: 'Explain it', label: 'View' })}</p>` +
+    '<h2 class="mk-h2">Explain it</h2>' +
+    `<p class="mk-tight mk-muted">The default, and it stays the default. A chain a practitioner can read aloud to a regulator is the artifact; the graph beside it is a way of seeing the same thing at once.</p>` +
+    '<h3 class="mk-h3">From the bore to the bench</h3>' +
+    chainList(P.upstream) +
+    '<h3 class="mk-h3">From the deliverable to the consequence</h3>' +
+    chainList(P.downstream, { from: P.upstream.length }) +
+    notice('default', `${P.chain.length} steps, one query.`,
+      'From the bore that was drilled in 2019 to the statutory notification this result eventually caused. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).') +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Trace it</h2>' +
+    `<p class="mk-tight">The same hops, compact, with the focused result at the centre. ${esc(P.trace.upstream.length)} upstream, the fork at the bench, ${esc(P.trace.downstream.length)} downstream.</p>` +
+    traceGraph(P.trace) +
+    notice(
+      'default',
+      'A graph, deliberately small — and it is not one of the twelve plates.',
+      'Two views of one structure, and neither is a second copy of it: both read the same array, so a hop cannot appear in one and not the other. The narrative is what gets read to a regulator; this is what gets looked at when somebody asks <em>what else did that touch</em>. It is drawn in the document rather than as a figure — no scale, no axis, nothing measured — so the frozen chart grammar is not engaged and nothing here is an addition to the approved plate set.',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The questions this chain has to answer</h2>' +
+    `<p class="mk-tight">The list a hydrogeologist arrives with, and where each one resolves. A chain that cannot answer these is a longer chain, not a better one.</p>` +
+    table({
+      caption: 'Every answer is a link into the record that holds it, not a restatement of it.',
+      head: ['Question', 'Answer', 'Step', 'Opens'],
+      scroll: true,
+      label: 'Questions the provenance chain answers',
+      rows: P.questions.map((q) => [
+        `<strong>${esc(q.q)}</strong>`,
+        esc(q.a),
+        `<span class="mk-muted">${esc(q.step)}</span>`,
+        `<a class="mk-btn mk-btn--sm" href="#${esc(q.at)}">Open</a>`,
+      ]),
+    }) +
+    cols(
+      panel(
+        'Why this chain and not the metals batch',
+        `<p class="mk-tight">This result is <strong>PFAS</strong>. Its certificate is <span class="mk-file">${esc(P.certificate)}</span> from ${esc(CUSTODY_CHAIN.continues.laboratory)} and its batch is <a class="mk-ref" href="#batches">${esc(CUSTODY_CHAIN.continues.workOrder)}</a> — not <a class="mk-ref" href="#batches">${esc(METALS_BATCH.id)}</a>, which is the dissolved-metals batch this project talks about most because its zinc spike failed.</p>` +
+          `<p class="mk-tight">Chaining a result to the batch that happens to be nearby is the error the chain exists to make impossible. The failed zinc spike qualifies nine results and none of them is this one, and a lineage that implied otherwise would have handed a reviewer a caveat that does not apply and hidden the one that does.</p>` +
+          `<p class="mk-tight mk-muted">The hop that made this visible is the eleventh: all ${CUSTODY_CHAIN.containers} containers went to ${esc(CUSTODY_CHAIN.laboratory)}, and the PFAS certificate is somebody else’s. ${esc(CUSTODY_CHAIN.continues.why)}</p>`,
+      ),
+      panel(
+        'What the chain carries forward rather than closing over',
+        `<p class="mk-tight">Two things on this chain are unresolved, and both stay visible on it rather than being smoothed away.</p>` +
+          `<p class="mk-tight"><strong>${esc(CUSTODY_CHAIN.discrepancy.what)}.</strong> The field record and the laboratory’s receiving form disagree by a digit transposition. Both readings are kept and <a class="mk-ref" href="#ecoc">the chain of custody</a> holds the ways out — none of which is picking one.</p>` +
+          `<p class="mk-tight"><strong>The estimated component.</strong> PFHxS sits between the method detection limit and the limit of reporting, so it is real and not reliably quantified, and the qualifier carries onto the total. <a class="mk-ref" href="#criteria">The non-detect rule</a> shows the same total under all three readings of it.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    /*
+     * PR-3b's record, kept. The representation fix landed in wave 6 and the
+     * paragraph explaining it is still the clearest statement of why the three
+     * limits stay distinct — but the sentence about the chain being unchanged
+     * in shape is no longer true, and it has gone.
+     */
+    notice(
+      'warning',
+      `The component that made the wave-6 representation fix necessary: PFHxS at ${esc(PFAS_LIMITS.mdl.toFixed(1))} &lt; 1.7 &lt; ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)}.`,
+      `The component step read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)} (${esc(PFAS_LIMITS.scheme)}), origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
+    )
+  );
+};
 
 const auditTrail = () =>
   head('Audit trail', 'Every mutation, who made it, and what it changed.', {
@@ -3040,7 +3440,7 @@ const criteriaLibrary = () =>
  * The rule is *what a non-detect contributes to a calculation* — zero, half
  * the limit of reporting, the limit, or excluded — and it belongs to the
  * criteria set rather than to a preference. The reason is drawn here rather
- * than argued: six of these seven locations reported both PFAS components
+ * than argued: five of these six locations reported both PFAS components
  * below the limit of reporting, and the same six results read **indeterminate,
  * compliant or 31× a guideline value** depending on which of the four applied.
  * `zero` is the one that turns all six into passes, which is the direction
@@ -3122,7 +3522,7 @@ const nonDetectBinding = () => {
       '2fr 3fr',
     ) +
     table({
-      caption: 'One column per treatment, every total summed from the components under that rule. The column in force is marked; the other three are what the same seven results would say.',
+      caption: 'One column per treatment, every total summed from the components under that rule. The column in force is marked; the other three are what the same six results would say.',
       head: [
         'Location',
         ...N.treatments.map(
@@ -3512,21 +3912,49 @@ const hardnessDerivation = () => {
  * nowhere. A documented incumbent failure is exactly this state rendered as a
  * pass, and neither incumbent has a register of it in any form.
  */
-const indeterminateRegister = () => (
+/*
+ * Wave 7: the register is derived from the crosstab rather than typed beside
+ * it, and two things fell out of that. MW11's row went with the blanked column
+ * — a bore that produced no sample produced no unassessable result. And the
+ * five PFAS non-detects arrived: their limit of reporting sits above the ANZG
+ * guideline value exactly as cadmium's does, the grid has always marked them
+ * indeterminate, and a register claiming *one row per result per criterion
+ * that could not be applied* was quietly holding only one of the two analytes.
+ * Deriving it is what made that visible.
+ */
+const indeterminateRegister = () => {
+  const byAnalyte = (name) => INDETERMINATE.filter((i) => i.analyte === name);
+  const cadmium = byAnalyte('Cadmium (filtered)');
+  const pfas = byAnalyte('PFOS + PFHxS');
+  const cost = INDETERMINATE_QUOTE.perSample * cadmium.length;
+  return (
   head('Could not be assessed', 'Results where nothing can be said either way, and what it would take to change that.', {
     route: '/projects/:projectId/exceedances (could not be assessed)',
     toolbar: C.exportMenu() + C.btn('Add to the report', 'primary'),
   }) +
   stats([
-    stat('7', 'could not be assessed', 'warn'),
-    stat('1', 'analyte affected'),
-    stat('7 of 7', 'locations'),
-    stat('$126', 'to close, this round', 'good'),
+    // Counted off the register rather than typed onto it. The 7 here was a
+    // literal, and it stopped being true the moment MW11's crosstab column was
+    // blanked: a bore that produced no sample produced no unassessable result.
+    stat(String(INDETERMINATE.length), 'could not be assessed', 'warn'),
+    stat(String(new Set(INDETERMINATE.map((i) => i.analyte)).size), 'analytes affected'),
+    stat(`${new Set(INDETERMINATE.map((i) => i.location)).size} of ${CROSSTAB_SHAPE.sampledColumns.length}`, 'locations sampled this round'),
+    stat(`$${cost}`, 'to close the cadmium half', 'good'),
   ]) +
   notice(
     'warning',
     'This is a finding, and it belongs in the report.',
-    'Seven cadmium results were reported below a limit that sits above the guideline value. Nothing was measured either way. They are not compliant and they are not exceedances — writing them into either column is the single most consequential error available here, and a support thread on an incumbent records exactly that happening by default.',
+    `${INDETERMINATE.length} results were reported below a limit of reporting that sits above the guideline value — ${cadmium.length} cadmium and ${pfas.length} PFAS totals. Nothing was measured either way. They are not compliant and they are not exceedances, and writing them into either column is the single most consequential error available here; a support thread on an incumbent records exactly that happening by default.`,
+  ) +
+  notice(
+    'default',
+    'Two analytes, and only one of them is a purchasing decision.',
+    `Cadmium is a reporting limit the laboratory can lower for money, and the panel below prices it. The PFAS totals are not the same problem: the ANZG 2018 guideline value for the sum is ${esc(ANALYTES.find((a) => a.name === 'PFOS + PFHxS').a)} ng/L and the limit of reporting on the suite is ${esc(PFAS_LIMITS.lor.toFixed(1))} ng/L, which is where commercial USEPA 1633 reporting sits. No amount of money moves that this quarter, so the honest answer for those rows is that they stay unassessable and the report says so — which is what this register exists to make possible.`,
+  ) +
+  notice(
+    'default',
+    `${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} appears nowhere on this register, and that is stated rather than left to be noticed.`,
+    `The bore has no row here because it has no result. A result that could not be assessed is still a result — it was reported, it carries a limit of reporting, and a criterion sat above it. A bore that was <a class="mk-ref" href="#field-capture">dipped twice and found dry</a> has none of those, and a row saying the laboratory reported &lt; 1.0 µg/L on a sample nobody collected would be a worse claim than <em>could not be assessed</em>. So this register runs over the ${CROSSTAB_SHAPE.sampledColumns.length} locations that returned water, and <a class="mk-ref" href="#crosstab">the crosstab</a> draws the same absence as a column that is present and empty.`,
   ) +
   table({
     caption: 'One row per result per criterion that could not be applied to it.',
@@ -3550,9 +3978,10 @@ const indeterminateRegister = () => (
       C.blastRadius({
         lede: 'Moving cadmium to ICP-MS/MS at a 0.1 µg/L reporting limit:',
         rows: [
-          { what: 'Results that become assessable', n: '7 per round' },
-          { what: 'Additional cost per round', n: '$126' },
-          { what: 'Additional cost per year', n: '$504' },
+          // $18 per sample, quoted by the laboratory on the register above.
+          { what: 'Results that become assessable', n: `${cadmium.length} per round` },
+          { what: 'Additional cost per round', n: `$${cost}` },
+          { what: 'Additional cost per year', n: `$${cost * 4}` },
           { what: 'Criterion the new limit sits below', n: '0.54 µg/L — by 5.4×' },
           { what: 'Rounds of history this fixes', n: '0 — it reaches forward only' },
         ],
@@ -3569,12 +3998,13 @@ const indeterminateRegister = () => (
           tone: 'neutral',
           head: '<span class="mk-queue__kind">Report §3 — Data quality</span>',
           body:
-            '<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is 0.54 µg/L. The reporting limit therefore sits above the guideline value and cadmium could not be assessed against it at any location this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3.</em></p>',
+            `<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is 0.54 µg/L. The reporting limit therefore sits above the guideline value and cadmium could not be assessed against it at any location sampled this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3. The same applies to the PFOS + PFHxS sum at ${pfas.length} locations, where the guideline value of ${esc(ANALYTES.find((a) => a.name === 'PFOS + PFHxS').a)} ng/L sits below the limit of reporting achievable by USEPA 1633.</em></p>`,
         }) +
-        '<p class="mk-tight">Compare the alternative, which is what a product that has no state for this produces: seven rows of <code class="mk-file">0.001</code> in a compliance column, and a reader with no way to know.</p>',
+        `<p class="mk-tight">Compare the alternative, which is what a product with no state for this produces: ${INDETERMINATE.length} rows of <code class="mk-file">0.001</code> in a compliance column, and a reader with no way to know.</p>`,
     ),
   )
-);
+  );
+};
 
 /**
  * Purge and stabilisation — the deep view of the series the session shows.
@@ -3766,6 +4196,7 @@ const purgeLog = () => {
 const chainOfCustody = () => {
   const C_ = CUSTODY_CHAIN;
   const D = C_.discrepancy;
+  const SUB = C_.continues;
   const covered = EVENT_SAMPLES;
   const containers = covered.reduce((n, s) => n + s.containers, 0);
   const sealed = C_.transfers.find((t) => t.seal !== '—');
@@ -3871,10 +4302,56 @@ const chainOfCustody = () => {
       }),
       panel(
         'Where this record stops, and what picks it up',
-        '<p class="mk-tight"><strong>This screen owns</strong> the chain: raising it in the field, the containers it accumulates, the seals, and every transfer up to and including the handover the laboratory signs for. It owns the discrepancy above, because a disagreement about a seal is a custody question.</p>' +
+        '<p class="mk-tight"><strong>This screen owns</strong> the chain: raising it in the field, the containers it accumulates, the seals, every transfer up to and including the handover the laboratory signs for, and the one below that continues past it. It owns the discrepancy above, because a disagreement about a seal is a custody question.</p>' +
           '<p class="mk-tight"><strong><a class="mk-ref" href="#receipt">Receipt and custody</a> owns</strong> what the laboratory found when it opened the box — cooler temperature, preservation, breakages, holding time on arrival — and the results those explain. The cracked sulfate bottle is its finding, not this one’s.</p>' +
           '<p class="mk-tight">After that the round leaves custody altogether and becomes a deliverable: the certificate and the rows that come back are <a class="mk-ref" href="#imports">Import runs</a>. Three screens, one seam each, and each seam named on both sides of it.</p>' +
           `<div class="mk-actions"><a class="mk-btn" href="#receipt">What arrived, and in what condition</a><a class="mk-btn" href="#field-capture">The field round that filled it</a></div>`,
+      ),
+      '3fr 2fr',
+    ) +
+    /*
+     * The hop the provenance chain went looking for and did not find (PR-3a).
+     *
+     * Every one of the 38 containers reconciled at Pilbara Analytical
+     * Services, and the PFAS certificate is Yarra Regional's. The only reading
+     * under which both are true is a subcontract, and a subcontract is a
+     * custody transfer by the glossary's definition — so it is a chain, with
+     * its own identifier and its own receipt, rather than two more rows on the
+     * field chain above. Appending it there would have moved the four rows the
+     * receipt screen draws and made a laboratory-to-laboratory handover read
+     * as a field one.
+     */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Where the chain continues — the subcontracted fraction</h2>' +
+    `<p class="mk-tight">${esc(SUB.why)} So one container leaves ${esc(CUSTODY_CHAIN.laboratory)} again, and the record does not stop at the first laboratory door.</p>` +
+    cols(
+      table({
+        caption: `Chain ${SUB.id}, a continuation of ${SUB.parent}. Its own sequence, because it is its own chain — and a reader following a PFAS result arrives here rather than at a gap.`,
+        head: ['#', 'When · AWST', 'From', 'To', 'Containers', 'Seal', 'State'],
+        kind: 'matrix',
+        label: 'Custody transfers for the subcontracted PFAS fraction',
+        rows: SUB.transfers.map((t) => [
+          `<span class="mk-num">${t.seq}</span>`,
+          `<span class="sf-instant">${esc(t.at.replace(' AWST', ''))}</span>`,
+          esc(t.from),
+          esc(t.to),
+          `<span class="mk-num">${t.containers}</span>`,
+          `<span class="mk-file">${esc(t.seal)}</span>`,
+          C.status('signed', 'good'),
+        ]),
+      }),
+      panel(
+        'What the second laboratory found, and the clock it started',
+        facts([
+          ['Sample', `<span class="mk-file">${esc(SUB.sample)}</span>`],
+          ['Received', `<span class="sf-instant">${esc(SUB.receipt.at)}</span> · ${esc(SUB.receipt.by)}`],
+          ['Cooler temperature', `<span class="mk-num">${esc(SUB.receipt.temperature)}</span> against ${esc(SUB.receipt.limit)}`],
+          ['Seal', `<span class="mk-file">${esc(SUB.receipt.seal)}</span>`],
+          ['Reconciled', esc(SUB.receipt.reconciled)],
+          ['Holding time', `<span class="mk-num">${SUB.holding.used}</span> of <span class="mk-num">${SUB.holding.window}</span> days used`],
+          ['Certificate', `<span class="mk-file">${esc(SUB.certificate)}</span> · batch <a class="mk-ref" href="#batches">${esc(SUB.workOrder)}</a>`],
+        ]) +
+          `<p class="mk-tight mk-muted">${esc(SUB.holding.rule)}. Collected ${esc(SUB.holding.collected)}, extracted ${esc(SUB.holding.extracted)}. The trip blank <span class="mk-file">${esc(SUB.travellingQC)}</span> covers the transport up to the first receipt; nothing travelled with this bottle on the second leg, and the seal and the temperature are what answer for it.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#lineage">The result this fraction produced</a></div>`,
       ),
       '3fr 2fr',
     ) +
@@ -4090,6 +4567,12 @@ const labBatches = () => (
           `<p class="mk-tight">${esc(b.consequence)}</p>`,
       ),
   ).join('') +
+  panel(
+      'One thing on this screen does not reconcile, and it is recorded rather than left to be noticed',
+      `<p class="mk-tight">The PFAS batch <span class="mk-file">${esc(BATCHES[1].id)}</span> states <strong>${BATCHES[1].samples} samples</strong>. <a class="mk-ref" href="#events">The manifest</a> gives the two PFAS tests to one sample, <span class="mk-file">${esc(EVENT_SAMPLES.find((x) => x.tests === Math.max(...EVENT_SAMPLES.map((y) => y.tests))).id)}</span> — the only one carrying ${Math.max(...EVENT_SAMPLES.map((y) => y.tests))} tests and ${EVENT_SAMPLES.find((x) => x.tests === Math.max(...EVENT_SAMPLES.map((y) => y.tests))).containers} containers. <a class="mk-ref" href="#crosstab">The grid</a> carries a PFOS + PFHxS total at ${CROSSTAB_SHAPE.sampledColumns.length} locations. Three readings of how far one suite reached, and they are not the same number.</p>` +
+        `<p class="mk-tight">All three predate this wave, which met the disagreement while <a class="mk-ref" href="#lineage">chaining the PFAS result to the records that produced it</a> and did not settle it. Settling it means choosing, and the cheapest choice empties four cells of the crosstab’s PFAS row — the row <a class="mk-ref" href="#criteria">the non-detect rule</a> is demonstrated over. That is a decision with a drawn argument on the other end of it rather than a count to nudge.</p>` +
+        `<p class="mk-tight mk-muted">What the lineage does instead is name this batch and link it. Nothing drawn this wave rests on which reading wins.</p>`,
+    ) +
   cols(
     panel(
       'A recovery below 100% is not simply “bad data”',
@@ -4113,7 +4596,7 @@ const labBatches = () => (
           ['Zinc (filtered)', loc('MW09'), tag('L', 'warn'), 'Batch matrix spike below limit — biased low'],
         ],
       }) +
-        '<p class="mk-tight">Nine results carry it, applied by the batch rather than by a person deciding case by case — which is how five of them get missed.</p>',
+        `<p class="mk-tight">Nine results <strong>would</strong> carry it, applied by the batch rather than by a person deciding case by case — which is how five of them get missed. None of them carries it yet: the propagation basis is <a class="mk-ref" href="#qc">an open decision</a>, because the certificate states no result-level qualifier and DQO ${esc(DQO.used.version)} names no consequence for a failed spike. The table above is what the decision would write, not what the record says.</p>`,
     ),
   )
 );
@@ -4183,7 +4666,17 @@ const backgroundComparison = () => (
 );
 
 /** Data quality assessment, against objectives set before the round. */
-const dataQuality = () => (
+const dataQuality = () => {
+  /*
+   * Wave 7: one percentage, computed once, printed twice — the tile and the
+   * dimension row used to be two typed 87%s over a register that now says 79.
+   * Usable is received less the rows held in quarantine, which is the same
+   * arithmetic the DQA row itself does.
+   */
+  const usablePct = Math.round(
+    ((COMPLETENESS.received - QUARANTINE.filter((q) => q.state === 'held').length) / COMPLETENESS.planned) * 100,
+  );
+  return (
   head('Data quality assessment', 'Whether this round met the objectives it was designed against.', {
     route: '/projects/:projectId/dqa',
     toolbar: C.exportMenu() + C.btn('Generate report §3', 'primary'),
@@ -4199,7 +4692,7 @@ const dataQuality = () => (
     stat(`${DQA.filter((d) => d.verdict === 'met').length} of ${DQA.length}`, 'objectives met', 'warn'),
     stat(String(DQA.filter((d) => d.verdict === 'met with exception').length), 'met with exception', 'warn'),
     stat(String(DQA.filter((d) => d.verdict.startsWith('not met')).length), 'not met', 'bad'),
-    stat('87%', 'usable completeness', 'bad'),
+    stat(`${usablePct}%`, 'usable completeness', 'bad'),
     stat(String(DQA.reduce((n, d) => n + d.settled.open, 0)), 'findings still undecided', 'bad'),
   ]) +
   notice(
@@ -4242,7 +4735,7 @@ const dataQuality = () => (
         rows: [
           ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits above the criterion and the comparison is arithmetic.')],
           ['Accuracy — zinc', cell(`Nine zinc results would be qualified biased low — <strong>and none of them is yet</strong>. The propagation basis is the open decision on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a>: the certificate carries no result-level qualifier and DQO ${esc(DQO.used.version)} states no consequence for the failed spike, so a hydrogeologist has to say how far it reaches. The MW05 exceedance stands and is understated either way; no result is corrected.`)],
-          ['Completeness — 87%', cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is two results short, one cracked container and one holding time. The round is reported as incomplete rather than as a clean 58 results, and the dry bore is reported as attempted rather than missed.`)],
+          [`Completeness — ${usablePct}%`, cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is a result short on a cracked container. The round is reported as incomplete rather than as a clean ${COMPLETENESS.planned}, and the dry bore is reported as attempted rather than missed.`)],
         ],
       }),
     ),
@@ -4257,7 +4750,8 @@ const dataQuality = () => (
         }),
     ),
   )
-);
+  );
+};
 
 /** The receptor the water-quality numbers are ultimately about. */
 const stygofaunaScreen = () => (
@@ -4364,7 +4858,10 @@ const workQueue = () => {
       C.progress({
         pct: Math.round((COMPLETENESS.received / COMPLETENESS.planned) * 100),
         label: `${COMPLETENESS.received} of ${COMPLETENESS.planned} planned results received`,
-        detail: `${COMPLETENESS.held} held in quarantine · <strong>${COMPLETENESS.missing} never collected</strong>. Planned means what the sampling programme said, resolved in ${esc(PROJECT.timezone)} — a sample taken at 08:00 on 1 April local time belongs to the June quarter, not this one.`,
+        // Wave 7: `held` is counted off the quarantine register rather than
+        // typed onto the completeness record, and `missing` is the difference
+        // the rows below actually add to — it read 2 over a table summing to 10.
+        detail: `${QUARANTINE.filter((q) => q.state === 'held').length} held in quarantine · <strong>${COMPLETENESS.missing} never collected</strong>, of which ${COMPLETENESS.rows.find((r) => r.state === 'missing').planned} are the dry bore at ${esc(COMPLETENESS.rows.find((r) => r.state === 'missing').location)}. Planned means what the sampling programme said, resolved in ${esc(PROJECT.timezone)} — a sample taken at 08:00 on 1 April local time belongs to the June quarter, not this one.`,
       }) +
       table({
         head: ['Location', 'Planned', 'Received', 'State'],
@@ -4372,7 +4869,8 @@ const workQueue = () => {
           loc(r.location),
           `<span class="mk-num">${r.planned}</span>`,
           `<span class="mk-num${r.received < r.planned ? ' mk-num--warn' : ''}">${r.received}</span>`,
-          C.status(r.state, r.state === 'complete' ? 'good' : r.state === 'partial' ? 'warn' : 'bad'),
+          C.status(r.state, r.state === 'complete' ? 'good' : r.state === 'partial' ? 'warn' : 'bad')
+            + (r.why ? `<small>${esc(r.why)}</small>` : ''),
         ]),
       }),
     foot: `<a class="mk-btn mk-btn--sm" href="#programme">Open the programme</a>`,
@@ -5296,7 +5794,26 @@ const resultDetail = () => {
               'A saved view owned by another user (R. Whitmore, “Compliance boundary — Table 4”) may reference this analyte; your binding does not let you read their private views. The count above is therefore a floor, and the screen says so rather than showing five as though it were all of them.',
           }),
       ),
-    )
+    ) +
+    /*
+     * PR-3a on the result page: the same chain, read from the same array.
+     *
+     * This result and the PFAS total came out of the same bottle —
+     * WDL-26Q2-003 — so the ten hops from the bore to the bench are not
+     * *like* the ones on `#lineage`, they are the same records. The page
+     * renders `PROVENANCE.boreToBench` through the same builder the lineage
+     * screen uses, which is the wave-6 pattern applied here: one source, drawn
+     * twice, and a bore that cannot be described differently on two screens.
+     */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Where this sample came from</h2>' +
+    `<p class="mk-tight">The provenance of this number does not begin at the certificate. These are the ${PROVENANCE.boreToBench.length} hops from the bore to the laboratory bench, and they are the record itself rather than a summary of it — <a class="mk-ref" href="#lineage">the lineage screen</a> renders these same steps from the same source, because ${esc(RESULT_DETAIL.sample)} is the bottle both this result and the PFAS total came out of.</p>` +
+    chainList(PROVENANCE.boreToBench) +
+    notice(
+      'default',
+      `The two chains part at the bench, and the divergence is the ${PROVENANCE.pfasOnly.length} hops this one does not take.`,
+      `Everything above is shared: the same bore, the same session, the same purge, the same custody transfers, the same cooler at ${esc(RECEIPT.checks[0].found)}. From the bench they separate — cadmium was determined in <a class="mk-ref" href="#batches">${esc(METALS_BATCH.id)}</a> by ${esc(RESULT_DETAIL.method)}, and the PFAS fraction left on a subcontract to another laboratory under its own custody record. That divergence is why a batch-level qualifier reaches one and not the other, and it is the thing a chain drawn per-certificate rather than per-sample cannot show.`,
+    ) +
+    `<div class="mk-actions"><a class="mk-btn" href="#lineage">Open the full chain, bore to consequence</a><a class="mk-btn" href="#field-capture">The bore session that collected it</a><a class="mk-btn" href="#ecoc">Who held it, and when</a></div>`
   );
 };
 
@@ -6338,6 +6855,14 @@ const entitlementScreen = () => (
 const dataStates = () => {
   const demo = (title, note, block) =>
     panel(title, `<p class="mk-tight">${note}</p>${block}`);
+  /*
+   * Held rows are quarantine findings and `QUARANTINE` owns them; planned
+   * against received is `COMPLETENESS`. Two registers, two counts, neither
+   * typed here — the partial state's whole rule is that it quantifies what is
+   * absent, and a state block that typed its own numbers would be the first
+   * place they went stale.
+   */
+  const held = QUARANTINE.filter((q) => q.state === 'held').length;
   return (
     head('Four states, everywhere', 'Empty, loading, partial and error — designed once, for every surface.', {
       route: '/help/states',
@@ -6406,20 +6931,20 @@ const dataStates = () => {
         'Some of it is here',
         'The count is the whole point. “Some data” is not a state a practitioner can act on.',
         C.stateBlock('partial', {
-          headline: '58 of 63 planned results are in. 3 are held and 2 were never collected.',
+          headline: `${COMPLETENESS.received} of ${COMPLETENESS.planned} planned results are in. ${held} of them are held in quarantine and ${COMPLETENESS.missing} were never collected.`,
           detail:
-            'MW11 was not sampled in the 2026 Q2 window, which closed 2026-05-14 in Australia/Perth. The pattern this state asks for: the crosstab stays complete for every other location and MW11’s column is drawn empty rather than omitted — a missing column reads as a bore that does not exist. The catalogue’s own crosstab does not draw this yet: its MW11 column still carries evaluated results, a contradiction recorded on that screen and owned by wave 7.',
-          action: 'Open the 3 held rows',
-          secondary: 'Record why MW11 was missed',
+            `${CROSSTAB_SHAPE.emptyColumns.join(', ')} was not sampled in the 2026 Q2 window, which closed 2026-05-14 in ${PROJECT.timezone}: the bore was dipped twice and found dry. The crosstab stays complete for every other location and this one’s column is <strong>drawn empty rather than omitted</strong> — a missing column reads as a bore that does not exist, and a blank cell reads as a value somebody forgot to enter. It carries the round’s own <em>dry</em> disposition — glyph and word — and the reason, across all ${CROSSTAB_SHAPE.empty} of its cells.`,
+          action: `Open the ${held} held rows`,
+          secondary: 'Open the bore session that recorded it dry',
         }),
       ),
       demo(
         'The statistics know they are partial',
         'A summary computed over an incomplete round is not wrong, but it is not the round either, and the difference belongs on the surface that shows it.',
         C.stateBlock('partial', {
-          headline: 'This median is over 6 of 7 locations.',
+          headline: `This median is over ${CROSSTAB_SHAPE.sampledColumns.length} of ${CROSSTAB_SHAPE.locations} locations.`,
           detail:
-            'MW11 has no 2026 Q2 result. The estimator is Kaplan–Meier over 58 values of which 11 are censored; adding MW11 later will change it, and the figure carries the same note in its provenance strip so a copy pasted into Word does not lose the caveat.',
+            `${CROSSTAB_SHAPE.emptyColumns.join(', ')} has no 2026 Q2 result — dry, not missed. The estimator is Kaplan–Meier over the round’s ${CROSSTAB_SHAPE.results} results of which ${CROSSTAB_SHAPE.censored} are censored; a bore that returns to water next quarter changes it, and the figure carries the same note in its provenance strip so a copy pasted into Word does not lose the caveat.`,
         }),
       ),
     ) +
@@ -6709,7 +7234,7 @@ const coverage = () => {
     ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'covered', 'licence · obligations · tarp · water', 'P1', 'The entitlement is an instrument with a year, a volume and a take against it — the last of the five'],
     ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
     ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'covered', 'criteria', 'P1', 'The four treatments run over the seven derived PFAS totals: six results read indeterminate, compliant or 31× depending on the field'],
-    ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', ''],
+    ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', 'The chain begins at the bore, not at the deliverable — location and version, construction, programme, field event, stabilisation, sample, filtration, custody, receipt and batch before the first laboratory number, each hop linking the record that owns it'],
     ['FR-2.4', 'Never overwrite a reported value; derivation additive, reversible', 'covered', 'supersession · result-detail', 'P0', ''],
     ['FR-2.5', 'Speciation conversion with the basis recorded on the result', 'partially', 'result-detail', 'P2', 'The basis is shown; the conversion surface is not'],
     ['FR-3.1', 'Laboratory EDD formats as configuration, not code', 'covered', 'formats', 'P1', ''],
@@ -6751,7 +7276,7 @@ const coverage = () => {
     ['FR-7.2', 'Styling, figure and table numbering, cross-references, captions', 'covered', 'report · report-figures', 'P1', 'Template configuration with versions and an effective date; numbering derived from position, and an insert previewed before it renumbers'],
     ['FR-7.3', 'A data snapshot with every issued report; identical regeneration', 'covered', 'snapshot', 'P0', ''],
     ['FR-7.4', 'Customer-branded output; Strataflow attribution metadata only', 'covered', 'report', 'P1', 'A property of the output, stated on the composer'],
-    ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'covered', 'report', 'P1', 'The comparison against the approved reference, gating the snapshot — 11 checks passing, 2 failing on unwritten sections, and a named past drift'],
+    ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'covered', 'report', 'P1', `The comparison against the approved reference, gating the snapshot — ${GOLDEN.passed} checks passing, ${GOLDEN.failed} failing on unwritten sections, and a named past drift`],
     ['FR-7.6', 'Regulator-format and EQuIS-compatible EDD export (S8)', 'deferred', '—', 'P4', ''],
     ['FR-8.1', 'Sampling programs with due and overdue tracking', 'covered', 'programme · obligations', 'P0', ''],
     ['FR-8.2', 'Exceedance and trigger alerts with acknowledgement and escalation', 'covered', 'alerts', 'P0', ''],
@@ -6962,7 +7487,7 @@ const coverage = () => {
       panel(
         'What a green row here does not mean',
         '<p class="mk-tight">It means the expectation has been <em>drawn</em>. It does not mean it is built, and it does not mean it is right.</p>' +
-          '<p class="mk-tight">Both design oracles this catalogue is drawn to were self-approved and neither has been printed. <strong>A practitioner has now looked at four of these screens</strong> — a senior hydrogeologist reviewed the field-capture grid, the QA/QC workspace, the lineage panel and the interpretation editor on 1 September 2026, the four with the most invention in them, and returned four P0 design changes and a binding keep-list. Two of the four are answered here: field capture is rebuilt around the bore session and QA/QC around the decision layer. The other two — provenance beginning at the bore, and evidence for an inference rather than for its citations — are not, and the rows they touch are green on completeness alone.</p>' +
+          '<p class="mk-tight">Both design oracles this catalogue is drawn to were self-approved and neither has been printed. <strong>A practitioner has now looked at four of these screens</strong> — a senior hydrogeologist reviewed the field-capture grid, the QA/QC workspace, the lineage panel and the interpretation editor on 1 September 2026, the four with the most invention in them, and returned four P0 design changes and a binding keep-list. <strong>All four are answered here</strong>: field capture rebuilt around the bore session, QA/QC around the decision layer, provenance beginning at the bore rather than at the deliverable, and the interpretation editor carrying evidence for the inference rather than for its citations. What that does <em>not</em> mean is that the answers are right — the same practitioner has not seen them, and the redesigned screens now carry more invention than the ones the review corrected, not less.</p>' +
           '<p class="mk-tight">The lesson of that review is the one worth keeping past it: the drawn version of both screens was internally consistent, carefully argued and <em>wrong on an axis</em>, and no amount of re-reading would have found it. Five minutes of a practitioner’s attention was worth more than the day of drawing that produced them.</p>' +
           '<p class="mk-tight">A catalogue is easy to make look complete while the judgements inside it are wrong, and this table measures completeness only.</p>',
       ),
@@ -7181,7 +7706,7 @@ export const RELATED = {
   'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings'],
 
   locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water'],
-  location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents'],
+  location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents', 'lineage', 'purge'],
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
   events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme'],
   imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats'],
@@ -7195,7 +7720,7 @@ export const RELATED = {
   'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events'],
   // The chain is raised in the field and closed at the laboratory, so it sits
   // between the two screens that own those ends rather than beside either.
-  ecoc: ['receipt', 'events', 'field-capture', 'imports'],
+  ecoc: ['receipt', 'events', 'field-capture', 'imports', 'batches', 'lineage'],
 
   qc: ['batches', 'qc-limits', 'consistency', 'qualifiers', 'validation', 'dqa'],
   batches: ['qc', 'qc-limits', 'receipt', 'result-detail'],
@@ -7207,7 +7732,7 @@ export const RELATED = {
 
   exceedances: ['result-detail', 'hardness', 'indeterminate', 'lineage', 'tarp', 'map'],
   crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report'],
-  'result-detail': ['hardness', 'lineage', 'crosstab', 'qc', 'batches'],
+  'result-detail': ['hardness', 'lineage', 'crosstab', 'qc', 'batches', 'field-capture', 'ecoc'],
   hardness: ['result-detail', 'criteria', 'indeterminate', 'lineage', 'consistency'],
   indeterminate: ['hardness', 'exceedances', 'crosstab', 'dqa', 'report'],
   tarp: ['exceedances', 'alerts', 'notification'],
@@ -7223,7 +7748,9 @@ export const RELATED = {
 
   report: ['report-figures', 'dqa', 'narrative', 'snapshot', 'signoff'],
   'report-figures': ['report', 'narrative', 'supersession', 'certificate'],
-  narrative: ['report', 'lineage', 'statistics'],
+  // And the interpretation workspace reaches the evidence it pins, which is
+  // what makes the set a set rather than a list of names.
+  narrative: ['report', 'lineage', 'statistics', 'hydrograph', 'hydrochem', 'background', 'map', 'qc', 'location', 'supersession'],
   snapshot: ['report', 'signoff', 'submissions', 'supersession', 'certificate'],
   submissions: ['snapshot', 'signoff', 'documents', 'obligations'],
 
@@ -7241,7 +7768,11 @@ export const RELATED = {
   notification: ['tarp', 'obligations', 'lineage', 'documents'],
   signoff: ['snapshot', 'submissions', 'validation', 'report', 'audit'],
 
-  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail'],
+  // Wave 7: the chain begins at the bore, so the declared architecture says so.
+  // Five of these are new edges and every one of them is a hop on the chain —
+  // the location and its construction, the session that collected the sample,
+  // the custody record, the laboratory receipt and the analytical batch.
+  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches'],
   audit: ['lineage', 'supersession', 'roles'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],

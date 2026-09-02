@@ -83,6 +83,7 @@ export function mark(outcome, criterionName) {
  * reader given four unnamed shapes has been given nothing.
  */
 export function resultValue(cell, criteria) {
+  if (cell.empty) return emptyValue(cell);
   const classes = ['sf-result'];
   if (cell.o.includes('exceedance')) classes.push('sf-result--exceedance');
   if (cell.censored) classes.push('sf-result--censored');
@@ -110,6 +111,32 @@ export function resultValue(cell, criteria) {
     `<span class="sf-visually-hidden">${esc(spoken)}</span>` +
     `${before}${open}<span class="sf-result__value" aria-hidden="true">${esc(cell.v)}</span>${close}` +
     `<span class="sf-result__marks" aria-hidden="true">${marks}</span>` +
+    '</span>'
+  );
+}
+
+/**
+ * A cell where no result exists, **drawn rather than left out**.
+ *
+ * A grid whose column simply disappears reads as a bore that does not exist,
+ * and a grid whose cell is blank reads as a value somebody forgot to type.
+ * Neither is what happened. So the cell is present, it carries a glyph and a
+ * word rather than only a colour or an absence (the photocopier rule), and the
+ * sentence a screen reader gets says **why** it is empty — because *dry is not
+ * missing* is the whole of the distinction (the practitioner review's
+ * keep-list) and an empty cell that does not say which one it is has thrown it
+ * away.
+ *
+ * It deliberately does not carry outcome marks. Nothing was measured, so
+ * nothing was assessed, and an `not evaluated` mark here would assert that a
+ * result existed and no criterion was selectable for it.
+ */
+export function emptyValue(cell) {
+  return (
+    '<span class="mk-nocell">' +
+    `<span class="sf-visually-hidden">${esc(cell.spoken)}</span>` +
+    `<span class="mk-nocell__glyph" aria-hidden="true">${esc(cell.glyph)}</span>` +
+    `<span class="mk-nocell__word" aria-hidden="true">${esc(cell.word)}</span>` +
     '</span>'
   );
 }
