@@ -6637,3 +6637,613 @@ export const SOIL = (() => {
     },
   };
 })();
+
+/* ==================================================================== *
+ * Wave 10 — what crosses the boundary, and on whose terms
+ * ==================================================================== */
+
+/**
+ * The exchange formats, and one export drawn in full (FR-7.6, Domain R).
+ *
+ * ## The word, and why it is not "estate"
+ *
+ * The wave plan called this *the format estate*. **Estate is already spent in
+ * this catalogue** — `PORTFOLIO` above says "the estate, as the two
+ * `/aggregate` questions actually ask it", the coverage matrix's OM-2 row says
+ * "the estate view is the vendor's, out of frame here", and both mean a set of
+ * *deployments*. Two estates in one product is the second-vocabulary-for-one-
+ * concept failure the glossary rule exists to stop (QB-9), so the screen is
+ * named for what it holds — **exchange formats** — and the plan's phrase is
+ * recorded here as its origin rather than adopted.
+ *
+ * Nothing else here is minted. *Format*, *import run*, *deliverable*,
+ * *reconciliation*, *qualifier scheme*, *propagation basis*, *field
+ * disposition*, *validation state* and the four *exceedance outcomes* are all
+ * words this catalogue and the glossary already use, and the whole point of an
+ * export screen is that the domain's words are the ones that stay put while
+ * the file's words change around them.
+ *
+ * ## ADR-0009, read at the other boundary
+ *
+ * The architecture decision says the practitioner's vocabulary is canonical
+ * and **file formats map inward**: `EQL` arrives and becomes **LOR**, and
+ * `EQL` never appears on a screen, in a schema or in a report label. An export
+ * is the same rule read at the other end of the same boundary — the domain
+ * writes **LOR** and the file receives `EQL` — and `#formats` states the
+ * inward half under the heading *the vocabulary maps inward, never outward*,
+ * which is about the format's words never reaching the application and is not
+ * contradicted by a file that receives them. The mapping is recorded either
+ * way, never implicit, which is the whole of the decision.
+ *
+ * ## Every number below is computed
+ *
+ * The manifest counts come off `EVENT_SAMPLES`, the grid counts off
+ * `CROSSTAB_SHAPE` and `CROSSTAB`, the outcome tally off the cells and
+ * `CRITERIA`, the format inventory off `FORMATS` and `IMPORTS`, the qualifier
+ * counts off `QAQC`. Not one of them is typed twice — an export whose proof is
+ * a hand-typed number is the thing the proof exists to replace.
+ */
+export const EXCHANGE = (() => {
+  /* ---------------------------------------------------------------- *
+   * The populations, counted once each
+   * ---------------------------------------------------------------- */
+
+  /** The round's own record: what was collected and what came back. */
+  const manifest = (() => {
+    const samples = EVENT_SAMPLES;
+    return {
+      samples: samples.length,
+      primary: samples.filter((s) => s.qc === '—').length,
+      qc: samples.filter((s) => s.qc !== '—').length,
+      results: samples.reduce((n, s) => n + s.results, 0),
+      locations: [...new Set(samples.map((s) => s.location).filter((l) => l !== '—'))],
+    };
+  })();
+
+  /**
+   * The evaluated population: the grid, and the outcomes over it.
+   *
+   * The manifest and the grid are two different counts of two different things
+   * and neither is wrong. The manifest holds every test on every sample
+   * including the controls; the grid holds the analytes a quarterly review
+   * reads, at the bores that yielded material. So every reconciliation row
+   * below says which one it was counted over, because a proof that does not
+   * say what it counted is an assertion with a number on it.
+   */
+  const grid = (() => {
+    const cells = CROSSTAB.flatMap((r) => r.cells).filter((c) => !c.empty);
+    const tally = {};
+    for (const c of cells) for (const o of c.o) tally[o] = (tally[o] ?? 0) + 1;
+    return {
+      analytes: CROSSTAB_SHAPE.analytes,
+      columns: CROSSTAB_SHAPE.locations,
+      sampled: CROSSTAB_SHAPE.sampledColumns.length,
+      results: CROSSTAB_SHAPE.results,
+      censored: CROSSTAB_SHAPE.censored,
+      emptyCells: CROSSTAB_SHAPE.empty,
+      emptyColumns: CROSSTAB_SHAPE.emptyColumns,
+      sets: CRITERIA.length,
+      outcomes: cells.length * CRITERIA.length,
+      tally,
+      exceedance: tally.exceedance ?? 0,
+      indeterminate: tally.indeterminate ?? 0,
+      compliant: tally.compliant ?? 0,
+      notEvaluated: tally.not_evaluated ?? 0,
+    };
+  })();
+
+  /**
+   * The disposition the empty column carries, read off the field record.
+   *
+   * Not typed: the crosstab reads the same disposition from the same list, so
+   * the loss statement below cannot describe a state the grid stopped drawing.
+   */
+  const emptyDisposition = (() => {
+    const code = FIELD_ROUND.current.find((x) => x.location === CROSSTAB_SHAPE.emptyColumns[0])?.disposition;
+    return FIELD_ROUND.disposition(code);
+  })();
+
+  /* ---------------------------------------------------------------- *
+   * The inventory — every format that crosses, in either direction
+   * ---------------------------------------------------------------- */
+
+  /** How many committed runs this instance has read in a given format. */
+  const runsIn = (name) => IMPORTS.filter((i) => i.format === name).length;
+  const rowsIn = (name) => IMPORTS.filter((i) => i.format === name).reduce((n, i) => n + i.rows, 0);
+  const defOf = (name) => FORMATS.find((f) => f.name === name);
+
+  /**
+   * One format, as a record: which way it crosses, who owns it, what version,
+   * what it preserves and what it cannot carry.
+   *
+   * The five inbound records read their shape off `FORMATS` and `IMPORTS`
+   * rather than restating it — the same discipline `#imports` and `#formats`
+   * already keep, one register over. The two outbound records have no `FORMATS`
+   * row because the product defines no outbound format today (FR-7.6 is S8),
+   * and saying so is the point of the column rather than a gap in it.
+   */
+  const inbound = [
+    {
+      id: 'esdat-eldf-4',
+      name: 'ESdat ELDF-4',
+      direction: 'in',
+      owner: 'EScIS — the ESdat publisher',
+      kind: 'Laboratory deliverable',
+      preserves:
+        'Analyte, value, unit, sample code, sample date, method, the EQL and MDL limits, the laboratory’s own qualifier codes in their own scheme, and a validation-state field.',
+      cannotCarry:
+        'A PQL — the format carries four limits and none of them is verified as one. A field duplicate, a field blank or an equipment blank — there is no code for any of the three, and a blind duplicate reaches a laboratory as Normal.',
+      where: 'imports',
+      whereLabel: 'Import runs',
+    },
+    {
+      id: 'yarra-v2',
+      name: 'Yarra Regional v2',
+      direction: 'in',
+      owner: 'Yarra Regional Analytical — the laboratory’s own dialect',
+      kind: 'Laboratory deliverable',
+      preserves: 'Analyte, value, unit and sample code, flat, one row per result.',
+      cannotCarry:
+        'A validation state this site uses: “QA-Hold” is not a state the format maps, and six rows are held rather than defaulted.',
+      where: 'quarantine',
+      whereLabel: 'Held rows',
+    },
+    {
+      id: 'esdat-legacy',
+      name: 'ESdat legacy export',
+      direction: 'in',
+      owner: 'EScIS — the incumbent being migrated from',
+      kind: 'Migration',
+      preserves:
+        'Twenty years of results with their historical validation state and their qualifiers, which is the half of FR-3.11 a migration usually loses.',
+      cannotCarry:
+        'Rows whose holding time, sentinel or validation state cannot be resolved: they are quarantined with the reason rather than defaulted.',
+      where: 'migration',
+      whereLabel: 'Legacy reconciliation',
+    },
+    {
+      id: 'equis-edd-in',
+      name: 'EQuIS EDD (4-file)',
+      direction: 'in',
+      owner: 'EarthSoft — the EQuIS publisher',
+      kind: 'Migration',
+      preserves: 'The widest field set of any format here, read as configuration rather than as code.',
+      cannotCarry:
+        'Nothing yet measured on this site — no EQuIS deliverable has been read here, so the definition is declared and unexercised.',
+      where: 'formats',
+      whereLabel: 'EDD formats',
+    },
+    {
+      id: 'levelogic-lvlx',
+      name: 'Levelogic .lvlx v4 (MOCK)',
+      direction: 'in',
+      owner: 'The instrument vendor — a binary download, not a deliverable',
+      kind: 'Instrument download',
+      preserves: 'Pressure and temperature at an hourly cadence, with the logger’s own serial and its clock.',
+      cannotCarry:
+        'The barometric reference, the datum and the correction. A logger writes what it measured; everything that turns that into a water level is this instance’s.',
+      where: 'logger-series',
+      whereLabel: 'Logger series',
+    },
+  ].map((f) => {
+    const d = defOf(f.name);
+    return {
+      ...f,
+      version: d?.version ?? '—',
+      files: d?.files ?? 'Single binary file per logger',
+      fields: d?.fields ?? null,
+      runs: runsIn(f.name),
+      rows: rowsIn(f.name),
+      state: d?.state ?? 'active',
+    };
+  });
+
+  const outbound = [
+    {
+      id: 'dwer-water-return',
+      name: 'DWER annual water return',
+      direction: 'out',
+      owner: `DWER — water licensing, under ${WATER.instrument.id}`,
+      kind: 'Regulator format',
+      version: '—',
+      files: 'One portal form',
+      fields: null,
+      runs: 0,
+      rows: 0,
+      state: 'in use',
+      preserves:
+        'The volume taken at each production bore in each month of the entitlement year, and the basis of each — metered or estimated, never blended.',
+      cannotCarry:
+        'The arithmetic behind an estimated month. The form takes a volume and a basis word; the pump-hours and duty rate that produced the number stay here, on the record that derived it.',
+      where: 'water',
+      whereLabel: 'Water take',
+      lodgement: 'DWER portal · manual lodgement — the receipt is the evidence, and the product never sends it',
+    },
+    {
+      id: 'equis-edd-out',
+      name: 'EQuIS-compatible EDD',
+      direction: 'out',
+      owner: 'The receiving party’s specification — this instance owns no outbound definition',
+      kind: 'Contractual deliverable',
+      version: '—',
+      files: 'Four CSV',
+      fields: null,
+      runs: 0,
+      rows: 0,
+      state: 'proposed',
+      preserves:
+        'Every result the round produced, with its own value, unit, reporting limit and detection limit, its laboratory qualifiers in the laboratory’s own scheme, and the sample and location each one belongs to.',
+      cannotCarry:
+        'Every judgement this instance made about those numbers: the outcome against a criterion, the indeterminate state, the basis a qualifier travelled on, and the reason a bore has no rows at all.',
+      where: 'exchange',
+      whereLabel: 'This record, below',
+      lodgement: 'A file and a manifest, handed to whoever asked for it. There is no destination on this record',
+    },
+  ];
+
+  const formats = [...inbound, ...outbound];
+
+  /* ---------------------------------------------------------------- *
+   * The outward mapping — ADR-0009 rendered
+   * ---------------------------------------------------------------- */
+
+  /**
+   * The three tiers, and they are the glossary's own.
+   *
+   * `docs/GLOSSARY.md` marks each inbound mapping ✅ where a source states it
+   * and ⚠️ where none does, and refuses to invent a domain word for a format
+   * field that has no domain meaning. The outward table below is that table
+   * **read the other way**, with the same tiers, because a mapping that was
+   * not evidenced enough to trust on the way in is not evidenced enough to
+   * write on the way out.
+   */
+  const TIERS = {
+    established: { label: 'Established', glyph: '✓', tone: 'good', means: 'A source states the equivalence, and the export writes it.' },
+    refused: { label: 'Refused', glyph: '⊘', tone: 'warn', means: 'A plausible field exists and no source states the equivalence, so the export writes nothing rather than a guess.' },
+    none: { label: 'No counterpart', glyph: '✕', tone: 'bad', means: 'The target vocabulary has nothing that means this, and the file cannot carry it at all.' },
+  };
+
+  const outward = [
+    { domain: 'Limit of reporting (LOR)', writes: 'EQL', tier: 'established',
+      basis: 'The inbound mapping ADR-0009 records, read outward. ESdat’s EQL becomes LOR on the way in; LOR becomes EQL on the way out, and neither direction is silent.' },
+    { domain: 'Method detection limit (MDL)', writes: 'MDL', tier: 'established',
+      basis: 'Same name, same meaning, in both directions.' },
+    { domain: 'Analyte', writes: 'ChemName', tier: 'established',
+      basis: 'The ELDF-4 definition this instance already reads, run backwards. The dictionary’s canonical name is written, never a synonym it happened to arrive under.' },
+    { domain: 'Result value', writes: 'Result', tier: 'established',
+      basis: 'Written as reported. A non-detect keeps the laboratory’s own censoring notation rather than becoming a substituted number.' },
+    { domain: 'Unit', writes: 'Units', tier: 'established',
+      basis: 'The canonical unit, with any conversion this instance applied recorded in lineage here — the file carries the number and the unit, not the conversion.' },
+    { domain: 'Sample', writes: 'SampleCode', tier: 'established',
+      basis: 'The sample identifier as collected, which is the identifier the chain of custody and the certificate both name.' },
+    { domain: 'Fraction — dissolved', writes: 'Total_or_Filtered', tier: 'established',
+      basis: 'The glossary’s Fraction entry states this mapping. Dissolved is what the number means; filtered is what was done, and the format’s word is the second one.' },
+    { domain: 'Sample type — primary', writes: 'Normal', tier: 'established', basis: 'ELDF §5.' },
+    { domain: 'Sample type — trip blank', writes: 'Trip_B', tier: 'established',
+      basis: 'ELDF §5. Trip_S appears in the spec’s prose and not in its code list, so the export writes the code list’s value.' },
+    { domain: 'Sample type — laboratory duplicate', writes: 'LAB_D', tier: 'established',
+      basis: 'ELDF §5, which cases it both LAB_D and Lab_D; the export writes one and says which.' },
+    { domain: 'Sample type — matrix spike', writes: 'MS', tier: 'established',
+      basis: 'ELDF §5. It is a sample type and never a result type, and the export does not put it in the other column.' },
+    { domain: 'Sample type — matrix spike duplicate', writes: 'MS_D', tier: 'established', basis: 'ELDF §5.' },
+    { domain: 'Validation state', writes: 'validation_state', tier: 'established',
+      basis: 'The field the held rows are held on. A state the target does not know is a decision, not a default — which is exactly how it is treated on the way in.' },
+    { domain: 'Qualifier — laboratory scheme', writes: 'the code, unchanged', tier: 'established',
+      basis: 'A U in an ESdat deliverable is USEPA’s U and means what USEPA says it means. The code belongs to its scheme, so it crosses without translation.' },
+
+    { domain: 'Practical quantitation limit (PQL)', writes: 'nothing', tier: 'refused',
+      basis: 'RDL is the candidate field and no source states the equivalence. The importer refuses to fill PQL from RDL on the strength of the names; the export refuses the same trade in the other direction.' },
+    { domain: 'Qualifier — Strataflow scheme', writes: 'nothing', tier: 'refused',
+      basis: 'A reason code raised by one of this instance’s own checks is ours. Writing it into a laboratory qualifier field would export it as though a laboratory had said it, which the glossary forbids by name.' },
+    { domain: '— (no domain term for the format’s ODL)', writes: 'left empty', tier: 'refused',
+      basis: 'The format carries a fourth limit no practitioner says. On the way in it must not be dropped; on the way out there is nothing to put in it, and the column is written empty rather than filled from a neighbour.' },
+
+    { domain: 'Sample type — field duplicate', writes: 'no code exists', tier: 'none',
+      basis: 'ELDF has no field-duplicate code. A blind duplicate reaches a laboratory as Normal, so the pairing is the sampler’s knowledge — and writing Normal loses the parent link an RPD is computed across.' },
+    { domain: 'Sample type — field blank', writes: 'no code exists', tier: 'none', basis: 'No code found in the published code list.' },
+    { domain: 'Sample type — equipment blank', writes: 'no code exists', tier: 'none', basis: 'No code found in the published code list.' },
+    { domain: 'Exceedance outcome', writes: 'no column exists', tier: 'none',
+      basis: 'An EDD is a laboratory deliverable: it carries what was measured, not what was decided about it. An outcome is a result and a criterion together, and the criteria set does not cross in this file.' },
+    { domain: 'Qualifier propagation basis', writes: 'no column exists', tier: 'none',
+      basis: 'The code travels; why it travelled does not. A rule firing and a hydrogeologist deciding produce the same letter, and only one of them survives a challenge.' },
+    { domain: 'Field disposition', writes: 'no column exists', tier: 'none',
+      basis: 'A deliverable has a row per sample. A bore that was visited, dipped and found dry produced no sample, so it produces no row — and the file cannot say which kind of absence that is.' },
+  ];
+
+  const byTier = (t) => outward.filter((r) => r.tier === t);
+  const outwardCounts = {
+    total: outward.length,
+    established: byTier('established').length,
+    refused: byTier('refused').length,
+    none: byTier('none').length,
+  };
+
+  /* ---------------------------------------------------------------- *
+   * The export record
+   * ---------------------------------------------------------------- */
+
+  /** QC sample types on this round, each against the code list, computed. */
+  const SAMPLE_TYPE_CODE = {
+    'Field duplicate (blind)': null,
+    'Field blank': null,
+    'Trip blank': 'Trip_B',
+    'Equipment blank (rinsate)': null,
+  };
+  const qcSamples = EVENT_SAMPLES.filter((s) => s.qc !== '—').map((s) => ({
+    id: s.id,
+    qc: s.qc,
+    parent: s.parent,
+    code: SAMPLE_TYPE_CODE[s.qc] ?? null,
+  }));
+  const qcCoded = qcSamples.filter((s) => s.code);
+  const qcUncoded = qcSamples.filter((s) => !s.code);
+  /**
+   * The QC kinds as a phrase, grouped and counted.
+   *
+   * Listing the samples raw prints "field duplicate (blind), field duplicate
+   * (blind), field blank, equipment blank" — two identical items, which reads
+   * as a copy-paste rather than as the two blind duplicates the round
+   * actually collected. Grouped, and the count comes from the grouping.
+   */
+  const qcPhrase = (rows) => {
+    const by = new Map();
+    for (const s of rows) by.set(s.qc, (by.get(s.qc) ?? 0) + 1);
+    const words = ['', 'one', 'two', 'three', 'four', 'five'];
+    /* The plural belongs on the noun, not after the parenthetical: two field
+     * duplicates (blind), never two field duplicate (blind)s. */
+    const plural = (kind, n) =>
+      n > 1 ? kind.replace(/^([^(]+?)(\s*\(.*\))?$/, (_, noun, paren) => `${noun}s${paren ?? ''}`) : kind;
+    return [...by].map(([kind, n]) => `${words[n] ?? n} ${plural(kind, n).toLowerCase()}`).join(', ');
+  };
+
+  /**
+   * Qualifiers this round actually wrote, and the ones nothing wrote.
+   *
+   * ## FOUND AND DEFERRED — 2 September 2026 (wave 10), owner unassigned
+   *
+   * **The QA/QC register records each qualifier's *basis* and not its
+   * *scheme*, and an export is the first surface that needs the second.**
+   * `docs/GLOSSARY.md` makes *qualifier scheme* — USEPA, ESdat or Strataflow —
+   * a first-class term, and it states the export rule directly: a Strataflow
+   * reason code "must not be exported as though a laboratory had said it". So
+   * whether a given letter may be written into a laboratory qualifier field at
+   * all is decided by a field these rows do not carry. Four letters are
+   * affected: `J` and `T` are applied (10 results between them) and `L` and
+   * `B` are proposed and unapplied.
+   *
+   * Not fixed here, deliberately. Adding a `scheme` to every row means
+   * deciding, for each of the four, which vocabulary it belongs to — `J` and
+   * `B` read as USEPA, `T` and `L` are the ones a real decision would have to
+   * be taken about — and `#qc` draws all four today, `#qualifiers` and
+   * `#lineage` draw some of them, and `#result-detail` draws a fifth code
+   * (`U`) the same field would have to classify. That is a seed change with four
+   * screens on the other end of it and a judgement in the middle, not a
+   * column to add in passing. The export states the gap where it bites
+   * instead: the propagation basis is a named loss below, and the scheme is
+   * recorded as the thing that would decide *which* codes are written at all.
+   */
+  const qualifiersWritten = QAQC.filter((q) => q.qualifier && !q.proposed);
+  const qualifiersProposed = QAQC.filter((q) => q.qualifier && q.proposed);
+  const qualifiedResults = qualifiersWritten.reduce((n, q) => n + q.results, 0);
+  const proposedResults = qualifiersProposed.reduce((n, q) => n + q.results, 0);
+  /** The gap above, as a record the screen can draw rather than a comment. */
+  const schemeGap = {
+    term: 'qualifier scheme',
+    applied: qualifiersWritten.map((q) => q.qualifier),
+    proposed: qualifiersProposed.map((q) => q.qualifier),
+    decides: 'Whether a code may be written into a laboratory qualifier field at all.',
+    rule: 'A Strataflow reason code is this instance’s own. Exporting it as though a laboratory had said it is forbidden by name, so the scheme is what the export would filter on.',
+    why: 'The QA/QC register carries each qualifier’s propagation basis and not its scheme. Adding one means deciding the vocabulary of four codes, on screens that already draw them — which is a decision rather than a column.',
+  };
+
+  /**
+   * The four files, with a row count each and the register each count came
+   * from. Nothing here is a literal: change the manifest and the file changes.
+   */
+  const files = [
+    { name: `MOCK-WDL_${ROUND.code}_Locations.csv`, holds: 'One row per location a sample in this file refers to', rows: manifest.locations.length, from: 'the round’s manifest' },
+    { name: `MOCK-WDL_${ROUND.code}_Samples.csv`, holds: 'One row per sample, primary and field QC alike', rows: manifest.samples, from: 'the round’s manifest' },
+    { name: `MOCK-WDL_${ROUND.code}_Results.csv`, holds: 'One row per test result, with its own limits and qualifiers', rows: manifest.results, from: 'the round’s manifest' },
+    { name: `MOCK-WDL_${ROUND.code}_Batches.csv`, holds: 'One row per analytical batch the results were run in, referenced rather than duplicated as samples', rows: BATCHES.length, from: 'the batch register' },
+  ];
+
+  /**
+   * The reconciliation — FR-3.11's proof, read at the other boundary.
+   *
+   * The import's version can say *agrees* on every row, because a file that
+   * arrived either matched the source or did not. The export's cannot, and the
+   * asymmetry is the finding rather than a shortfall in the drawing: some of
+   * what this instance holds has nowhere to land. Each row says what it was
+   * counted over, so the whole table recounts from the registers above.
+   */
+  const reconciliation = [
+    { check: 'Location rows', over: 'the round’s manifest', record: manifest.locations.length, file: manifest.locations.length, verdict: 'agrees',
+      says: `The ${manifest.locations.length} locations a sample in this round refers to, each written once.` },
+    { check: 'Sample rows', over: 'the round’s manifest', record: manifest.samples, file: manifest.samples, verdict: 'agrees',
+      says: `${manifest.primary} primary and ${manifest.qc} field QC samples. Every one is written; ${qcUncoded.length} of them arrive without a type, which is the QC-code row below.` },
+    { check: 'Result rows', over: 'the round’s manifest', record: manifest.results, file: manifest.results, verdict: 'agrees',
+      says: 'Every test on every sample on the manifest, including the controls.' },
+    { check: 'Analytes on the results grid', over: 'the results grid', record: grid.analytes, file: grid.analytes, verdict: 'agrees',
+      says: 'The dictionary’s canonical name for each, not the synonym the deliverable arrived under.' },
+    { check: 'Non-detects, censoring notation kept', over: 'the results grid', record: grid.censored, file: grid.censored, verdict: 'agrees',
+      says: 'Each keeps the laboratory’s own “less-than” notation beside its reporting limit. None becomes a substituted number.' },
+    { check: 'Locations in the round’s plan', over: 'the grid’s columns', record: grid.columns, file: grid.sampled, verdict: 'not carried',
+      says: `${grid.emptyColumns.join(', ')} was visited and found ${emptyDisposition.label.toLowerCase()}, so it has no sample and therefore no row. The file cannot say that; its absence reads as data not yet sent.` },
+    { check: 'Evaluation outcomes', over: `the grid, ${grid.sets} criteria sets`, record: grid.outcomes, file: 0, verdict: 'no column',
+      says: `${grid.results} results × ${grid.sets} sets. The receiving system re-evaluates against its own criteria library, and a different criterion is a different answer.` },
+    { check: '— of those, indeterminate', over: 'the grid', record: grid.indeterminate, file: 0, verdict: 'reads as a pass',
+      says: 'A reporting limit above the criterion means nothing was measured either way. The file carries no state for it, and the incumbent baseline records one of the two incumbents rendering exactly this case as a pass unless a non-default setting is enabled — so these arrive as the one thing they are not.' },
+    { check: 'QC samples carrying a type code', over: 'the round’s manifest', record: qcSamples.length, file: qcCoded.length, verdict: 'no code exists',
+      says: `The ${qcPhrase(qcCoded)} has a published code. The ${qcPhrase(qcUncoded)} do not — and those are the controls that answer whether the sampling itself introduced anything.` },
+    { check: 'Qualified results carrying their basis', over: 'the round’s QA/QC register', record: qualifiedResults, file: 0, verdict: 'no column',
+      says: `${qualifiersWritten.map((q) => q.qualifier).join(' and ')} on ${qualifiedResults} results, each with the rule or the judgement it travelled on. The letter can cross; the basis cannot — and which of the letters may cross turns on a scheme these rows do not record.` },
+  ];
+
+  const agreed = reconciliation.filter((r) => r.verdict === 'agrees');
+  const notCarried = reconciliation.filter((r) => r.verdict !== 'agrees');
+
+  /**
+   * The loss statement — named, sized, and each one checked against what the
+   * format could plausibly carry rather than asserted.
+   *
+   * `checked` is the part that matters. "The format cannot carry it" is easy
+   * to write and easy to be wrong about, so every row says what was looked at
+   * before the claim was made.
+   */
+  const losses = [
+    {
+      what: 'The outcome against a criterion',
+      n: grid.outcomes,
+      unit: 'outcomes',
+      where: 'crosstab',
+      whereLabel: 'the results grid',
+      checked:
+        'Both incumbents do emit an action-level code of their own, so the claim is not that a code cannot exist in the target. It is narrower and it holds: an outcome is a result and a criterion together, and this file carries no criteria set. A code written against the receiving library is that library’s answer, not this one’s.',
+      reads:
+        'The receiving system evaluates the numbers against whatever it holds. Where its criteria are ours the answers agree by coincidence rather than by transfer; where they differ, nothing in the file says so.',
+    },
+    {
+      what: 'Indeterminate — a reporting limit above the criterion',
+      n: grid.indeterminate,
+      unit: 'outcomes',
+      where: 'indeterminate',
+      whereLabel: 'the register of what could not be assessed',
+      checked:
+        'Evaluation has four outcomes here and the formats this instance reads carry two. The absence is a missing state rather than a missing column, so no setting on the receiving side can recover it — there is nothing in the file to read. What the incumbent baseline records is the consequence measured on one of the two incumbents: it renders exactly this case as a pass unless a non-default setting is enabled.',
+      reads:
+        `${grid.indeterminate} results that are explicitly not passes arrive as a number, a reporting limit and no state — which any system comparing the two reads as compliant. It is the sharpest loss on the list, because the reader of the file is not told that anything was lost.`,
+    },
+    {
+      what: 'The field disposition — dry is not missing',
+      n: grid.emptyCells,
+      unit: `cells at ${grid.emptyColumns.join(', ')}`,
+      where: 'field-capture',
+      whereLabel: 'the bore session that recorded it',
+      checked:
+        'The location file could in principle carry a status column, and no source states one; more decisively, a deliverable has a row per sample, and a dry bore produced none. So the loss is structural rather than a field somebody forgot.',
+      reads:
+        `${grid.emptyColumns.join(', ')} is simply absent. A bore visited twice, dipped to the base of its screened interval and found ${emptyDisposition.label.toLowerCase()} is indistinguishable in this file from a bore whose results have not been sent — and those are different facts about the aquifer and about the round.`,
+    },
+    {
+      what: 'The QC sample types the code list has no code for',
+      n: qcUncoded.length,
+      unit: `of ${qcSamples.length} field QC samples`,
+      where: 'events',
+      whereLabel: 'the round’s manifest',
+      checked:
+        'Six of the nine sample types this domain uses map to a published code and three do not. The three unmapped ones are exactly the field controls, which is not an accident: a laboratory receives a blind duplicate as an ordinary sample and never knew it was one.',
+      reads:
+        'A field duplicate written as Normal loses the parent link the RPD was computed across, and the two blanks have no code at all. The controls that answer “did the sampling introduce this” are the ones that do not survive the crossing.',
+    },
+    {
+      what: 'The basis a qualifier travelled on',
+      n: qualifiedResults,
+      unit: 'qualified results',
+      where: 'qualifiers',
+      whereLabel: 'where every qualifier states its basis',
+      checked:
+        'A code belonging to a laboratory’s own vocabulary can cross intact, because the target reads that vocabulary. What has no field is the answer to “why did it reach these results”, which this instance requires on every propagated qualifier and which no published field carries.',
+      reads:
+        `The letter, with nothing behind it. A rule firing under a named version and a hydrogeologist’s judgement produce the same character in the same column, and ${proposedResults} further results carry a proposed qualifier that nothing has written — correctly, since no basis has been chosen.`,
+    },
+    {
+      what: 'A practical quantitation limit',
+      n: 1,
+      unit: 'of the three limits this domain keeps apart',
+      where: 'result-detail',
+      whereLabel: 'where the three limits are three columns',
+      checked:
+        `A refusal rather than an absence, and the only one of the ${outwardCounts.refused} refused mappings that costs a number. RDL is the plausible field and the equivalence is unverified; writing it would make the export assert something the importer declined to assert, on the very same evidence.`,
+      reads:
+        'Nothing, in that column. The receiving system sees two limits where this instance holds three, and the third is missing on purpose rather than by oversight.',
+    },
+  ];
+
+  /* ---------------------------------------------------------------- *
+   * DR-2 — where a reader would look for a send button
+   * ---------------------------------------------------------------- */
+
+  const noRelay = {
+    headline: 'There is no send button on this record',
+    subhead: 'and its absence is a decision',
+    lines: [
+      'An export is a file and a manifest. It is written where the operator asked for it to be written, inside the customer’s own tenancy, and this instance holds no destination for it — no address, no endpoint, no queue.',
+      'The alerting precedent is one screen over and it is stricter than it looks: every alert destination is a configured row, a channel is the only place a dispatch can reach, and there is no relay behind it. An export has not even that, because an export is not dispatched at all.',
+      'The regulator returns this project already lodges work the same way and always have: the DWER portal, by hand, with the portal’s receipt kept as the evidence. What the product records is that a lodgement happened, not that it performed one.',
+      'Any integration that would route this data through vendor infrastructure is an anti-pattern to be redesigned rather than a feature to be configured. So the control below hands you a file; what happens to it afterwards is the contract’s business and yours.',
+    ],
+    precedent: { screen: 'alerts', label: 'Every destination is a configured row' },
+    lodgement: { screen: 'submissions', label: 'DWER portal · manual lodgement' },
+  };
+
+  /* The export record itself. */
+  const edd = {
+    id: `MOCK-WDL-EDD-${ROUND.code}`,
+    covers: ROUND.code,
+    coversLabel: ROUND.label,
+    collected: ROUND.collected,
+    certificate: ROUND.certificate,
+    laboratory: ROUND.laboratory,
+    validationState: ROUND.validationState,
+    format: 'EQuIS-compatible EDD',
+    /*
+     * The counterparty follows the convention wave 9 recorded rather than the
+     * project-code one. `MOCK-` marks this instance's own artefacts — the
+     * project codes, the custody form, the export identifier and the file
+     * names below — while a fictional *party* is marked by being obviously
+     * fictional, exactly as the two laboratories and the operator itself are
+     * (`Pilbara Analytical Services`, `Wandalup Resources Pty Ltd`). The first
+     * draft of this line read `MOCK-KRJ Holdings Pty Ltd`, which is worse on
+     * both counts: `MOCK-KRJ` is a *project code* in this seed, and the
+     * project it names belongs to the same operator, so the export would have
+     * been owed by Wandalup to itself.
+     */
+    requestedBy: 'Tallering Metals Pty Ltd — the joint-venture participant',
+    requestedUnder: 'Joint-venture agreement, schedule 6 — environmental data supply, quarterly, in the participant’s own system’s format',
+    requestedAt: '2026-05-22',
+    preparedBy: 'A. Nakamura',
+    preparedAt: `${AS_AT} 10:20 AWST`,
+    scope:
+      'Every sample on the round’s manifest and every test on it, at the validation state the round is in — not the results grid, which is a view over part of the same round.',
+    files,
+    reconciliation,
+    losses,
+    noRelay,
+    counts: {
+      checks: reconciliation.length,
+      agreed: agreed.length,
+      notCarried: notCarried.length,
+      lossKinds: losses.length,
+      fileRows: files.reduce((n, f) => n + f.rows, 0),
+    },
+  };
+
+  return {
+    formats,
+    inbound,
+    outbound,
+    outward,
+    outwardCounts,
+    tiers: TIERS,
+    byTier,
+    manifest,
+    grid,
+    emptyDisposition,
+    qcSamples,
+    qcCoded,
+    qcUncoded,
+    qualifiersWritten,
+    qualifiersProposed,
+    qualifiedResults,
+    proposedResults,
+    schemeGap,
+    edd,
+    counts: {
+      formats: formats.length,
+      inbound: inbound.length,
+      outbound: outbound.length,
+      drawnInFull: 1,
+      exercised: formats.filter((f) => f.runs > 0).length,
+    },
+  };
+})();

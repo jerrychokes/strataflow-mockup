@@ -43,6 +43,10 @@ import {
   // composites. One export, because the composite, the pits, the manifest and
   // the chain are one record that has to agree with itself.
   SOIL,
+  // Wave 10 — every format that crosses the boundary, and the one outbound
+  // file drawn all the way down: its outward mapping, its reconciliation and
+  // what it could not carry.
+  EXCHANGE,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -707,7 +711,342 @@ const migration = () =>
     ],
   }) +
   notice('default', 'Validation state and qualifiers came across, not just numbers.',
-    'FR-3.11 asks for the historical validation state to survive the move. A migration that lands the values and drops twenty years of qualifiers has moved the data and lost the record.');
+    'FR-3.11 asks for the historical validation state to survive the move. A migration that lands the values and drops twenty years of qualifiers has moved the data and lost the record.') +
+  /*
+   * Wave 10 — the symmetry sentence, and it is the whole of the enhancement.
+   *
+   * The proof above is the import's half of one discipline. Nothing on this
+   * screen said the other half exists, and the reason it matters is visible
+   * only when the two tables are put beside each other: the import's can say
+   * *agrees* on every row and the export's cannot. Both counts below are read
+   * off `EXCHANGE.edd`, so this paragraph cannot come apart from the table it
+   * is describing on another screen.
+   */
+  cols(
+    panel(
+      'The same proof, read at the other end',
+      '<p class="mk-tight">A migration proves what <strong>arrived</strong>: source rows against loaded rows, source exceedances against evaluated ones, and a count that disagrees is a migration nobody should trust. An export owes the mirror of it — a file leaving this instance is somebody else’s source, and it is trusted on exactly the same evidence. <strong>One discipline, read twice.</strong></p>' +
+        `<p class="mk-tight">Read twice, it is not symmetrical, and that is the finding rather than a gap in the drawing. The table above agrees on every row it can compute. The <a class="mk-ref" href="#exchange">2026 Q2 export’s reconciliation</a> runs ${EXCHANGE.edd.counts.checks} checks and <strong>${EXCHANGE.edd.counts.agreed} agree</strong>; the other ${EXCHANGE.edd.counts.notCarried} cannot, because what this instance holds has nowhere to land in the target format. An import can be complete. An export into somebody else’s vocabulary can only be <em>honest about what it dropped</em>.</p>` +
+        '<div class="mk-actions"><a class="mk-btn" href="#exchange">Every format that crosses the boundary</a></div>',
+    ),
+    notice('default', 'The direction that is proved is the direction that was built.',
+      `FR-3.11 asks for a reconciliation on the way in and this screen is it. FR-7.6 asks for regulator-format and EQuIS-compatible output on the way out, and the requirement is marked S8 — so the mirror is <a class="mk-ref" href="#exchange">drawn as a proposal</a> rather than claimed, and the ${EXCHANGE.counts.outbound} outbound formats sit beside the ${EXCHANGE.counts.inbound} inbound ones so the imbalance is visible instead of implied.`),
+    '3fr 2fr',
+  );
+
+/* ================================================================== *
+ * Wave 10 — what crosses the boundary, and on whose terms (FR-7.6, Domain R)
+ *
+ * The catalogue has drawn data exchange five times and never as one thing:
+ * `#formats` owns a laboratory's file shape, `#mapping-profiles` what the
+ * importer learned from each laboratory, `#imports` the runs, `#migration`
+ * one historical move, `#quarantine` the rows a format could not resolve.
+ * Every one of them looks inward. Nothing owned the question this screen is
+ * named for — what crosses the boundary, in which direction, and on whose
+ * terms — and FR-7.6's export had no surface at all.
+ *
+ * Everything renders from `EXCHANGE`. No count is typed on this screen.
+ * ================================================================== */
+
+const exchangeFormats = () => {
+  const X = EXCHANGE;
+  const E = X.edd;
+  const T = X.tiers;
+
+  /** A tier badge — glyph and word, never colour alone (§5.3). */
+  const tier = (key) => `<span class="mk-tag mk-tag--${T[key].tone}" title="${esc(T[key].means)}"><span aria-hidden="true">${esc(T[key].glyph)}</span> ${esc(T[key].label)}</span>`;
+  const dir = (d) => (d === 'in' ? C.status('inbound', 'neutral') : C.status('outbound', 'good'));
+
+  /** One reconciliation verdict, as a word with its own mark. */
+  const verdict = (v) =>
+    v === 'agrees'
+      ? C.status('agrees', 'good')
+      : v === 'reads as a pass'
+        ? C.status(v, 'bad')
+        : C.status(v, 'warn');
+
+  return (
+    head('Exchange formats', 'Every format that crosses this instance’s boundary, in either direction — what each one preserves, and what it cannot carry.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + btn('Define a format') + btn('Prepare an export', 'primary'),
+    }) +
+    notice(
+      'warning',
+      'Proposed. Five screens describe formats coming in and none of them answers what leaves, or on whose terms.',
+      `<a class="mk-ref" href="#imports">Import runs</a> owns the runs, <a class="mk-ref" href="#formats">EDD formats</a> a laboratory’s file shape, <a class="mk-ref" href="#mapping-profiles">Mapping profiles</a> what the importer learned from each laboratory, <a class="mk-ref" href="#migration">Legacy reconciliation</a> one historical move, <a class="mk-ref" href="#quarantine">Held rows</a> what a format could not resolve. All five look one way. The decision this screen exists for is taken before a file is written and cannot be taken on any of them: <strong>this deliverable is owed under a contract, in a vocabulary that is not ours — what survives the crossing, and what does the receiving system read where something does not?</strong> FR-7.6 is marked S8 in the product’s own sequencing and drawing it here does not reschedule it.`,
+    ) +
+    stats([
+      stat(String(X.counts.formats), 'formats that cross'),
+      stat(String(X.counts.inbound), 'inbound'),
+      stat(String(X.counts.outbound), 'outbound', 'warn'),
+      stat(`${E.counts.agreed} of ${E.counts.checks}`, 'export checks that agree', 'warn'),
+      stat(String(E.counts.lossKinds), 'things the file cannot carry', 'bad'),
+    ]) +
+
+    /* ---------------------------------------------------------------- *
+     * The inventory
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2">What crosses the boundary</h2>' +
+    `<p class="mk-tight">A format is a durable record with an owner and a version, and the two things worth knowing about one are not its field count. They are <strong>what it preserves</strong> and <strong>what it cannot carry</strong> — and the second is the column no format registry ever has, which is why a loss is usually discovered by the person receiving the file rather than by the person writing it.</p>` +
+    /*
+     * Two tables rather than one, and the split is a layout decision taken
+     * from a measurement. Eight columns — six of them short and two of them
+     * prose — puts a paragraph into a 90 px matrix column and renders it as
+     * a vertical ribbon of two words per line. The identity of a format and
+     * the fidelity of a format are also two different questions asked at two
+     * different moments, so the split is honest as well as legible.
+     */
+    table({
+      caption: `${X.counts.formats} formats — ${X.counts.inbound} inbound, ${X.counts.outbound} outbound. ${X.counts.exercised} of them have read a real file on this project; the rest are defined and unexercised, and the column says which.`,
+      head: ['Format', 'Direction', 'Owner', 'Version', 'Shape', 'Runs here', 'Where its detail is drawn'],
+      kind: 'matrix',
+      label: 'Every format that crosses the boundary',
+      rows: X.formats.map((f) => [
+        `<span class="mk-file mk-atom">${esc(f.name)}</span><small>${esc(f.kind)}</small>`,
+        dir(f.direction),
+        `<span class="mk-muted">${esc(f.owner)}</span>`,
+        `<code>${esc(f.version)}</code>`,
+        cell(`${esc(f.files)}${f.fields ? `<small>${f.fields} fields</small>` : ''}`),
+        f.runs
+          ? cell(`<span class="mk-num">${f.runs}</span><small>${f.rows.toLocaleString('en-AU')} rows</small>`)
+          : cell('<span class="mk-num mk-num--nil">0</span> <span class="mk-muted">defined, unexercised</span>'),
+        f.where === 'exchange'
+          ? `<span class="mk-muted">${esc(f.whereLabel)}</span>`
+          : `<a class="mk-ref" href="#${esc(f.where)}">${esc(f.whereLabel)}</a>`,
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted">This register restates none of those screens. It holds the two facts none of them carries — which way the file goes, and what the crossing costs — and the second is the table below.</p>` +
+    table({
+      caption: 'The column no format registry ever has. A loss is normally discovered by the person receiving a file rather than by the person writing it, which is late.',
+      head: ['Format', 'What it preserves', 'What it cannot carry'],
+      kind: 'records',
+      scroll: true,
+      label: 'What each format preserves, and what it cannot carry',
+      rows: X.formats.map((f) => [
+        cell(`<span class="mk-file">${esc(f.name)}</span> <span class="mk-muted">— ${esc(f.direction === 'in' ? 'inbound' : 'outbound')}</span>`),
+        `<span class="mk-muted">${esc(f.preserves)}</span>`,
+        `<span class="mk-muted">${esc(f.cannotCarry)}</span>`,
+      ]),
+    }) +
+    /*
+     * What the register deliberately leaves out, said on the register rather
+     * than left to be noticed. Every screen here has an Export menu writing
+     * four shapes; none of them is an exchange format, and the difference is
+     * worth one paragraph because it is the whole definition of the word.
+     */
+    `<p class="mk-tight mk-muted"><strong>What is not on this list.</strong> The four shapes every <a class="mk-ref" href="#crosstab">Export ▾</a> menu writes — workbook, CSV, Word table, vector figure — are this product’s own output in general-purpose containers, conforming to nobody’s specification and translating nothing. A format is on this register when <em>somebody else owns its vocabulary</em>, which is what creates a mapping and therefore a loss. The customer’s <a class="mk-ref" href="#report">report template</a> is owned by somebody else and is still not here: it carries prose and figures rather than records, so nothing in it is renamed on the way out.</p>` +
+    notice('default', `${X.counts.inbound} in, ${X.counts.outbound} out — and only one of the ${X.counts.outbound} is a file this instance writes.`,
+      `The other is a form somebody fills in on a regulator’s portal. That imbalance is not an oversight in the drawing; it is what a system of record for one jurisdiction looks like when the jurisdiction takes its returns by hand. It is also why the single file below is drawn in depth rather than the register being drawn in breadth: <a class="mk-ref" href="#coverage">parity with EQuIS across its full breadth is a stated non-goal</a>, and a format zoo would be the wrong answer to a contractual clause.`) +
+
+    /* ---------------------------------------------------------------- *
+     * The working example
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The working example — ${esc(E.coversLabel)} as an ${esc(E.format)}</h2>` +
+    `<p class="mk-tight">One export, drawn all the way through: the record, the mapping it applies on the way out, the reconciliation that proves it, and the list of what it could not take. It is the same round <a class="mk-ref" href="#crosstab">the results grid</a> draws and <a class="mk-ref" href="#imports">import run IMP-0241</a> committed — read out of this instance instead of into it.</p>` +
+    cols(
+      panel(
+        `${esc(E.id)}`,
+        facts([
+          ['Covers', `<a class="mk-ref" href="#events">${esc(E.covers)}</a> — ${esc(E.coversLabel)}<small>collected ${esc(E.collected)} · ${esc(E.laboratory)} certificate ${esc(E.certificate)}</small>`],
+          ['Validation state', `${tag(E.validationState, 'warn')}<small>the state the round is in, written into the file rather than upgraded on the way past</small>`],
+          ['Asked for by', `${esc(E.requestedBy)}<small>${esc(E.requestedAt)}</small>`],
+          ['Prepared by', `${esc(E.preparedBy)} · ${esc(E.preparedAt)}`],
+          ['Target format', `${esc(E.format)}<small>${esc(X.outbound[1].owner)}</small>`],
+        ]) +
+          `<p class="mk-tight"><strong>Owed under:</strong> ${esc(E.requestedUnder)}.</p>` +
+          `<p class="mk-tight"><strong>Scope:</strong> ${esc(E.scope)}</p>` +
+          `<p class="mk-tight mk-muted">The requesting party is a joint-venture participant, not a regulator. That is the ordinary case for FR-7.6 — a format is contractually specified far more often than it is legislated — and it is why the deliverable is owed in <em>their</em> system’s vocabulary rather than in one a regulator publishes.</p>`,
+      ),
+      panel(
+        `The file set — ${E.files.length} files, ${E.counts.fileRows.toLocaleString('en-AU')} rows`,
+        table({
+          caption: 'Each count is read from the register named beside it, not from the file.',
+          head: ['File<small>one row per</small>', 'Rows', 'Counted from'],
+          rows: E.files.map((f) => [
+            `<span class="mk-file">${esc(f.name)}</span><small>${esc(f.holds)}</small>`,
+            `<span class="mk-num">${f.rows.toLocaleString('en-AU')}</span>`,
+            `<span class="mk-muted">${esc(f.from)}</span>`,
+          ]),
+          scroll: true,
+          label: 'The files this export writes',
+        }) +
+          '<p class="mk-tight mk-muted">Laboratory batch controls — the method blank, the control sample, the spike and its duplicate — are referenced by batch rather than written as samples. They are not material taken from a location during a sampling event, so forcing them into the shape of one would be a category error the receiving system would then have to undo.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The outward mapping — ADR-0009 rendered
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The outward mapping — the domain writes LOR, the file receives EQL</h2>' +
+    cols(
+      panel(
+        'The rule, stated where it is being applied',
+        '<p class="mk-tight">The vocabulary of this product is the practitioner’s. The domain says <strong>LOR</strong> — every screen, every column heading, every report label — and a format that carries the same quantity under its own name has that name translated at the boundary rather than adopted. <a class="mk-ref" href="#formats">The format definitions</a> state the inward half of it: ESdat writes <code>EQL</code>, and <code>EQL</code> never reaches a screen.</p>' +
+          '<p class="mk-tight">An export is the identical rule read at the other end of the same boundary. The domain writes <strong>LOR</strong> and the file receives <code>EQL</code>, and nothing about that puts a second word in front of a practitioner — the format’s vocabulary goes into the file and stops there. <strong>What matters is that the mapping is a recorded table with a basis on every row, never an implicit rename.</strong> A translation nobody can look at is indistinguishable from a mistake nobody has found.</p>' +
+          `<p class="mk-tight mk-muted">This is not the file’s whole column list. It is every place the two vocabularies differ and every place one of them has nothing — which is the same scope the inward table has, for the same reason.</p>`,
+      ),
+      panel(
+        'Three tiers, and they are the inward table’s own',
+        /*
+         * A list rather than a three-column table. The middle column would be
+         * a number and the third a sentence, inside a 2fr panel — which is
+         * the same 90 px prose column the estate table was split to avoid.
+         */
+        `<ul class="mk-list">${Object.entries(T)
+          .map(([k, t]) => `<li>${tier(k)} — <strong>${X.outwardCounts[k]} rows.</strong> ${esc(t.means)}</li>`)
+          .join('')}</ul>` +
+          `<p class="mk-tight">A mapping that was not evidenced enough to trust on the way in is not evidenced enough to write on the way out. <strong>${X.outwardCounts.established} of ${X.outwardCounts.total}</strong> rows land; ${X.outwardCounts.refused} are refused on evidence the export declines to manufacture; ${X.outwardCounts.none} have nothing on the other side at all.</p>` +
+          `<p class="mk-tight mk-muted">A tier is a claim about <em>evidence</em>, not about confidence. “Does a source state this equivalence” has an answer somebody can check; “how sure is the matcher” is the inward question, and it belongs to <a class="mk-ref" href="#mapping-profiles">a profile</a> rather than here.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    table({
+      caption: `The outward mapping applied by this export — ${X.outwardCounts.total} rows, each with the basis it rests on.`,
+      head: ['The domain says', 'The file receives', 'Tier', 'On what basis'],
+      kind: 'matrix',
+      label: 'The outward mapping table',
+      rows: X.outward.map((r) => [
+        `<strong>${esc(r.domain)}</strong>`,
+        r.tier === 'established'
+          ? `<code class="mk-file mk-atom">${esc(r.writes)}</code>`
+          : `<span class="mk-muted">${esc(r.writes)}</span>`,
+        tier(r.tier),
+        `<span class="mk-muted">${esc(r.basis)}</span>`,
+      ]),
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * The reconciliation
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The reconciliation — the import’s proof, read at the other end</h2>' +
+    `<p class="mk-tight"><a class="mk-ref" href="#migration">A migration proves what arrived.</a> An export owes the mirror: a file leaving here is somebody else’s source and is trusted on the same evidence. Every row below says <strong>what it was counted over</strong>, because the round’s manifest and the results grid are two different populations of the same round and a proof that does not say which one it used is an assertion with a number on it.</p>` +
+    table({
+      caption: `${E.counts.checks} checks. ${E.counts.agreed} agree; ${E.counts.notCarried} cannot, and each of those names what it could not carry.`,
+      head: ['Check', 'Counted over', 'In the record', 'In the file', 'Verdict', 'What that means'],
+      kind: 'matrix',
+      label: 'The export reconciliation',
+      rows: E.reconciliation.map((r) => [
+        `<strong>${esc(r.check)}</strong>`,
+        `<span class="mk-muted">${esc(r.over)}</span>`,
+        `<span class="mk-num">${r.record.toLocaleString('en-AU')}</span>`,
+        r.file === r.record
+          ? `<span class="mk-num">${r.file.toLocaleString('en-AU')}</span>`
+          : `<span class="mk-num mk-num--warn">${r.file.toLocaleString('en-AU')}</span>`,
+        verdict(r.verdict),
+        `<span class="mk-muted">${esc(r.says)}</span>`,
+      ]),
+    }) +
+    notice(
+      'warning',
+      `${E.counts.agreed} of ${E.counts.checks} rows agree, and the asymmetry with the import’s proof is the finding rather than a shortfall in the drawing.`,
+      `<a class="mk-ref" href="#migration">The migration’s reconciliation</a> can say <em>agrees</em> on every row it computes, because a file that arrived either matched its source or did not. This one cannot, and no amount of care would make it: ${E.counts.notCarried} of the checks are about things the target vocabulary has no place for. <strong>An import can be complete; an export into somebody else’s format can only be honest about what it dropped.</strong> That is what makes the list below part of the proof rather than a caveat under it.`,
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The loss statement
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">What the file cannot carry, named</h2>' +
+    `<p class="mk-tight">A loss that is stated is a decision somebody can take — cover it in the transmittal, renegotiate the format, or accept it knowingly. A loss that is not stated is discovered by the person on the other end, months later, as a disagreement about what the data said. Each entry below carries <strong>what was checked before the claim was made</strong>, because “the format cannot carry it” is easy to write and easy to be wrong about.</p>` +
+    E.losses
+      .map((l) =>
+        C.card({
+          tone: l.what.startsWith('Indeterminate') || l.what.startsWith('The field disposition') ? 'bad' : 'warn',
+          head:
+            `<span class="mk-queue__kind">${esc(l.what)}</span>` +
+            `<span class="mk-queue__age"><span class="mk-num">${l.n.toLocaleString('en-AU')}</span> ${esc(l.unit)}</span>`,
+          body:
+            `<p class="mk-tight"><strong>Verified against what the format could carry:</strong> ${esc(l.checked)}</p>` +
+            `<p class="mk-tight"><strong>What the receiving system reads instead:</strong> ${esc(l.reads)}</p>`,
+          foot: `<a class="mk-btn mk-btn--sm" href="#${esc(l.where)}">Where it lives here — ${esc(l.whereLabel)}</a>`,
+        }),
+      )
+      .join('') +
+    cols(
+      panel(
+        `Dry is not missing, and this is where the distinction is lost`,
+        `<p class="mk-tight">${loc(X.grid.emptyColumns[0])} was visited twice on this round, dipped to the base of its screened interval and found <strong>${esc(X.emptyDisposition.label.toLowerCase())}</strong>. <a class="mk-ref" href="#crosstab">The results grid draws its column</a> rather than removing it, and each of its ${X.grid.emptyCells} cells carries the disposition’s own glyph <span aria-hidden="true">${esc(X.emptyDisposition.glyph)}</span> and its own word: an absence of material, not a result below a limit of reporting, and not a pass.</p>` +
+          `<p class="mk-tight"><strong>None of that crosses.</strong> A deliverable has a row per sample; a bore that yielded no sample produces no row; so the file contains ${X.manifest.locations.length} locations where the round planned ${X.grid.columns}, and ${esc(X.grid.emptyColumns[0])} is simply not in it. A reader of the file cannot tell a dry bore from a bore whose results have not been sent yet — and those are different facts, one about the aquifer and one about the round.</p>` +
+          `<p class="mk-tight mk-muted">This instance keeps the two apart on every surface it owns. The export is where the distinction meets a format that has never had it, and the honest thing to do is say so before the file is written rather than after somebody reads it.</p>` +
+          `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#field-capture">The bore session that recorded it</a><a class="mk-btn mk-btn--sm" href="#data-states">The four states, everywhere</a></div>`,
+      ),
+      panel(
+        'What the export does about it, which is not nothing',
+        '<p class="mk-tight">Every loss above is surfaced <strong>before</strong> the file is written, as a decision with named consequences rather than a warning to click past. Ambiguity is a decision the user makes, never a silent default — the same rule the exception queue keeps on the way in.</p>' +
+          /*
+           * A list, for the reason the estate table was split: three prose
+           * columns inside a 1fr panel is a 110 px column per sentence.
+           */
+          `<p class="mk-tight mk-muted">The three ways out, and the product does not choose between them.</p>` +
+          `<ul class="mk-list">${[
+            ['Write, and cover it in the transmittal', 'The file as reconciled, plus this loss statement as the transmittal note the recipient reads first.', 'Nothing, if the note is read. The record shows what was said, to whom, and when.'],
+            ['Write, and hold the affected rows', `The ${X.qcUncoded.length} untyped QC samples held back rather than written as something they are not.`, 'A thinner file. A recipient computing precision from field duplicates gets no pairs at all rather than wrong ones.'],
+            ['Renegotiate the format', 'Nothing yet. The clause specifies a format that cannot carry this project’s QA/QC design, and the counterparty is told so.', 'Time, and a conversation. It is the only option that fixes the cause rather than the symptom.'],
+          ]
+            .map(([o, w, c]) => `<li><strong>${esc(o)}.</strong> ${esc(w)} <span class="mk-muted">The cost: ${esc(c)}</span></li>`)
+            .join('')}</ul>` +
+          '<p class="mk-tight mk-muted">There is no fourth option where the file quietly writes a field duplicate as an ordinary sample and nobody is told. That is the option this screen exists to remove.</p>',
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * DR-2 — where a reader would look for a send button
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Where the send button would be</h2>' +
+    cols(
+      C.card({
+        tone: 'good',
+        head: `<span class="mk-queue__kind">${esc(E.noRelay.headline)}</span><span class="mk-queue__age">${esc(E.noRelay.subhead)}</span>`,
+        body:
+          E.noRelay.lines.map((l) => `<p class="mk-tight">${esc(l)}</p>`).join('') +
+          `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#${esc(E.noRelay.precedent.screen)}">${esc(E.noRelay.precedent.label)}</a>` +
+          `<a class="mk-btn mk-btn--sm" href="#${esc(E.noRelay.lodgement.screen)}">${esc(E.noRelay.lodgement.label)}</a></div>`,
+      }),
+      panel(
+        'The two controls this record has, and the one it does not',
+        /*
+         * A list rather than a three-column table, on the same measurement as
+         * the two above: a sentence per cell inside a 2fr panel is unreadable
+         * before it is anything else.
+         */
+        `<ul class="mk-list">${[
+          ['Prepare an export', 'Runs the mapping, the reconciliation and the loss statement, and shows all three before anything is written.', 'Nowhere. Nothing has been written yet'],
+          ['Write the file set', `Writes the ${E.files.length} files and a manifest naming every count above, into the location the operator configured.`, 'The customer’s own tenancy, where it already was'],
+        ]
+          .map(([c, w, where]) => `<li><strong>${esc(c)}.</strong> ${esc(w)} <span class="mk-muted">Where the data ends up: ${esc(where)}.</span></li>`)
+          .join('')}<li><strong>Send to…</strong> <em>Does not exist.</em> There is no destination field on this record, no endpoint to configure, and no relay behind one. <span class="mk-muted">Where the data ends up: nowhere — there is nothing here that moves it.</span></li></ul>` +
+          '<p class="mk-tight">Alerting is the nearest thing this product has to sending, and it is stricter than it looks: a destination is a configured row in the customer’s own infrastructure, it is the only place a dispatch can reach, and a redirect is refused rather than followed. An export is a step further out again — it is not dispatched at all.</p>' +
+          '<p class="mk-tight mk-muted">Read the absence as load-bearing rather than unfinished. A control that offered to deliver this file would need somewhere to deliver it from, and there is deliberately no such place.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The gap this wave found, recorded where it bites
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">One thing the export needs that this record does not hold</h2>' +
+    cols(
+      C.card({
+        tone: 'warn',
+        head: '<span class="mk-queue__kind">Found while drawing this — 2 September 2026</span><span class="mk-queue__age">deferred, owner unassigned</span>',
+        body:
+          `<p class="mk-tight"><strong>The <em>${esc(X.schemeGap.term)}</em> — the vocabulary a code belongs to — decides whether that code may be written into the file at all, and the QA/QC register does not carry one.</strong> ${esc(X.schemeGap.rule)}</p>` +
+          `<p class="mk-tight">Four codes are affected on this round: <strong>${X.schemeGap.applied.map((q) => esc(q)).join(' and ')}</strong> are applied to ${X.qualifiedResults} results between them, and <strong>${X.schemeGap.proposed.map((q) => esc(q)).join(' and ')}</strong> are proposed and unapplied. Which of the four belongs to a laboratory’s vocabulary and which to this instance’s is exactly the question the export has to answer, and the register answers a different one — it records the <a class="mk-ref" href="#qualifiers">basis each qualifier travelled on</a>, which is what an auditor asks and not what a file writer needs.</p>` +
+          `<p class="mk-tight mk-muted">${esc(X.schemeGap.why)} It is recorded here rather than closed in passing, because guessing the vocabulary of a code is the same mistake as guessing a field mapping — and the whole of this screen is about not doing that.</p>`,
+        foot: '<a class="mk-btn mk-btn--sm" href="#qualifiers">Where every qualifier states its basis</a><a class="mk-btn mk-btn--sm" href="#qc">The decision layer</a>',
+      }),
+      panel(
+        'What this screen deliberately does not do',
+        '<p class="mk-tight"><strong>It does not draw a format zoo.</strong> Parity with the incumbent across its full domain breadth is a stated non-goal, and drawing ten outbound formats would perform coverage rather than earn it. One export is drawn all the way down instead: the mapping with a basis on every row, the reconciliation with a population named on every check, and the losses with what was verified beside each one.</p>' +
+          `<p class="mk-tight"><strong>It does not invent field names.</strong> Every landed row of the mapping table rests on a mapping this project already recorded on the way in. Where the evidence stops, the table stops — ${X.outwardCounts.refused} rows write nothing on purpose — rather than continuing with plausible-looking columns nobody can cite.</p>` +
+          '<p class="mk-tight"><strong>It does not upgrade the data on the way past.</strong> The round leaves at the validation state it is in. An export that quietly wrote a better state than the record holds would be the one failure mode worse than losing a column.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+    `<div class="mk-actions"><a class="mk-btn" href="#crosstab">The grid this round’s results are read on</a><a class="mk-btn" href="#migration">The proof read the other way</a><a class="mk-btn" href="#mapping-profiles">The inward mappings</a><a class="mk-btn" href="#formats">The format definitions</a></div>`
+  );
+};
 
 /* ================================================================== *
  * The field round, rebuilt around the bore session (wave 6, PR-1)
@@ -1938,6 +2277,17 @@ const crosstab = () => {
       actions: ['Assign a qualifier', 'Open lineage', 'Add to the report', 'Export the selection'],
       undo: 'Qualifying is recorded, attributed and reversible.',
     }) +
+    /*
+     * Wave 10 — the export action, backed rather than dangling.
+     *
+     * `C.exportMenu()` in the toolbar and "Export the selection" above both
+     * write *this grid*, in one of four shapes, and say so. Neither is a
+     * deliverable in somebody else's format: that is a different act on a
+     * different population, and until this wave nothing on this screen said
+     * where it lived. The counts come from `EXCHANGE`, so the sentence cannot
+     * drift from the record it points at.
+     */
+    `<p class="mk-tight mk-muted"><strong>Export ▾ and “Export the selection” write this grid</strong> — these rows, these columns, this filter, in one of four shapes. <strong>A deliverable in somebody else’s format is a different act.</strong> It covers the round’s whole manifest rather than a view over part of it (${EXCHANGE.manifest.results} results against the ${CROSSTAB_SHAPE.results} here), it maps this product’s words outward into that format’s vocabulary, and what it cannot carry is stated before it is written rather than discovered by whoever receives it. <a class="mk-ref" href="#exchange">The exchange record holds it</a>, with the mapping, the reconciliation and the ${EXCHANGE.edd.counts.lossKinds} named losses.</p>` +
     table({
       caption: 'Results by analyte and location — 2026 Q2. Two marks per value, always in the same order.',
       label: 'Results by analyte and location — 2026 Q2',
@@ -8162,6 +8512,50 @@ const mappingProfiles = () => (
         }) +
         '<p class="mk-tight">The middle row is the one that has to keep its attribution. “The system did it” and “you did it, eighteen months ago, on the Kurrajong import” are different answers to an auditor, and only one of them is true.</p>',
     ),
+  ) +
+  /*
+   * Wave 10 — the honest note rather than a parallel mechanism.
+   *
+   * The wave offered a choice: an outward profile beside the inward ones, or
+   * the statement that profiles are inward-only and the export's mapping
+   * lives on its own record. The structure above settles it. Every column on
+   * these two tables is a property of *learning* — who taught it, when, how
+   * many results it has produced, what a correction would reach back over —
+   * and an outward mapping has none of them: it is fixed by somebody else's
+   * specification, it is not learned, it produces no results, and correcting
+   * it changes no stored value. A row here with five columns that mean
+   * nothing and a sixth that means something different would be a second
+   * mechanism wearing this one's clothes. Both counts are read from the seed.
+   */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">Every profile here is inward, and that is a fact about the mechanism</h2>' +
+  cols(
+    panel(
+      'Why the outward mapping is not a profile',
+      `<p class="mk-tight">All <strong>${MAPPING_PROFILES.length} profiles</strong> above are per-laboratory memory: what <em>this</em> laboratory writes, and what this instance decided it means. That shape exists because laboratories differ from each other and drift over time, so the mapping has to be learned, attributed and correctable — and a correction has to reach back over every result it produced.</p>` +
+        `<p class="mk-tight">An <a class="mk-ref" href="#exchange">outward mapping</a> is none of those things. It is fixed by the receiving party’s specification rather than learned from anyone; it has no per-laboratory dimension, because one file is written for one recipient out of results from several laboratories at once; it produces no results, so there is nothing for a correction to reach back over; and where the evidence for a rename is thin it carries an <strong>evidence tier</strong> rather than a confidence, because the question is “does a source state this” and not “how sure is the matcher”.</p>` +
+        `<p class="mk-tight">So it lives on the export’s own record, where its ${EXCHANGE.outwardCounts.total} rows sit beside the reconciliation they explain. Giving it a profile row here would be a parallel mechanism under this one’s name, which is the failure this screen is otherwise about.</p>` +
+        '<div class="mk-actions"><a class="mk-btn" href="#exchange">The outward mapping, on the record that applies it</a></div>',
+    ),
+    panel(
+      'The two mappings, side by side',
+      table({
+        caption: 'One boundary, two directions, and almost nothing in common but the word.',
+        head: ['', 'Inward — a profile', 'Outward — on the export'],
+        kind: 'matrix',
+        label: 'Inward profiles compared with the outward mapping',
+        rows: [
+          ['Fixed by', 'What a laboratory happens to write', 'The receiving party’s specification'],
+          ['Learned', 'Yes — by a person or by the dictionary, and it says which', 'No. There is nobody to learn it from'],
+          ['Held per', 'Laboratory', 'Target format'],
+          ['Scope today', `${MAPPING_PROFILES.length} laboratories, ${MAPPING_PROFILES.reduce((n, p) => n + p.entries, 0).toLocaleString('en-AU')} entries`, `1 format, ${EXCHANGE.outwardCounts.total} rows`],
+          ['Uncertainty is', 'A confidence, and a low one becomes a question', 'An evidence tier, and a thin one writes nothing'],
+          ['Correcting it', 'Supersedes results and reaches back', 'Rewrites the next file. Nothing stored moves'],
+          ['A wrong one costs', 'Results carrying a method they were never measured by', 'A recipient reading a number as something it is not'],
+        ].map(([a, b, c]) => [`<strong>${esc(a)}</strong>`, esc(b), esc(c)]),
+      }) +
+        '<p class="mk-tight mk-muted">The last row is the one worth sitting with. An inward mistake is recoverable here, because this instance still holds the original file and the supersession machinery to undo what the mapping produced. An outward mistake has already left.</p>',
+    ),
+    '2fr 3fr',
   )
 );
 
@@ -8839,7 +9233,17 @@ const coverage = () => {
     ['FR-7.3', 'A data snapshot with every issued report; identical regeneration', 'covered', 'snapshot', 'P0', ''],
     ['FR-7.4', 'Customer-branded output; Strataflow attribution metadata only', 'covered', 'report', 'P1', 'A property of the output, stated on the composer'],
     ['FR-7.5', 'Prescriptive regulatory reports, versioned, golden-tested', 'covered', 'report', 'P1', `The comparison against the approved reference, gating the snapshot — ${GOLDEN.passed} checks passing, ${GOLDEN.failed} failing on unwritten sections, and a named past drift`],
-    ['FR-7.6', 'Regulator-format and EQuIS-compatible EDD export (S8)', 'deferred', '—', 'P4', ''],
+    /*
+     * Wave 10 — 2 September 2026, on the rule waves 8 and 9 used: the row
+     * moves from `deferred` to `proposed`, which is a claim about this
+     * catalogue and not about the product. FR-7.6's S8 marking is untouched,
+     * the screen that owns the row is `proposed` in the register, and the
+     * note says what was drawn *and* what was not — NG1 makes parity across
+     * EQuIS's breadth a non-goal, so one export is drawn all the way down
+     * rather than a format zoo drawn shallowly.
+     */
+    ['FR-7.6', 'Regulator-format and EQuIS-compatible EDD export (S8)', 'proposed', 'exchange · migration · mapping-profiles', 'P4',
+      `Drawn 2 Sep 2026 as a proposal — ${EXCHANGE.counts.formats} formats as records (${EXCHANGE.counts.inbound} inbound, ${EXCHANGE.counts.outbound} outbound), one export drawn in full: an outward mapping of ${EXCHANGE.outwardCounts.total} rows each carrying its evidence tier, a reconciliation where ${EXCHANGE.edd.counts.agreed} of ${EXCHANGE.edd.counts.checks} checks agree and the other ${EXCHANGE.edd.counts.notCarried} name what could not cross, and ${EXCHANGE.edd.counts.lossKinds} losses stated with what was verified beside each. Parity across EQuIS’s breadth stays a non-goal and the PRD’s S8 marking stands`],
     ['FR-8.1', 'Sampling programs with due and overdue tracking', 'covered', 'programme · obligations', 'P0', ''],
     ['FR-8.2', 'Exceedance and trigger alerts with acknowledgement and escalation', 'covered', 'alerts', 'P0', ''],
     ['FR-8.3', 'Approval and sign-off distinct from data validation', 'covered', 'signoff', 'P0', ''],
@@ -8861,7 +9265,14 @@ const coverage = () => {
     ['OM-5', 'Configuration portability, versioned independently of the app', 'partially', 'formats · criteria', 'P2', 'Versions are shown; the package import/export surface is not drawn'],
     ['DR-1', 'All customer data in the customer’s own tenancy; no egress', 'no screen', '—', 'P0', 'Architecture; stated on the instance screen'],
     ['DR-2', 'No vendor telemetry; diagnostics are customer-initiated', 'covered', 'diagnostics', 'P0', ''],
-    ['DR-3', 'No integration routes customer data through vendor infrastructure', 'no screen', '—', 'P1', 'A standing constraint on Domain R, recorded before anything is drawn there'],
+    /*
+     * Wave 10 — the constraint stops being standing-and-undrawn. It was "no
+     * screen" because nothing in Domain R had been drawn; the first thing
+     * drawn there states it where a reader would look for the thing it
+     * forbids, which is what the row was waiting for.
+     */
+    ['DR-3', 'No integration routes customer data through vendor infrastructure', 'covered', 'exchange · alerts', 'P1',
+      'Stated on the export record, where a reader would look for a send button: an export is a file and a manifest, this instance holds no destination for one, and the two controls that exist are named beside the one that does not. The alerting precedent — every destination a configured row, no relay behind it — is cited rather than restated'],
   ];
 
   const BASELINE = [
@@ -9198,6 +9609,36 @@ export const JOBS = [
       { id: 'composite', label: 'Composite sample', body: compositeSample, now: 'proposed', added: '2026-09-02' },
       { id: 'certificate', label: 'Certificate and supersession', body: certificate, state: 'engine-only', now: 'shipped' },
       { id: 'migration', label: 'Legacy reconciliation', body: migration, state: 'engine-only', now: 'shipped' },
+      /*
+       * Wave 10, and the `state`-less rule a fourth time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A format
+       * that crosses this instance's boundary is a durable record with an
+       * owner, a version and a lifecycle of its own — defined, exercised,
+       * superseded when the counterparty's system moves — and an *export* is
+       * a decision taken before a file is written: this deliverable is owed in
+       * a vocabulary that is not ours, so what survives the crossing and what
+       * does the receiving system read where something does not? (2) No
+       * existing screen owns it, and five own pieces that all face inward:
+       * `formats` a laboratory's file shape, `mapping-profiles` what the
+       * importer learned from one laboratory, `imports` the runs,
+       * `migration` one historical move, `quarantine` the rows a format could
+       * not resolve. None of them can answer "what leaves, and on whose
+       * terms" without becoming a different screen. (3) It needs its own
+       * state: the outward mapping with a basis per row, the reconciliation
+       * with a population per check, the loss statement and the
+       * write-or-hold-or-renegotiate decision are a workspace, not a panel on
+       * something else. (4) It improves the graph rather than the count — it
+       * is the only screen that reaches an outbound format at all, and it
+       * gives `migration`, `mapping-profiles` and `crosstab` a target they
+       * would otherwise have to describe instead of link.
+       *
+       * `proposed`, and it stays that way: FR-7.6 is marked S8 in the PRD's
+       * own sequencing and drawing a deferred requirement does not
+       * reschedule it.
+       */
+      { id: 'exchange', label: 'Exchange formats', body: exchangeFormats, now: 'proposed', added: '2026-09-02' },
       { id: 'field-capture', label: 'Field capture', body: fieldCapture, state: 'proposed', now: 'proposed' },
     ] },
   { id: 'j2', n: 'J2', title: 'Know the data is right', who: 'U1 · U2',
@@ -9336,7 +9777,20 @@ export const RELATED = {
   purge: ['field-capture', 'location', 'events', 'dqa', 'receipt'],
   receipt: ['events', 'ecoc', 'batches', 'qc', 'documents', 'purge'],
   certificate: ['supersession', 'lineage', 'imports', 'documents', 'hardness', 'exceedances', 'tarp', 'snapshot'],
-  migration: ['imports', 'validation', 'audit', 'mapping-profiles'],
+  // Wave 10: the proof read the other way is a screen now, so the screen that
+  // holds the inbound half links to it rather than describing it.
+  migration: ['imports', 'validation', 'audit', 'mapping-profiles', 'exchange'],
+
+  // Wave 10 — the boundary, both directions. The declared exits are the four
+  // screens that hold the inward half of the same discipline (the format
+  // definitions, the learned profiles, the migration proof, the runs); the
+  // grid and the round the drawn export is taken from; the two precedents its
+  // no-relay statement rests on — the alert destinations that are configured
+  // rows, and the archive that records a manual lodgement rather than a send;
+  // and the qualifier register the deferral below names. The remaining format
+  // records reach `quarantine`, `logger-series` and `water` by inline href
+  // from the register itself, which the dead-href check holds to the same bar.
+  exchange: ['formats', 'mapping-profiles', 'migration', 'imports', 'crosstab', 'events', 'alerts', 'submissions', 'qualifiers'],
   'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events'],
   // The chain is raised in the field and closed at the laboratory, so it sits
   // between the two screens that own those ends rather than beside either.
@@ -9363,7 +9817,7 @@ export const RELATED = {
   qualifiers: ['qc', 'validation', 'lineage', 'result-detail'],
 
   exceedances: ['result-detail', 'hardness', 'indeterminate', 'lineage', 'tarp', 'map'],
-  crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report'],
+  crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report', 'exchange'],
   'result-detail': ['hardness', 'lineage', 'crosstab', 'qc', 'batches', 'field-capture', 'ecoc'],
   hardness: ['result-detail', 'criteria', 'indeterminate', 'lineage', 'consistency'],
   indeterminate: ['hardness', 'exceedances', 'crosstab', 'dqa', 'report'],
@@ -9414,8 +9868,12 @@ export const RELATED = {
 
   'project-settings': ['roles', 'criteria', 'facility', 'projects'],
   criteria: ['hardness', 'crosstab', 'background', 'dictionary', 'licence', 'exceedances', 'signoff', 'audit'],
-  formats: ['imports', 'dictionary', 'import-review', 'mapping-profiles'],
-  'mapping-profiles': ['formats', 'dictionary', 'import-review', 'supersession'],
+  // Wave 10 adds one edge to each of these and no body change to `formats`:
+  // the format registry's natural onward step is the register of what those
+  // formats are *for*, and the mapping screen's is the mapping that does not
+  // live on a profile because it is not learned from a laboratory.
+  formats: ['imports', 'dictionary', 'import-review', 'mapping-profiles', 'exchange'],
+  'mapping-profiles': ['formats', 'dictionary', 'import-review', 'supersession', 'exchange'],
   dictionary: ['formats', 'criteria', 'import-review', 'units'],
   units: ['dictionary', 'result-detail', 'lineage'],
   roles: ['audit', 'signoff', 'project-settings'],

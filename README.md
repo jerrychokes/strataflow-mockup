@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **71 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **72 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -697,6 +697,67 @@ is absent and what it would need: a grammar proposal to Jerry, first. Vapour, th
 FR-1.7 names, is not drawn either: there is no soil-gas programme on this seed to draw it
 honestly, and the coverage row says so on its own face.
 
+**Wave 10 (2 September 2026) draws the boundary itself — what crosses it, in which direction,
+and on whose terms.** The catalogue had drawn data exchange five times and never as one thing:
+`#formats` owns a laboratory's file shape, `#mapping-profiles` what the importer learned from
+one laboratory, `#imports` the runs, `#migration` one historical move, `#quarantine` the rows a
+format could not resolve — and every one of them faces inward. FR-7.6's export had no surface
+at all. `#exchange` is that register, `proposed`, because FR-7.6 is marked S8 in the PRD's own
+sequencing and drawing a deferred requirement does not reschedule it. **Seven formats as
+records** — five inbound, two outbound, each with an owner, a version, what it preserves and
+**what it cannot carry**, which is the column no format registry ever has.
+
+**One export is drawn all the way down rather than seven drawn shallowly**, because parity with
+EQuIS across its full breadth is a stated non-goal (NG1) and a format zoo would be the wrong
+answer to a contractual clause. The 2026 Q2 groundwater round, owed to a joint-venture
+participant as an EQuIS-compatible EDD, in three parts:
+
+- **The outward mapping is ADR-0009 rendered.** The domain says **LOR** and the file receives
+  `EQL`, and the rename is a recorded table with a basis on every row rather than something the
+  writer does silently. Twenty-three rows in three tiers, and the tiers are the app repo's own
+  inbound table read the other way: **14 land** on a mapping this project already evidenced,
+  **3 are refused** — a PQL is not written into `RDL` on the strength of the names, because the
+  *importer* declined that trade on the same evidence — and **6 have nothing on the other side
+  at all**. A mapping not evidenced enough to trust on the way in is not evidenced enough to
+  write on the way out, and the table stops where the evidence does instead of continuing with
+  plausible-looking columns nobody can cite.
+- **The reconciliation is FR-3.11's proof read at the other end, and it is not symmetrical.**
+  Ten checks, each naming the population it counted over, because the round's manifest (11
+  samples, 155 results, 6 locations) and the results grid (11 analytes, 66 results, 14
+  non-detects) are two true counts of the same round. **Five agree. Five cannot** — and that
+  asymmetry is the finding rather than a shortfall in the drawing: an import can be complete,
+  while an export into somebody else's vocabulary can only be honest about what it dropped.
+- **The loss statement names six things and says what was checked before each claim.** *"The
+  format cannot carry it"* is easy to write and easy to be wrong about, so every entry carries
+  its verification and what the receiving system reads instead. **132 evaluation outcomes have
+  no column** — an outcome is a result and a criterion together, and the criteria set does not
+  cross. **11 of them are indeterminate**, and that is a missing *state* rather than a missing
+  column, so no setting on the receiving side recovers it — the incumbent baseline records one
+  of the two incumbents rendering exactly that case as a *pass* unless a non-default setting is
+  enabled, and 11 outcomes that are explicitly not passes arrive as a number, a limit and
+  nothing else. **`MW11` is simply absent**: it was visited twice, dipped and found dry, so it
+  produced no sample and therefore no row — and a reader of the file cannot tell a dry bore
+  from a bore whose results have not been sent, which is the keep-list's own distinction lost
+  in translation. **Four of the five field QC samples have no sample-type code** in the
+  published list, and they are exactly the controls that answer *did the sampling introduce
+  this*. **Ten qualified results carry a propagation basis** the file has no field for.
+
+**DR-2 is drawn where a reader would look for the thing it forbids.** An export is a file and
+a manifest; this instance holds no destination for one; and the record names its two controls —
+prepare, and write the file set — beside the one that does not exist. The alerting precedent is
+cited rather than restated (every destination a configured row, no relay behind it), and so is
+the way this project already lodges regulator returns: the DWER portal, by hand, with the
+portal's receipt kept as the evidence.
+
+**And it found one thing the export needs that the record does not hold.** A qualifier's
+*scheme* — USEPA, ESdat or Strataflow — decides whether the code may be written into a
+laboratory qualifier field at all, and the QA/QC register carries each qualifier's *propagation
+basis* and not its scheme. Four codes are affected. Closing it means deciding the vocabulary of
+each across four screens that already draw them, which is a decision rather than a column, so
+it is recorded — dated, in the seed and on the screen — rather than guessed at in passing.
+Guessing the vocabulary of a code is the same mistake as guessing a field mapping, and the
+whole of that screen is about not doing that.
+
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
 with no accessible name, heading order, empty panels and degenerate SVG geometry — all
@@ -720,7 +781,7 @@ compositing.
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Thirteen figure generators, drawn to the approved grammar. The hourly logger plate added in wave 8 is the same line-over-time family as the hydrograph — cadence is not a family — and introduces none |
-| `screens.mjs` | The 71 screens, the job spine, and the link graph |
+| `screens.mjs` | The 72 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
 | `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |

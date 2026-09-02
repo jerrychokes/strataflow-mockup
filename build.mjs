@@ -108,7 +108,14 @@ const SECTION_VIEW = [
   // rather than to any one place. Two of its nine increments have no place on
   // the register at all, which settles it.
   { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture', 'composite'] },
-  { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, and what each one rests on', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles'] },
+  // Wave 10 files the exchange register here, and the lede gains a clause for
+  // it. Every screen in this group faced inward — a deliverable arriving and
+  // what it rests on — and the one register that holds *both* directions
+  // belongs beside them rather than under Reports: a format is a format
+  // whichever way the file is moving, and the detail behind four of its seven
+  // rows is on `formats`, `mapping-profiles`, `migration` and `imports`, all
+  // of which are in this group already.
+  { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, what each one rests on, and every format that crosses the boundary in either direction', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles', 'exchange'] },
   { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
   { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
