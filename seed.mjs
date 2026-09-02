@@ -6484,10 +6484,13 @@ export const CRITERIA_DRAFT = (() => {
         `Reversible as an evaluation and not as a consequence. Rolling back re-evaluates every total the rule reached — ${NON_DETECT.active.length} — and withdraws whatever exceedances it raised, which on this round is ${changed.length}; it does not un-lodge a notification that has gone to DWER. That asymmetry is the whole reason this preview is drawn before the button rather than after it — and it is exactly the asymmetry the ${beforeChanges} clocks would have been on the wrong side of.`,
     },
     rollback: {
+      // W15-A-1: this card typed 7 and 6 — the same stale wave-7-era numbers the
+      // activation preview beside it had already settled — while that preview
+      // computed. Both cards count off the record now, through the same values.
       writes: [
         { what: 'Set version deactivated', n: '1 — superseded, and both stay readable' },
-        { what: 'Derived totals re-evaluated', n: '7' },
-        { what: 'Exceedances withdrawn', n: '6 — withdrawn, never deleted' },
+        { what: 'Derived totals re-evaluated', n: `${NON_DETECT.active.length} — this card said 7 until the wave that settled the reach` },
+        { what: 'Exceedances withdrawn', n: `${changed.length} — withdrawn, never deleted; this card said 6` },
         { what: 'Notifications un-lodged', n: '0 — a lodgement is withdrawn by writing to the regulator' },
         { what: 'Audit records written', n: 'One per change, appended, attributed' },
       ],
