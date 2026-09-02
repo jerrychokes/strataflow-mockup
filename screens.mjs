@@ -50,6 +50,9 @@ import {
   // Wave 11 — the external-party engagement, and the instance's whole
   // authorisation configuration as the one list the glossary says it is.
   BINDINGS, ENGAGEMENT,
+  // Wave 12 — the configuration package read against what is in force, and
+  // the vendor's own register of the deployments it operates.
+  CONFIG_PACKAGE, ESTATE,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -4425,7 +4428,10 @@ const criteriaVersionWorkspace = () => {
     '<h2 class="mk-h2" style="margin-top:1.4rem">A version pair, one field apart</h2>' +
     `<p class="sf-lede mk-tight">${esc(D.set)} — <code>${esc(D.active.version)}</code> in force, <code>${esc(D.draft.version)}</code> in draft. The version is this instance’s configuration of the set, not a new edition of the guideline: no value in it moves.</p>` +
     table({
-      caption: 'Side by side. Four rows identical, one row different, and the different one decides six outcomes.',
+      // Counted rather than typed: wave 12 adds a row to this table, and
+      // "four rows identical, one row different" was a hand-kept description
+      // of a shape that had just changed underneath it.
+      caption: `Side by side. ${D.same.length} rows the draft does not touch, one field that differs, and that one field decides ${D.test.changes} outcomes.`,
       head: ['', `Version ${esc(D.active.version)}<small>in force</small>`, `Version ${esc(D.draft.version)}<small>draft</small>`],
       kind: 'matrix',
       label: 'Criteria set version pair',
@@ -4433,6 +4439,27 @@ const criteriaVersionWorkspace = () => {
         pair('Effective', `<span class="sf-instant">${esc(D.active.effective)}</span>`, `<span class="sf-instant">${esc(D.draft.effective)}</span>`),
         pair('State', C.status(D.active.state, 'good'), C.status(D.draft.state, 'warn')),
         pair('Proposed by', `<span class="mk-muted">${esc(D.active.by)}</span>`, `${esc(D.draft.by)} · <span class="sf-instant">${esc(D.draft.at)}</span>`),
+        /*
+         * Wave 12 — the portability loop closed from the receiving end.
+         *
+         * The criteria library is the screen this extends rather than the
+         * report composer, and the reason is that this row fills a field
+         * that already existed: `active.by` has read "Loaded with the shipped
+         * reference content" since the seed was written and `active.at` has
+         * carried the date, which is the arrival of a package described
+         * without the package being nameable. The template versions on
+         * `#report` carry no arrival provenance at all and would have needed
+         * a structure invented for them.
+         *
+         * The draft cell is the honest half: a version authored *here* did
+         * not arrive in anything, and writing a package identifier into it
+         * would be inventing a provenance to fill a column.
+         */
+        pair(
+          'Arrived in',
+          `<code>${esc(CONFIG_PACKAGE.inForceFrom.package)}</code> · <span class="sf-instant">${esc(CONFIG_PACKAGE.inForceFrom.arrived)}</span><small>carried unchanged since, most recently by <code>${esc(CONFIG_PACKAGE.inForceFrom.carriedSince)}</code></small>`,
+          `<span class="mk-muted">nothing — authored on this instance</span>`,
+        ),
         [
           `<strong>${esc(D.differs[0])}</strong>`,
           `<span class="mk-num">${esc(D.differs[1])}</span>`,
@@ -4442,6 +4469,7 @@ const criteriaVersionWorkspace = () => {
       ],
     }) +
     `<p class="mk-tight mk-muted"><strong>Why:</strong> ${esc(D.rationale)}</p>` +
+    `<p class="mk-tight"><strong>Where the version in force came from.</strong> ${esc(D.active.version)} is not something anybody here wrote: it arrived on ${esc(CONFIG_PACKAGE.inForceFrom.arrived)} in <a class="mk-ref" href="#package"><code>${esc(CONFIG_PACKAGE.inForceFrom.package)}</code></a>, the first configuration package this instance took, and every package since has carried it unchanged. <strong>A later one does not.</strong> <a class="mk-ref" href="#package"><code>${esc(CONFIG_PACKAGE.id)}</code> arrived ${esc(CONFIG_PACKAGE.provenance.receivedAt)}</a> carrying this set at <code>${esc(CONFIG_PACKAGE.items[0].arriving)}</code>, it is sitting inert, and it has nothing to do with the draft beside it — one is the vendor’s baseline moving, the other is this site’s own decision on top of whichever baseline is in force.</p>` +
     '<h2 class="mk-h2">Tested against the committed record</h2>' +
     cols(
       panel(
@@ -4545,6 +4573,295 @@ const formatDesigner = () =>
       '<p class="mk-tight mk-muted">A format that leaked its own vocabulary into the application would put two words for one concept in front of a practitioner, and the glossary guard fails the build for exactly that.</p>'),
     '3fr 2fr',
   );
+
+
+/* ================================================================== *
+ * Wave 12 — the configuration package (OM-5)
+ *
+ * OM-5's row on the coverage matrix said, since 1 September: *"Versions are
+ * shown; the package import/export surface is not drawn."* This is that
+ * surface. `#formats` owns the definitions in force and `#criteria` owns the
+ * library; neither owns **portability**, which is a package's whole subject —
+ * built, exported, imported, diffed, and activated or refused, each with its
+ * own moment and its own principal.
+ *
+ * Everything renders from `CONFIG_PACKAGE`, which reads `CRITERIA_LIBRARY`,
+ * `FORMATS`, `TEMPLATE`, `CRITERIA_DRAFT`, `HARDNESS`, `MEMBERS`, `UPGRADE`
+ * and `CROSSTAB`. No count and no date on this screen is typed.
+ * ================================================================== */
+
+const configPackage = () => {
+  const P = CONFIG_PACKAGE;
+  const changed = P.items.find((i) => i.consequential);
+  const verdictTone = (v) => (v === 'changed' ? 'warn' : v === 'new' ? 'new' : 'neutral');
+  const kindOf = (k) => P.kinds.find((x) => x.kind === k).label;
+
+  return (
+    head('Configuration package', 'Criteria, formats and templates as a versioned package — arriving, diffed, and inert until somebody activates it.', {
+      route: 'a proposal — it would be a child of /config',
+      toolbar: C.exportMenu() + btn('Build a package from this instance') + btn('Activate the set', 'primary'),
+    }) +
+
+    notice(
+      'warning',
+      'Proposed, and it draws the half of OM-5 that has no surface. Nothing here is in force.',
+      'The requirement is that criteria libraries, report templates and EDD format definitions are <strong>versioned independently of the application and deployed to every customer</strong>. The versions are already drawn — <a class="mk-ref" href="#criteria">on the criteria library</a> and <a class="mk-ref" href="#formats">on the format registry</a> — and what has never been drawn is the thing that moves them between deployments. This package arrived two days ago and <strong>every register on this instance still answers exactly as it did before it landed</strong>, which is the state the screen exists to make visible.',
+    ) +
+
+    stats([
+      stat(String(P.counts.items), 'items in the package'),
+      stat(`${P.counts.new} · ${P.counts.changed} · ${P.counts.identical}`, 'new · changed · identical'),
+      stat(String(P.counts.consequential), 'reaches committed results', 'warn'),
+      stat(String(P.impact.reaches), 'results it would re-evaluate', 'warn'),
+      stat('0', 'items in force from it', 'good'),
+    ]) +
+
+    /* ---------------------------------------------------------------- *
+     * What a package is
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2">What a package holds, and what it cannot</h2>' +
+    cols(
+      panel(
+        `Three kinds, and the third was empty here until this one arrived`,
+        table({
+          caption: 'The closed set of kinds. A kind with nothing in it is reported rather than left out — an inventory that silently omits a kind teaches an operator that the kind is not configurable, which is the opposite of what portability promises.',
+          head: ['Kind', 'Version field', 'Held here', 'In this package'],
+          scroll: true,
+          label: 'The three configurable kinds',
+          rows: P.kinds.map((k) => [
+            esc(k.label),
+            // `mk-atom`: `artifact_version` broke as "artifact_versi / on" in
+            // a narrow column, which is the same defect the asset-tag rule was
+            // written for — an identifier is one atom. The region scrolls, so
+            // the width this costs is width it already handles.
+            `<code class="mk-file mk-atom">${esc(k.field)}</code>`,
+            k.held === 0 ? '<span class="mk-num mk-num--nil">0</span>' : `<span class="mk-num">${k.held}</span>`,
+            `<span class="mk-num">${P.items.filter((i) => i.kind === k.kind).length}</span>`,
+          ]),
+        }) +
+          '<p class="mk-tight"><strong>Each item carries its own version, and the field it carries it in is its own.</strong> A format definition states a <code class="mk-file">revision</code>; a criteria library and a template state an <code class="mk-file">artifact_version</code>. Those names are left alone rather than normalised into one, because they are read by people who know one kind and not the other.</p>' +
+          '<p class="mk-tight mk-muted">An item that declares no version is <strong>refused, never defaulted</strong>. A version invented on arrival cannot be reconciled against anything afterwards, and an item that shipped unversioned would be a row on every deployment that nobody could ever compare.</p>',
+      ),
+      panel(
+        'Configuration, never code — the rule this rests on',
+        `<p class="mk-tight">A format is <a class="mk-ref" href="#formats">a definition rather than a parser</a> (FR-3.1), and that is what makes a package possible at all. If reading a new laboratory’s file needed code, moving it between deployments would be a release — and the promise portability exists to keep is that <strong>a new laboratory is a definition, not a deploy</strong>.</p>` +
+          '<p class="mk-tight">So a package moves configuration and only configuration, and the classification an operator acts on is the one it produces: <strong>this change needs no release</strong>, or it does. A tool that could not tell those apart would push every change through the slower path and the promise would become a sentence in a document.</p>' +
+          `<p class="mk-tight mk-muted"><strong>The package checksum covers configuration and nothing else</strong>, deliberately, and it looks like an omission so it is said: fold the application version into it and every release changes the package checksum, an operator comparing checksums across deployments sees drift that is not drift, and within two releases stops looking.</p>` +
+          /*
+           * The vocabulary decision, said on the screen rather than only in
+           * the seed — because the collision is one a reader hits, not one an
+           * author hits. Recorded in full above `CONFIG_PACKAGE`.
+           */
+          `<p class="mk-tight mk-muted"><strong>The code calls this a bundle, and this screen does not.</strong> <a class="mk-ref" href="#diagnostics">A bundle in this product is already something else</a> — the diagnostic archive a customer generates and decides whether to send — and two different things wearing one word in front of one operator is the thing the shared vocabulary exists to prevent. <em>Package</em> is the free word, and the items inside one are <strong>items</strong> for the same reason: an <em>artifact</em> here is <a class="mk-ref" href="#imports">the parsed form of an import</a>.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    table({
+      caption: `${P.counts.notInAPackage} things a package deliberately does not carry, each with where it goes instead — because “configuration is portable” is a claim, and what is excluded from it is the evidence.`,
+      head: ['Not in a package', 'Why', 'Where it goes instead'],
+      kind: 'records',
+      scroll: true,
+      label: 'What a package does not carry',
+      rows: P.notInAPackage.map((n) => [
+        cell(`<strong>${esc(n.what)}</strong>`),
+        cell(`<span class="mk-muted">${esc(n.why)}</span>`),
+        cell(`<a class="mk-ref" href="#${esc(n.where)}">${esc(n.whereLabel)}</a>`),
+      ]),
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * Provenance
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Where this one came from</h2>` +
+    cols(
+      panel(
+        esc(P.id),
+        facts([
+          ['Built by', `${esc(P.provenance.builtBy)}<small>${esc(P.provenance.builtByKind)}</small>`],
+          ['Built from', `${esc(P.provenance.builtFrom)}<small>not from ${esc(P.provenance.notFrom)}</small>`],
+          ['Built', `<span class="sf-instant">${esc(P.provenance.builtAt)}</span>`],
+          ['Received here', `<span class="sf-instant">${esc(P.provenance.receivedAt)}</span><small>by ${esc(P.provenance.receivedBy)} · ${esc(P.provenance.receivedByBinding)}</small>`],
+          ['Package checksum', `<code class="mk-file">sha256:${esc(P.provenance.checksum)}…</code>`],
+          ['Signature', `<span class="mk-muted">none</span>`],
+          ['In force here', `<code>${esc(P.inForce.id)}</code><small>taken ${esc(P.inForce.taken)}</small>`],
+          ['As at', `<span class="sf-instant">${esc(P.asAt)}</span>`],
+        ]) +
+          `<p class="mk-tight"><strong>Two origins are plausible and this one names which.</strong> ${esc(P.provenance.siblingWould)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(P.provenance.carriedHow)} <a class="mk-ref" href="#exchange">Both of those are drawn</a>.</p>`,
+      ),
+      panel(
+        'A checksum is not a signature, and the difference is stated',
+        `<p class="mk-tight">${esc(P.provenance.signatureNote)}</p>` +
+          '<p class="mk-tight">What that buys is real and bounded: the bytes here are the bytes that were hashed when the package was built, and an item edited in transit fails the comparison rather than arriving quietly. What it does not buy is a claim about <em>who</em> built it, and drawing a signature panel here would be drawing a mechanism this product does not have.</p>' +
+          `<p class="mk-tight mk-muted">Every item’s SHA-256 is recomputed from its own bytes on arrival, and the package checksum is recomputed from the item lines rather than taken on trust. Both matched. That comparison is also what makes drift detectable later, on the other side of the same act — <a class="mk-ref" href="#estate">the deployment that edited a definition in place</a> is found this way and no other.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Arrival is not activation
+     * ---------------------------------------------------------------- */
+    cols(
+      panel(
+        'Arrival, and the step it stops at',
+        C.pipeline(P.arrival.map((s) => ({ name: `${s.name} — ${s.on}`, detail: s.detail, state: s.state }))) +
+          '<p class="mk-tight"><strong>Reading a package is not applying it</strong>, the same way <a class="mk-ref" href="#imports">reading a deliverable is not committing it</a>. Five steps have happened and the sixth has not, and the fifth is a state rather than a gap — the package is here, it is verified, it has been read against what is in force, and nothing it holds is in force.</p>',
+      ),
+      panel(
+        'Nothing imports silently, and that is the rule rather than a courtesy',
+        '<p class="mk-tight">An ambiguity is a decision a person makes, never a silent default. A package arriving with a changed criteria set and applying it because it was newer would be the largest silent default this product could contain: the version a result was assessed against would have moved without anybody deciding it should.</p>' +
+          `<p class="mk-tight">So the arriving version is drawn beside the version in force, item by item, and the two stay side by side until somebody chooses. There is no “apply on receipt” setting, and there is deliberately no default here to override — a value that looks like a decision and is not is the thing this whole surface exists to remove.</p>` +
+          `<p class="mk-tight mk-muted">The same discipline runs one screen over: <a class="mk-ref" href="#upgrade">the analyte dictionary that arrives with a release</a> arrives as a diff somebody accepts, and nothing overwrites without being looked at.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The diff
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The diff — ${P.counts.new} new, ${P.counts.changed} changed, ${P.counts.identical} identical</h2>` +
+    `<p class="sf-lede mk-tight">Read against what is in force on <code>${esc(PROJECT.code)}</code>’s instance as at ${esc(P.asAt)}. An identical item is drawn rather than dropped: <em>this item is the same</em> and <em>this item is not in the package</em> are different facts about a deployment.</p>` +
+    table({
+      caption: 'One row per item. The checksum is what the comparison is actually made on — the version is what a person reads.',
+      head: ['Item', 'Kind', 'In force', 'In the package', 'SHA-256 here', 'SHA-256 arriving', 'Verdict'],
+      kind: 'matrix',
+      label: 'The package read against what is in force',
+      rows: P.items.map((i) => [
+        `<span class="mk-file">${esc(i.file)}</span><small>${esc(i.what)}</small>`,
+        `<span class="mk-muted">${esc(kindOf(i.kind))}</span>`,
+        i.here === null ? '<span class="mk-num mk-num--nil">—</span>' : `<code>${esc(i.here)}</code>`,
+        `<code>${esc(i.arriving)}</code>`,
+        i.checksumHere === null ? '<span class="mk-num mk-num--nil">—</span>' : `<code class="mk-file mk-atom">${esc(i.checksumHere)}…</code>`,
+        `<code class="mk-file mk-atom">${esc(i.checksumArriving)}…</code>`,
+        tag(i.verdict, verdictTone(i.verdict)) + (i.consequential ? ' ' + C.status('reaches the record', 'warn') : ''),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>“Consequential” has a definition here and it is not “changed”.</strong> ${P.counts.consequential} of the ${P.counts.items} items reaches results that are already committed. A format definition decides how the <em>next</em> file is read and a template decides how the <em>next</em> document is assembled — neither of them touches a row that exists, so neither of them needs an approval, a preview or a re-evaluation.</p>` +
+    P.items
+      .map((i) =>
+        C.card({
+          tone: i.consequential ? 'warn' : 'neutral',
+          /*
+           * The kind slot is upper-cased by the stylesheet, so the human
+           * name goes there and the filename goes in the monospaced slot
+           * beside it. A filename rendered in capitals is a filename nobody
+           * can match against the one in the table above it.
+           */
+          head:
+            `<span class="mk-queue__kind">${esc(kindOf(i.kind))} · ${esc(i.verdict)}</span>` +
+            `<span class="mk-queue__age">${esc(i.file)}</span>`,
+          body:
+            `<p class="mk-tight"><strong>What moved:</strong> ${esc(i.moved)}</p>` +
+            `<p class="mk-tight"><strong>What did not:</strong> ${esc(i.notMoved)}</p>`,
+          foot: `<span class="mk-muted">${esc(i.reads)}</span>`,
+        }),
+      )
+      .join('') +
+
+    /* ---------------------------------------------------------------- *
+     * The impact of the one consequential item
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">What the changed item would reach</h2>` +
+    cols(
+      panel(
+        `${esc(changed.what)} — the scope, counted off the record`,
+        facts([
+          ['Round', `<code>${esc(P.impact.round)}</code><small>${esc(P.impact.roundLabel)}</small>`],
+          ['Results it reaches', `<span class="mk-num mk-num--warn">${P.impact.reaches}</span><small>${P.impact.analytes.length} analytes × ${P.impact.locations} locations that returned water</small>`],
+          ['Of those, criteria produced by the hardness relationship', `<span class="mk-num">${P.impact.hardnessReach}</span><small>${esc(P.impact.hardnessAnalytes.join(', '))}</small>`],
+          ['Outcomes that change', `<span class="mk-num mk-num--nil">not known</span><small>the test has not been run</small>`],
+        ]) +
+          `<p class="mk-tight"><strong>The scope is arithmetic; the answer is not.</strong> ${esc(P.impact.changesUnknown)} It reports the <em>rows</em> rather than a number, because <a class="mk-ref" href="#criteria">a test that reports a count and not the records behind it</a> cannot be checked by the person who has to approve it.</p>` +
+          `<p class="mk-tight mk-muted">This screen deliberately does not reproduce that machinery. It states what the arriving item would be tested over, and the test lives where the versions live.</p>` +
+          `<div class="mk-actions"><a class="mk-btn mk-btn--primary" href="#criteria">Test it against the record</a><a class="mk-btn" href="#hardness">The relationship it re-declares</a><a class="mk-btn" href="#crosstab">The ${P.impact.reaches} results</a></div>`,
+      ),
+      panel(
+        'Why an expected zero is not a reason to skip the test',
+        `<p class="mk-tight">${esc(changed.notMoved)}</p>` +
+          '<p class="mk-tight">A re-evaluation is a write. It supersedes an outcome with an outcome, records the version that produced each, and — if any of them crosses a criterion — starts a statutory clock from a moment of awareness nobody can afterwards move. That is true whether or not the numbers move, and it is why the arrival of a criteria item is an approval rather than a save.</p>' +
+          `<p class="mk-tight mk-muted">The diff can prove the bytes changed. It cannot prove what the change does to this site’s record, and “we expect nothing to move” is a prediction rather than evidence.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Activation
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Activation — a decision, and a separate one from arrival</h2>` +
+    cols(
+      C.blastRadius({
+        lede: `Activating the changed item from ${esc(P.id)} would write:`,
+        rows: P.activationWrites,
+        action: `Request ${esc(P.approver)}’s approval to activate`,
+        cancel: 'Leave the package inert',
+        danger: true,
+        reversible:
+          'Reversible as an evaluation and not as a consequence. Rolling back re-evaluates the same results and restores the superseded version; it does not un-lodge a notification that a re-evaluation obliged, because a lodgement is a document with a regulator rather than a row this product owns.',
+      }),
+      panel(
+        'Item by item, or the set — and each one is an attributed write',
+        `<p class="mk-tight">The two items that reach nothing committed can be activated on their own: <span class="mk-file">${esc(P.items[1].file)}</span> is identical to what is running and activating it writes a version row and changes no behaviour, and <span class="mk-file">${esc(P.items[2].file)}</span> is the first entry in a kind that was empty. Neither needs an approval and neither is gated on the third.</p>` +
+          `<p class="mk-tight"><strong>Activating the set is one act, not three.</strong> It carries the strictest gate any item in it carries — so a set holding one criteria item is an approval, and <em>${esc(P.approver)}</em> is the principal the binding names for that.</p>` +
+          `<p class="mk-tight">Every activation is one attributed write. The package, the item, the version it replaced and the principal who activated it are on the record together, so <a class="mk-ref" href="#audit">“which package put this version in force”</a> is a question with an answer rather than a reconstruction.</p>` +
+          `<p class="mk-tight mk-muted">Refusing is also an act with a record. A package left inert stays readable at its own version, and a reader in two years can see that it arrived, that it was read, and that nobody activated it.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    notice(
+      'default',
+      'Activating a new criteria version does not rewrite what past rounds were evaluated against.',
+      `${esc(P.impact.reportedThen)} <a class="mk-ref" href="#snapshot">The snapshot beside every issued report</a> is what makes the first half answerable, and <a class="mk-ref" href="#qualifiers">the lock on a reported period</a> is what stops the second half reaching backwards into it.`,
+    ) +
+    table({
+      caption: `${P.counts.mustNotTouch} things this package must not overwrite, and the reason each fear is reasonable.`,
+      head: ['What a package must not touch', 'Why', 'Where it lives'],
+      kind: 'records',
+      scroll: true,
+      label: 'What a package must not overwrite',
+      rows: P.mustNotTouch.map((m) => [
+        cell(`<strong>${esc(m.what)}</strong>`),
+        cell(`<span class="mk-muted">${esc(m.why)}</span>`),
+        cell(`<a class="mk-ref" href="#${esc(m.where)}">${esc(m.whereLabel)}</a>`),
+      ]),
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * The other direction
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The other direction — building one here</h2>` +
+    cols(
+      panel(
+        `${P.counts.exportable} items this instance could export`,
+        table({
+          caption: 'Counted off the registers themselves, so a format added on the registry appears here without anybody remembering to.',
+          head: ['Kind', 'Items here', 'Where they are kept'],
+          scroll: true,
+          label: 'What this instance could export as a package',
+          rows: P.exportable.map((k) => [
+            esc(k.label),
+            k.exports === 0 ? '<span class="mk-num mk-num--nil">0</span>' : `<span class="mk-num">${k.exports}</span>`,
+            cell(
+              k.kind === 'edd-format'
+                ? '<a class="mk-ref" href="#formats">The format registry</a>'
+                : k.kind === 'criteria-library'
+                  ? '<a class="mk-ref" href="#criteria">The criteria library</a>'
+                  : '<a class="mk-ref" href="#report">The report composer’s template panel</a> — none held as a portable item yet',
+            ),
+          ]),
+        }) +
+          '<p class="mk-tight">Portability is symmetrical or it is not portability. An operator that can take a package cannot be one that can never make one — the site-specific trigger values a hydrogeologist derived here are exactly the kind of thing a second site of the same operator would want, and moving them by retyping is how two sites end up assessing against two different numbers.</p>' +
+          '<p class="mk-tight mk-muted">An exported package is a file with a manifest and a checksum, produced here and carried by whoever asked for it. Nothing about building one reaches outside this deployment.</p>',
+      ),
+      panel(
+        'What an export would carry, and what it would refuse',
+        '<p class="mk-tight">It carries definitions. A criteria set carries its guideline values, its applicability rule and its non-detect rule; a format carries its field mapping; a template carries its structure. Every one of them is a statement about <em>how to read or judge</em> something.</p>' +
+          '<p class="mk-tight">It carries no result, no location, no certificate, no principal and no report. Those are the customer’s data and they stay in the customer’s tenancy — which is why a configuration package can be handed to another operator at all, and why it would be an entirely different conversation if it could not.</p>' +
+          `<p class="mk-tight mk-muted">A criteria set derived <em>from</em> this site’s own record — the site-specific trigger values on <a class="mk-ref" href="#background">the background comparison</a> — is the honest edge of that. The values are configuration and portable; that they came out of a reference distribution at these bores is a fact about this site, and an export names the derivation without carrying the results behind it.</p>`,
+      ),
+      '3fr 2fr',
+    )
+  );
+};
 
 const dictionary = () =>
   head('Analyte dictionary', 'The names, the synonyms, and what each one actually is.', {
@@ -4975,13 +5292,25 @@ const instanceHealth = () =>
       head: ['Service', 'State', 'Detail'],
       rows: INSTANCE.services.map((s) => [esc(s.name), tag(s.state, 'good'), `<span class="mk-muted">${esc(s.detail)}</span>`]),
     }),
+    /*
+     * Wave 12 — the customer side of two seams, on the panel that already
+     * holds the version. `configuration` is the package this instance took,
+     * read from `CONFIG_PACKAGE` so the two screens cannot state different
+     * package identifiers; the estate row is the same version and release
+     * date read from `INSTANCE`, so agreement there is construction rather
+     * than coincidence.
+     */
     panel('Deployment', facts([
       ['Version', `<code>${esc(INSTANCE.version)}</code> · released ${esc(INSTANCE.released)}`],
       ['Commit', `<code>${esc(INSTANCE.commit)}</code>`],
       ['Database', esc(INSTANCE.database)],
+      ['Configuration', `<code>${esc(CONFIG_PACKAGE.inForce.id)}</code> · taken ${esc(CONFIG_PACKAGE.inForce.taken)}<small><code>${esc(CONFIG_PACKAGE.id)}</code> has arrived and is not in force</small>`],
       ['Tenancy', 'Single-tenant, customer’s own subscription'],
       ['Egress', 'None. No Strataflow-operated telemetry'],
-    ])),
+    ]) +
+      `<p class="mk-tight"><strong>The version and the configuration move on different paths, and that is the point of having two rows.</strong> The version arrives as a release and needs one; the configuration arrives as <a class="mk-ref" href="#package">a versioned package</a> and does not — which is what makes a new laboratory a definition rather than a deploy.</p>` +
+      `<p class="mk-tight"><strong>This deployment is one row of a register kept somewhere else.</strong> Strataflow holds deploy access and this instance does not install its own releases, so the vendor knows <code>${esc(INSTANCE.version)}</code> is running here from <em>its own record of installing it</em> — not from anything this screen sends, because this screen sends nothing. <a class="mk-ref" href="#estate">That register is the vendor’s own surface</a>, in the vendor’s own place, and nobody signed in here reaches it; the catalogue holds both frames and the link crosses between them.</p>` +
+      `<p class="mk-tight mk-muted">Which is why <code class="mk-file">/healthz</code> carrying the version stamp matters more than it looks: it is how this deployment answers <em>which version is that</em> to whoever asks it from inside this network, and nothing outside this network asks.</p>`),
     '3fr 2fr',
   ) +
   notice('default', 'This one stays a terminal, deliberately.',
@@ -5016,6 +5345,285 @@ const diagnostics = () =>
   ) +
   notice('default', 'Restore is not done until the content check passes.',
     'The backup writes a manifest — audit and lineage digests, the trigger, policy and grant inventory — and the restore is measured against it. A database that comes back up with its audit triggers missing has restored the data and lost the record.');
+
+
+/* ================================================================== *
+ * Wave 12 — the deployment estate (OM-2), and the frame it is drawn in
+ *
+ * OM-2's coverage row said, since 1 September: *"One instance shows itself;
+ * the estate view is the vendor's, out of frame here."* That note was right
+ * about whose surface it is and wrong that being the vendor's put it out of
+ * frame — a catalogue that draws the whole product has to draw this too, and
+ * the honest thing is to shift the frame rather than to leave the row open.
+ * The correction is dated on the coverage screen rather than written over the
+ * old note.
+ *
+ * The frame decision itself is recorded in full in `seed.mjs` above `ESTATE`.
+ * In short: a bordered container that survives a crop, the vendor's own top
+ * bar drawn inside it so the substitution is visible rather than described,
+ * and one statement naming whose surface it is. The catalogue's own chrome is
+ * left alone deliberately — it is drawn once for the whole document and it is
+ * honest about being the product's; making it lie differently on one screen
+ * would trade a stated frame shift for a hidden one.
+ * ================================================================== */
+
+/**
+ * The frame, and the vendor's own chrome inside it.
+ *
+ * Deliberately carries no interactive control at all. A project switcher, a
+ * search box or a principal menu here would be drawing reach — and the whole
+ * claim of the screen is that this surface reaches into no customer instance
+ * and no customer principal reaches it.
+ */
+const vendorFrame = (inner) =>
+  '<div class="mk-vendor">' +
+  '<p class="mk-vendor__label"><span class="mk-vendor__glyph" aria-hidden="true">◆</span>' +
+  'Vendor surface — not this deployment, and not reachable from it</p>' +
+  '<div class="mk-vendor__chrome">' +
+  `<span class="mk-vendor__mark">${esc(ESTATE.principal.party)}</span>` +
+  '<span class="mk-vendor__space">vendor operations</span>' +
+  '<span class="mk-vendor__gap"></span>' +
+  `<span class="mk-vendor__me"><span class="mk-vendor__avatar" aria-hidden="true">MF</span>` +
+  `${esc(ESTATE.principal.name)} · ${esc(ESTATE.principal.role)}</span>` +
+  '</div>' +
+  `<div class="mk-vendor__body">${inner}</div>` +
+  /*
+   * The label again at the closing edge, because the thing that actually
+   * happens to a mockup is that somebody crops a screenshot. The border and
+   * the hatch survive a crop from any side; a single label at the top does
+   * not survive one taken from the bottom, which is where the per-deployment
+   * rows and the release register are.
+   *
+   * The initials are the avatar's, and they are `aria-hidden` there — the
+   * strip already carries the name in text beside it, so a screen reader gets
+   * the principal once rather than as two initials and then a name.
+   */
+  '<p class="mk-vendor__label mk-vendor__label--foot"><span class="mk-vendor__glyph" aria-hidden="true">◆</span>' +
+  `End of the vendor surface. Everything above belongs to ${esc(ESTATE.principal.party)}, not to ${esc(PROJECT.code)}</p>` +
+  '</div>';
+
+const estate = () => {
+  const E = ESTATE;
+  const confTone = (s) =>
+    s === 'confirmed' ? 'good' : s === 'refuted' ? 'bad' : s === 'stale' ? 'bad' : s === 'ageing' ? 'warn' : 'neutral';
+  const behindTone = (n) => (n === 0 ? 'good' : n >= 3 ? 'bad' : 'warn');
+  /*
+   * The three rows the prose names are found by the property that makes each
+   * one the example, never by position. A row inserted into the seed then
+   * moves this text with it rather than silently reassigning three sentences
+   * to the wrong deployments.
+   */
+  /*
+   * F-17 is on the coverage register — "1 question, holding 1 row" — and this
+   * screen prints five day-counts per deployment, one of which is 1 today.
+   * "1 days ago" was drawn and caught by eye in the screenshot pass.
+   */
+  const days = (n) => `${n} day${n === 1 ? '' : 's'}`;
+  const drifted = E.rows.find((d) => d.configDrift !== null);
+  const neverSent = E.rows.find((d) => d.lastBundle === null);
+  const behindButScheduled = E.rows.find((d) => d.behind > 0 && d.scheduled !== null && d.configDrift === null);
+  /* Where the honest answer is that nobody has looked: not confirmed, and not refuted either. */
+  const unlooked = E.counts.deployments - E.counts.confirmed - E.counts.refuted;
+
+  return vendorFrame(
+    head('Deployment estate', 'Every deployment Strataflow operates, at what version, and how long ago each of those facts was last true.', {
+      route: 'a proposal, and not a route on this deployment — the vendor’s own surface, in the vendor’s own place',
+      toolbar: btn('Record an upgrade') + btn('Open a bundle'),
+    }) +
+
+    notice(
+      'warning',
+      'This is the vendor’s surface. The bar at the top of the page is a different session, in a different deployment.',
+      `The chrome above this frame belongs to <code>${esc(PROJECT.code)}</code> and to ${esc(PRINCIPAL.name)}, who is a ${esc(PRINCIPAL.bindings[0].role)} there. <strong>Neither reaches this screen.</strong> The principal here is ${esc(E.principal.name)}, a ${esc(E.principal.role)}, on <code class="mk-file">${esc(E.principal.subject)}</code> — an identity in the vendor’s own directory, in the vendor’s own place, holding no role binding in any customer’s instance. There is no route from a customer deployment to this page, no role in the closed set of four that reaches it, and nothing on it that a customer signs in to see. It is drawn in this catalogue because the catalogue draws the whole product, and it is framed like this because a screenshot of a vendor screen under a customer’s chrome reads as <em>Strataflow can see across my deployment from inside my instance</em> — which is the claim single tenancy exists to refuse.`,
+    ) +
+
+    stats([
+      stat(String(E.counts.deployments), 'deployments'),
+      stat(`${E.counts.behind} of ${E.counts.deployments}`, 'behind the current release', 'warn'),
+      stat(`${E.counts.furthestBehind} release${E.counts.furthestBehind === 1 ? '' : 's'}`, `furthest behind · ${days(E.counts.furthestDays)}`, 'bad'),
+      stat(String(E.counts.drift), 'configuration drift confirmed', 'bad'),
+      stat(`${E.counts.confirmed} of ${E.counts.deployments}`, `confirmed within ${E.freshDays} days`, 'warn'),
+    ]) +
+
+    /* ---------------------------------------------------------------- *
+     * The R4 question
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2">Which deployments have drifted, and how far</h2>' +
+    `<p class="sf-lede mk-tight">The current release is <code>${esc(E.current.version)}</code>, cut ${esc(E.current.released)}. As at ${esc(E.asAt)}. Two kinds of drift are counted separately below, because they have different causes and only one of them can be seen without asking.</p>` +
+    table({
+      caption: 'One row per deployment. Every date is a source record’s own; every number beside it is arithmetic on that date and the as-at above.',
+      head: ['Deployment', 'Customer', 'Version', 'Installed', 'Releases behind', 'Days on it', 'Config package', 'Last confirmed', 'Confirmation'],
+      kind: 'matrix',
+      label: 'Every deployment, its version and how current the knowledge of it is',
+      rows: E.rows.map((d) => [
+        `<code class="mk-atom">${esc(d.id)}</code>${d.thisOne ? '<small>the deployment this catalogue draws</small>' : ''}`,
+        `<span class="mk-muted">${esc(d.customer)}</span>`,
+        `<code>${esc(d.version)}</code><small>cut ${esc(d.releasedOn)}</small>`,
+        `<span class="sf-instant">${esc(d.installedOn)}</span>`,
+        d.behind === 0
+          ? '<span class="mk-num mk-num--good">0</span>'
+          : `<span class="mk-num mk-num--${behindTone(d.behind) === 'bad' ? 'bad' : 'warn'}">${d.behind}</span>`,
+        `<span class="mk-num">${d.daysOnVersion}</span>`,
+        `<code>${esc(d.configPackage)}</code>`,
+        d.confirmedDays === null
+          ? '<span class="mk-muted">never</span>'
+          : `<span class="mk-num">${d.confirmedDays}</span> day${d.confirmedDays === 1 ? '' : 's'}<small>bundle of ${esc(d.lastBundle)}</small>`,
+        C.status(d.confirmation, confTone(d.confirmation)),
+      ]),
+    }) +
+    cols(
+      panel(
+        'Version drift, and the one row that is behind for a reason',
+        `<p class="mk-tight"><strong>${E.counts.behind} of ${E.counts.deployments} are behind ${esc(E.current.version)}</strong>, and the spread is what matters rather than the count. ${esc(behindButScheduled.id)} is ${behindButScheduled.behind} release${behindButScheduled.behind === 1 ? '' : 's'} behind inside an agreed change freeze with the next window dated ${esc(behindButScheduled.scheduled)} — that is a deployment which is <em>behind</em>. ${esc(E.counts.furthestId)} is ${E.counts.furthestBehind} release${E.counts.furthestBehind === 1 ? '' : 's'} and ${days(E.counts.furthestDays)} behind with no standing window agreed at all — that is a deployment which is <em>drifting</em>, and nothing about it will change until somebody starts a conversation.</p>` +
+          '<p class="mk-tight">The distinction is the whole value of the column beside it. A board that showed only “releases behind” would rank those two the same way and send the operator to the wrong one.</p>' +
+          `<p class="mk-tight mk-muted">Version is the one fact here that is complete by construction: customers do not self-install releases, so the version the vendor last installed is the version running. That is a property of the deployment model rather than of this screen, and it is the only column on it that needs nothing from the customer.</p>`,
+      ),
+      panel(
+        'Configuration drift, which cannot be seen without being sent',
+        `<p class="mk-tight"><strong>The vendor knows what it installed. Only a bundle can tell it that what it installed is still what is there.</strong> A customer editing a format definition in place to get an import through is the realistic case and they will not mention it — the next deployment overwrites the fix, the import starts failing again, and nothing connects the two.</p>` +
+          `<p class="mk-tight">So drift is counted as a different event from a planned change even though the two have the same shape: one was made here, one was made <em>there</em>. ${E.counts.drift} is confirmed, on ${esc(drifted.id)}, found in a bundle ${days(drifted.confirmedDays)} old. The honest reading of the other ${E.counts.deployments - E.counts.drift} is not that they have none — it is that ${unlooked} of them have not been in a position to say either way.</p>` +
+          `<p class="mk-tight mk-muted">A removed item is deliberately <strong>not</strong> drift. Reporting drift on every retirement is how a drift report stops being read.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    notice(
+      'default',
+      `Five deployments and five confirmation states — that is this catalogue drawing each state once, not a claim about how an estate distributes.`,
+      `<strong>Confirmed</strong> is a bundle inside ${E.freshDays} days that matched. <strong>Refuted</strong> is a bundle that did not — which is a fresher fact than any of the others, and a two-way confirmed/unconfirmed split would have filed it with the deployments nobody has heard from. <strong>Ageing</strong> is between ${E.freshDays} and ${E.staleDays} days, <strong>stale</strong> is beyond ${E.staleDays}, and <strong>never confirmed</strong> is a deployment that has never sent a bundle at all — which for ${esc(neverSent.id)}, installed ${days(neverSent.daysOnVersion)} ago, is a fact about its age rather than about its care. The two thresholds are this screen’s own convention and are stated here for that reason; nothing in the product enforces them.`,
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Where every value comes from
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Where every value on this screen comes from</h2>` +
+    `<p class="sf-lede mk-tight">There is no telemetry from a customer deployment and there is no path into one. Every value above resolves to one of ${E.counts.sources} records the vendor holds on its own side, and each of them ages.</p>` +
+    table({
+      caption: 'The three sources, what each one holds, when it was last true, and — the column that decides how this screen is read — what it cannot say.',
+      head: ['Source', 'What it holds', 'How current', 'What it cannot say'],
+      kind: 'records',
+      scroll: true,
+      label: 'The three sources every value on this screen comes from',
+      rows: E.sources.map((s) => [
+        cell(`<strong>${esc(s.source)}</strong>`),
+        cell(`<span class="mk-muted">${esc(s.holds)}</span>`),
+        cell(esc(s.current)),
+        cell(`<span class="mk-muted">${esc(s.cannot)}</span>`),
+      ]),
+    }) +
+    cols(
+      panel(
+        'The instance reports itself, and nothing harvests it',
+        `<p class="mk-tight">Every deployment carries its own version stamp and answers <code class="mk-file">/healthz</code> with it, alongside the schema state — applied migrations against what the running build ships. The release refuses to publish an image whose reported version is not the version being published, so the stamp is not something that can quietly go wrong.</p>` +
+          `<p class="mk-tight"><strong>And it answers whoever asks it from inside the customer’s network.</strong> Nothing outside asks. There is no agent, no callback, no scheduled report and no relay — the same position <a class="mk-ref" href="#alerts">every alert destination</a> and <a class="mk-ref" href="#exchange">every export</a> already take, which is that a destination is a row the customer configured and there is no vendor-operated anything behind it.</p>` +
+          `<p class="mk-tight mk-muted">So this screen is a register of the vendor’s own acts and the customer’s own gifts, and its honesty is entirely in the dates beside each of them. A live-looking board built from these records would be the most dangerous surface in the product.</p>`,
+      ),
+      panel(
+        'What a bundle carries, and what it is refused',
+        `<p class="mk-tight">A diagnostic bundle is generated by the customer, inspected by the customer, and sent — or not — by the customer. It carries the application version, the applied migrations, each configuration item’s version and SHA-256, the environment variables by presence and never by value, and recent logs and errors with the customer’s data taken out of them at the boundary.</p>` +
+          `<p class="mk-tight">It carries <strong>no result, no location, no certificate and no report</strong>, and it names those ${E.counts.bundleExcludes} exclusions in its own manifest rather than leaving them to be noticed. That is what makes this screen possible without holding a single row of anybody’s monitoring data.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#diagnostics">The bundle, on the customer’s side of it</a></div>`,
+      ),
+      '3fr 2fr',
+    ) +
+    table({
+      caption: `${E.noSource.length} things no source here gives, listed where a reader would otherwise assume a live figure.`,
+      head: ['What this screen cannot answer'],
+      kind: 'records',
+      scroll: true,
+      label: 'What no source on this screen can answer',
+      rows: E.noSource.map((n) => [cell(esc(n))]),
+    }) +
+    /*
+     * The wave's own deferral, drawn where it bites rather than left in the
+     * seed for somebody to find. Full record above `bundleGap` in `seed.mjs`.
+     */
+    C.card({
+      tone: 'warn',
+      head:
+        '<span class="mk-queue__kind">Found while drawing this — 2 September 2026</span>' +
+        '<span class="mk-queue__age">deferred, owner unassigned</span>',
+      body:
+        `<p class="mk-tight"><strong>The configuration column on this screen rests on a bundle field that neither of the catalogue’s own bundle screens lists.</strong> Every configuration claim here — which package a deployment is on, and the drift that refuted one of them — comes from ${esc(E.bundleGap.field)}. But <a class="mk-ref" href="#${esc(E.bundleGap.where)}">${esc(E.bundleGap.whereLabel)}</a> names ${E.bundleGap.diagnosticsLists} things in a bundle and the configuration category is not among them, and <a class="mk-ref" href="#${esc(E.bundleGap.alsoWhere)}">${esc(E.bundleGap.alsoWhereLabel)}</a> lists ${E.bundleGap.entitlementLists} and calls the nearest one “reference-content versions”. <strong>No checksum appears on either.</strong></p>` +
+        '<p class="mk-tight">Two surfaces already describe one record with two different lists, and this screen adds a third that depends on a field neither mentions. The claim about the product is right — the bundle does carry it — and the catalogue’s description of the bundle is what is short.</p>',
+      foot:
+        '<span class="mk-muted">Not fixed here: the honest repair is one derived contents list that both bundle screens read, which is a redesign of two screens outside this wave rather than a row added to each. Recorded so the disagreement is stated rather than discovered by clicking through.</span>',
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * Per deployment
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Each deployment, and the record behind each value</h2>` +
+    /*
+     * The backup mechanism is stated once here rather than on all five rows.
+     * It was drawn as a forty-word clause per card, which is the same sentence
+     * five times and a reader stops reading it on the second.
+     */
+    `<p class="sf-lede mk-tight"><strong>Every backup date below is an upgrade date, and that is the whole of how the vendor knows it.</strong> The pre-flight refuses to proceed without a content-verified backup no older than 24 hours, so the last upgrade the vendor performed is the last moment it saw a backup it could roll back to. A drill an instance runs on its own afterwards reaches no vendor record, and no bundle carries a backup manifest.</p>` +
+    E.rows
+      .map((d) =>
+        C.card({
+          tone: d.configDrift !== null ? 'bad' : d.behind >= 3 ? 'warn' : d.behind === 0 ? 'good' : 'neutral',
+          head:
+            `<span class="mk-queue__kind">${esc(d.id)} · ${esc(d.customer)}</span>` +
+            `<span class="mk-queue__age">${esc(d.version)} · ${d.behind === 0 ? 'current' : `${d.behind} behind`}</span>`,
+          body:
+            `<ul class="mk-list">` +
+            `<li><strong>Version.</strong> <code>${esc(d.version)}</code>, pinned at <code class="mk-file mk-atom">${esc(d.digest)}</code>. Installed by the vendor on ${esc(d.installedOn)} — ${days(d.daysOnVersion)} ago — and known from that act rather than from anything the deployment sent.</li>` +
+            `<li><strong>Upgrade window.</strong> ${esc(d.window)}. ${d.scheduled === null ? 'Nothing scheduled.' : `Next window ${esc(d.scheduled)}, agreed with the customer.`}</li>` +
+            `<li><strong>Backup.</strong> A content-verified backup existed on ${esc(d.backupSeenOn)}, ${days(d.backupSeenDays)} ago. Nothing since.</li>` +
+            `<li><strong>Configuration.</strong> <code>${esc(d.configPackage)}</code> deployed by the vendor. ${
+              d.configDrift !== null
+                ? `<span class="mk-tag mk-tag--bad">drift</span> ${esc(d.configDrift.means)} Deployed <code class="mk-file mk-atom">${esc(d.configDrift.deployedChecksum)}…</code>, found <code class="mk-file mk-atom">${esc(d.configDrift.foundChecksum)}…</code> in the bundle of ${esc(d.configDrift.found)}.`
+                : d.lastBundle === null
+                  ? 'Never independently confirmed — this deployment has never sent a bundle, so what is here is what the vendor put there and nothing has said otherwise either way.'
+                  : `Last confirmed against the bundle of ${esc(d.lastBundle)}, ${days(d.confirmedDays)} ago, and it matched.`
+            }</li>` +
+            `<li><strong>Support.</strong> ${esc(d.support)}. Term ${esc(d.term)} — from the contract, which is the vendor’s own record and needs nothing from the deployment.</li>` +
+            '</ul>' +
+            `<p class="mk-tight">${esc(d.note)}</p>`,
+          foot: d.thisOne
+            ? '<span class="mk-muted">This row is <a class="mk-ref" href="#instance">the instance screen one frame over</a>. The version, the release date and the commit on both come from one source, so they cannot disagree.</span>'
+            : `<span class="mk-muted">Confirmation: ${esc(d.confirmation)}${d.confirmedDays === null ? '' : ` · ${days(d.confirmedDays)}`}</span>`,
+        }),
+      )
+      .join('') +
+
+    /* ---------------------------------------------------------------- *
+     * The releases
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The releases, which is the one register here that is complete</h2>` +
+    table({
+      caption: 'Every release the vendor cut, newest last. A release is published under its version and its digest, and there is no floating tag to pin instead — a floating tag is a deployment that changes when nobody deployed.',
+      head: ['Version', 'Released', 'Commit', 'Digest', 'Deployments on it'],
+      kind: 'matrix',
+      label: 'The releases the vendor cut',
+      rows: E.releases.map((r) => [
+        `<code>${esc(r.version)}</code>`,
+        `<span class="sf-instant">${esc(r.released)}</span>`,
+        `<code class="mk-atom">${esc(r.commit)}</code>`,
+        `<code class="mk-file mk-atom">${esc(r.digest)}</code>`,
+        ((n) => (n === 0 ? '<span class="mk-num mk-num--nil">0</span>' : `<span class="mk-num">${n}</span>`))(
+          E.rows.filter((d) => d.version === r.version).length,
+        ),
+      ]),
+    }) +
+    cols(
+      panel(
+        'A release is something somebody decided to make',
+        '<p class="mk-tight">Images are published on a tag and never on a merge. A workflow that published on every merge would turn “which version is that customer on” into “whatever the mainline was that afternoon”, and version drift is the primary operational failure mode for one person supporting several single-tenant deployments.</p>' +
+          '<p class="mk-tight">It <strong>refuses to publish from a commit whose checks did not all succeed</strong> — every check run on the commit, not the ones somebody remembered to name — because a tag can be pushed at any commit and an image is the one artefact that outlives the mistake. And it smoke-tests the images before pushing them rather than after: the exact local image that boots, applies migrations and answers healthy is the one that is uploaded.</p>' +
+          '<p class="mk-tight mk-muted">Which is why the digest column is the one a deployment should pin. A tag is mutable at the registry; a digest is not.</p>',
+      ),
+      panel(
+        'And what the vendor still cannot tell you',
+        '<p class="mk-tight">Whether any of these deployments is up right now. Whether an upgrade a customer agreed to has become urgent. Whether the operator at a site has noticed the exceedance their own board is showing them. None of that is on this screen and none of it can be, and a board that implied otherwise would be worse than no board.</p>' +
+          `<p class="mk-tight">What it is for is the one question one person supporting several deployments cannot answer from memory: <strong>which of them have moved away from what I last put there, and how far.</strong> ${E.counts.behind} on version, ${E.counts.drift} on configuration, and ${unlooked} where the honest answer is that nobody has looked.</p>` +
+          '<p class="mk-tight mk-muted"><strong>Leaving this frame.</strong> The links on this screen and under it land in <code>MOCK-WDL</code>’s own deployment, one row of this register. That is the catalogue moving between two frames it both holds — not a route, and not something this surface reaches.</p>',
+      ),
+      '1fr 1fr',
+    ),
+  );
+};
 
 /* ================================================================== *
  * The second review pass — the screens a practitioner went looking
@@ -9786,10 +10394,32 @@ const coverage = () => {
     ['QB-9', 'Practitioner terminology exactly; LOR/MDL/PQL never collapsed', 'covered', 'result-detail · dictionary', 'P0', ''],
     ['QB-10', 'Ambiguity is a decision the user makes, never a silent default', 'covered', 'import-review · quarantine', 'P0', ''],
     ['OM-1', 'Customer-initiated diagnostic bundle', 'covered', 'diagnostics', 'P2', 'Preview-before-export is the trust feature'],
-    ['OM-2', 'Version visibility across the deployment estate', 'partially', 'instance', 'P3', 'One instance shows itself; the estate view is the vendor’s, out of frame here'],
+    /*
+     * Wave 12 — 2 September 2026, and this row is the only one in the
+     * register that gets a **dated correction rather than a replacement**,
+     * because the 1 September note made two claims and only one of them was
+     * true. "It is the vendor's" was right. "Out of frame here" was a
+     * decision dressed as a fact: a catalogue that draws the whole product
+     * can draw a vendor surface, and what it owes is a frame that says whose
+     * it is rather than an omission. So the old sentence is quoted and the
+     * correction sits beside it — the same shape the walked-journeys note
+     * uses one heading down, and the same rule §5.2 keeps about never
+     * retro-editing a dated record.
+     *
+     * `proposed`, on the rule waves 8–11 used: a claim about this catalogue,
+     * not about the product. The product has no such surface in any form.
+     */
+    ['OM-2', 'Version visibility across the deployment estate', 'proposed', 'estate · instance · upgrade · diagnostics', 'P3',
+      `Written 1 Sep 2026: “One instance shows itself; the estate view is the vendor’s, out of frame here.” Corrected 2 Sep 2026 — the first half stands and the second does not: being the vendor’s surface is a reason to shift frame, not a reason to leave the row open. Drawn as a proposal, inside a frame that names whose surface it is and carries the vendor’s own principal rather than this deployment’s: ${ESTATE.counts.deployments} deployments, ${ESTATE.counts.behind} behind the current release and the furthest ${ESTATE.counts.furthestBehind} releases and ${ESTATE.counts.furthestDays} days back, every value resolving to one of the ${ESTATE.counts.sources} records a no-telemetry vendor holds and each dated to it. ${ESTATE.counts.drift} configuration drift confirmed and ${ESTATE.counts.deployments - ESTATE.counts.confirmed - ESTATE.counts.refuted} deployments where nobody has looked`],
     ['OM-3', 'Upgrade coordination: scheduling, approval, pre-flight, rollback', 'covered', 'upgrade', 'P2', ''],
     ['OM-4', 'Entitlement and contract enforcement with defined expiry behaviour', 'covered', 'entitlement', 'P2', ''],
-    ['OM-5', 'Configuration portability, versioned independently of the app', 'partially', 'formats · criteria', 'P2', 'Versions are shown; the package import/export surface is not drawn'],
+    /*
+     * Wave 12 — 2 September 2026. This note needed no correction: it was
+     * accurate on 1 September and the thing it named as missing is what this
+     * wave drew, so it is quoted and answered rather than argued with.
+     */
+    ['OM-5', 'Configuration portability, versioned independently of the app', 'proposed', 'package · criteria · formats · report · instance', 'P2',
+      `Written 1 Sep 2026: “Versions are shown; the package import/export surface is not drawn.” Drawn 2 Sep 2026 as a proposal — one package of ${CONFIG_PACKAGE.counts.items} items across the ${CONFIG_PACKAGE.counts.kinds} kinds the requirement names, each with its own version field and SHA-256, read against what is in force as ${CONFIG_PACKAGE.counts.new} new, ${CONFIG_PACKAGE.counts.changed} changed and ${CONFIG_PACKAGE.counts.identical} identical. ${CONFIG_PACKAGE.counts.consequential} of the ${CONFIG_PACKAGE.counts.items} reaches committed results — ${CONFIG_PACKAGE.impact.reaches} of them — and what those outcomes would do is the criteria library’s own test, referenced rather than redrawn. Arrival and activation are separate acts and nothing in the package is in force; the receiving end closes on the criteria library, whose version in force now names the package it arrived in`],
     ['DR-1', 'All customer data in the customer’s own tenancy; no egress', 'no screen', '—', 'P0', 'Architecture; stated on the instance screen'],
     ['DR-2', 'No vendor telemetry; diagnostics are customer-initiated', 'covered', 'diagnostics', 'P0', ''],
     /*
@@ -10296,6 +10926,38 @@ export const JOBS = [
        * not reschedule it.
        */
       { id: 'engagement', label: 'External-party engagement', body: externalEngagement, now: 'proposed', added: '2026-09-02' },
+      /*
+       * Wave 12, and the `state`-less rule a sixth time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A
+       * package is a durable versioned artefact with a lifecycle of its own —
+       * built → exported → imported → diffed → activated or refused — and the
+       * decision it exists for is one somebody takes on a date: *this package
+       * arrived two days ago, one of its three items reaches 36 committed
+       * results, and nothing in it is in force; activate it, activate part of
+       * it, or leave it.* (2) No existing screen owns it. `formats` owns the
+       * **definitions in force** — what a laboratory's file looks like today,
+       * on this instance — and `criteria` owns the **library**, which is the
+       * sets and their versions. Neither owns portability, and portability is
+       * not a property of either one: it is the thing that moves them between
+       * deployments, and it has a provenance, a checksum, a diff and an
+       * activation that belong to no definition and no set. `upgrade` owns
+       * the other path — the one a package exists to avoid. (3) It needs its
+       * own state: the provenance, the arrival that stops before activation,
+       * the three-item diff with its checksums, the scope the one
+       * consequential item reaches, and what a package must not overwrite are
+       * a record rather than a panel on something else. (4) It improves the
+       * graph rather than the count — it is the only screen that reaches a
+       * package at all, and it gives `criteria`, `formats`, `report` and
+       * `instance` a target for a question each of them raises and none of
+       * them can answer.
+       *
+       * `proposed`, and it stays that way: the versions are drawn on two
+       * screens already and the surface that moves them has never been built.
+       * Drawing it does not build it.
+       */
+      { id: 'package', label: 'Configuration package', body: configPackage, now: 'proposed', added: '2026-09-02' },
     ] },
   { id: 'j9', n: 'J9', title: 'Keep the instance alive', who: 'U6',
     note: 'CLI, and this is the one job where that is the right answer rather than a shortfall — except that none of it is self-servable.',
@@ -10304,6 +10966,42 @@ export const JOBS = [
       { id: 'upgrade', label: 'Upgrade and rollback', body: upgradeScreen, state: 'shipped (CLI)', isNew: true, now: 'shipped (CLI)' },
       { id: 'diagnostics', label: 'Backup and diagnostics', body: diagnostics, state: 'shipped (CLI)', now: 'shipped (CLI)' },
       { id: 'entitlement', label: 'About this instance', body: entitlementScreen, state: 'not built', isNew: true, now: 'shipped' },
+      /*
+       * Wave 12, and the second of this wave's two `state`-less entries.
+       *
+       * **It is filed under J9 and it is the vendor's, not the customer's.**
+       * The catalogue's own record says §12's operating model — OM-1…OM-5 —
+       * has no persona in the PRD and that the gap is the **instance
+       * operator**, U6. DT-3 settles who that is once there is more than one
+       * deployment: Strataflow holds deploy access and customers do not
+       * self-install releases, so the person performing an upgrade across N
+       * instances is the vendor's operator. U6 already covers this screen and
+       * no persona is minted for it. What the screen does need is a **frame**,
+       * because the catalogue's chrome says MOCK-WDL and A. Nakamura — the
+       * treatment and the reasoning are recorded above `ESTATE` in `seed.mjs`
+       * and drawn in `vendorFrame` above.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) The
+       * decision it exists for is R4's, taken by one person on a date: *which
+       * of my deployments have moved away from what I last put there, and how
+       * far.* (2) No existing screen owns it, and `instance` is the one that
+       * looks closest and is furthest: it is **one deployment reporting
+       * itself to its own operator**, and this is **five deployments as a
+       * vendor's own records of its own acts**. The two never share a value
+       * except by construction — the Wandalup row reads `INSTANCE` rather
+       * than restating it. (3) It needs its own state: five deployments, six
+       * releases, three sources with what each cannot say, and a confirmation
+       * age per row are a register, not a panel. (4) It improves the graph:
+       * it gives `instance`, `upgrade`, `diagnostics` and `package` the other
+       * side of a seam each of them describes and none of them draws.
+       *
+       * `proposed`, and note what that word means here: the *product* has no
+       * such surface at all, in any form. `instance`, `upgrade` and
+       * `diagnostics` are `shipped (CLI)` because a terminal is a surface;
+       * this one has no terminal either, and the register says `proposed`
+       * because that is what a drawing of it is.
+       */
+      { id: 'estate', label: 'Deployment estate', body: estate, now: 'proposed', added: '2026-09-02' },
     ] },
   { id: 'j10', n: 'J10', title: 'The conventions the whole product keeps', who: 'Every user',
     note: 'Not a job. Three cross-cutting claims, drawn once each so they can be checked once each.',
@@ -10445,7 +11143,9 @@ export const RELATED = {
   documents: ['certificate', 'lineage', 'notification', 'submissions'],
 
   'project-settings': ['roles', 'criteria', 'facility', 'projects'],
-  criteria: ['hardness', 'crosstab', 'background', 'dictionary', 'licence', 'exceedances', 'signoff', 'audit'],
+  // Wave 12 adds one edge: the set in force now names the package it arrived
+  // in, so the register can be opened rather than described.
+  criteria: ['hardness', 'crosstab', 'background', 'dictionary', 'licence', 'exceedances', 'signoff', 'audit', 'package'],
   // Wave 10 adds one edge to each of these and no body change to `formats`:
   // the format registry's natural onward step is the register of what those
   // formats are *for*, and the mapping screen's is the mapping that does not
@@ -10462,10 +11162,27 @@ export const RELATED = {
   // trail its one act is on, and the project's own membership tab.
   engagement: ['roles', 'audit', 'project-home', 'projects', 'signoff', 'project-settings'],
 
-  instance: ['diagnostics', 'upgrade', 'audit'],
-  upgrade: ['instance', 'diagnostics', 'entitlement'],
+  // Wave 12 — the two ends of the OM-5 loop. `criteria` reaches the package
+  // because the in-force version now names the one it arrived in, and
+  // `formats` because a format definition is one of the three kinds a package
+  // carries. Neither gains any other edge.
+  package: ['criteria', 'formats', 'report', 'instance', 'upgrade', 'audit', 'exchange'],
+
+  // Wave 12 — the deployment's own version panel gains both ends of the seam:
+  // the package that would move its configuration, and the vendor's register
+  // this deployment is one row of. The second is a catalogue jump across a
+  // frame and the screen at both ends says so.
+  instance: ['diagnostics', 'upgrade', 'audit', 'package', 'estate'],
+  upgrade: ['instance', 'diagnostics', 'entitlement', 'package'],
   diagnostics: ['instance', 'entitlement'],
   entitlement: ['instance', 'upgrade', 'diagnostics'],
+  // Wave 12 — the vendor's surface, and its exits are the four records it is
+  // built from or reasons about: the deployment that is its own first row,
+  // the upgrade path it schedules, the bundle that is its only independent
+  // source, and the package it deploys. Every one of them lands in
+  // MOCK-WDL's frame, which the screen states rather than leaves to be
+  // discovered.
+  estate: ['instance', 'upgrade', 'diagnostics', 'package'],
 
   'data-states': ['coverage', 'assistance', 'crosstab'],
   assistance: ['coverage', 'data-states', 'import-review'],

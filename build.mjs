@@ -119,13 +119,39 @@ const SECTION_VIEW = [
   { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
   { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
-  { label: 'Configuration', lede: '/config — reference data the whole instance shares', ids: ['formats', 'dictionary', 'units'] },
+  // Wave 12 files the configuration package here and the lede gains a clause
+  // for it. Everything in this group is reference data in force; a package is
+  // the same reference data *arriving*, and the two things it changes when it
+  // is activated are the format registry in this group and the criteria
+  // library, which sits under Exceedances because that is the question it
+  // serves rather than where it is configured.
+  { label: 'Configuration', lede: '/config — reference data the whole instance shares, and how a versioned set of it arrives', ids: ['formats', 'dictionary', 'units', 'package'] },
   // Wave 11 files the engagement here and the lede needs no clause for it:
   // "who may enter it" is already the question this group answers, and an
   // engagement is a record about one of the bindings `roles` lists. It would
   // be a child of `/instance/access` if it were built, which is the same
   // relationship `upgrade` and `diagnostics` have to `/instance`.
   { label: 'Instance', lede: '/instance — the deployment itself, and who may enter it', ids: ['instance', 'roles', 'engagement', 'upgrade', 'diagnostics', 'entitlement'] },
+  /*
+   * Wave 12, and the filing is part of the frame decision rather than a
+   * housekeeping choice (recorded in full above `ESTATE` in `seed.mjs`).
+   *
+   * This view mirrors the product's URL spaces, and the estate screen is in
+   * none of them: it is the **vendor's** surface, in the vendor's own place,
+   * reachable by no principal in any customer's directory. Filing it under
+   * `Instance` would have put it inside a group whose lede reads "the
+   * deployment itself" — which is the precise claim the screen exists to
+   * refuse — and filing it under `Conventions` would have made it the
+   * viewer's, which it is not either. So it gets a group whose lede says what
+   * it is.
+   *
+   * One screen in a group is a fair thing to question, and the answer is that
+   * this group is not a topic, it is a frame. The partition is the one place
+   * the catalogue can say that structurally instead of in prose somebody has
+   * to read, and it sits between the customer's own deployment and the
+   * viewer's own conventions because that is the order the frames widen in.
+   */
+  { label: 'Vendor operations', lede: 'Not a URL space on this deployment — Strataflow’s own surface, drawn because the catalogue holds the whole product', ids: ['estate'] },
   { label: 'Conventions', lede: '/help, and the viewer’s own audit of this catalogue', ids: ['data-states', 'assistance', 'coverage'] },
 ];
 
@@ -395,9 +421,22 @@ const ROOTS = {
     { label: 'Instance', target: 'instance' },
     { label: 'Access', target: 'roles' },
   ],
+  /*
+   * Wave 12. The estate is the one screen in this catalogue whose parent is
+   * not a space in this deployment at all, so its crumb names the vendor's
+   * own space and does not link — the same honesty the `Across projects` and
+   * `Configuration` crumbs already keep about a parent that exists as a place
+   * and not as a page, applied to a place that is not even here. Without this
+   * entry the trail would have read `Projects / MOCK-WDL — Wandalup
+   * Operations / Deployment estate`, which is the exact sentence the screen
+   * spends a framed notice refusing.
+   */
+  estate: [{ label: 'Strataflow — vendor operations' }],
 };
 const INSTANCE_SPACE = new Set(['instance', 'roles', 'upgrade', 'diagnostics', 'entitlement']);
-const CONFIG_SPACE = new Set(['formats', 'dictionary', 'units']);
+// Wave 12 adds `package`: it would be a child of `/config`, which is exactly
+// the relationship the other three have and exactly why they are here.
+const CONFIG_SPACE = new Set(['formats', 'dictionary', 'units', 'package']);
 const VIEWER_SPACE = new Set(['data-states', 'assistance', 'coverage']);
 
 function crumbFor(s) {

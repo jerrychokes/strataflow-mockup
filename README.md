@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **72 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **75 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -373,20 +373,28 @@ finding the view exists to produce.
 | Job | Screens | Who |
 |---|---|---|
 | **J0** Arrive, and find out what needs you | 4 | U1 · U2 · U4 · U5 |
-| **J1** Get the data in, and know it landed | 14 | U1 · U5 |
+| **J1** Get the data in, and know it landed | 18 | U1 · U5 |
 | **J2** Know the data is right | 7 | U1 · U2 |
 | **J3** Know what is wrong | 7 | U2 · U3 · U4 |
 | **J4** Understand it and explain it | 7 | U2 |
 | **J5** Produce the submission | 5 | U2 · U4 |
-| **J6** Keep the obligations met | 5 | U4 · U1 |
+| **J6** Keep the obligations met | 6 | U4 · U1 |
 | **J7** Prove what was known, and when | 4 | U2 · U4 |
-| **J8** Configure the instance | 7 | U5 |
-| **J9** Keep the instance alive | 4 | U6 |
+| **J8** Configure the instance | 9 | U5 |
+| **J9** Keep the instance alive | 5 | U6 |
 | **J10** The conventions the whole product keeps | 3 | Every user |
 
 The counts above were the second pass's and stood at 57 while the catalogue grew to 66;
 they are re-derived here from the register at the wave-2 change (1 Sep 2026). Re-derive
 them rather than reading them — `JOBS` in `screens.mjs` is the only thing that knows.
+
+**And they rotted again, exactly as that sentence says they do.** Re-derived from the
+register on 2 September 2026 (wave 12): **four of the eleven rows were wrong** — J1 read 14
+against 18, J6 read 5 against 6, J8 read 7 against 9, J9 read 4 against 5 — and the headline
+above read **72** against **75**. Waves 6 through 11 each added screens and none of them
+came back here, which is what a hand-kept count of a generated register does. The numbers in
+this section are as of 2 September 2026 and they will be wrong again; `node build.mjs`
+prints the total on every run, green ones included.
 
 **J10 is not a job**, and it is labelled so. It holds the three cross-cutting claims — the
 four data states, the keyboard contract, and the coverage matrix — drawn once each. Every
@@ -859,6 +867,134 @@ is on. Closing it means either moving `AS_AT` — which re-derives every countdo
 obligations board, the programme and the notification — or moving August literals on four
 screens outside this wave. Dated, in the seed, beside the dates it affects.
 
+**Wave 12 (2 September 2026) closes the two `partially` rows in the operations domain, and
+one of them by shifting frame rather than by drawing harder.**
+
+**`#package` — configuration portability, which is the half of OM-5 that had no surface.**
+The requirement is that criteria libraries, report templates and EDD format definitions are
+versioned independently of the application and deployed to every customer. The versions were
+already drawn on `#criteria` and `#formats`; what had never been drawn is the thing that
+moves them. `MOCK-CFG-2026.3` holds **three items across the three kinds the requirement
+names** — each with its own version field (`revision` for a format, `artifact_version` for
+the other two, left unnormalised because they are read by people who know one kind and not
+the other) and its own SHA-256 — and it is read against what is in force as **1 new, 1
+changed, 1 identical**. An identical item is drawn rather than dropped, because *this item is
+the same* and *this item is not in the package* are different facts about a deployment.
+
+**"Consequential" is defined on the screen and it is not "changed".** One of the three
+reaches results already committed: the criteria item, which would re-evaluate **36** results
+— counted off the grid as 6 analytes × 6 locations that returned water — of which **18** are
+criteria produced by the hardness relationship. The other two reach nothing recorded: a
+format definition decides how the *next* file is read, a template how the *next* document is
+assembled. And the number the screen deliberately does **not** produce is how many outcomes
+would move: that is the criteria library's own test, referenced by link rather than redrawn,
+and it has not been run — which is the point, because *we expect nothing to move* is a
+prediction rather than evidence.
+
+**Arrival and activation are separate acts, and the package has been sitting inert for two
+days.** Six steps: built, received, checksums recomputed, read against what is in force,
+**inert**, and activation not yet. Nothing imports silently — a package arriving with a
+changed criteria set and applying it because it was newer would be the largest silent default
+this product could contain. Activating the criteria item is an approval rather than a save,
+and activating a new criteria version **does not rewrite what past rounds were evaluated
+against**: the version that produced an outcome is recorded on it, a locked period refuses
+the write, and an issued report regenerates under the version it was issued with.
+
+**Provenance names which of two plausible origins this one has.** It was built by the vendor
+from the release line's own configuration directories, not exported from a sibling
+deployment — and the field a sibling package would fill is named and left empty rather than
+omitted. It carries a **checksum and not a signature**, said out loud because the absence
+looks like an oversight: the release attaches signed build provenance to the two images it
+publishes and to nothing else. And it is a file: there is no channel from the vendor into
+this deployment to push one down, and nothing here holds an address to fetch one from.
+
+**Two things a package must not overwrite, drawn because the fear is reasonable** — the
+operator's own corporate template (the arriving one is the *regulator's* prescribed
+structure; the branding and numbering stay where the document controller put them) and the
+locally authored criteria version, which is this site's own decision on top of whichever
+baseline is in force. **And three things a package does not carry**, of which the analyte
+dictionary is the sharp case: it arrives with a release, on `#upgrade`, because it is not one
+of the three kinds — and saying which things move on which path is the whole of what
+portability buys.
+
+**`#estate` — the vendor's surface, and the frame shift is the wave's judgement call.** OM-2's
+row said *"the estate view is the vendor's, out of frame here"*. Half of that was right. Being
+the vendor's is a reason to shift frame, not a reason to leave the row open — so the row gets
+a **dated correction beside the original sentence** rather than a rewrite, and the screen is
+drawn three ways at once: a bordered, hatched **frame** that survives a crop, with its label
+repeated at both edges; the vendor's own **counter-chrome** drawn inside it carrying
+M. Ferreira, a Strataflow operator, and deliberately no control at all, so the substitution
+for `MOCK-WDL · Contributor · A. Nakamura` is visible in the same screenshot rather than
+described; and one **statement** naming whose surface it is. The catalogue's own chrome is
+left alone on purpose — it is drawn once for the whole document and it is honest about being
+the product's, and making it lie differently on one screen would trade a stated frame shift
+for a hidden one. The filing follows: a section group of its own whose lede says it is not a
+URL space here, because filing it under *Instance* would put it in a group whose lede reads
+"the deployment itself", which is the claim the screen exists to refuse. The persona is **U6**
+and none is minted — the catalogue already records that §12's operating model has no PRD
+persona and that the gap is the instance operator, and DT-3 settles who that is at estate
+scale.
+
+**DR-2 decides the content model, not just a caveat on it.** There is no telemetry. The
+instance reports itself — the health endpoint carries the version stamp and the schema state,
+and the release refuses to publish an image whose reported version is not the version being
+published — but it answers whoever asks it *from inside the customer's network*, and nothing
+outside asks. So every value resolves to one of **three vendor-side records**: the releases
+Strataflow cut (its own register, complete), the upgrades Strataflow performed (complete
+because customers do not self-install, and the pre-flight refuses to proceed without a
+content-verified backup under 24 hours old, so an install date is also the last time the
+vendor saw a backup it could roll back to), and the diagnostic bundles customers chose to
+send. Each source is drawn with **what it cannot say**, and four things no source gives are
+listed where a reader would otherwise assume a live figure.
+
+**The sentence the screen turns on: the vendor knows what it installed; only a bundle can
+tell it that what it installed is still what is there.** So the ageing column is the date of
+the last bundle and nothing else. Five deployments, as at 23 August 2026: **4 of 5 behind**
+`v0.8.0`, the furthest **5 releases and 69 days** back with no standing upgrade window agreed
+at all — while the deployment that is 3 releases behind inside an agreed change freeze with a
+dated next window is *behind* rather than drifting, and a board that ranked those two the
+same way would send the operator to the wrong one. **1 configuration drift confirmed**, found
+in a bundle 3 days old — a format definition edited in place, which is the realistic case and
+the one nobody mentions — and **3 where nobody has looked**. The five confirmation states
+(confirmed, refuted, ageing, stale, never confirmed) are one per deployment, which the screen
+says is the catalogue drawing each state once rather than a claim about how an estate
+distributes; the 30- and 60-day thresholds are the screen's own convention and are stated as
+such.
+
+**Two enhancements, both closing the loop from the receiving end.** `#instance` gains a
+**Configuration** row naming the package in force beside the version — two rows because the
+two move on different paths — and says that this deployment is one row of a register kept
+somewhere else, known to the vendor from its own act of installing it rather than from
+anything this screen sends. `#criteria` gains an **Arrived in** row on the version pair: the
+set in force arrived in `MOCK-CFG-2024.1` on 2024-02-19, the day the instance was stood up,
+and has been carried unchanged by every package since. The criteria library was chosen over
+the report composer for a stated reason — its `active.by` field already read *"loaded with
+the shipped reference content"* with a date beside it, which is a package described without
+being nameable, while the template versions carry no arrival provenance at all and would have
+needed a structure invented for them. The draft cell reads *nothing — authored on this
+instance*, because a version written here did not arrive in anything.
+
+**And one thing it recorded rather than fixed.** The configuration column on `#estate` rests
+on the bundle's configuration report — each configuration item's version *and its SHA-256* —
+and **the catalogue describes the bundle twice without naming that field either time**:
+`#diagnostics` lists four things in a bundle and the configuration category is not among
+them, and `#entitlement` lists eight and calls the nearest one "reference-content versions".
+No checksum appears on either. So two surfaces already describe one record with two different
+lists, and this wave adds a third that depends on a field neither mentions. The claim about
+the product is right — the bundle does carry it — and the catalogue's description is what is
+short. Not fixed here because the honest repair is one derived contents list that both bundle
+screens read, which is a redesign of two screens in a wave capped at two enhancements. Dated,
+in the seed, and drawn on the estate as a warn card where it bites.
+
+**Found while doing it.** The job-count table above had rotted in four of eleven rows and the
+headline in the first line of this file read 72 against 75; both are re-derived and dated.
+Three vocabulary decisions are recorded in the seed with their anchors: **package** is minted
+because the code's own word is *bundle* and this catalogue spent *bundle* on the diagnostic
+bundle on 23 August; **item** rather than *artifact* because the glossary's artifact is the
+import stage artifact; and **estate** is the right word here rather than a borrowing, because
+the sense wave 10 recorded it as spent on — a set of deployments — is exactly the sense OM-2
+uses and exactly what this screen draws.
+
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
@@ -883,7 +1019,7 @@ compositing.
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Thirteen figure generators, drawn to the approved grammar. The hourly logger plate added in wave 8 is the same line-over-time family as the hydrograph — cadence is not a family — and introduces none |
-| `screens.mjs` | The 72 screens, the job spine, and the link graph |
+| `screens.mjs` | The 75 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
 | `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |

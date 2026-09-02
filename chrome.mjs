@@ -1246,4 +1246,90 @@ html, body { background: var(--mk-chrome); }
  */
 .mk-atom { white-space: nowrap; }
 
+
+/* ==================================================================== *
+ * Wave 12 — the vendor's own surface, framed so it cannot be mistaken
+ * ==================================================================== */
+
+/*
+ * One screen in this catalogue is not this deployment's.
+ *
+ * The document's chrome says MOCK-WDL / Contributor / A. Nakamura at the
+ * top of every page, and it is drawn once for the whole document — which is
+ * honest for seventy-four screens and a lie for the seventy-fifth. A banner
+ * inside the body would be enough for a reader who scrolls to the top and is
+ * not enough for the thing that actually happens to a mockup: somebody crops
+ * a screenshot. So the frame is a container around the whole body, and the
+ * label repeats at both ends of it.
+ *
+ * **Colour carries nothing here.** The border weight, the hatch, the word in
+ * the label and the substituted principal in the strip each say it
+ * independently, so a greyscale print and a photocopy keep the meaning
+ * (§5.3). The hatch is drawn on the container's own background rather than
+ * on a pseudo-element, so nothing inside it inherits a pattern.
+ */
+.mk-vendor {
+  border: 2px solid var(--mk-chrome-3);
+  border-radius: var(--sf-radius-md);
+  background-color: var(--sf-surface);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(23, 27, 31, .045) 0 5px,
+    rgba(23, 27, 31, 0) 5px 12px
+  );
+  padding: .55rem;
+  margin-bottom: 1rem;
+}
+/* The body sits on the product's own ground, so the hatch frames it rather
+ * than showing through every panel on it. */
+.mk-vendor__body {
+  background: var(--sf-ground);
+  border: 1px solid var(--sf-rule);
+  border-radius: var(--sf-radius-sm);
+  padding: .9rem;
+}
+@media (max-width: 767px) {
+  .mk-vendor { padding: .35rem; }
+  .mk-vendor__body { padding: .55rem; }
+}
+
+.mk-vendor__label {
+  margin: 0 0 .5rem;
+  display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--mk-chrome-2);
+}
+.mk-vendor__glyph { font-size: 9px; }
+.mk-vendor__label--foot { margin: .5rem 0 0; }
+
+/*
+ * The counter-chrome: the top bar this surface would actually carry.
+ *
+ * Deliberately holds no control at all — no project switcher, no search, no
+ * principal menu. Every one of those would be drawing reach, and the claim
+ * being made is that this surface reaches into no customer instance. It is
+ * dark because the document's own product chrome is light, so the two bars
+ * are visibly different things in the same screenshot.
+ */
+.mk-vendor__chrome {
+  display: flex; align-items: center; gap: .45rem .7rem; flex-wrap: wrap;
+  background: var(--mk-chrome); color: var(--mk-chrome-ink);
+  border-radius: var(--sf-radius-sm);
+  padding: .4rem .7rem; margin-bottom: .55rem;
+  font-size: 11.5px;
+}
+.mk-vendor__mark { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+.mk-vendor__space {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+  color: var(--mk-chrome-muted);
+  border-left: 1px solid var(--mk-chrome-rule); padding-left: .55rem;
+}
+.mk-vendor__gap { flex: 1 1 auto; }
+.mk-vendor__me { display: flex; align-items: center; gap: .4rem; color: var(--mk-chrome-muted); }
+.mk-vendor__avatar {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--mk-chrome-3);
+  display: grid; place-items: center;
+  font-size: 9.5px; font-weight: 700; font-family: var(--sf-font-data); color: var(--mk-chrome-ink);
+}
+
 `;

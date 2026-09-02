@@ -7705,3 +7705,852 @@ export const EXCHANGE = (() => {
     },
   };
 })();
+
+/* ==================================================================== *
+ * Wave 12 — configuration portability (OM-5) and the deployment estate
+ * (OM-2). 2 September 2026.
+ * ==================================================================== */
+
+/**
+ * The administration clock, **named rather than typed an eighth time**.
+ *
+ * Wave 11 recorded, and deferred, that this catalogue runs on two clocks:
+ * `AS_AT` is 2026-05-24 and every project and monitoring countdown measures
+ * from it, while the instance and administration surfaces are dated
+ * **23 August 2026**, the day they were first drawn. That deferral is still
+ * open and this wave does not touch it.
+ *
+ * What this constant is **not** is a third clock. It is the second one, which
+ * already exists as seven literals nobody can grep as a set:
+ *
+ *   - `INSTANCE.backup.last`      — `2026-08-23 02:00 AWST`
+ *   - `INSTANCE.services[1]`      — scheduler `last tick 2026-08-23 06:00:04 AWST`
+ *   - `ENTITLEMENT.remaining`     — `130 days`, which is 2026-08-23 → 2026-12-31
+ *   - `MEMBERS[0].lastSeen`       — `2026-08-23 07:41 AWST`
+ *   - `MEMBERS[1].lastSeen`       — the same moment, the same principal
+ *   - `MEMBERS[3].lastSeen`       — `2026-08-23 06:55 AWST`
+ *   - `SAVED_VIEW_LIST[2].used`   — `2026-08-23`
+ *
+ * Both surfaces this wave adds are administration surfaces, so both sit on
+ * that clock and both state their own as-at date on their face. Every number
+ * derived below is arithmetic on this constant and a dated source record;
+ * nothing is typed. The existing seven literals are left exactly as they are —
+ * moving them is the deferred work, not this wave's.
+ */
+export const OPS_AS_AT = '2026-08-23';
+
+/**
+ * # The configuration package (OM-5)
+ *
+ * OM-5's words are *criteria libraries, report templates, and EDD format
+ * definitions versioned independently of the application and deployed to every
+ * customer*. Three kinds, and the product's own configuration module carries
+ * exactly those three as a closed union — `edd-format`, `criteria-library`,
+ * `report-template` — with each artifact carrying its **own version** read out
+ * of the file (`revision` for a format, `artifact_version` for the other two)
+ * and its **own SHA-256**. An artifact that declares no version is refused
+ * rather than defaulted, on the stated ground that an unversioned artifact
+ * cannot be reconciled across an estate afterwards.
+ *
+ * ## Vocabulary — three decisions, recorded
+ *
+ * 1. **"Package" is minted here, and the reason is a collision.** The code's
+ *    own word is *bundle* (`configBundle`, `ConfigBundle` in the app repo's
+ *    `apps/web/lib/ops/config-bundle.ts`, G-56c). This catalogue has spent
+ *    *bundle* since 23 August on the **diagnostic bundle** — `BUNDLE`, the
+ *    `#diagnostics` screen, OM-1 — and two different things wearing one word
+ *    in front of one operator is exactly what QB-9 forbids. The glossary has
+ *    no entry for either, so neither word is protected; *package* is the one
+ *    that is free. The screen says on its face that the code calls it a
+ *    bundle, so the borrowing is visible rather than silent.
+ * 2. **"Item", not "artifact".** The code says `ConfigArtifact`. This
+ *    catalogue's *artifact* is already the glossary's **stage artifact** — the
+ *    parsed form of an import, on `#imports` and `#quarantine` — so the same
+ *    collision applies one word over. A package holds **items**; the panel
+ *    that cites the code names its word once.
+ * 3. **"Estate" is the right word on the screen below and the wrong one on
+ *    `#exchange`.** Wave 10 rejected *format estate* for the format inventory
+ *    and recorded why: `PORTFOLIO.says` uses *estate* for a set of things one
+ *    operator holds, and OM-2's own words are *"version visibility across the
+ *    deployment estate"*. The sense the word is spent on is **deployments**,
+ *    which is precisely what the estate screen draws — so here it is not a
+ *    borrowing at all, it is the PRD's own noun used in the PRD's own sense.
+ *
+ * ## Where the numbers come from
+ *
+ * `reaches` and `hardnessReach` are counted off `CROSSTAB` — the arriving
+ * criteria item is the ANZG set, and what it reaches is every committed result
+ * on this round that carries an ANZG outcome. Nothing here is typed, and the
+ * one number this screen deliberately does **not** produce is how many
+ * outcomes would move: that is the criteria library's own test, it is a
+ * control somebody has to press, and it has not been pressed because nothing
+ * from this package is in force.
+ *
+ * ## Anchors — every product-mechanics claim on this screen, and where it is
+ *
+ * All of it is in `apps/web/lib/ops/config-bundle.ts` (G-56c, OM-5) unless
+ * another file is named:
+ *
+ *   - **The three kinds, closed.** `type ConfigKind = 'edd-format' |
+ *     'criteria-library' | 'report-template'` — OM-5's three, and no fourth.
+ *     The analyte dictionary is not among them, which is why this screen
+ *     sends it to the release path instead.
+ *   - **Its own version field per kind.** `versionOf()` reads `revision` for
+ *     a format and `artifact_version` for the other two, and the comment says
+ *     the names are "left alone rather than normalised, because those names
+ *     are read by people who know one kind and not the other".
+ *   - **An unversioned item is refused.** Same function throws: "An
+ *     unversioned configuration artifact cannot be reconciled across an
+ *     estate, and defaulting it would let one deploy unnoticed."
+ *   - **The empty kind is reported, not omitted.** `defaultConfigSources()`
+ *     declares the report-template directory anyway, "rather than left out: an
+ *     inventory that silently omits a kind teaches an operator that the kind
+ *     is not configurable, which is the opposite of what OM-5 promises".
+ *   - **The package checksum covers configuration only.** The module header
+ *     states it as a deliberate omission: fold the application version in "and
+ *     within two releases they would stop looking". `configBundle()` hashes
+ *     `kind:name:version:checksum` lines and nothing else.
+ *   - **Config-only versus release.** `planDeployment()` returns
+ *     `'nothing-to-do' | 'config-only' | 'application'`, because "a tool that
+ *     cannot tell the two kinds apart forces every change through the slower
+ *     path, and the promise becomes a sentence in a document".
+ *   - **Drift is a different event from a planned change.** `driftAgainst()`:
+ *     "a planned change is one somebody made here, and drift is one somebody
+ *     made *there*… a customer editing a format definition in place to get an
+ *     import through, and they will not mention it". A **removed** artifact is
+ *     deliberately not drift.
+ *   - **Configuration, never code.** FR-3.1, and G-16's promise that a new
+ *     laboratory format ships without an application release — the sentence
+ *     the module header opens with.
+ *   - **A checksum and not a signature.** `.github/workflows/release.yml`
+ *     attaches signed build provenance to the two image digests it publishes
+ *     and to nothing else; there is no signing step for configuration.
+ *   - **The diagnostic bundle carries the same inventory.**
+ *     `apps/web/lib/ops/diagnostics.ts` builds `configurationReport()` from
+ *     `configBundle()` — "G-56c's inventory: each artifact's own version and
+ *     SHA-256, never its content" — which is what makes the estate's drift
+ *     column possible at all.
+ */
+export const CONFIG_PACKAGE = (() => {
+  const anzg = CRITERIA_LIBRARY.find((c) => c.set === CRITERIA[0].name && c.state === 'active');
+  const esdat = FORMATS.find((f) => f.name === 'ESdat ELDF-4');
+  const okafor = MEMBERS.find((m) => m.name === CRITERIA_DRAFT.draft.by);
+  const approver = MEMBERS.find((m) => m.role === 'Approver' && m.project === PROJECT.code);
+
+  /**
+   * The three kinds, closed, and the third is empty until this package lands.
+   *
+   * An inventory that leaves a kind out teaches an operator that the kind is
+   * not configurable — which is the opposite of what OM-5 promises — so the
+   * report-template kind is reported and reported as empty. That is the
+   * product's own rule about its own inventory, and it is why the arriving
+   * template is drawn as `new` rather than as a first entry nobody expected.
+   */
+  const KINDS = [
+    { kind: 'criteria-library', label: 'Criteria library', field: 'artifact_version', held: 1 },
+    { kind: 'edd-format', label: 'EDD format definition', field: 'revision', held: FORMATS.length },
+    { kind: 'report-template', label: 'Report template', field: 'artifact_version', held: 0 },
+  ];
+
+  /* What the arriving criteria item reaches on the record already committed. */
+  const anzgCells = (rows) =>
+    rows.flatMap((r) => r.cells).filter((c) => !c.empty && c.o[0] !== 'not_evaluated').length;
+  const reaches = anzgCells(CROSSTAB);
+  const reachedAnalytes = CROSSTAB.filter(
+    (r) => r.cells.some((c) => !c.empty && c.o[0] !== 'not_evaluated'),
+  ).map((r) => r.analyte);
+  const hardnessAnalytes = HARDNESS.derived.map((d) => d.analyte);
+  const hardnessReach = anzgCells(CROSSTAB.filter((r) => hardnessAnalytes.includes(r.analyte)));
+
+  const items = [
+    {
+      kind: 'criteria-library',
+      file: 'anzg-2018.json',
+      what: anzg.set,
+      here: anzg.version,
+      arriving: '2018.2',
+      verdict: 'changed',
+      /*
+       * The consequential one, and the definition of consequential is stated
+       * rather than assumed: **it reaches results already committed.** The
+       * other two reach nothing that has been recorded — a format definition
+       * decides how the *next* file is read, and a template decides how the
+       * *next* document is assembled.
+       */
+      consequential: true,
+      checksumHere: 'a41f6c0928d7',
+      checksumArriving: 'c58b30ea7194',
+      moved:
+        'The hardness relationship. 2018.1 carries it as three per-analyte constants; 2018.2 declares it as the named rule the evaluation already applies, so the version that produced a criterion is recorded on the criterion rather than inferred from the set it came in.',
+      notMoved:
+        'No guideline value in the artifact moves. The diff lists every analyte this site is assessed on under both versions and marks them identical — which is a reason to run the test, not a reason to skip it.',
+      reads: `${HARDNESS.ruleVersion.split(' · ')[0]} → hardness-modified-tv v4`,
+    },
+    {
+      kind: 'edd-format',
+      file: 'esdat.json',
+      what: esdat.name,
+      here: esdat.version,
+      arriving: esdat.version,
+      verdict: 'identical',
+      consequential: false,
+      checksumHere: '7e2d915cb083',
+      checksumArriving: '7e2d915cb083',
+      moved: 'Nothing. The bytes hash the same, so the package carries the definition this instance already runs.',
+      notMoved:
+        'Drawn rather than dropped from the list. A package that showed only what changed would leave a reader unable to tell “this item is the same” from “this item is not in the package”, and those are different facts about the deployment.',
+      reads: `${esdat.files} · ${esdat.fields} fields`,
+    },
+    {
+      kind: 'report-template',
+      file: 'dwer-groundwater-quarterly.json',
+      what: 'DWER quarterly groundwater report — prescribed structure',
+      here: null,
+      arriving: '2026.1',
+      verdict: 'new',
+      consequential: false,
+      checksumHere: null,
+      checksumArriving: '2b6408f7ce15',
+      moved:
+        'The kind was empty here and now holds one. It is the regulator’s prescribed structure — sections, order and the tables each one must carry — which is the same for every customer lodging under it, and that is why it is a thing the vendor ships rather than a thing each customer builds.',
+      notMoved:
+        'It is not the corporate template. Nothing in this package touches the operator’s own document, and the panel below says so where a reader would fear otherwise.',
+      reads: 'Prescribed structure only — no branding, no page setup, no numbering scheme',
+    },
+  ];
+
+  const count = (v) => items.filter((i) => i.verdict === v).length;
+
+  /**
+   * Provenance, and the honest half of it is which of two plausible origins
+   * this one has.
+   *
+   * A package built **by the vendor** and a package exported **from a sibling
+   * deployment** are both real shapes, and they carry different provenance.
+   * This one is the vendor's, and the reason is recorded rather than assumed:
+   * OM-5's own words are *deployed to every customer*, which is the vendor's
+   * act; DT-3 gives the vendor the deploy access to perform it; and a
+   * sibling-instance package would have to be exported by that instance's own
+   * principal and carried by its own operator, so this instance would hold no
+   * record of either. The screen names the field a sibling package would fill
+   * and leaves it empty here, which is the honest way to draw one of two.
+   */
+  const provenance = {
+    builtBy: 'Strataflow',
+    builtByKind: 'the vendor',
+    builtFrom: 'the release line’s own configuration directories',
+    notFrom: 'any deployment',
+    builtAt: '2026-08-19',
+    receivedAt: '2026-08-21',
+    receivedBy: okafor.name,
+    receivedByBinding: `${okafor.role} · ${okafor.project}`,
+    checksum: '9f30c7a51bd6',
+    signature: null,
+    /*
+     * A checksum, not a signature — said out loud because the absence looks
+     * like an oversight. The release workflow attaches signed build
+     * provenance to the two **images** it publishes and to nothing else;
+     * configuration is not an image, and drawing a signature here would be
+     * drawing a mechanism the product does not have.
+     */
+    signatureNote:
+      'A checksum, not a signature. The release publishes signed build provenance for the two images it builds and for nothing else — configuration is not one of them — so what a package can prove on arrival is that its bytes are the bytes it was built from, and not who built them.',
+    siblingWould:
+      'A package exported from another deployment would name that deployment and the principal who exported it. Both fields are empty here, because this one was built from the release line rather than from any instance.',
+    carriedHow:
+      'A file. There is no channel from Strataflow into this deployment to push one down, and nothing here holds an address to fetch one from — the same position the export record and the alert destinations already state.',
+  };
+
+  /** Arrival, and the four steps that happen before anything is in force. */
+  const arrival = [
+    { name: 'Built', on: '2026-08-19', detail: 'By the vendor, from the release line’s configuration directories. Every item carries its own version, read out of the file rather than assigned to it.', state: 'done' },
+    { name: 'Received', on: '2026-08-21', detail: `Imported by ${okafor.name}. A file arriving, not a deployment happening — nothing has been applied by reading it.`, state: 'done' },
+    { name: 'Checksums recomputed', on: '2026-08-21', detail: 'Each item’s SHA-256 recomputed from its bytes on arrival, and the package checksum recomputed from the item lines. Both matched what the package declares.', state: 'done' },
+    { name: 'Read against what is in force', on: '2026-08-21', detail: 'The diff below. Reading a package is not applying it, exactly as reading a deliverable is not committing it.', state: 'done' },
+    { name: 'Inert', on: OPS_AS_AT, detail: 'Nothing from this package is in force. Two days sitting here, and every register on this instance still answers exactly as it did before it arrived.', state: 'run' },
+    { name: 'Activated', on: 'not yet', detail: 'Item by item, or the set. Each activation is one attributed write; the criteria item is behind a named approval because activating a criteria set re-evaluates the record.', state: 'wait' },
+  ];
+
+  /**
+   * What activating the changed item would write.
+   *
+   * Deliberately **not** a restatement of the criteria library's own
+   * activation preview. That one is about a locally authored version and it
+   * prints the outcomes that move, because its test has been run. This one is
+   * about a package, its last row is the number this screen cannot produce,
+   * and the reason it cannot is the point: an activation whose consequences
+   * have not been measured is not ready to be approved.
+   */
+  const activationWrites = [
+    { what: 'Items activated', n: '1 of 3 — the criteria item alone' },
+    { what: 'Criteria set versions written', n: `1 — ${anzg.version} is superseded, not deleted` },
+    { what: 'Committed results re-evaluated', n: String(reaches) },
+    { what: 'Of those, criteria produced by the hardness relationship', n: String(hardnessReach) },
+    { what: 'Past rounds re-evaluated', n: '0 — a version change evaluates forward' },
+    { what: 'Locked periods re-opened', n: '0 — a locked period refuses the write' },
+    { what: 'Issued reports changed', n: '0 — a snapshot regenerates under the version it was issued with' },
+    { what: 'Outcomes that change', n: 'not known — the test has not been run' },
+  ];
+
+  /**
+   * What a package must not overwrite, drawn because the fear is reasonable.
+   *
+   * Both rows are things this catalogue already holds, and both would be a
+   * real defect if a package reached them.
+   */
+  const mustNotTouch = [
+    {
+      what: `The operator’s own corporate template — ${TEMPLATE.file}, version ${TEMPLATE.current} in force`,
+      why: 'It is the customer’s document, and a Strataflow-branded regulatory submission is a hard anti-pattern (FR-7.4). The arriving template is the regulator’s prescribed structure; the branding, the page setup and the numbering stay where the document controller put them.',
+      where: 'report',
+      whereLabel: 'the report composer’s template panel',
+    },
+    {
+      what: `The locally authored criteria version — ${CRITERIA_DRAFT.set} ${CRITERIA_DRAFT.draft.version}, drafted by ${CRITERIA_DRAFT.draft.by}`,
+      why: 'It is this instance’s own configuration of the set, written for a reason that belongs to this site: the assessment method statement the operator gave the regulator. A package carries the vendor’s baseline and has no business overwriting a decision the customer made on top of it — so the draft is left where it is and the arrival is drawn beside it.',
+      where: 'criteria',
+      whereLabel: 'the criteria library’s version workspace',
+    },
+  ];
+
+  /**
+   * What a package is not, and the analyte dictionary is the sharp case.
+   *
+   * `#upgrade` already draws the dictionary moving 2026.2 → 2026.3 as a change
+   * that arrives **with a release**. That is not an inconsistency to tidy
+   * away: the dictionary is not one of OM-5's three kinds and it is not one of
+   * the configuration module's three, so it rides with the application and a
+   * package cannot carry it. Saying which things move on which path is the
+   * whole of what OM-5 buys.
+   */
+  const notInAPackage = [
+    {
+      what: `The analyte dictionary — ${UPGRADE.changes[0].what}`,
+      why: 'Shipped reference data, loaded by the database’s own seed. It is not one of the three kinds, so it arrives with the release and is accepted as a diff there.',
+      where: 'upgrade',
+      whereLabel: 'the upgrade’s change list',
+    },
+    {
+      what: 'Anything that is code',
+      why: 'Not because code is hard to move, but because moving it is a release and a package is the thing that is not one. A definition that needed a parser written for it would take the whole classification with it, and an operator who cannot tell a configuration change from a release routes every change through the slower path.',
+      where: 'upgrade',
+      whereLabel: 'the path a release takes instead',
+    },
+    {
+      what: 'Any record this instance holds',
+      why: 'A package is configuration in one direction. It carries no result, no location, no certificate and no principal, and the export below carries none either — the customer’s data stays in the customer’s tenancy.',
+      where: 'exchange',
+      whereLabel: 'the exchange register',
+    },
+  ];
+
+  /** Building one here, which is the other half of portability. */
+  const exportable = KINDS.map((k) => ({
+    ...k,
+    exports: k.kind === 'edd-format' ? FORMATS.length : k.kind === 'criteria-library' ? CRITERIA_LIBRARY.length : 0,
+  }));
+
+  return {
+    id: 'MOCK-CFG-2026.3',
+    asAt: OPS_AS_AT,
+    kinds: KINDS,
+    items,
+    provenance,
+    arrival,
+    activationWrites,
+    mustNotTouch,
+    notInAPackage,
+    exportable,
+    approver: approver.name,
+    importer: okafor.name,
+    /** The package this instance is running, and the one that first landed the set in force. */
+    inForce: { id: 'MOCK-CFG-2026.2', taken: '2026-05-06' },
+    /**
+     * The receiving end of the portability loop, rendered on `#criteria`.
+     *
+     * `CRITERIA_DRAFT.active` already carried the two fields this needs — *by*
+     * reading "Loaded with the shipped reference content" and *at* reading
+     * 2024-02-19, which is the day this instance was stood up and the day its
+     * first two role bindings were granted. Naming the package that content
+     * arrived in fills a field that exists rather than adding a structure, and
+     * that is why the criteria library is the screen this wave extends rather
+     * than the report composer, whose template versions carry no arrival
+     * provenance at all and would have needed a new one invented for them.
+     */
+    inForceFrom: {
+      package: 'MOCK-CFG-2024.1',
+      arrived: CRITERIA_DRAFT.active.at,
+      by: CRITERIA_DRAFT.active.by,
+      carriedSince: 'MOCK-CFG-2026.2',
+    },
+    impact: {
+      round: ROUND.code,
+      roundLabel: ROUND.label,
+      reaches,
+      analytes: reachedAnalytes,
+      locations: CROSSTAB_SHAPE.sampledColumns.length,
+      hardnessReach,
+      hardnessAnalytes,
+      set: anzg.set,
+      changesUnknown:
+        'How many of those outcomes move is the criteria library’s own test, run against the committed record and reported row by row. It has not been run against this item, and the activation below is gated on it.',
+      reportedThen:
+        'Activating it would not change what any past round was evaluated against. The version that produced an outcome is recorded on the outcome, a locked period refuses the write, and an issued report regenerates under the version it was issued with. What was reported then and what the record says now are different questions, and a package that answered only the second would have thrown the first away.',
+    },
+    counts: {
+      items: items.length,
+      kinds: KINDS.length,
+      new: count('new'),
+      changed: count('changed'),
+      identical: count('identical'),
+      consequential: items.filter((i) => i.consequential).length,
+      mustNotTouch: mustNotTouch.length,
+      notInAPackage: notInAPackage.length,
+      exportable: exportable.reduce((n, k) => n + k.exports, 0),
+    },
+  };
+})();
+
+/**
+ * # The deployment estate (OM-2) — the vendor's surface, and it says so
+ *
+ * ## The frame shift, and why it is drawn three ways at once
+ *
+ * Every other screen in this catalogue is MOCK-WDL's, seen by A. Nakamura, and
+ * the viewer's chrome says exactly that at the top of the page: the project
+ * code, the role binding, the principal. **This one is not.** It belongs to
+ * whoever operates Strataflow, it lives in a different place, no principal in
+ * the customer's directory reaches it, and R4 is a risk on the *vendor's*
+ * side of the contract rather than the customer's.
+ *
+ * A screen like that under a chrome that says `MOCK-WDL · Contributor ·
+ * A. Nakamura` is not a small imprecision. It is the screenshot that gets
+ * shown to a customer and read as *Strataflow can see across my deployment
+ * from inside my instance*, which is the exact claim DR-1 and DT-1 exist to
+ * refuse. So the shift is drawn rather than captioned, and three ways because
+ * each one fails differently:
+ *
+ * 1. **A frame.** The whole body sits inside a bordered, hatched container
+ *    with a standing label. A screenshot cropped to any part of this screen
+ *    still carries the frame, which a banner at the top would not.
+ * 2. **A counter-chrome.** The vendor's own top bar is drawn *inside* the
+ *    frame, carrying the vendor operator and no project switcher at all. The
+ *    reader sees the substitution instead of being told about it, and the two
+ *    bars are visible in the same screenshot.
+ * 3. **A statement.** One notice, first thing inside the frame, naming whose
+ *    surface it is, whose principal, and that the bar above belongs to a
+ *    different session in a different deployment.
+ *
+ * The catalogue's own chrome is deliberately **not** altered per screen. It is
+ * rendered once for the whole document and it is honest about what it is —
+ * the product's chrome, drawn once — and making it lie differently on one
+ * screen would trade a stated frame shift for a hidden one.
+ *
+ * ## Filing, which is part of the same decision
+ *
+ * The by-section rail mirrors the product's URL spaces, and this screen is in
+ * none of them. Filing it under **Instance** would have put a surface that is
+ * not this deployment inside the group whose lede is *"the deployment itself"*
+ * — the precise claim the screen exists to refute — so it gets a group of its
+ * own whose lede says it is not a URL space here. One screen in a group is a
+ * fair thing to question; the answer is that the group is not a topic, it is a
+ * frame, and the partition is the one place the catalogue can say so
+ * structurally rather than in prose somebody has to read.
+ *
+ * ## The persona is U6, and no persona is minted
+ *
+ * The catalogue's own record says §12's operating model (OM-1…OM-5) has no
+ * persona in the PRD and that the gap is the **instance operator**, U6. DT-3
+ * settles who that is at estate scale: Strataflow holds deploy access and
+ * customers do not self-install releases, so the person performing an upgrade
+ * on N deployments is the vendor's operator. U6 already covers this screen.
+ *
+ * ## DR-2 is the hard constraint, and it decides the whole content model
+ *
+ * There is no telemetry. The instance reports itself — `/healthz` carries the
+ * version stamp and the schema state, and the release smoke test fails an
+ * image whose reported version is not the version being published — but it
+ * reports itself **to whoever asks it from inside the customer's network**,
+ * and nothing harvests it. So every value on this screen comes from one of
+ * exactly three vendor-side records:
+ *
+ *   1. **The releases Strataflow cut.** Its own register. Every image is
+ *      published under its version and its digest with no floating tag, and
+ *      the workflow refuses to publish from a commit whose checks did not all
+ *      succeed.
+ *   2. **The upgrades Strataflow performed.** DT-3 makes this complete rather
+ *      than partial: customers do not self-install, so the version the vendor
+ *      last installed *is* the version running. The pre-flight refuses to
+ *      proceed without a content-verified backup no older than 24 hours, so
+ *      an upgrade the vendor performed is also the moment it last saw a
+ *      backup it could roll back to.
+ *   3. **The diagnostic bundles customers chose to send.** Customer-initiated
+ *      by construction (OM-1, DR-2). A bundle carries the application version,
+ *      the applied migrations, and each configuration artifact's version and
+ *      SHA-256 — which is the only thing that can tell the vendor that what it
+ *      installed is still what is there. It carries no result, no location and
+ *      no certificate, and names those exclusions in its own manifest.
+ *
+ * The sentence the whole screen turns on falls out of the split: **the vendor
+ * knows what it installed; only a bundle can tell it that what it installed is
+ * still what is there.** So the ageing column is the date of the last bundle
+ * and nothing else, and a deployment that has never sent one reads as never
+ * confirmed rather than as fine.
+ *
+ * ## Every date is a source record's own, and every derived number is arithmetic
+ *
+ * Release dates, install dates and bundle dates are literals because they are
+ * *when something happened* — the same class as the contract's two dates on
+ * the engagement record. Everything else — releases behind, days on a version,
+ * days since the last confirmation, the counts in the headline — is computed
+ * from those and `OPS_AS_AT`.
+ *
+ * ## Anchors — every product-mechanics claim on this screen, and where it is
+ *
+ * Nothing below is drawn from memory. Each of these was read in the app repo:
+ *
+ *   - **The version stamp, and that nothing harvests it.** G-56a's status is
+ *     titled *"The estate reports itself, nothing harvests it"* (OM-2, R4,
+ *     DR-2). `apps/web/lib/ops/version.ts` reads the release stamp baked in by
+ *     the workflow and falls back to the checkout's `0.0.0` — "a checkout is
+ *     not a release" — and its module note says `/healthz` carries it, "the
+ *     customer reads it, and nothing transmits it anywhere (DR-2)".
+ *   - **The release refuses an image that misreports its version.**
+ *     `.github/workflows/release.yml`, the smoke-test step: it compares
+ *     `.version.application` from `/healthz` against the version being
+ *     published and exits 1 on a mismatch, with the comment "the stamp is what
+ *     answers *which version is that customer on* without telemetry".
+ *   - **No floating tag; pinned by digest.** Same workflow's header — "There is
+ *     no `latest` tag, and that is the same decision. A floating tag is a
+ *     deployment that changes when nobody deployed" — and the summary step
+ *     prints the digests with "Prefer these. A tag is mutable at the registry;
+ *     a digest is not."
+ *   - **It refuses to publish from a commit whose checks did not all
+ *     succeed.** Same workflow, in the step named `refuse to publish from a
+ *     commit CI has not passed`: every check run on the commit must have
+ *     concluded `success` — not, in its own words, "the ones I remembered to
+ *     name". Its own job is excluded by name, because a workflow run appears
+ *     in its own commit's check runs and the first real tag push waited for
+ *     itself.
+ *   - **The pre-flight blocks without a fresh backup.** G-56a's status names
+ *     three refusals in `scripts/upgrade-preflight.mjs` —  `target-stated`
+ *     (a tagless or `latest` reference refused), `backup-fresh` (no manifest,
+ *     or one older than 24 h, blocks, "because the pre-upgrade backup *is* the
+ *     rollback path") and `schema-compatible`.
+ *   - **What a bundle carries.** `apps/web/lib/ops/diagnostics.ts` (G-55,
+ *     OM-1, DR-2): "Customer-initiated, never harvested" — and, exactly,
+ *     "nothing in this module can transmit anything". Its five categories,
+ *     from `DiagnosticsCategoryName`, are version, configuration,
+ *     logs, schema, errors; the configuration one is described in the manifest
+ *     as *"Configuration shape — env var names as set/unset, config artifacts
+ *     as versions and SHA-256s"*, and `NOT_INCLUDED` names what is out and
+ *     why. There is no backup manifest among them.
+ *   - **Customers do not self-install.** PRD §11, DT-3.
+ *   - **Version drift is the primary failure mode.** PRD §12.1 and §15's R4.
+ */
+export const ESTATE = (() => {
+  const asAt = OPS_AS_AT;
+
+  /**
+   * The releases the vendor cut. Its own register, and the only list here
+   * that is complete by construction.
+   *
+   * v0.7.2 and v0.8.0 are read from `INSTANCE` and `UPGRADE` rather than
+   * retyped, so this register and the deployment's own version panel cannot
+   * come apart. The digests are fictional on the same convention as every
+   * other identifier in this seed; what is not fictional is the shape — a
+   * release is pinned by digest because a tag is mutable at the registry, and
+   * there is no floating tag to pin instead.
+   */
+  const releases = [
+    { version: 'v0.6.0', released: '2026-06-12', digest: 'sha256:4b1e77c0a9d2', commit: '2c7de40' },
+    { version: 'v0.6.1', released: '2026-07-03', digest: 'sha256:8c05f31ab6e4', commit: 'b1904ff' },
+    { version: 'v0.7.0', released: '2026-07-24', digest: 'sha256:1d9a4e77b035', commit: '7ea3c18' },
+    { version: 'v0.7.1', released: '2026-08-04', digest: 'sha256:6f2c80d41ae9', commit: 'd420b6a' },
+    { version: INSTANCE.version, released: INSTANCE.released, digest: 'sha256:5a0cb9e73f16', commit: INSTANCE.commit },
+    { version: UPGRADE.available, released: UPGRADE.released, digest: 'sha256:0a73be5f21c8', commit: 'ff58e02' },
+  ];
+  const current = releases[releases.length - 1];
+  const indexOfVersion = (v) => releases.findIndex((r) => r.version === v);
+  const behind = (v) => releases.length - 1 - indexOfVersion(v);
+
+  /**
+   * How long the vendor's knowledge of a deployment's configuration is
+   * allowed to be before this screen calls it stale.
+   *
+   * **This screen's own convention, not a product rule**, and it is stated on
+   * the face for that reason. Thirty days is one monthly cycle: a deployment
+   * confirmed inside one is one somebody has looked at, and a deployment
+   * confirmed outside two is one the vendor is reasoning about from a record
+   * of its own acts alone.
+   */
+  const FRESH_DAYS = 30;
+  const STALE_DAYS = 60;
+
+  const rows = [
+    {
+      id: 'MOCK-DEP-WDL',
+      customer: ENTITLEMENT.customer,
+      thisOne: true,
+      version: INSTANCE.version,
+      installedOn: '2026-08-16',
+      lastBundle: '2026-07-29',
+      configPackage: 'MOCK-CFG-2026.2',
+      configDrift: null,
+      window: 'Second Saturday, 22:00 – 02:00 AWST',
+      scheduled: null,
+      support: ENTITLEMENT.support,
+      term: ENTITLEMENT.term,
+      /*
+       * The sharpest honesty beat on the screen, and it is checkable against
+       * `INSTANCE` two screens over: the deployment's own record holds a
+       * restore drill and a nightly backup that this register does not, and
+       * cannot, because a drill an instance runs on its own reaches no vendor
+       * record and the bundle carries no backup manifest. Both dates are read
+       * from `INSTANCE.backup` rather than retyped.
+       */
+      note: `The deployment this catalogue draws, and the one row where the gap is visible: its own screens hold a restore drill on ${INSTANCE.backup.drill} and a backup at ${INSTANCE.backup.last} that this register does not have. Neither reached the vendor, and neither would.`,
+    },
+    {
+      id: 'MOCK-DEP-TAL',
+      customer: 'Tallering Metals Pty Ltd',
+      thisOne: false,
+      version: UPGRADE.available,
+      installedOn: '2026-08-22',
+      lastBundle: null,
+      configPackage: CONFIG_PACKAGE.id,
+      configDrift: null,
+      window: 'Any weekday evening, 24 h notice',
+      scheduled: null,
+      support: 'Business hours AWST · 1 business day response · escalation to the operator',
+      term: '2026-04-01 → 2027-03-31',
+      note: 'The newest deployment, upgraded yesterday and carrying the package that is still sitting inert at Wandalup. It has never sent a bundle, so nothing here has ever been confirmed by anything but the vendor’s own act.',
+    },
+    {
+      id: 'MOCK-DEP-BOO',
+      customer: 'Boorabbin Lithium Pty Ltd',
+      thisOne: false,
+      version: 'v0.7.0',
+      installedOn: '2026-07-26',
+      lastBundle: '2026-07-06',
+      configPackage: 'MOCK-CFG-2026.2',
+      configDrift: null,
+      window: 'Quarterly change freeze — March, June, September, December',
+      scheduled: '2026-09-12',
+      support: 'Business hours AWST · 1 business day response · escalation to the operator',
+      term: '2025-09-01 → 2026-08-31',
+      note: 'A change freeze is a legitimate reason to be behind, and it is the reason this one is: the next window is agreed and dated, which is the difference between a deployment that is behind and one that is drifting.',
+    },
+    {
+      id: 'MOCK-DEP-NUL',
+      customer: 'Nullagine Gold Pty Ltd',
+      thisOne: false,
+      version: 'v0.6.0',
+      installedOn: '2026-06-15',
+      lastBundle: '2026-06-18',
+      configPackage: 'MOCK-CFG-2025.2',
+      configDrift: null,
+      window: 'By arrangement — no standing window agreed',
+      scheduled: null,
+      support: 'Business hours AWST · 2 business day response',
+      term: '2026-02-01 → 2027-01-31',
+      note: 'No standing window was agreed at deployment, so every upgrade needs a conversation to start it and none has started. That is the shape R4 describes — not a failure of a mechanism, an absence of one.',
+    },
+    {
+      id: 'MOCK-DEP-YAN',
+      customer: 'Yandanooka Energy Pty Ltd',
+      thisOne: false,
+      version: INSTANCE.version,
+      installedOn: '2026-08-18',
+      lastBundle: '2026-08-20',
+      configPackage: 'MOCK-CFG-2026.2',
+      /*
+       * The realistic case, and the product's own module names it: a customer
+       * edits a format definition in place to get an import through, and does
+       * not mention it. The next deployment would overwrite the fix and the
+       * import would start failing again with nothing connecting the two —
+       * which is why the module reports drift as a different event from a
+       * planned change rather than folding the two together.
+       */
+      configDrift: {
+        item: 'edd-format · esdat.json',
+        deployedChecksum: '7e2d915cb083',
+        foundChecksum: 'af17d6b40c92',
+        found: '2026-08-20',
+        means:
+          'The bundle’s configuration report holds a SHA-256 for this item that is not the one the vendor deployed. Somebody edited the definition in place — the usual reason is an import that would not read — and the next deployment would overwrite it.',
+      },
+      window: 'First Sunday, 06:00 – 10:00 AWST',
+      scheduled: '2026-09-06',
+      support: 'Business hours AWST · 1 business day response · escalation to the operator',
+      term: '2026-03-01 → 2027-02-28',
+      note: 'The only row whose configuration has been independently confirmed this week, and the confirmation refuted the assumption. A deployment nobody checks is not a deployment without drift.',
+    },
+  ].map((d) => {
+    const confirmedDays = d.lastBundle === null ? null : daysBetween(d.lastBundle, asAt);
+    return {
+      ...d,
+      behind: behind(d.version),
+      releasedOn: releases[indexOfVersion(d.version)].released,
+      digest: releases[indexOfVersion(d.version)].digest,
+      daysOnVersion: daysBetween(d.installedOn, asAt),
+      confirmedDays,
+      /*
+       * Four states, and `refuted` is the one a green/amber/red scale would
+       * have lost: a confirmation three days old that found a difference is
+       * not "fresh", and it is not "stale" either.
+       */
+      confirmation:
+        d.configDrift !== null
+          ? 'refuted'
+          : confirmedDays === null
+            ? 'never confirmed'
+            : confirmedDays <= FRESH_DAYS
+              ? 'confirmed'
+              : confirmedDays <= STALE_DAYS
+                ? 'ageing'
+                : 'stale',
+      /*
+       * The backup the vendor last saw, which is the upgrade it last
+       * performed and nothing else. The pre-flight refuses to proceed on a
+       * manifest older than 24 hours, so an install date is a date a
+       * content-verified backup existed — and a drill the instance ran on its
+       * own afterwards is on its own screen and not in any bundle.
+       */
+      backupSeenOn: d.installedOn,
+      backupSeenDays: daysBetween(d.installedOn, asAt),
+    };
+  });
+
+  const tally = (state) => rows.filter((r) => r.confirmation === state).length;
+  const furthest = rows.reduce((a, b) => (b.behind > a.behind ? b : a));
+  const oldest = rows
+    .filter((r) => r.confirmedDays !== null)
+    .reduce((a, b) => (b.confirmedDays > a.confirmedDays ? b : a));
+
+  /** The three sources, and what each one cannot say. */
+  const sources = [
+    {
+      source: 'The releases Strataflow cut',
+      holds: `${String(releases.length)} releases, each pinned by digest, from ${releases[0].released} to ${current.released}`,
+      current: 'Always. It is the vendor’s own register',
+      cannot: 'Nothing about any deployment. A release is a thing that was published, not a thing that was installed',
+    },
+    {
+      source: 'The upgrades Strataflow performed',
+      holds: 'Which version is on which deployment, when it was installed, and that a content-verified backup existed at that moment',
+      current: 'As of each install date, and complete — customers do not self-install (DT-3)',
+      cannot: 'Anything the customer changed afterwards. Configuration edited in place is invisible to it',
+    },
+    {
+      source: 'The diagnostic bundles customers chose to send',
+      holds: 'Application version, applied migrations, and each configuration item’s version and SHA-256',
+      current: 'As of the bundle’s own date, and never after it',
+      cannot: 'Anything the customer did not send. There is no request that produces one (OM-1, DR-2)',
+    },
+  ];
+
+  /** What no source gives, said where a reader would look for a live figure. */
+  const noSource = [
+    /*
+     * Plain prose, not markup. These strings are escaped on the way into the
+     * cell, so a backtick round /healthz rendered as a literal backtick —
+     * caught by eye in the first screenshot pass and fixed at the source
+     * rather than by teaching one cell to emit HTML.
+     */
+    'Whether the instance is up right now. The health endpoint answers whoever asks it from inside the customer’s network, and nothing outside asks',
+    'How much data a deployment holds, how many results, how many bores, or how many people signed in',
+    'Whether an upgrade a customer scheduled has run, until the vendor runs it',
+    'Whether a backup drill the instance ran on its own succeeded — the bundle carries version, configuration, schema, logs and errors, and no backup manifest',
+  ];
+
+  /**
+   * ## FOUND AND DEFERRED — 2 September 2026 (wave 12), owner unassigned
+   *
+   * **The mechanism this screen rests on is not on either of the two screens
+   * that describe the bundle.** Every configuration claim here — the package
+   * a deployment is on, and the drift that refuted one of them — comes from
+   * the bundle's configuration report, which in the product carries each
+   * configuration artifact's own version *and its SHA-256*. The catalogue
+   * describes that record twice and neither description names it:
+   *
+   *   - `#diagnostics` lists four things in the bundle (version and commit,
+   *     migration state, recent errors, schema and policy inventory) and the
+   *     configuration category is **not among them at all**;
+   *   - `#entitlement` renders `BUNDLE.contents`, whose first row reads
+   *     *"Instance version, schema version, reference-content versions"* —
+   *     closer, but "reference-content versions" is a different phrase from
+   *     the configuration inventory, and **no checksum appears on either
+   *     screen**, which is the field the whole drift finding turns on.
+   *
+   * So two surfaces already describe one record with two different lists —
+   * four rows against eight — and this wave adds a third that depends on a
+   * field neither of them mentions.
+   *
+   * **Why it is not fixed here.** Closing it means editing `#diagnostics`'s
+   * table and `BUNDLE.contents`, which is a third and fourth enhancement in a
+   * wave capped at two, and it is the wrong shape of fix besides: the honest
+   * repair is to derive one bundle-contents list and have both screens read
+   * it, which is a redesign of two screens outside this wave rather than a
+   * row added to each. It is the same class as wave 8's import-tiles record —
+   * defensible literals that predate the wave and want a deliberate pass.
+   *
+   * Drawn where it bites: the estate states that its configuration column
+   * rests on a bundle field the catalogue's own bundle screens do not list,
+   * rather than letting a reader find the disagreement by clicking through.
+   */
+  const bundleGap = {
+    field: 'each configuration item’s version and SHA-256',
+    diagnosticsLists: 4,
+    entitlementLists: 8,
+    where: 'diagnostics',
+    whereLabel: 'the bundle on the customer’s side',
+    alsoWhere: 'entitlement',
+    alsoWhereLabel: 'the bundle’s contents preview',
+  };
+
+  return {
+    bundleGap,
+    asAt,
+    releases,
+    current,
+    rows,
+    sources,
+    noSource,
+    freshDays: FRESH_DAYS,
+    staleDays: STALE_DAYS,
+    principal: {
+      name: 'M. Ferreira',
+      role: 'Strataflow operator',
+      subject: 'mferreira@strataflow.example',
+      party: 'Strataflow',
+    },
+    counts: {
+      deployments: rows.length,
+      behind: rows.filter((r) => r.behind > 0).length,
+      current: rows.filter((r) => r.behind === 0).length,
+      furthestBehind: furthest.behind,
+      furthestId: furthest.id,
+      furthestDays: furthest.daysOnVersion,
+      drift: rows.filter((r) => r.configDrift !== null).length,
+      /*
+       * Five tallies rather than a confirmed/unconfirmed split, because
+       * `refuted` sits in neither half: that deployment *was* confirmed, three
+       * days ago, and the confirmation is the reason it is the row that needs
+       * a conversation. A two-way split would have counted it as unconfirmed
+       * and lost the only configuration fact on this screen that was
+       * independently established rather than assumed.
+       */
+      confirmed: tally('confirmed'),
+      refuted: tally('refuted'),
+      ageing: tally('ageing'),
+      stale: tally('stale'),
+      neverConfirmed: tally('never confirmed'),
+      oldestConfirmation: oldest.confirmedDays,
+      oldestId: oldest.id,
+      sources: sources.length,
+      bundleExcludes: BUNDLE.contents.filter((c) => !c.included).length,
+      scheduled: rows.filter((r) => r.scheduled !== null).length,
+    },
+  };
+})();
