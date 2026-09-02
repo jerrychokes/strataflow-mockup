@@ -929,6 +929,51 @@ const NOT_SAMPLED = (() => {
   };
 })();
 
+/**
+ * The cell for a sample that exists and an analysis that does not — **the
+ * second kind of absence, and the grid says which one it is** (wave 15).
+ *
+ * `NOT_SAMPLED` above is an absence of *material*: the bore was dipped and held
+ * no water, so no sample exists and nothing could have been measured. This one
+ * is an absence of *analysis*: the bore was purged, sampled, sealed and
+ * reconciled at the laboratory, and the suite this row reports was never run on
+ * it. Those are different facts about the round and a grid that drew them the
+ * same way would have thrown the difference away — which is the same argument
+ * wave 7 made for drawing MW11 rather than omitting it, one step along.
+ *
+ * **Why a second word rather than one of the seven.** `FIELD_DISPOSITIONS` is a
+ * closed list of how a *visit* was left, and every one of its seven says
+ * something about the bore. None of them fits a bore that was sampled: the
+ * disposition here is `sampled`, and it is the *test list* that has nothing in
+ * it. So the word comes from where the fact lives — the manifest, which counts
+ * a sample's tests, and `#composite`, which already writes *retained, not
+ * analysed* about material that exists and was never put through an
+ * instrument. The glyph is a dotted outline rather than one of the seven, in
+ * the same family as the dashed `not_evaluated` mark: dotted and dashed are
+ * this catalogue's shapes for *nothing was assessed here*.
+ *
+ * Like the dry cell it carries **no outcome marks**, for the same reason and one
+ * degree more sharply: `not_evaluated` would assert that a result exists and no
+ * criterion could be selected for it, `indeterminate` would assert a non-detect
+ * whose reporting limit sat above the criterion, and a censored `< 2.0` would
+ * assert that a laboratory reported one. All three are claims about an analysis
+ * that never happened.
+ *
+ * `spoken` resolves through `PFAS_REACH`, which is declared beside the custody
+ * chain and the manifest it reads — the `IMPORTS`/`EVENTS` getter pattern, for
+ * the same reason: a literal here would be a second copy of a sentence composed
+ * from records four thousand lines down, and it resolves when a screen renders.
+ */
+const NOT_ANALYSED = (code) => ({
+  empty: true,
+  notAnalysed: true,
+  glyph: '◌',
+  word: 'not analysed',
+  get spoken() {
+    return PFAS_REACH.cellSentence(code);
+  },
+});
+
 export const CROSSTAB = [
   { analyte: 'pH', cells: [
     { v: '7.42', o: [N, C] }, { v: '7.18', o: [N, C] }, { v: '8.91', o: [N, E] },
@@ -966,10 +1011,20 @@ export const CROSSTAB = [
   { analyte: 'Sulfate as SO₄', cells: [
     { v: '112', o: [N, C] }, { v: '186', o: [N, C] }, { v: '918', o: [N, C] },
     { v: '264', o: [N, C] }, { v: '148', o: [N, C] }, NOT_SAMPLED, { v: '96', o: [N, C] } ] },
+  /*
+   * Wave 15. This row carried a censored `< 2.0` at five bores whose samples
+   * were never tested for PFAS — five assertions that a laboratory had reported
+   * a non-detect, on analyses no certificate, batch, container or custody
+   * transfer records. `PFAS_REACH` holds the measurement and the decision; the
+   * five cells are withdrawn to the second kind of absence rather than
+   * re-valued, because there is nothing to re-value them from. MW05's derived
+   * total stands: it is the one analysis every reading of the record agreed
+   * happened. MW11 stays dry — a different absence, drawn differently.
+   */
   { analyte: 'PFOS + PFHxS', cells: [
-    { v: '<2.0', o: [I, N], censored: true }, { v: '<2.0', o: [I, N], censored: true },
-    { v: '4.8', o: [E, N], derived: true }, { v: '<2.0', o: [I, N], censored: true },
-    { v: '<2.0', o: [I, N], censored: true }, NOT_SAMPLED, { v: '<2.0', o: [I, N], censored: true } ] },
+    NOT_ANALYSED('MW01A'), NOT_ANALYSED('MW03B'),
+    { v: '4.8', o: [E, N], derived: true }, NOT_ANALYSED('MW07'),
+    NOT_ANALYSED('MW09'), NOT_SAMPLED, NOT_ANALYSED('MW12') ] },
 ];
 
 /** The seven bores that appear as crosstab columns. */
@@ -982,6 +1037,13 @@ export const CROSSTAB_COLUMNS = ['MW01A', 'MW03B', 'MW05', 'MW07', 'MW09', 'MW11
  * state on `#data-states` print about this table resolves here, so blanking a
  * column moves all of them at once. The alternative is the one the rider
  * exists to end: a count typed beside a table it no longer describes.
+ *
+ * **Wave 15 splits `empty` in two, and every consumer had to choose.** There
+ * are now two reasons a cell holds no result — no sample (`notSampled`, MW11's
+ * dry column) and no analysis (`notAnalysed`, the five withdrawn PFAS cells) —
+ * and a surface that says *dry* over the total would be describing eleven cells
+ * with a number that counts sixteen. `empty` stays the sum, and the sentences
+ * about the dry column now read `notSampled` by name.
  */
 export const CROSSTAB_SHAPE = (() => {
   const cells = CROSSTAB.flatMap((r) => r.cells);
@@ -992,6 +1054,10 @@ export const CROSSTAB_SHAPE = (() => {
     cells: cells.length,
     results: cells.filter((c) => !c.empty).length,
     empty: cells.filter((c) => c.empty).length,
+    /** No sample was collected — the whole of MW11's column. */
+    notSampled: cells.filter((c) => c.empty && !c.notAnalysed).length,
+    /** A sample exists and this suite was never run on it. */
+    notAnalysed: cells.filter((c) => c.notAnalysed).length,
     censored: cells.filter((c) => c.censored).length,
     /** The bores whose whole column is empty, and the ones that carry results. */
     emptyColumns: CROSSTAB_COLUMNS.filter((_, i) => emptyAt(i)),
@@ -2982,7 +3048,28 @@ export const EVENTS = [
    * own manifest, so the register and the manifest cannot come apart on it.
    */
   { code: '2026-Q2-GW', label: 'Quarterly groundwater', window: '1 Apr – 30 Jun 2026', collected: '12–14 May 2026', by: 'A. Nakamura', samples: EVENT_SAMPLES.filter((s) => s.qc === '—').length, qc: EVENT_SAMPLES.filter((s) => s.qc !== '—').length, state: 'results-complete', lab: 'Pilbara Analytical Services', get matrix() { return [...new Set(EVENT_SAMPLES.map((s) => s.matrix))].join(' · '); } },
-  { code: '2026-Q2-PFAS', label: 'PFAS supplementary', window: '1 Apr – 30 Jun 2026', collected: '13 May 2026', by: 'A. Nakamura', samples: 4, qc: 1, state: 'results-partial', lab: 'Yarra Regional Analytical', matrix: 'Water' },
+  /*
+   * Wave 15 — the fourth reading of the PFAS suite, re-derived. This row typed
+   * `samples: 4, qc: 1`, and no manifest, chain, container or certificate held
+   * a fourth sample or a control at Yarra Regional. What it actually covers is
+   * the subcontracted fraction of **one** sample on the round above, which is
+   * why the counts are getters over `PFAS_REACH` and why `covers` says out loud
+   * that this row is an analysis rather than a second collection — the sample
+   * is counted once, on the manifest it was collected onto. The two numbers it
+   * used to type are kept on `PFAS_REACH.was`, where every before this
+   * settlement moved is written down exactly once, and they render beside the
+   * new ones. Getters for the reason the soil row below uses them: the record
+   * they read is declared beside the custody chain, fifteen hundred lines down.
+   */
+  {
+    code: '2026-Q2-PFAS', label: 'PFAS supplementary', window: '1 Apr – 30 Jun 2026', collected: '13 May 2026',
+    by: 'A. Nakamura', state: 'results-partial', lab: 'Yarra Regional Analytical', matrix: 'Water',
+    get samples() { return PFAS_REACH.samples; },
+    get qc() { return PFAS_REACH.qc; },
+    get wasSamples() { return PFAS_REACH.was.eventSamples; },
+    get wasQc() { return PFAS_REACH.was.eventQc; },
+    get covers() { return PFAS_REACH.eventCovers; },
+  },
   { code: '2026-M05-TSF', label: 'Monthly TSF downgradient', window: '1 – 31 May 2026', collected: '13 May 2026', by: 'D. Okafor', samples: 3, qc: 1, state: 'results-complete', lab: 'Pilbara Analytical Services', matrix: 'Water' },
   { code: '2026-Q2-SW', label: 'Quarterly surface water', window: '1 Apr – 30 Jun 2026', collected: '14 May 2026', by: 'D. Okafor', samples: 1, qc: 0, state: 'evaluated', lab: 'Pilbara Analytical Services', matrix: 'Water' },
   /*
@@ -4646,6 +4733,281 @@ export const CUSTODY = CUSTODY_CHAIN.transfers
   .map(({ at, from, to, what, state }) => ({ at, from, to, what, state }));
 
 /**
+ * How far the PFAS suite reached on 2026-Q2 — measured, decided, and recorded.
+ *
+ * ## The question, and why it stood for a wave
+ *
+ * Four surfaces described one fact and gave four answers. The batch said **4
+ * samples**; the manifest gave the two extra PFAS tests to **one** sample; the
+ * results grid carried a PFOS + PFHxS total at **6** locations; and the
+ * `2026-Q2-PFAS` event said **4 samples and 1 control**. Wave 7 met the
+ * disagreement while chaining the MW05 result to the records that produced it,
+ * recorded it, and did not settle it — because settling it means deciding which
+ * reading is true, and the cheapest reading empties cells of the one row
+ * `#criteria` runs the non-detect rule over. That is a decision with a drawn
+ * argument on the other end of it rather than a count to nudge.
+ *
+ * ## The measurement, taken before anything was drawn
+ *
+ * A PFAS result requires a bottle at Yarra Regional Analytical, so the test is:
+ * **what material reached that laboratory, and what does every record of that
+ * material say?** Three independent records answer, and they agree.
+ *
+ * 1. **The subcontract chain** `MOCK-COC-2026Q2-014-S1` is the only record of
+ *    material crossing from Pilbara Analytical Services to Yarra Regional. It
+ *    holds two transfers of **one container** each, names its sample
+ *    (`WDL-26Q2-003`), carries seal 5108 through both hops, and ends in a
+ *    receipt reconciled **1 of 1** by a named person at a recorded minute.
+ *    There is no second chain, no second consignment and no second receipt.
+ * 2. **The manifest** gives one sample of eleven **16 tests and 5 containers**
+ *    where the round's others carry 14 and four; the two extra tests are the
+ *    suite and the fifth container is the HDPE bottle that carried it. Ten rows
+ *    do not have them.
+ * 3. **The container count is closed.** The per-sample containers sum to 38 and
+ *    the laboratory reconciled *38 of 38* on arrival. A PFAS bottle at each of
+ *    the five other bores would have made 43. Two parties signed for 38.
+ *
+ * Nothing in the record contradicts them. The certificate's own deliverable
+ * raises exactly one location question and it is MW-05; the lineage's source
+ * step names two rows of one file for one bore; the snapshot that went to the
+ * regulator holds *PFOS + PFHxS at MW05 and the eleven results that framed it*.
+ *
+ * ## The decision, against that evidence
+ *
+ * **The suite reached one sample.** The batch's 4 and the event's 4-and-1 are
+ * counts with no material behind them, and the grid's six locations are
+ * contradicted by every other reading — including the two that disagree with
+ * each other. So the two counts are re-derived from the material record, and
+ * the five censored cells are **withdrawn rather than re-valued**, because a
+ * censored value is the laboratory's own notation for a result it produced and
+ * there is nothing here to re-value them from. Inventing three more bottles,
+ * three transfers and a second receipt to justify a summary row would put a
+ * fabricated chain of custody in a system of record — a worse defect than the
+ * one being fixed, and the same trade wave 14 refused over the licence trigger.
+ *
+ * What replaces them is the second kind of absence: the sample exists, the
+ * analysis does not, and the cell says so in its own word rather than in the
+ * dry column's.
+ *
+ * ## What survives, and it is the part that mattered
+ *
+ * MW05's analysis is the one every reading of the record agreed happened, and
+ * nothing about it moves: 3.1 + 1.7 J = 4.8 ng/L, 37× the guideline value, the
+ * TARP at Level 3, the statutory notification lodged. The demonstration on
+ * `#criteria` keeps its rule, its four treatments and its arithmetic — and what
+ * it now demonstrates is sharper than what it demonstrated before, because the
+ * five rows it used to turn into passes under `zero` were results nobody
+ * produced. A rule that manufactures compliance out of a non-detect is the
+ * failure that screen was drawn to refuse; a table that manufactured it out of
+ * an analysis that never ran is the same failure arriving through a worse door.
+ *
+ * ## Reversibility
+ *
+ * One record brings the five results back: a certificate from Yarra Regional
+ * naming those samples, with the containers that carried them on a custody
+ * transfer. It would restore the manifest rows, the batch count and the grid
+ * cells through the machinery this record already reads — the withdrawal is a
+ * statement about the evidence, not about the bores, and the evidence is the
+ * thing that can change.
+ */
+export const PFAS_REACH = (() => {
+  const analyte = 'PFOS + PFHxS';
+  const row = CROSSTAB.find((r) => r.analyte === analyte);
+  const sub = CUSTODY_CHAIN.continues;
+
+  /* ---- what the material record says ---------------------------------- */
+  const tally = new Map();
+  for (const s of EVENT_SAMPLES) tally.set(s.tests, (tally.get(s.tests) ?? 0) + 1);
+  const [standardTests, standardCount] = [...tally].sort((a, b) => b[1] - a[1])[0];
+  const carriers = EVENT_SAMPLES.filter((s) => s.tests > standardTests);
+  const carrier = carriers[0];
+  const extraTests = carrier.tests - standardTests;
+  const containers = EVENT_SAMPLES.reduce((n, s) => n + s.containers, 0);
+  const reconciled = RECEIPT.checks.find((c) => c.what.startsWith('Containers received')).found;
+
+  /* ---- what the grid draws, read back --------------------------------- */
+  const at = (pick) => CROSSTAB_COLUMNS.filter((_, i) => pick(row.cells[i]));
+  const locations = at((c) => !c.empty);
+  const withdrawnLocations = at((c) => c.notAnalysed);
+  const dry = at((c) => c.empty && !c.notAnalysed);
+  const samplesByLocation = (code) => EVENT_SAMPLES.find((s) => s.location === code && s.qc === '—');
+
+  /* The grid and the material record, checked against each other rather than
+   * asserted to agree — the whole point of settling this from two directions. */
+  const carrierLocations = carriers.map((s) => s.location);
+  const agrees =
+    locations.length === carrierLocations.length && locations.every((c) => carrierLocations.includes(c));
+
+  /* ---- the deliverable, for corroboration ----------------------------- */
+  const run = IMPORTS.find((i) => i.file.startsWith(sub.certificate));
+  const source = LINEAGE.chain.find((s) => s.step === 'Source');
+  const locationQuestion = REVIEW_ITEMS.find((r) => r.kind === 'Location identifier');
+
+  /**
+   * What each of the four surfaces said before this wave, typed once.
+   *
+   * Every before rendered anywhere in the catalogue for this settlement reads
+   * from here. A before is a historical fact and it is written down exactly
+   * once; everything else is counted off the record as it stands now.
+   */
+  const was = {
+    batchSamples: 4,
+    eventSamples: 4,
+    eventQc: 1,
+    gridLocations: 6,
+    censoredCells: 5,
+    components: 6,
+    censored: 14,
+    indeterminate: 11,
+    results: 66,
+    outcomes: 132,
+    goldenIndeterminateRows: 11,
+  };
+
+  const readings = [
+    {
+      reading: 'The batch',
+      at: 'batches',
+      record: sub.workOrder,
+      said: `${was.batchSamples} samples`,
+      restsOn: 'A count on a summary row. No fourth bottle, no fourth manifest row, no fourth transfer, no fourth receipt.',
+      now: `${carriers.length} sample`,
+      verdict: 'corrected',
+    },
+    {
+      reading: 'The manifest',
+      at: 'events',
+      record: carrier.id,
+      said: `${carrier.tests} tests and ${carrier.containers} containers on ${carriers.length} sample of ${EVENT_SAMPLES.length}`,
+      restsOn: `${standardCount} of ${EVENT_SAMPLES.length} rows carry ${standardTests} tests. The ${extraTests} extra are the suite; the fifth container is the HDPE bottle that carried it.`,
+      now: 'unchanged — it was right',
+      verdict: 'stands',
+    },
+    {
+      reading: 'The results grid',
+      at: 'crosstab',
+      record: `${analyte} row`,
+      said: `a derived total at ${was.gridLocations} locations`,
+      restsOn: `${was.censoredCells} censored cells and one derived total. The derived total has a certificate, a batch and a chain behind it; the ${was.censoredCells} censored cells have none of the three.`,
+      now: `${locations.length} location — ${locations.join(', ')}`,
+      verdict: 'corrected',
+    },
+    {
+      reading: 'The event',
+      at: 'events',
+      record: '2026-Q2-PFAS',
+      said: `${was.eventSamples} samples and ${was.eventQc} control`,
+      restsOn: 'No manifest, no chain and no certificate of its own. What it covers is the subcontracted fraction of one sample on the round beside it.',
+      now: `${carriers.length} sample and 0 controls`,
+      verdict: 'corrected',
+    },
+  ];
+
+  const evidence = [
+    {
+      record: `Subcontract chain ${sub.id}`,
+      at: 'ecoc',
+      says: `${sub.transfers.length} transfers of ${sub.containers} container, sample ${sub.sample}, seal ${sub.transfers[0].seal} through both hops, receipt reconciled ${sub.receipt.reconciled} by ${sub.receipt.by}`,
+      supports: 'one sample',
+      grade: 'A custody transfer — the glossary’s own unit of who held what, when, under which seal',
+    },
+    {
+      record: 'The round’s sample manifest',
+      at: 'events',
+      says: `${carriers.length} of ${EVENT_SAMPLES.length} samples carries ${carrier.tests} tests and ${carrier.containers} containers; the other ${EVENT_SAMPLES.length - carriers.length} carry ${standardTests} and fewer`,
+      supports: 'one sample',
+      grade: 'The record of what was collected, signed at the bore',
+    },
+    {
+      record: 'The container reconciliation',
+      at: 'receipt',
+      says: `per-sample containers sum to ${containers} and the laboratory reconciled ${reconciled}; ${withdrawnLocations.length} more PFAS bottles would have made ${containers + withdrawnLocations.length}`,
+      supports: 'one sample',
+      grade: 'A physical count, agreed by two parties',
+    },
+    {
+      record: `Deliverable ${sub.certificate} · ${run.id}`,
+      at: 'import-review',
+      says: `${source.what}; the run’s only location question is ${locationQuestion.subject} — ${locationQuestion.rows} results at one bore`,
+      supports: 'one location',
+      grade: 'The file the results arrived in, and the exceptions it raised',
+    },
+    {
+      record: `Batch ${sub.workOrder}`,
+      at: 'batches',
+      says: `${was.batchSamples} samples`,
+      supports: 'four samples',
+      grade: 'A summary count with no material record behind it',
+    },
+    {
+      record: 'Event 2026-Q2-PFAS',
+      at: 'events',
+      says: `${was.eventSamples} samples and ${was.eventQc} control`,
+      supports: 'four samples and a control',
+      grade: 'A register row with no manifest under it',
+    },
+  ];
+
+  /** Every value this settlement moved, with what it was. */
+  const moved = [
+    { what: 'Batch YAR-B-118420 · samples', was: was.batchSamples, now: carriers.length, at: 'batches' },
+    { what: 'Event 2026-Q2-PFAS · samples', was: was.eventSamples, now: carriers.length, at: 'events' },
+    { what: 'Event 2026-Q2-PFAS · field QC', was: was.eventQc, now: 0, at: 'events' },
+    { what: `${analyte} · locations with a total`, was: was.gridLocations, now: locations.length, at: 'crosstab' },
+    { what: 'Grid · results', was: was.results, now: CROSSTAB_SHAPE.results, at: 'crosstab' },
+    { what: 'Grid · censored values', was: was.censored, now: CROSSTAB_SHAPE.censored, at: 'crosstab' },
+    { what: 'Grid · cells with no analysis', was: 0, now: CROSSTAB_SHAPE.notAnalysed, at: 'crosstab' },
+    { what: 'Results that could not be assessed', was: was.indeterminate, now: INDETERMINATE.length, at: 'indeterminate' },
+    { what: 'Evaluation outcomes carried by the export', was: was.outcomes, now: CROSSTAB_SHAPE.results * CRITERIA.length, at: 'exchange' },
+    { what: 'Rows in the non-detect demonstration', was: was.components, now: locations.length, at: 'criteria' },
+  ];
+
+  return {
+    analyte,
+    decision: 'the suite reached one sample — five censored cells withdrawn, two counts re-derived',
+    decidedOn: '2026-09-02',
+    /* The counts the four surfaces now read. */
+    samples: carriers.length,
+    qc: 0,
+    locations,
+    withdrawnLocations,
+    dry,
+    cellsWithdrawn: withdrawnLocations.length,
+    /* The material record. */
+    sample: carrier,
+    standardTests,
+    standardCount,
+    extraTests,
+    containers,
+    reconciled,
+    wouldHaveNeeded: containers + withdrawnLocations.length,
+    subcontract: sub,
+    run,
+    agrees,
+    was,
+    readings,
+    evidence,
+    moved,
+    qcWhy:
+      `The trip blank ${sub.travellingQC} covered this fraction only as far as ${CUSTODY_CHAIN.laboratory}, where it was analysed with the rest of the round. Nothing but the one bottle went on to ${sub.laboratory}, so no field control was run on the suite — which the batch’s own method blank, control sample and surrogate do not replace, because those are made at the bench and answer a different question.`,
+    eventCovers:
+      `The subcontracted PFAS fraction of ${carrier.id} — ${extraTests} tests on one bottle out of the round beside it, reported under ${sub.laboratory}’s own certificate ${sub.certificate}. It has a row of its own because a second laboratory issued a second certificate, and its sample is counted once, on the ${ROUND.code} manifest it was collected onto. This is an analysis, not a second collection.`,
+    /** The sentence a withdrawn cell speaks, composed from the records above. */
+    cellSentence(code) {
+      const s = samplesByLocation(code);
+      return (
+        `not analysed — ${s.id} was collected at ${code}, sealed and reconciled at the laboratory, and the PFAS suite was never run on it. ` +
+        `It carries ${s.tests} tests and ${s.containers} containers; ${carrier.id} is ${carriers.length === 1 ? 'the only' : `one of the ${carriers.length}`} sample of ${EVENT_SAMPLES.length} carrying ${carrier.tests} and ${carrier.containers}, and its fifth bottle is ${sub.containers === 1 ? 'the one container' : `one of the ${sub.containers} containers`} the subcontract chain moved to ${sub.laboratory}. ` +
+        'So this cell is an absence of analysis, not a result below a limit of reporting, and not a pass. A censored value here would assert that a laboratory reported one.'
+      );
+    },
+    /** What would bring the five results back. */
+    reversal:
+      `A certificate from ${sub.laboratory} naming those samples, with the containers that carried them on a custody transfer. It would restore the manifest rows, the batch count and the grid cells through the machinery this record already reads.`,
+  };
+})();
+
+/**
  * QC acceptance criteria, versioned exactly as guideline values are.
  *
  * A guideline value gets an effective date, an applicability rule and a
@@ -4701,30 +5063,66 @@ export const BATCHES = [
       'Zinc matrix-spike recovery of 62% is below the 70% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely higher, so the exceedance stands and is if anything understated.',
   },
   /*
-   * FOUND AND DEFERRED — recorded 2 September 2026 (wave 7), owner unassigned.
+   * ## SETTLED (wave 15) — 2 September 2026, on a record made 2 September 2026
+   * (wave 7)
    *
-   * Three surfaces disagree about how far the PFAS suite reached on this
-   * round, and all three predate wave 7. This batch states **4 samples**;
-   * `EVENT_SAMPLES` gives the two extra PFAS tests to **one** sample
-   * (WDL-26Q2-003, 16 tests and 5 containers where the round's others carry 14
-   * and 4); and `CROSSTAB` carries a PFOS + PFHxS total at **6** locations.
-   * The `2026-Q2-PFAS` event in `EVENTS` is a fourth reading again — a
-   * supplementary event of 4 samples and 1 control, collected on 13 May, which
-   * is the day MW05 and MW07 were visited.
+   * The record is kept whole and the settled-note is at the end of it, because
+   * a debt that vanishes when it is paid leaves nobody able to tell a settled
+   * one from one that was never noticed.
    *
-   * Wave 7 met it while chaining the PFAS result to the records that produced
-   * it (PR-3a) and did not reconcile it, deliberately. Reconciling means
-   * deciding which reading is true, and the cheapest of them — PFAS on MW05
-   * and MW07 only — empties four cells of the crosstab's PFAS row, which is
-   * the row `#criteria` runs its non-detect demonstration over and the one
-   * `NON_DETECT` computes four treatments across. That is a seed change with
-   * a drawn argument on the other end of it, not a count to nudge. The lineage
-   * chain names this batch and links it rather than restating its sample
-   * count, so nothing wave 7 drew rests on which reading wins.
+   * Its ledger tag — the found-and-deferred marker, dated 2 September 2026
+   * (wave 7), owner unassigned — is **closed rather than quoted**, and it is
+   * the only line of this record that moved. That marker is what a grep counts
+   * as the ledger, so reproducing it inside the quotation would keep the ledger
+   * reading four while three records stand; the heading above is what it
+   * became. Everything the record *found* is below it, unedited:
+   *
+   * > Three surfaces disagree about how far the PFAS suite reached on this
+   * > round, and all three predate wave 7. This batch states **4 samples**;
+   * > `EVENT_SAMPLES` gives the two extra PFAS tests to **one** sample
+   * > (WDL-26Q2-003, 16 tests and 5 containers where the round's others carry 14
+   * > and 4); and `CROSSTAB` carries a PFOS + PFHxS total at **6** locations.
+   * > The `2026-Q2-PFAS` event in `EVENTS` is a fourth reading again — a
+   * > supplementary event of 4 samples and 1 control, collected on 13 May, which
+   * > is the day MW05 and MW07 were visited.
+   * >
+   * > Wave 7 met it while chaining the PFAS result to the records that produced
+   * > it (PR-3a) and did not reconcile it, deliberately. Reconciling means
+   * > deciding which reading is true, and the cheapest of them — PFAS on MW05
+   * > and MW07 only — empties four cells of the crosstab's PFAS row, which is
+   * > the row `#criteria` runs its non-detect demonstration over and the one
+   * > `NON_DETECT` computes four treatments across. That is a seed change with
+   * > a drawn argument on the other end of it, not a count to nudge. The lineage
+   * > chain names this batch and links it rather than restating its sample
+   * > count, so nothing wave 7 drew rests on which reading wins.
+   *
+   * ## What closed it
+   *
+   * `PFAS_REACH`, above, holds the whole of it: the measurement (three
+   * independent records of the material, all saying one bottle), the decision
+   * (the suite reached one sample), the evidence table both readings are ranked
+   * on, and the reversal that would bring the five withdrawn results back. This
+   * batch's `samples` is a getter over it, so the count on this screen and the
+   * count on the manifest are one number read twice rather than two numbers
+   * that agreed until somebody edited one.
+   *
+   * **Two of wave 7's own estimates did not survive being measured.** It wrote
+   * *three surfaces* and then named a fourth in its own last paragraph — the
+   * event — so the disagreement was always four-way. And the cheapest reading
+   * it anticipated, *PFAS on MW05 and MW07 only*, empties **four** cells; the
+   * reading the evidence actually supports empties **five**, because nothing on
+   * the record puts a PFAS bottle at MW07 either. Both corrections are carried
+   * on the decision record where it renders.
+   *
+   * **What wave 7 protected is intact.** The lineage chain names this batch and
+   * links it rather than restating its sample count, so nothing wave 7 drew
+   * rests on which reading won — and nothing in that chain moved.
    */
   {
     id: 'YAR-B-118420', lab: 'Yarra Regional Analytical', method: 'USEPA 1633 — PFAS',
-    samples: 4, prepared: '2026-05-16', analysed: '2026-05-17', nata: 'In scope · 14622',
+    get samples() { return PFAS_REACH.samples; },
+    get wasSamples() { return PFAS_REACH.was.batchSamples; },
+    prepared: '2026-05-16', analysed: '2026-05-17', nata: 'In scope · 14622',
     qc: [
       { kind: 'Method blank', id: 'MB-118420', result: 'All analytes < LOR', outcome: 'pass' },
       { kind: 'Laboratory control sample', id: 'LCS-118420', result: 'Recovery 91 – 108%', outcome: 'pass' },
@@ -4841,7 +5239,20 @@ export const DQA = DQA_ROWS.map((d) => {
         : d.achieved === 'COMPLETENESS'
           ? `${COMPLETENESS.received} of ${COMPLETENESS.planned} received, ${COMPLETENESS.received - QUARANTINE.filter((q) => q.state === 'held').length} usable — ${Math.round(((COMPLETENESS.received - QUARANTINE.filter((q) => q.state === 'held').length) / COMPLETENESS.planned) * 100)}%. ${COMPLETENESS.rows.find((r) => r.state === 'missing').location} dry on both visits — attempted, not missed`
           : d.achieved === 'SENSITIVITY'
-            ? `Cadmium LOR 1.0 µg/L against a 0.54 µg/L criterion, and the PFAS sum LOR ${PFAS_LIMITS.lor.toFixed(1)} ng/L against 0.13 ng/L — ${INDETERMINATE.length} results unassessable`
+            ? /*
+               * Wave 15: this sentence named two analytes and counted both.
+               * The PFAS half rested on five censored totals at bores whose
+               * samples were never tested for the suite (`PFAS_REACH`), so the
+               * dimension is cadmium's alone now — and it is composed from the
+               * register rather than restated, so a sentence naming an analyte
+               * the register no longer holds cannot survive the next change.
+               */
+              `${[...new Set(INDETERMINATE.map((i) => i.analyte))]
+                .map((name) => {
+                  const r = INDETERMINATE.find((i) => i.analyte === name);
+                  return `${name.replace(' (filtered)', '')} LOR ${r.lor} against a ${r.criterion} criterion`;
+                })
+                .join(', and ')} — ${INDETERMINATE.length} results unassessable (was ${PFAS_REACH.was.indeterminate}, ${PFAS_REACH.was.indeterminate - INDETERMINATE.length} of them PFAS totals withdrawn as not analysed)`
             : d.achieved,
     rows,
     settled: {
@@ -5069,7 +5480,13 @@ export const PROVENANCE = (() => {
     },
     {
       step: 'Analytical batch, method and batch QC',
-      what: `${batch.id} · ${batch.method} · ${batch.samples} samples · prepared ${batch.prepared}, analysed ${batch.analysed} · NATA ${batch.nata}`,
+      /*
+       * Wave 15: the count moved from 4 to 1 and the noun had to move with it.
+       * This read "1 samples" for as long as it took to grep the settlement's
+       * own blast radius — a plural typed beside a number that was never going
+       * to be 1 until the day it was.
+       */
+      what: `${batch.id} · ${batch.method} · ${batch.samples} sample${batch.samples === 1 ? '' : 's'} · prepared ${batch.prepared}, analysed ${batch.analysed} · NATA ${batch.nata}`,
       detail: `${batch.qc.map((q) => `${q.kind} ${q.outcome}`).join(' · ')}. ${batch.consequence} A control sample applies to a batch and not to a sample, which is why “which results does this qualify” has an answer here and nowhere else.`,
       kind: 'lab', at: 'batches', node: batch.id, nodeSub: 'batch QC clear',
     },
@@ -5715,14 +6132,28 @@ export const GOLDEN = (() => {
      * did move is on the crosstab beside the grid.
      */
     { check: '§4 carries the crosstab', expects: 'Table 4.1, analyte × location', found: `Table 4.1 · ${CROSSTAB_SHAPE.analytes} × ${CROSSTAB_SHAPE.locations}`, outcome: 'pass' },
-    { check: '§4 draws a planned location that returned nothing', expects: 'The column present and empty, with the reason on it', found: `${CROSSTAB_SHAPE.emptyColumns.join(', ')} · ${CROSSTAB_SHAPE.empty} cells, dry`, outcome: 'pass' },
+    /*
+     * Wave 15: this check counted `empty`, which was the dry column and
+     * nothing else until the withdrawn PFAS cells joined it. It counts
+     * `notSampled` now — a check about a location that returned nothing must
+     * not silently absorb five cells whose bores returned water.
+     */
+    { check: '§4 draws a planned location that returned nothing', expects: 'The column present and empty, with the reason on it', found: `${CROSSTAB_SHAPE.emptyColumns.join(', ')} · ${CROSSTAB_SHAPE.notSampled} cells, dry`, outcome: 'pass' },
     { check: '§5 carries the exceedance register', expects: 'Table 5.1, one row per result per criterion', found: `Table 5.1 · ${EXCEEDANCES.length} rows`, outcome: 'pass' },
-    { check: '§5 carries the results that could not be assessed', expects: 'Table 5.2, with the reason on each', found: `Table 5.2 · ${INDETERMINATE.length} rows`, outcome: 'pass' },
+    { check: '§5 carries the results that could not be assessed', expects: 'Table 5.2, with the reason on each', found: `Table 5.2 · ${INDETERMINATE.length} rows`, was: `Table 5.2 · ${PFAS_REACH.was.goldenIndeterminateRows} rows`, outcome: 'pass' },
     { check: 'Figure captions match the template', expects: 'Figure <n>. <Title> — <source>', found: `All ${REPORT_ITEMS.figures} figures`, outcome: 'pass' },
     { check: 'Table captions match the template', expects: 'Table <n>. <Title> — <source>', found: `All ${REPORT_ITEMS.tables} tables`, outcome: 'pass' },
     { check: 'Every cross-reference resolves', expects: 'No reference to a number the document does not carry', found: `${refs} references, all resolving`, outcome: 'pass' },
     { check: 'Every reported value carries its unit', expects: 'Unit on the value or in the column head', found: 'No bare numbers', outcome: 'pass' },
-    { check: 'Censored values in the laboratory’s own notation', expects: '< LOR, never zero and never a substituted half-limit', found: `${censored} censored values, notation intact`, outcome: 'pass' },
+    /*
+     * Wave 15. The count moved because five of the values it counted were not
+     * the laboratory's notation at all — they were censoring asserted on
+     * analyses that never ran, which is the one failure this check exists to
+     * catch and the one it could not see, because it counts notation rather
+     * than provenance. It carries its before so the drop is a settlement
+     * rather than an unexplained shrink.
+     */
+    { check: 'Censored values in the laboratory’s own notation', expects: '< LOR, never zero and never a substituted half-limit', found: `${censored} censored values, notation intact`, was: `${PFAS_REACH.was.censored} censored values`, outcome: 'pass' },
     ...unwritten.map((s) => ({
       check: `§${s.n} ${s.title}, present with content`,
       expects: 'At least one authored subsection',
@@ -5754,10 +6185,29 @@ export const GOLDEN = (() => {
  *
  * The total on the crosstab is a **sum**, and what a non-detect contributes to
  * a sum is a property of the criteria set rather than of the instance
- * (FR-2.2). Five of these six locations have both components below the limit
- * of reporting, which is what makes the rule decisive rather than academic:
- * the same six results read as indeterminate, compliant or 31× a guideline
- * value depending on a field on the set.
+ * (FR-2.2).
+ *
+ * ## Five of the six rows were withdrawn — wave 15
+ *
+ * This list used to run to six locations, five of them `pfos: null, pfhxs:
+ * null`, which the demonstration rendered as five pairs of `< 2.0` — the claim
+ * that a laboratory reported ten non-detects. It reported none of them: the
+ * suite reached one sample, and `PFAS_REACH` holds the three records of the
+ * material that say so. So the five leave this list for the reason wave 7 gave
+ * when MW11 left it, quoted here because it is the same rule and it now reads
+ * as a general one: *"A non-detect is a result: it has a limit of reporting, a
+ * method and a certificate behind it."* Those five had none of the three.
+ *
+ * **What that costs, and what it buys.** It costs the demonstration its five
+ * moving rows, and the four treatment columns now agree on the one row that is
+ * left — because a rule about non-detects has nothing to say about a result
+ * that has none. It buys the demonstration a sharper subject than the one it
+ * had: what the withdrawn rows *would* have done is kept whole on
+ * `NON_DETECT.withdrawn` and drawn beside the live table as the before it is,
+ * and under `zero` they turn five analyses that never happened into five
+ * compliant results. The screen was drawn to refuse a rule that manufactures
+ * compliance out of a non-detect. It turns out to have been standing on a
+ * table that manufactured it out of nothing at all.
  *
  * ## PFHxS at MW05 was drawn as an unqualified detect below the LOR (PR-3b)
  *
@@ -5793,25 +6243,57 @@ export const GOLDEN = (() => {
  * limit of reporting, a method and a certificate behind it. The bore was dry,
  * so it has none, and the sixth row of the demonstration is the right number
  * of rows rather than a row short.
+ *
+ * Wave 15 read that sentence as the general rule it is and applied it to the
+ * five rows wave 7 left standing. Six was the right number of rows against
+ * what wave 7 could see; one is the right number against what the material
+ * record says.
  */
 export const PFAS_COMPONENTS = [
-  { location: 'MW01A', pfos: null, pfhxs: null },
-  { location: 'MW03B', pfos: null, pfhxs: null },
   { location: 'MW05', pfos: 3.1, pfhxs: 1.7, pfhxsQualifier: 'J', pfhxsQualifierMeans: 'estimated — detected above the method detection limit and below the limit of reporting' },
-  { location: 'MW07', pfos: null, pfhxs: null },
-  { location: 'MW09', pfos: null, pfhxs: null },
-  { location: 'MW12', pfos: null, pfhxs: null },
 ];
 
 /**
- * The four treatments, run over the real record.
+ * The five rows this list carried until wave 15, kept as the before they are.
  *
- * `exclude` is what the active set binds, and it is why the crosstab shows
- * `< 2.0` and an indeterminate mark at six bores: with every component
- * excluded there is no sum to form, so the total is reported censored at the
- * limit and the limit sits above the criterion. `zero` is the treatment that
- * turns all six into passes, which is the direction this product exists to
- * refuse silently.
+ * Not deleted, for the reason nothing in this catalogue is deleted when it is
+ * corrected: a table that quietly loses five rows is indistinguishable from a
+ * table that never had them, and the whole argument for withdrawing them is
+ * only legible beside what they used to say. `NON_DETECT.withdrawn` runs the
+ * same four treatments over these, so the counterfactual is arithmetic on the
+ * old record rather than a sentence about it.
+ */
+const PFAS_COMPONENTS_WITHDRAWN = PFAS_REACH.withdrawnLocations.map((location) => ({
+  location,
+  pfos: null,
+  pfhxs: null,
+  why: 'no analysis — the suite was never run on this bore’s sample',
+}));
+
+/**
+ * The four treatments, run over the real record — and over the record that was
+ * withdrawn from under it.
+ *
+ * `exclude` is what the active set binds. It used to be why the crosstab showed
+ * `< 2.0` and an indeterminate mark at six bores; after wave 15 there is one
+ * row here, MW05, and every treatment agrees on it, because both of its
+ * components were detected and a rule about non-detects has nothing to say
+ * about a result that has none.
+ *
+ * **So the demonstration moved rather than dying, and it demonstrates more than
+ * it did.** `withdrawn` runs the identical four treatments over the five rows
+ * that left `PFAS_COMPONENTS` — the same arithmetic, the same rule object, the
+ * same evaluator — so the screen can put *what this table said before* next to
+ * *what the record supports*, which is the treatment every corrected value in
+ * this catalogue gets. Under `zero` those five read **compliant**: five passes
+ * out of analyses nobody ran, which is a worse version of the failure the four
+ * columns were drawn to warn about and is now the sharpest thing on the screen.
+ * Under `the limit of reporting` they read as exceedances at 31×, which would
+ * have raised five statutory notification obligations on the same nothing.
+ *
+ * The evaluator is one function used twice, deliberately: a second copy written
+ * for the counterfactual could drift from the live one and the comparison would
+ * stop meaning anything.
  */
 export const NON_DETECT = (() => {
   const LOR = 2.0;
@@ -5822,8 +6304,8 @@ export const NON_DETECT = (() => {
     { rule: 'half-lor', label: 'half the limit of reporting', contributes: () => LOR / 2 },
     { rule: 'lor', label: 'the limit of reporting', contributes: () => LOR },
   ];
-  const evaluate = (t) =>
-    PFAS_COMPONENTS.map((p) => {
+  const evaluate = (t, over) =>
+    over.map((p) => {
       const parts = [p.pfos, p.pfhxs].map((v) => (v === null ? t.contributes() : v));
       const kept = parts.filter((v) => v !== null);
       if (kept.length === 0) {
@@ -5839,25 +6321,45 @@ export const NON_DETECT = (() => {
         factor: outcome === 'exceedance' ? `${Math.round(total / CRITERION)}×` : '—',
       };
     });
-  const active = evaluate(treatments[0]);
+  const active = evaluate(treatments[0], PFAS_COMPONENTS);
+  const columns = (over, base) =>
+    treatments.map((t) => {
+      const rows = evaluate(t, over);
+      return {
+        ...t,
+        rows,
+        changes: rows.filter((r, i) => r.outcome !== base[i].outcome).length,
+        outcomes: ['exceedance', 'indeterminate', 'compliant'].map((o) => ({ o, n: rows.filter((r) => r.outcome === o).length })).filter((x) => x.n),
+      };
+    });
+  const withdrawnActive = evaluate(treatments[0], PFAS_COMPONENTS_WITHDRAWN);
   return {
     lor: LOR,
     criterion: CRITERION,
     analyte: 'PFOS + PFHxS',
     rule: 'sum-pfas-anzg v2.1',
     activeRule: 'exclude',
-    treatments: treatments.map((t) => {
-      const rows = evaluate(t);
-      return {
-        ...t,
-        rows,
-        changes: rows.filter((r, i) => r.outcome !== active[i].outcome).length,
-        outcomes: ['exceedance', 'indeterminate', 'compliant'].map((o) => ({ o, n: rows.filter((r) => r.outcome === o).length })).filter((x) => x.n),
-      };
-    }),
+    treatments: columns(PFAS_COMPONENTS, active),
     active,
+    /**
+     * The same four columns over the five rows wave 15 withdrew — the before,
+     * computed rather than remembered.
+     */
+    withdrawn: {
+      locations: PFAS_REACH.withdrawnLocations,
+      rows: PFAS_COMPONENTS_WITHDRAWN,
+      treatments: columns(PFAS_COMPONENTS_WITHDRAWN, withdrawnActive),
+      active: withdrawnActive,
+      wasRows: PFAS_REACH.was.components,
+      why: PFAS_REACH.decision,
+      says:
+        `These ${PFAS_COMPONENTS_WITHDRAWN.length} rows were the whole of the difference between the four columns, and none of them was a result. ` +
+        'The suite reached one sample, so the treatment applied to a non-detect at these bores was being applied to nothing at all — which is why they are withdrawn rather than re-valued and why the arithmetic is kept here rather than deleted with them.',
+      zeroSays:
+        `Under <em>zero</em> all ${PFAS_COMPONENTS_WITHDRAWN.length} read compliant. That is the failure this screen exists to refuse, arriving one door further back than it was drawn to expect: not a rule turning a non-detect into a pass, but a table turning an analysis nobody ran into one.`,
+    },
     says:
-      `MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. Every other bore moves, and the ${PFAS_COMPONENTS.length - 1} of them are the whole of the difference between the four columns.`,
+      `MW05 is the same 4.8 ng/L under every treatment, because both of its components were detected — a rule about non-detects has nothing to say about a result that has none. It is now the only row here: the ${PFAS_REACH.was.components - PFAS_COMPONENTS.length} bores that used to move under these four columns had no PFAS analysis to move, and what they would have said is drawn below as the before it is.`,
     /*
      * PR-3b. An estimated detect is the case the rule is silent about until
      * somebody asks, and the answer has to be stated rather than inferred from
@@ -5914,6 +6416,26 @@ export const CRITERIA_DRAFT = (() => {
   const changed = half.rows
     .map((r, i) => ({ ...r, was: NON_DETECT.active[i] }))
     .filter((r) => r.outcome !== r.was.outcome);
+  /*
+   * Wave 15, and it is the sharpest consequence of the settlement.
+   *
+   * The activation preview below typed its own numbers — 7 totals re-evaluated,
+   * 6 outcomes changing, 6 exceedances, 6 statutory clocks — and two things
+   * were wrong with them. They were **already** wrong by one before this wave:
+   * they were written when MW11 was still a row here, and wave 7 blanked that
+   * column without re-deriving the preview, so the screen typed 7 over a record
+   * that held 6 and 6 over a record that supported 5. And the record itself has
+   * now moved: five of those six totals were never analysed, so the rule
+   * reaches one result and changes nothing.
+   *
+   * `beforeReaches` and `beforeChanges` are the counterfactual computed off
+   * `NON_DETECT.withdrawn` — the same evaluator over the withdrawn rows — so
+   * the preview can put what it would have written beside what it writes, and
+   * neither number is typed.
+   */
+  const beforeReaches = NON_DETECT.active.length + NON_DETECT.withdrawn.rows.length;
+  const beforeChanges = NON_DETECT.withdrawn.treatments.find((t) => t.rule === 'half-lor').changes;
+  const typedBefore = { totals: 7, outcomes: 6, exceedances: 6, notifications: 6 };
   return {
     set: 'ANZG 2018 — 95% species protection',
     active: { version: '2018.1', effective: '2018-08-01 →', nonDetect: 'exclude from the sum', state: 'active', by: 'Loaded with the shipped reference content', at: '2024-02-19' },
@@ -5928,7 +6450,7 @@ export const CRITERIA_DRAFT = (() => {
     rationale:
       'The site’s DWER-facing assessment method statement adopts half-limit substitution for PFAS sums, and the criteria set is where that belongs — not in a preference, and not in whichever spreadsheet the assessor happened to use.',
     test: {
-      scope: `Every committed result the rule can reach: ${NON_DETECT.active.length} derived totals of ${NON_DETECT.analyte} across ${NON_DETECT.active.length} locations, round ${ROUND.code}.`,
+      scope: `Every committed result the rule can reach: ${NON_DETECT.active.length} derived total of ${NON_DETECT.analyte} across ${NON_DETECT.active.length} location, round ${ROUND.code}.`,
       reaches: NON_DETECT.active.length,
       changes: changed.length,
       unchanged: NON_DETECT.active.length - changed.length,
@@ -5936,22 +6458,30 @@ export const CRITERIA_DRAFT = (() => {
       unchangedWhy: 'MW05 does not change: both of its components were detected, so no substitution applies to it.',
       nothingElse:
         'There are no PFAS results on this project before 2026 Q2 and no other derived sum in the analyte dictionary, so the rule reaches nothing else. That is a fact about this seed rather than a property of the rule, and the test says which.',
+      /** What this test said before wave 15, computed off the withdrawn rows. */
+      before: {
+        reaches: beforeReaches,
+        changes: beforeChanges,
+        typed: typedBefore,
+        says:
+          `This test read ${beforeReaches} derived totals with ${beforeChanges} of them changing, and the activation preview beside it typed ${typedBefore.totals} and ${typedBefore.outcomes} — already one out, because it was written before MW11's column was blanked and never re-derived. Both are settled now: the numbers are counted off the record, and the record is ${NON_DETECT.active.length} total that no substitution reaches.`,
+      },
     },
     activation: {
       writes: [
         { what: 'Criteria set versions written', n: '1 — 2018.1 is superseded, not deleted' },
-        { what: 'Derived totals re-evaluated', n: '7' },
-        { what: 'Outcomes that change', n: '6 — indeterminate becomes exceedance' },
-        { what: 'Exceedances raised', n: '6, at six locations' },
-        { what: 'Notification obligations raised under condition 21', n: '6 — became-aware set at activation, immutable' },
+        { what: 'Derived totals re-evaluated', n: String(NON_DETECT.active.length), was: String(beforeReaches), typed: String(typedBefore.totals) },
+        { what: 'Outcomes that change', n: `${changed.length} — nothing to substitute into`, was: `${beforeChanges} — indeterminate becomes exceedance`, typed: String(typedBefore.outcomes) },
+        { what: 'Exceedances raised', n: String(changed.length), was: `${beforeChanges}, at ${beforeChanges} locations`, typed: String(typedBefore.exceedances) },
+        { what: 'Notification obligations raised under condition 21', n: `${changed.length} — became-aware would be set at activation, immutable`, was: String(beforeChanges), typed: String(typedBefore.notifications) },
         { what: 'TARP levels that extend automatically', n: '0 — Level 3 names MW05 and extending it is a separate decision' },
         { what: 'Locked periods re-evaluated', n: '0 — a rule change evaluates forward' },
         { what: 'Issued reports changed', n: '0 — a snapshot is what was issued' },
       ],
       says:
-        'Condition 21 obliges notification as soon as practicable on becoming aware of an exceedance, and the moment of awareness would be this activation. Six statutory clocks, started by a configuration change and running from a timestamp nobody can afterwards move. That is why activating a criteria set is an approval rather than a save.',
+        `Condition 21 obliges notification as soon as practicable on becoming aware of an exceedance, and the moment of awareness would be this activation. Until wave 15 this preview promised ${beforeChanges} statutory clocks started by a configuration change — and every one of them would have been started over a result no laboratory produced. It promises none now, and the reason it promises none is worth more than the number: half-limit substitution has something to substitute only where a non-detect exists, and the only PFAS result on this round is a detect. Activating a criteria set is still an approval rather than a save; what changed is that this activation is the cheap case rather than the expensive one.`,
       reversible:
-        'Reversible as an evaluation and not as a consequence. Rolling back re-evaluates the seven totals and withdraws the six exceedances; it does not un-lodge a notification that has gone to DWER.',
+        `Reversible as an evaluation and not as a consequence. Rolling back re-evaluates every total the rule reached — ${NON_DETECT.active.length} — and withdraws whatever exceedances it raised, which on this round is ${changed.length}; it does not un-lodge a notification that has gone to DWER. That asymmetry is the whole reason this preview is drawn before the button rather than after it — and it is exactly the asymmetry the ${beforeChanges} clocks would have been on the wrong side of.`,
     },
     rollback: {
       writes: [
@@ -6326,6 +6856,39 @@ export const EVIDENCE = (() => {
      * The review asked for the competing explanations, and they belong here as
      * authored content rather than as a list the product generated: a product
      * that proposed the alternatives would be proposing the conclusion too.
+     *
+     * ## FOUND AND DEFERRED — 2 September 2026 (wave 15), owner unassigned
+     *
+     * **The fourth alternative cites a control that does not exist for the
+     * analyte it is arguing about.** *"Four consecutive rounds, two
+     * laboratories on the PFAS suite, and the field and equipment blanks
+     * clear"* is the author's case against a laboratory or sampling artefact.
+     * Wave 15 measured how far the PFAS suite reached on this round
+     * (`PFAS_REACH`) and the answer is one sample: the field blank, the trip
+     * blank and the equipment blank carry 14 tests each and **none of them is
+     * a PFAS test**, so for this analyte the blanks are neither clear nor
+     * unclear — they were never asked. The passage argues from arsenic,
+     * sulfate *and* PFAS, and the blank limb is sound for the first two, so
+     * this is a weakened argument rather than a false sentence. (The equipment
+     * blank is also not clear in the ordinary sense: `EB-1` holds zinc at 1.4
+     * µg/L against a 1.0 µg/L limit of reporting, which predates this wave.)
+     *
+     * **Why it is not fixed here.** The fix is not arithmetic. Either the
+     * product edits an attributed professional judgement — which the `refused`
+     * clause four lines below forbids in as many words, and which is the one
+     * thing this screen exists to make impossible — or the evidence workspace
+     * grows a way to surface *a challenge to an authored alternative*, which is
+     * a new interaction on `#narrative` with its own consequences for
+     * `EVIDENCE.tiles`, the staleness rule and the report's §6. That is a
+     * design decision with a screen on the other end of it, not a sentence to
+     * rewrite in a wave about a sample count.
+     *
+     * What this wave does instead is what wave 7 did with the three-way: name
+     * it, measure it, and leave the author's words alone. The ledger went four
+     * → three when the PFAS three-way closed and three → four when this opened;
+     * a register of debts is a register of the truth rather than a target, and
+     * a wave that found one and did not write it down would be trading the
+     * ledger's meaning for its number.
      */
     competing: [
       { what: 'Evaporative concentration in a shallow bore', by: 'A. Nakamura', says: 'Would move the bore along the sulfate limb and raise every ion together. Chloride has not moved with sulfate here, and the ratio is the test.' },
@@ -7837,7 +8400,14 @@ export const EXCHANGE = (() => {
       sampled: CROSSTAB_SHAPE.sampledColumns.length,
       results: CROSSTAB_SHAPE.results,
       censored: CROSSTAB_SHAPE.censored,
-      emptyCells: CROSSTAB_SHAPE.empty,
+      /*
+       * Wave 15: `emptyCells` feeds the *dry bore* loss row, so it counts the
+       * cells with no sample and not the ones with no analysis. The second kind
+       * of absence is its own count and its own sentence — a file that cannot
+       * say "dry" also cannot say "never run", and they are different losses.
+       */
+      emptyCells: CROSSTAB_SHAPE.notSampled,
+      notAnalysedCells: CROSSTAB_SHAPE.notAnalysed,
       emptyColumns: CROSSTAB_SHAPE.emptyColumns,
       sets: CRITERIA.length,
       outcomes: cells.length * CRITERIA.length,
@@ -8182,14 +8752,24 @@ export const EXCHANGE = (() => {
       says: 'Every test on every sample on the manifest, including the controls.' },
     { check: 'Analytes on the results grid', over: 'the results grid', record: grid.analytes, file: grid.analytes, verdict: 'agrees',
       says: 'The dictionary’s canonical name for each, not the synonym the deliverable arrived under.' },
-    { check: 'Non-detects, censoring notation kept', over: 'the results grid', record: grid.censored, file: grid.censored, verdict: 'agrees',
-      says: 'Each keeps the laboratory’s own “less-than” notation beside its reporting limit. None becomes a substituted number.' },
+    { check: 'Non-detects, censoring notation kept', over: 'the results grid', record: grid.censored, file: grid.censored, verdict: 'agrees', was: PFAS_REACH.was.censored,
+      says: `Each keeps the laboratory’s own “less-than” notation beside its reporting limit. None becomes a substituted number. ${PFAS_REACH.was.censored - grid.censored} left this count in wave 15 — not because the notation changed but because ${PFAS_REACH.cellsWithdrawn} of the values were censoring asserted on analyses that never ran, and a censored value is the laboratory’s notation or it is nothing.` },
     { check: 'Locations in the round’s plan', over: 'the grid’s columns', record: grid.columns, file: grid.sampled, verdict: 'not carried',
       says: `${grid.emptyColumns.join(', ')} was visited and found ${emptyDisposition.label.toLowerCase()}, so it has no sample and therefore no row. The file cannot say that; its absence reads as data not yet sent.` },
-    { check: 'Evaluation outcomes', over: `the grid, ${grid.sets} criteria sets`, record: grid.outcomes, file: 0, verdict: 'no column',
+    { check: 'Evaluation outcomes', over: `the grid, ${grid.sets} criteria sets`, record: grid.outcomes, file: 0, verdict: 'no column', was: PFAS_REACH.was.outcomes,
       says: `${grid.results} results × ${grid.sets} sets. The receiving system re-evaluates against its own criteria library, and a different criterion is a different answer.` },
-    { check: '— of those, indeterminate', over: 'the grid', record: grid.indeterminate, file: 0, verdict: 'reads as a pass',
+    { check: '— of those, indeterminate', over: 'the grid', record: grid.indeterminate, file: 0, verdict: 'reads as a pass', was: PFAS_REACH.was.indeterminate,
       says: 'A reporting limit above the criterion means nothing was measured either way. The file carries no state for it, and the incumbent baseline records one of the two incumbents rendering exactly this case as a pass unless a non-default setting is enabled — so these arrive as the one thing they are not.' },
+    /*
+     * Wave 15 adds the row rather than folding it into the dry one above,
+     * because they are different losses with different remedies: a dry bore has
+     * no sample and so no row at all, and a bore that was sampled and never
+     * analysed for this suite has rows for everything else and a silence where
+     * this one would be. The file cannot tell them apart either, which is the
+     * point of counting them apart here.
+     */
+    { check: 'Analyses that were never run', over: 'the results grid', record: grid.notAnalysedCells, file: 0, verdict: 'no column',
+      says: `${PFAS_REACH.analyte} at ${PFAS_REACH.withdrawnLocations.join(', ')} — samples that exist, an analysis that does not. The file writes a row per result, so these are simply absent, and their absence is indistinguishable from a result not yet sent.` },
     { check: 'QC samples carrying a type code', over: 'the round’s manifest', record: qcSamples.length, file: qcCoded.length, verdict: 'no code exists',
       says: `The ${qcPhrase(qcCoded)} has a published code. The ${qcPhrase(qcUncoded)} do not — and those are the controls that answer whether the sampling itself introduced anything.` },
     { check: 'Qualified results carrying their basis', over: 'the round’s QA/QC register', record: qualifiedResults, file: 0, verdict: 'no column',
@@ -8240,6 +8820,25 @@ export const EXCHANGE = (() => {
         'The location file could in principle carry a status column, and no source states one; more decisively, a deliverable has a row per sample, and a dry bore produced none. So the loss is structural rather than a field somebody forgot.',
       reads:
         `${grid.emptyColumns.join(', ')} is simply absent. A bore visited twice, dipped to the base of its screened interval and found ${emptyDisposition.label.toLowerCase()} is indistinguishable in this file from a bore whose results have not been sent — and those are different facts about the aquifer and about the round.`,
+    },
+    /*
+     * Wave 15. The grid gained a second kind of absence and the export record
+     * has to name it separately, because the remedy is different at both ends:
+     * a dry bore's absence is answered by a field disposition the format has no
+     * column for, and an unrun analysis is answered by the sample's test list,
+     * which the format also has no column for — but a reader told only about
+     * the first would conclude the other five silences were the same fact.
+     */
+    {
+      what: 'An analysis that was never run — the sample exists, the result does not',
+      n: grid.notAnalysedCells,
+      unit: `cells at ${PFAS_REACH.withdrawnLocations.join(', ')}`,
+      where: 'crosstab',
+      whereLabel: 'the results grid, where the cell says which absence it is',
+      checked:
+        'The Sample file carries a row per sample and the Chemistry file a row per result, and neither carries the sample’s *test list* — so a suite that was not run produces no row and no column says it was not asked for. The check that matters is that this is not the dry-bore loss wearing a different name: these bores returned water, filled containers and reconciled at the laboratory, and every other analyte on them crossed.',
+      reads:
+        `${grid.notAnalysedCells} silences in one analyte row. In this file they are indistinguishable from ${grid.emptyColumns.join(', ')}’s absence, from a result held in quarantine, and from a deliverable that has not been sent — four different facts arriving as the same nothing.`,
     },
     {
       what: 'The QC sample types the code list has no code for',
@@ -8332,6 +8931,14 @@ export const EXCHANGE = (() => {
       notCarried: notCarried.length,
       lossKinds: losses.length,
       fileRows: files.reduce((n, f) => n + f.rows, 0),
+      /*
+       * Wave 15 added one reconciliation row and one loss, both for the same
+       * new fact — an analysis that was never run. The befores are here so the
+       * two counts that render on other screens can say what they were.
+       */
+      wasChecks: reconciliation.length - 1,
+      wasNotCarried: notCarried.length - 1,
+      wasLossKinds: losses.length - 1,
     },
   };
 

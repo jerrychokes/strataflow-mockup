@@ -998,7 +998,7 @@ uses and exactly what this screen draws.
 **Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
 them is the same move: a disagreement described in a comment becomes one source read N
 times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
-records; it stands at **five** — four after wave 14 — and the ones that closed are kept as
+records; it stands at **five** — four after wave 14, and four after wave 15, which settled one and opened one — and the ones that closed are kept as
 dated settled-notes rather than deleted, because a debt that vanishes when it is paid leaves
 nobody able to tell it from one that was never noticed.
 
@@ -1132,6 +1132,72 @@ them. The five dipped bores' heads are computed now and the fit moves with them:
 before-values printed where they render and the two subterranean-fauna heads declared as the
 estimates they are. And the bore nest's three literals — `11.42 m btoc`, `203.40 m AHD` and
 `+0.86 m` — are derived; all three reproduce, so what moved is the typing.
+
+**Wave 15 (2 September 2026) settles the oldest standing deferral and adds no screen.** Four
+surfaces described one fact and gave four answers about how far the PFAS suite reached on
+2026 Q2: the batch said **4 samples**, the manifest gave the two extra PFAS tests to **one**
+sample, the results grid carried a PFOS + PFHxS total at **6** locations, and the
+`2026-Q2-PFAS` event said **4 samples and 1 control**. Wave 7 recorded the disagreement and
+did not settle it, because the cheapest reading empties cells of the one row `#criteria`
+demonstrates the non-detect rule over. **The ledger goes four → three by settlement and
+three → four by discovery**: the record that closed keeps its finding verbatim with a dated
+settled-note beneath it, and this wave opened one of its own — the interpretation's case
+against a laboratory artefact cites *"the field and equipment blanks clear"* on an analyte
+the blanks were never tested for, and the fix is either editing an attributed professional
+judgement or growing a way to challenge one, neither of which belongs in a wave about a
+sample count. A ledger is a register of the truth rather than a target.
+
+**The measurement came before the drawing, and it is physical.** A PFAS result requires a
+bottle at the second laboratory, so the question is what material reached it. Three
+independent records answer and they agree: the **subcontract chain** holds two transfers of
+**one container**, names its sample, carries one seal through both hops and ends in a receipt
+reconciled *1 of 1* by a named person; the **manifest** gives one sample of eleven 16 tests
+and 5 containers where the other ten carry 14 and fewer; and the **container count is
+closed** — per-sample containers sum to 38, the laboratory reconciled *38 of 38*, and five
+more PFAS bottles would have made 43. Nothing contradicts them: the deliverable raises one
+location question and it is MW-05, the lineage names two rows of one file for one bore, and
+the snapshot lodged with the regulator holds *PFOS + PFHxS at MW05 and the eleven results
+that framed it*.
+
+**So the suite reached one sample, and five censored values are withdrawn rather than
+re-valued.** `< 2.0` asserts that a laboratory looked and reported below its limit of
+reporting; no laboratory did. There is no version of those cells that is nearly right, and
+the alternative reading — that the analyses happened and the manifest, the chain and the
+receipt all under-record them — would have to be drawn as three more bottles, a second
+consignment and a receipt nobody signed, which is a fabricated chain of custody in a system
+of record. It is the same trade the trigger line was refused on the day before.
+
+**The grid gained a second kind of absence and every consumer had to choose.** A dry bore is
+an absence of *material*; a bore that was purged, sampled, sealed and reconciled and never
+tested for this suite is an absence of *analysis*. The cells carry a dotted glyph and the
+words **not analysed**, no outcome marks, and a sentence composed from the manifest and the
+custody chain. Every count that used to mean *the dry column* now says `notSampled` by name,
+because a sentence about a dry bore over a number counting sixteen cells would have been the
+old defect in a new place.
+
+**Every moved value renders beside its before**: censored values **14 → 9**, results **66 →
+61**, results that could not be assessed **11 → 6** (cadmium alone), evaluation outcomes
+carried by the export **132 → 122**, the batch **4 → 1** samples, the event **4 → 1** samples
+and **1 → 0** controls, and the non-detect demonstration **6 → 1** rows. None of them is
+typed; the befores are written down once, on the decision record, and read from there.
+
+**The non-detect demonstration survives and demonstrates more than it did.** MW05's analysis
+is the one every reading agreed happened, and nothing about it moves — 3.1 + 1.7 J = 4.8
+ng/L, 37×, TARP Level 3, the notification lodged. The five withdrawn rows are drawn beside
+the live table, run through the *same evaluator*, as the before they are: under `zero` they
+read **compliant**. A rule that turns a non-detect into a pass was the failure that screen
+was drawn to refuse; a table that turned an analysis nobody ran into five passes is the same
+failure one door further back, and it was sitting inside the demonstration.
+
+**Found while doing it — three.** Wave 7's own record said *three surfaces* and then named a
+fourth in its last paragraph, and the cheapest reading it anticipated (*PFAS on MW05 and
+MW07 only*) empties four cells where the evidence supports five. And the criteria-version
+activation preview typed **7 totals re-evaluated, 6 outcomes changing, 6 exceedances, 6
+statutory clocks** against a record that supported 6 / 5 / 5 / 5 — already one out before
+this wave, because it was written while MW11 was still a row and never re-derived when wave 7
+blanked that column. It is computed now, and it writes **1 total, 0 outcomes, 0 clocks**:
+half-limit substitution has something to substitute only where a non-detect exists, and the
+only PFAS result on this round is a detect.
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls

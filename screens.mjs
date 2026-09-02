@@ -61,6 +61,9 @@ import {
   // Wave 14 — the water-level series re-anchored to the field record, and the
   // decision taken about the trigger line it used to be drawn under.
   LEVEL_TRIGGER,
+  // Wave 15 — how far the PFAS suite actually reached on 2026-Q2: the
+  // measurement, the decision taken against it, and every before it moved.
+  PFAS_REACH,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -992,14 +995,18 @@ const exchangeFormats = () => {
     '<h2 class="mk-h2" style="margin-top:1.4rem">The reconciliation — the import’s proof, read at the other end</h2>' +
     `<p class="mk-tight"><a class="mk-ref" href="#migration">A migration proves what arrived.</a> An export owes the mirror: a file leaving here is somebody else’s source and is trusted on the same evidence. Every row below says <strong>what it was counted over</strong>, because the round’s manifest and the results grid are two different populations of the same round and a proof that does not say which one it used is an assertion with a number on it.</p>` +
     table({
-      caption: `${E.counts.checks} checks. ${E.counts.agreed} agree; ${E.counts.notCarried} cannot, and each of those names what it could not carry.`,
+      caption: `${E.counts.checks} checks (was ${E.counts.wasChecks} before the PFAS settlement of 2 September 2026 added the row for an analysis that was never run). ${E.counts.agreed} agree; ${E.counts.notCarried} cannot, and each of those names what it could not carry.`,
       head: ['Check', 'Counted over', 'In the record', 'In the file', 'Verdict', 'What that means'],
       kind: 'matrix',
       label: 'The export reconciliation',
       rows: E.reconciliation.map((r) => [
         `<strong>${esc(r.check)}</strong>`,
         `<span class="mk-muted">${esc(r.over)}</span>`,
-        `<span class="mk-num">${r.record.toLocaleString('en-AU')}</span>`,
+        /* Wave 15 — three of these counts moved with the settlement, and this
+         * table is a proof: a number in it that changes silently is worse than
+         * one that never agreed. */
+        `<span class="mk-num">${r.record.toLocaleString('en-AU')}</span>` +
+          (r.was === undefined ? '' : `<small>was ${r.was.toLocaleString('en-AU')}</small>`),
         r.file === r.record
           ? `<span class="mk-num">${r.file.toLocaleString('en-AU')}</span>`
           : `<span class="mk-num mk-num--warn">${r.file.toLocaleString('en-AU')}</span>`,
@@ -1017,11 +1024,11 @@ const exchangeFormats = () => {
      * The loss statement
      * ---------------------------------------------------------------- */
     '<h2 class="mk-h2" style="margin-top:1.4rem">What the file cannot carry, named</h2>' +
-    `<p class="mk-tight">A loss that is stated is a decision somebody can take — cover it in the transmittal, renegotiate the format, or accept it knowingly. A loss that is not stated is discovered by the person on the other end, months later, as a disagreement about what the data said. Each entry below carries <strong>what was checked before the claim was made</strong>, because “the format cannot carry it” is easy to write and easy to be wrong about.</p>` +
+    `<p class="mk-tight">A loss that is stated is a decision somebody can take — cover it in the transmittal, renegotiate the format, or accept it knowingly. A loss that is not stated is discovered by the person on the other end, months later, as a disagreement about what the data said. Each entry below carries <strong>what was checked before the claim was made</strong>, because “the format cannot carry it” is easy to write and easy to be wrong about. <span class="mk-muted">${E.counts.lossKinds} kinds, one more than the ${E.counts.wasLossKinds} drawn before 2 September 2026: <a class="mk-ref" href="#batches">the PFAS settlement</a> put a second kind of absence on the grid, and a file that cannot say <em>dry</em> cannot say <em>never run</em> either.</span></p>` +
     E.losses
       .map((l) =>
         C.card({
-          tone: l.what.startsWith('Indeterminate') || l.what.startsWith('The field disposition') ? 'bad' : 'warn',
+          tone: l.what.startsWith('Indeterminate') || l.what.startsWith('The field disposition') || l.what.startsWith('An analysis') ? 'bad' : 'warn',
           head:
             `<span class="mk-queue__kind">${esc(l.what)}</span>` +
             `<span class="mk-queue__age"><span class="mk-num">${l.n.toLocaleString('en-AU')}</span> ${esc(l.unit)}</span>`,
@@ -1038,6 +1045,11 @@ const exchangeFormats = () => {
         `<p class="mk-tight">${loc(X.grid.emptyColumns[0])} was visited twice on this round, dipped to the base of its screened interval and found <strong>${esc(X.emptyDisposition.label.toLowerCase())}</strong>. <a class="mk-ref" href="#crosstab">The results grid draws its column</a> rather than removing it, and each of its ${X.grid.emptyCells} cells carries the disposition’s own glyph <span aria-hidden="true">${esc(X.emptyDisposition.glyph)}</span> and its own word: an absence of material, not a result below a limit of reporting, and not a pass.</p>` +
           `<p class="mk-tight"><strong>None of that crosses.</strong> A deliverable has a row per sample; a bore that yielded no sample produces no row; so the file contains ${X.manifest.locations.length} locations where the round planned ${X.grid.columns}, and ${esc(X.grid.emptyColumns[0])} is simply not in it. A reader of the file cannot tell a dry bore from a bore whose results have not been sent yet — and those are different facts, one about the aquifer and one about the round.</p>` +
           `<p class="mk-tight mk-muted">This instance keeps the two apart on every surface it owns. The export is where the distinction meets a format that has never had it, and the honest thing to do is say so before the file is written rather than after somebody reads it.</p>` +
+          /* Wave 15 — the grid now draws two kinds of absence and this panel
+           * was written when there was one. The second is named here because a
+           * reader who takes "dry is not missing" as the whole distinction will
+           * read the other five silences as the same fact. */
+          `<p class="mk-tight"><strong>And there is a second absence now.</strong> ${esc(PFAS_REACH.analyte)} at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} is <em>${X.grid.notAnalysedCells} cells where the sample exists and the analysis does not</em> — those bores returned water, filled containers and reconciled at the laboratory, and every other analyte on them crossed. The file cannot say that either, and in it the two absences are the same nothing.</p>` +
           `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#field-capture">The bore session that recorded it</a><a class="mk-btn mk-btn--sm" href="#data-states">The four states, everywhere</a></div>`,
       ),
       panel(
@@ -2120,7 +2132,8 @@ const exceedances = () =>
   stats([
     stat(String(EXCEEDANCES.length), 'exceedances', 'bad'),
     stat(String(new Set(EXCEEDANCES.map((e) => e.location)).size), 'locations affected', 'bad'),
-    stat(String(INDETERMINATE.length), 'indeterminate', 'warn'),
+    /* Wave 15 — the count moved, so the tile says what it was. */
+    stat(String(INDETERMINATE.length), `indeterminate (was ${PFAS_REACH.was.indeterminate})`, 'warn'),
     stat(String(EXCEEDANCES.filter((e) => e.state === 'notified').length), 'notified', 'good'),
     // F-17's rule, on a tile whose count is 1 today and could be 0 tomorrow.
     ((n) => stat(String(n), `window condition${n === 1 ? '' : 's'} triggered`, n ? 'bad' : 'neutral'))(
@@ -2163,7 +2176,7 @@ const exceedances = () =>
     ]),
   }) +
   notice('warning', `${INDETERMINATE.length} results could not be assessed at all, and they are not on this register.`,
-    `Cadmium at every bore that returned water, and the PFAS sum at ${INDETERMINATE.filter((i) => i.analyte === 'PFOS + PFHxS').length} of them, were reported below a limit of reporting that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong> and on <a class="mk-ref" href="#indeterminate">their own register</a>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen.`) +
+    `Cadmium at every bore that returned water was reported below a limit of reporting that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong> and on <a class="mk-ref" href="#indeterminate">their own register</a>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen. This sentence named the ${esc(PFAS_REACH.analyte)} sum at ${PFAS_REACH.was.indeterminate - INDETERMINATE.length} bores as well until 2 September 2026, when <a class="mk-ref" href="#batches">those five censored values were found to rest on analyses that were never run</a> — a different absence, and one this register was never going to catch, because a result that does not exist cannot be counted as compliant either.`) +
   windowConditionPanel();
 
 /**
@@ -2337,7 +2350,7 @@ const crosstab = () => {
         C.chip(MATRICES[0].m, { prefix: 'matrix' }),
         C.chip('added zinc', { prefix: 'edited', tone: 'new' }),
       ],
-      count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results · ${CROSSTAB_SHAPE.empty} cells at a bore that returned nothing`,
+      count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results (was ${PFAS_REACH.was.results}) · ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing · ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run`,
     }) +
     `<p class="sf-lede mk-tight">${esc(ROUND.code)} · collected ${esc(ROUND.collected)} · ${esc(ROUND.laboratory)} certificate ${esc(ROUND.certificate)} · validation state <strong>${esc(ROUND.validationState)}</strong> · all times ${esc(PROJECT.timezone)}</p>` +
     `<section aria-label="Criteria applied">${criteriaLegend(CRITERIA)}${outcomeLegend()}</section>` +
@@ -2369,7 +2382,19 @@ const crosstab = () => {
     notice(
       'default',
       `${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} is drawn empty, and the column says why.`,
-      `The field record for this round has ${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} visited twice and found <strong>dry</strong> — dipped to the base of the screened interval, tape dry to the weight — so it yielded no samples and there is nothing to put in these ${CROSSTAB_SHAPE.empty} cells. The column stays: <strong>a column that disappears reads as a bore that does not exist</strong>, and a cell left blank reads as a value somebody forgot to enter. Neither is what happened. The cells carry the round’s own <em>dry</em> disposition — its glyph and its word, read from the same list <a class="mk-ref" href="#field-capture">the bore session</a> dispositions against, so the grid does not invent a second vocabulary for one fact — and the sentence a screen reader gets carries the whole of what dry means, and the ${CROSSTAB_SHAPE.results} results counted above are the ones that exist. <a class="mk-ref" href="#field-capture">The bore session</a> holds the disposition; <a class="mk-ref" href="#data-states">Data states</a> is where the pattern is set out.`,
+      `The field record for this round has ${esc(CROSSTAB_SHAPE.emptyColumns.join(', '))} visited twice and found <strong>dry</strong> — dipped to the base of the screened interval, tape dry to the weight — so it yielded no samples and there is nothing to put in these ${CROSSTAB_SHAPE.notSampled} cells. The column stays: <strong>a column that disappears reads as a bore that does not exist</strong>, and a cell left blank reads as a value somebody forgot to enter. Neither is what happened. The cells carry the round’s own <em>dry</em> disposition — its glyph and its word, read from the same list <a class="mk-ref" href="#field-capture">the bore session</a> dispositions against, so the grid does not invent a second vocabulary for one fact — and the sentence a screen reader gets carries the whole of what dry means, and the ${CROSSTAB_SHAPE.results} results counted above are the ones that exist. <a class="mk-ref" href="#field-capture">The bore session</a> holds the disposition; <a class="mk-ref" href="#data-states">Data states</a> is where the pattern is set out.`,
+    ) +
+    /*
+     * Wave 15. The second kind of absence, stated where it is drawn — and the
+     * five values it replaced, stated with it. A grid is not a place to strike
+     * text through, so the record of a withdrawal lives in the row's own note
+     * and on the decision record it links to, which is the treatment `#events`
+     * and `#batches` use for the same settlement.
+     */
+    notice(
+      'warning',
+      `${esc(PFAS_REACH.analyte)} carries ${PFAS_REACH.cellsWithdrawn} cells that are not a result and not a dry bore, and they say which.`,
+      `Until 2 September 2026 this row drew <span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(PFAS_LIMITS.lor.toFixed(1))}</span></span> at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} — ${PFAS_REACH.cellsWithdrawn} censored values, each of them the claim that a laboratory reported a non-detect. <strong>No laboratory did.</strong> The suite was subcontracted, ${esc(String(PFAS_REACH.subcontract.containers))} container reached ${esc(PFAS_REACH.subcontract.laboratory)} and it was ${esc(PFAS_REACH.sample.id)}’s, the manifest gives the ${PFAS_REACH.extraTests} PFAS tests to that one sample of ${EVENT_SAMPLES.length}, and the round’s containers reconciled <strong>${esc(PFAS_REACH.reconciled)}</strong> when five more bottles would have made ${PFAS_REACH.wouldHaveNeeded}. So the cells are <strong>withdrawn rather than re-valued</strong>: a censored value is the laboratory’s own notation and there is nothing here to re-value them from. They carry <em>not analysed</em> — the sample exists, the analysis does not — and no outcome marks, because nothing was assessed. <a class="mk-ref" href="#batches">The decision record</a> holds the measurement, the evidence and what would bring the ${PFAS_REACH.cellsWithdrawn} results back; <a class="mk-ref" href="#criteria">the non-detect demonstration</a> holds what they used to say under each of the four treatments.`,
     ) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">The same grid, across rounds</h2>' +
     `<p class="sf-lede mk-tight">${C.segmented({ options: ['This round', 'By round', 'By location'], value: 'By round', label: 'Layout' })}</p>` +
@@ -3165,7 +3190,10 @@ const reportBuilder = () => {
       rows: G.checks.map((x) => [
         esc(x.check),
         `<span class="mk-muted">${esc(x.expects)}</span>`,
-        esc(x.found),
+        /* Wave 15 — two of these counts moved with the PFAS settlement, and a
+         * comparison against an approved reference is the last place a number
+         * should change without saying what it was. */
+        esc(x.found) + (x.was ? `<small>was ${esc(x.was)} until 2 Sep 2026 — <a class="mk-ref" href="#batches">the PFAS settlement</a></small>` : ''),
         C.status(x.outcome, x.outcome === 'pass' ? 'good' : 'bad'),
       ]),
     }) +
@@ -3760,6 +3788,27 @@ const obligations = () =>
   notice('default', 'A monitoring period is resolved in the site’s own timezone, never the server’s.',
     `A quarterly round at a Pilbara bore begins at 16:00 UTC on 31 December. A sample collected at 08:00 on 1 April local time belongs to the June quarter — get it wrong and the round it was meant to satisfy reads as missed while a spurious extra one reads as satisfied. Both projects on this register resolve in ${esc(PROJECT.timezone)}; a register spanning two zones would resolve each row in its own site’s, never in one chosen for the board.`);
 
+/**
+ * What the 2026 Q2 round expected at each bore — hoisted so it can be read
+ * rather than described (wave 15).
+ *
+ * It was a literal inside `programme()`, and the PFAS settlement needed the one
+ * fact it holds that no other register does: **which bores the suite was ever
+ * asked for at.** Only MW05's row says *Full + PFAS*, which is the programme
+ * side of the same finding the manifest and the custody chain make from the
+ * material side — so the decision record counts these rows instead of asserting
+ * what they say, and the two surfaces cannot come apart on it.
+ */
+const Q2_PROGRAMME = [
+  { code: 'MW01A', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
+  { code: 'MW03B', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
+  { code: 'MW05', suite: 'Full + PFAS', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
+  { code: 'MW07', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
+  { code: 'MW09', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
+  { code: 'MW11', suite: 'Full groundwater', due: '2026-05-14', collected: '—', received: '—', state: 'overdue' },
+  { code: 'MW12', suite: 'Reduced — background', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
+];
+
 const programme = () =>
   head('Sampling programme — GW-QTR', 'What each round expects, and what it got.', {
     route: '/projects/:projectId/programme',
@@ -3768,15 +3817,14 @@ const programme = () =>
     table({
       caption: 'The 2026 Q2 round, location by location.',
       head: ['Location', 'Suite', 'Due', 'Collected', 'Received', 'State'],
-      rows: [
-        [loc('MW01A'), 'Full groundwater', '2026-05-14', '2026-05-12', '2026-05-21', tag('complete', 'good')],
-        [loc('MW03B'), 'Full groundwater', '2026-05-14', '2026-05-12', '2026-05-21', tag('complete', 'good')],
-        [loc('MW05'), 'Full + PFAS', '2026-05-14', '2026-05-13', '2026-05-21', tag('complete', 'good')],
-        [loc('MW07'), 'Full groundwater', '2026-05-14', '2026-05-13', '2026-05-21', tag('complete', 'good')],
-        [loc('MW09'), 'Full groundwater', '2026-05-14', '2026-05-14', '2026-05-21', tag('complete', 'good')],
-        [loc('MW11'), 'Full groundwater', '2026-05-14', '—', '—', tag('overdue', 'bad')],
-        [loc('MW12'), 'Reduced — background', '2026-05-14', '2026-05-14', '2026-05-21', tag('complete', 'good')],
-      ],
+      rows: Q2_PROGRAMME.map((r) => [
+        loc(r.code),
+        esc(r.suite),
+        esc(r.due),
+        esc(r.collected),
+        esc(r.received),
+        tag(r.state, r.state === 'complete' ? 'good' : 'bad'),
+      ]),
       kind: 'matrix',
       label: 'Reporting obligations',
     }),
@@ -4457,20 +4505,33 @@ const criteriaLibrary = () =>
  *
  * The rule is *what a non-detect contributes to a calculation* — zero, half
  * the limit of reporting, the limit, or excluded — and it belongs to the
- * criteria set rather than to a preference. The reason is drawn here rather
- * than argued: five of these six locations reported both PFAS components
- * below the limit of reporting, and the same six results read **indeterminate,
- * compliant or 31× a guideline value** depending on which of the four applied.
- * `zero` is the one that turns all six into passes, which is the direction
- * this product exists to refuse silently.
+ * criteria set rather than to a preference.
  *
- * MW05 is the control in the experiment: both of its components were detected,
+ * ## What wave 15 did to this screen, and why it is stronger for it
+ *
+ * This demonstration used to run over six locations, five of them reporting
+ * both components below the limit of reporting, and the argument was that the
+ * same six results read *indeterminate, compliant or 31× a guideline value*
+ * depending on which of the four rules applied. Five of those six were not
+ * results. The suite reached one sample; the other five bores were never tested
+ * for it, and `PFAS_REACH` holds the three records of the material that say so.
+ *
+ * So the live table is one row now — MW05, where both components were detected,
  * so a rule about non-detects has nothing to say about it and its 4.8 ng/L is
- * the same under all four. Every total in the table is summed from
- * `PFAS_COMPONENTS` under the treatment named at the head of its column.
+ * the same under all four. **The demonstration did not lose its subject; it
+ * gained a better one.** The five withdrawn rows are drawn beside it, run
+ * through the same evaluator, as the before they are — and under `zero` they
+ * read compliant. A rule that turns a non-detect into a pass was the failure
+ * this screen was drawn to refuse; a table that turned an analysis nobody ran
+ * into five passes is the same failure one door further back, and it was
+ * sitting inside the demonstration.
+ *
+ * Every total in both tables is summed from a component list under the
+ * treatment named at the head of its column, by one function used twice.
  */
 const nonDetectBinding = () => {
   const N = NON_DETECT;
+  const W = N.withdrawn;
   const active = N.treatments.find((t) => t.rule === N.activeRule);
   const cell = (r) =>
     (r.censored
@@ -4540,7 +4601,7 @@ const nonDetectBinding = () => {
       '2fr 3fr',
     ) +
     table({
-      caption: 'One column per treatment, every total summed from the components under that rule. The column in force is marked; the other three are what the same six results would say.',
+      caption: `One column per treatment, every total summed from the components under that rule. The column in force is marked. All four agree here, and that agreement is the finding: ${esc(W.locations.join(', '))} used to fill the ${W.rows.length} rows that made them disagree, and none of those rows was a result.`,
       head: [
         'Location',
         ...N.treatments.map(
@@ -4551,25 +4612,55 @@ const nonDetectBinding = () => {
       label: 'The derived PFAS total under each non-detect rule',
       rows: PFAS_COMPONENTS.map((p, i) => [loc(p.location), ...N.treatments.map((t) => cell(t.rows[i]))]),
     }) +
+    /*
+     * Wave 15 — the withdrawn rows, in their own table rather than greyed
+     * inside the live one. A row drawn faintly beside real ones is still a row
+     * a reader can copy out; a separate table under its own heading, captioned
+     * as the before, cannot be mistaken for the record.
+     */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The same four columns over the rows that were withdrawn from under them</h2>' +
+    `<p class="sf-lede mk-tight">${esc(W.rows.length)} locations · withdrawn 2 September 2026 · <a class="mk-ref" href="#batches">the decision record</a> holds the measurement. <strong>This is what this demonstration said before, not what the record says.</strong></p>` +
+    table({
+      caption: `${esc(W.says)}`,
+      head: [
+        'Location',
+        ...W.treatments.map(
+          (t) => `${esc(t.label)}${t.rule === N.activeRule ? '<small>in force</small>' : `<small>${t.changes} outcomes change</small>`}`,
+        ),
+      ],
+      kind: 'matrix',
+      label: 'The withdrawn PFAS rows under each non-detect rule — the before',
+      rows: W.rows.map((p, i) => [
+        `${loc(p.location)}<small>${esc(p.why)}</small>`,
+        ...W.treatments.map((t) => cell(t.rows[i])),
+      ]),
+    }) +
     cols(
       panel(
-        'What each column would do to this round',
+        'What each column would have done to this round',
         table({
           head: ['Treatment', 'Outcomes', 'Changed from in force'],
           scroll: true,
-          label: 'Outcome counts per non-detect treatment',
-          rows: N.treatments.map((t) => [
+          label: 'Outcome counts per non-detect treatment, over the withdrawn rows',
+          rows: W.treatments.map((t) => [
             `${esc(t.label)}${t.rule === N.activeRule ? ' ' + C.status('in force', 'good') : ''}`,
             t.outcomes.map((o) => `${outcomeCell(o.o)} <span class="mk-num">${o.n}</span>`).join('<br>'),
             t.rule === N.activeRule ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num mk-num--bad">${t.changes}</span>`,
           ]),
-        }),
+        }) +
+          `<p class="mk-tight mk-muted">The live table above resolves to <strong>${N.treatments.filter((t) => t.changes === 0).length} of ${N.treatments.length}</strong> columns changing nothing, because ${esc(PFAS_COMPONENTS[0].location)}’s components were both detected and a treatment of non-detects reaches neither.</p>`,
       ),
       panel(
         'Why this is a criteria-set field and not a setting',
-        `<p class="mk-tight"><strong>Zero is the dangerous one.</strong> Under it every censored total becomes ${esc(N.treatments[1].rows[0].total)} ng/L and six results that nobody could assess read as <em>compliant</em>. Nothing on the page would look wrong. That is the same failure as a reporting limit above a criterion rendering as a pass, arriving through a different door.</p>` +
-          `<p class="mk-tight">Under the limit of reporting the same six read as exceedances at ${esc(N.treatments[3].rows[0].factor)}, which would raise six statutory notification obligations. One field, and the round is either quiet or a compliance event.</p>` +
-          '<p class="mk-tight mk-muted">Which is why it is bound to the set: a regulator that specifies half-limit substitution and a regulator that specifies exclusion are both answerable at once, and neither answer is a global preference somebody changed on a Tuesday.</p>',
+        `<p class="mk-tight"><strong>Zero is the dangerous one.</strong> Under it every censored total becomes ${esc(W.treatments[1].rows[0].total)} ng/L and ${W.rows.length} results that nobody could assess read as <em>compliant</em>. Nothing on the page would look wrong. That is the same failure as a reporting limit above a criterion rendering as a pass, arriving through a different door.</p>` +
+          `<p class="mk-tight">Under the limit of reporting the same ${W.rows.length} read as exceedances at ${esc(W.treatments[3].rows[0].factor)}, which would raise ${W.rows.length} statutory notification obligations. One field, and the round is either quiet or a compliance event.</p>` +
+          '<p class="mk-tight mk-muted">Which is why it is bound to the set: a regulator that specifies half-limit substitution and a regulator that specifies exclusion are both answerable at once, and neither answer is a global preference somebody changed on a Tuesday.</p>' +
+          C.card({
+            tone: 'bad',
+            head: '<span class="mk-queue__kind">And a door further back than that</span>',
+            body: `<p class="mk-tight">${W.zeroSays} The ${W.rows.length} rows above were never analysed for this suite: no certificate, no batch, no container, no custody transfer. <strong>${esc(W.why.charAt(0).toUpperCase() + W.why.slice(1))}.</strong> Every one of the four columns was arithmetic over nothing, and three of them changed an outcome by it.</p>`,
+            foot: '<a class="mk-btn mk-btn--sm" href="#batches">The decision record</a><a class="mk-btn mk-btn--sm" href="#crosstab">The cells as they are drawn now</a>',
+          }),
       ),
       '2fr 3fr',
     )
@@ -4647,30 +4738,50 @@ const criteriaVersionWorkspace = () => {
         'What the test ran over',
         facts([
           ['Scope', esc(D.test.scope)],
-          ['Results the rule reaches', `<span class="mk-num">${D.test.reaches}</span>`],
-          ['Outcomes that change', `<span class="mk-num mk-num--bad">${D.test.changes}</span>`],
+          ['Results the rule reaches', `<span class="mk-num">${D.test.reaches}</span><small>was ${D.test.before.reaches} until 2 Sep 2026</small>`],
+          ['Outcomes that change', `<span class="mk-num${D.test.changes ? ' mk-num--bad' : ' mk-num--nil'}">${D.test.changes}</span><small>was ${D.test.before.changes}</small>`],
           ['Outcomes that do not', `<span class="mk-num">${D.test.unchanged}</span>`],
         ]) +
           `<p class="mk-tight">${esc(D.test.unchangedWhy)}</p>` +
           `<p class="mk-tight mk-muted">${esc(D.test.nothingElse)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(D.test.before.says)}</p>` +
           `<div class="mk-actions">${C.btn('Re-run against the record', 'primary')}<a class="mk-btn" href="#crosstab">Open the results this covers</a></div>`,
       ),
+      /*
+       * Wave 15 — the panel that used to name five rows now names none, and an
+       * empty table under a heading reading "The 0 results that change" is the
+       * `No data` failure `#data-states` exists to forbid. So the zero case is
+       * a state block that makes a claim: what was run, over what, and why the
+       * answer is nothing. The rows branch is kept because a re-run under a
+       * different draft rule would fill it again.
+       */
       panel(
-        `The ${D.test.changes} results that change, named`,
-        table({
-          caption: 'Not a count — the rows. A test that reports a number and not the records behind it cannot be checked by the person who has to approve it.',
-          head: ['Location', 'Total now', 'Outcome now', 'Total under the draft', 'Outcome under the draft', ''],
-          kind: 'matrix',
-          label: 'Results whose outcome changes under the draft version',
-          rows: D.test.rows.map((r) => [
-            loc(r.location),
-            `<span class="sf-result sf-result--censored"><span class="sf-result__value">${esc(r.was.total)}</span></span>`,
-            outcomeCell(r.was.outcome),
-            `<span class="mk-num mk-num--bad">${esc(r.total)}</span>`,
-            outcomeCell(r.outcome) + (r.factor === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factor)}</span>`),
-            `<a class="mk-ref" href="#lineage">Lineage</a>`,
-          ]),
-        }),
+        D.test.changes
+          ? `The ${D.test.changes} results that change, named`
+          : 'Nothing changes, and here is what was run to find that out',
+        D.test.changes
+          ? table({
+            caption: 'Not a count — the rows. A test that reports a number and not the records behind it cannot be checked by the person who has to approve it.',
+            head: ['Location', 'Total now', 'Outcome now', 'Total under the draft', 'Outcome under the draft', ''],
+            kind: 'matrix',
+            label: 'Results whose outcome changes under the draft version',
+            rows: D.test.rows.map((r) => [
+              loc(r.location),
+              `<span class="sf-result sf-result--censored"><span class="sf-result__value">${esc(r.was.total)}</span></span>`,
+              outcomeCell(r.was.outcome),
+              `<span class="mk-num mk-num--bad">${esc(r.total)}</span>`,
+              outcomeCell(r.outcome) + (r.factor === '—' ? '' : ` <span class="mk-num mk-num--bad">${esc(r.factor)}</span>`),
+              `<a class="mk-ref" href="#lineage">Lineage</a>`,
+            ]),
+          })
+          : C.stateBlock('empty', {
+            headline: `Half-limit substitution moves no outcome on ${esc(ROUND.code)}.`,
+            detail:
+              `The rule was run over every derived total it can reach — ${D.test.reaches}, ${esc(NON_DETECT.active.map((r) => r.location).join(', '))}. ${esc(D.test.unchangedWhy)} A substitution rule needs a non-detect to substitute into, and this round has none on the analyte the rule governs. ` +
+              `It would have moved ${D.test.before.changes} until 2 September 2026; those ${D.test.before.changes} were withdrawn as never analysed, and the arithmetic they would have produced is kept below the demonstration rather than deleted with them.`,
+            action: 'Open the decision record',
+            secondary: 'Re-run against the record',
+          }),
       ),
       '2fr 3fr',
     ) +
@@ -5992,11 +6103,19 @@ const hardnessDerivation = () => {
  * indeterminate, and a register claiming *one row per result per criterion
  * that could not be applied* was quietly holding only one of the two analytes.
  * Deriving it is what made that visible.
+ *
+ * Wave 15 took the five PFAS rows back out, and by the same mechanism: the
+ * register is derived, so when the grid's five censored PFAS cells were
+ * withdrawn as never analysed the rows went with them without anybody editing a
+ * count. What is left is cadmium at every bore that returned water — one
+ * analyte, one purchasing decision, and a register that is now exactly the
+ * thing it says it is. The five that left render as the before, here and on
+ * `#batches`, because a register that quietly halves is indistinguishable from
+ * one that was always half this size.
  */
 const indeterminateRegister = () => {
   const byAnalyte = (name) => INDETERMINATE.filter((i) => i.analyte === name);
   const cadmium = byAnalyte('Cadmium (filtered)');
-  const pfas = byAnalyte('PFOS + PFHxS');
   const cost = INDETERMINATE_QUOTE.perSample * cadmium.length;
   return (
   head('Could not be assessed', 'Results where nothing can be said either way, and what it would take to change that.', {
@@ -6007,20 +6126,32 @@ const indeterminateRegister = () => {
     // Counted off the register rather than typed onto it. The 7 here was a
     // literal, and it stopped being true the moment MW11's crosstab column was
     // blanked: a bore that produced no sample produced no unassessable result.
-    stat(String(INDETERMINATE.length), 'could not be assessed', 'warn'),
-    stat(String(new Set(INDETERMINATE.map((i) => i.analyte)).size), 'analytes affected'),
+    stat(String(INDETERMINATE.length), `could not be assessed (was ${PFAS_REACH.was.indeterminate})`, 'warn'),
+    stat(String(new Set(INDETERMINATE.map((i) => i.analyte)).size), 'analytes affected (was 2)'),
     stat(`${new Set(INDETERMINATE.map((i) => i.location)).size} of ${CROSSTAB_SHAPE.sampledColumns.length}`, 'locations sampled this round'),
-    stat(`$${cost}`, 'to close the cadmium half', 'good'),
+    stat(`$${cost}`, 'to close it', 'good'),
   ]) +
   notice(
     'warning',
     'This is a finding, and it belongs in the report.',
-    `${INDETERMINATE.length} results were reported below a limit of reporting that sits above the guideline value — ${cadmium.length} cadmium and ${pfas.length} PFAS totals. Nothing was measured either way. They are not compliant and they are not exceedances, and writing them into either column is the single most consequential error available here; a support thread on an incumbent records exactly that happening by default.`,
+    `${INDETERMINATE.length} results were reported below a limit of reporting that sits above the guideline value — all ${cadmium.length} of them cadmium. Nothing was measured either way. They are not compliant and they are not exceedances, and writing them into either column is the single most consequential error available here; a support thread on an incumbent records exactly that happening by default.`,
+  ) +
+  /*
+   * Wave 15. This register held 11 rows across two analytes until 2 September
+   * 2026, and the five PFAS rows are gone because the analyses behind them
+   * never happened. It is stated here rather than left to the seed: a register
+   * that shrinks by nearly half without saying so is the drift this screen
+   * exists to make impossible.
+   */
+  notice(
+    'default',
+    `${PFAS_REACH.was.indeterminate - INDETERMINATE.length} rows left this register on 2 September 2026, and the reason is not that anything became assessable.`,
+    `It held <span class="mk-num">${PFAS_REACH.was.indeterminate}</span> rows over two analytes — ${cadmium.length} cadmium and ${PFAS_REACH.was.indeterminate - cadmium.length} ${esc(PFAS_REACH.analyte)} totals — and the ${esc(PFAS_REACH.analyte)} half rested on censored values at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} that <strong>no laboratory produced</strong>. The suite was subcontracted and ${esc(String(PFAS_REACH.subcontract.containers))} container reached ${esc(PFAS_REACH.subcontract.laboratory)}. <em>Could not be assessed</em> is a claim about a result: it was reported, it carries a limit of reporting, and a criterion sat above it. Those five had no result to make the claim about, so they are withdrawn to <em>not analysed</em> on <a class="mk-ref" href="#crosstab">the grid</a> and the rows go with them. <a class="mk-ref" href="#batches">The decision record</a> holds the measurement and what would bring them back.`,
   ) +
   notice(
     'default',
-    'Two analytes, and only one of them is a purchasing decision.',
-    `Cadmium is a reporting limit the laboratory can lower for money, and the panel below prices it. The PFAS totals are not the same problem: the ANZG 2018 guideline value for the sum is ${esc(ANALYTES.find((a) => a.name === 'PFOS + PFHxS').a)} ng/L and the limit of reporting on the suite is ${esc(PFAS_LIMITS.lor.toFixed(1))} ng/L, which is where commercial USEPA 1633 reporting sits. No amount of money moves that this quarter, so the honest answer for those rows is that they stay unassessable and the report says so — which is what this register exists to make possible.`,
+    'One analyte, and it is a purchasing decision.',
+    `Cadmium is a reporting limit the laboratory can lower for money, and the panel below prices it. Until this quarter’s settlement the ${esc(PFAS_REACH.analyte)} totals sat here too and were <strong>not</strong> the same problem: the ANZG 2018 guideline value for the sum is ${esc(ANALYTES.find((a) => a.name === 'PFOS + PFHxS').a)} ng/L and the limit of reporting on the suite is ${esc(PFAS_LIMITS.lor.toFixed(1))} ng/L, which is where commercial USEPA 1633 reporting sits — no amount of money moved that. What moved instead was the evidence: there were no PFAS results at those bores to be unassessable. The distinction is worth keeping in view, because the next round that does run the suite at ${esc(PFAS_REACH.withdrawnLocations.length)} bores will put ${esc(PFAS_REACH.withdrawnLocations.length)} genuinely unassessable rows back on this register.`,
   ) +
   notice(
     'default',
@@ -6069,9 +6200,18 @@ const indeterminateRegister = () => {
           tone: 'neutral',
           head: '<span class="mk-queue__kind">Report §3 — Data quality</span>',
           body:
-            `<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is 0.54 µg/L. The reporting limit therefore sits above the guideline value and cadmium could not be assessed against it at any location sampled this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3. The same applies to the PFOS + PFHxS sum at ${pfas.length} locations, where the guideline value of ${esc(ANALYTES.find((a) => a.name === 'PFOS + PFHxS').a)} ng/L sits below the limit of reporting achievable by USEPA 1633.</em></p>`,
+            `<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is 0.54 µg/L. The reporting limit therefore sits above the guideline value and cadmium could not be assessed against it at any location sampled this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3. The PFOS + PFHxS sum was analysed at ${esc(PFAS_REACH.locations.join(', '))} only, under subcontract to ${esc(PFAS_REACH.subcontract.laboratory)}; it was not analysed at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} and no result is reported for those locations.</em></p>`,
         }) +
-        `<p class="mk-tight">Compare the alternative, which is what a product with no state for this produces: ${INDETERMINATE.length} rows of <code class="mk-file">0.001</code> in a compliance column, and a reader with no way to know.</p>`,
+        /*
+         * Wave 15: this paragraph used to end by extending the cadmium finding
+         * to "the PFOS + PFHxS sum at 5 locations". Read after the settlement,
+         * the same sentence with a re-derived count would have said "at 0
+         * locations" — an arithmetic repair to a claim whose *subject* had
+         * gone. What §3 owes a reader is which locations the suite reached,
+         * because "not analysed" and "analysed and unassessable" send a
+         * regulator to two different questions.
+         */
+        `<p class="mk-tight">Compare the alternative, which is what a product with no state for this produces: ${INDETERMINATE.length} rows of <code class="mk-file">0.001</code> in a compliance column, and a reader with no way to know. Until 2 September 2026 this paragraph also extended the finding to the ${esc(PFAS_REACH.analyte)} sum at ${PFAS_REACH.was.indeterminate - cadmium.length} locations — <a class="mk-ref" href="#batches">a claim the record does not support</a>, and one that a re-derived count alone would have turned into a sentence about zero locations rather than removed.</p>`,
     ),
   )
   );
@@ -7452,6 +7592,128 @@ const qcLimits = () => (
   )
 );
 
+/**
+ * The PFAS three-way, settled — wave 15's decision record.
+ *
+ * It sits where the wave-7 deferral sat, on `#batches`, because the batch is
+ * one of the four surfaces that disagreed and the one whose count was furthest
+ * from the material record. Everything printed here resolves through
+ * `PFAS_REACH`: the four readings and what each rested on, the six records the
+ * decision was ranked against, every value that moved with what it was, and the
+ * one record that would reverse it.
+ *
+ * The shape is wave 14's trigger withdrawal, deliberately — measure, decide
+ * against the evidence, withdraw rather than re-value, state the counterfactual
+ * in full, and say what would bring the thing back. The one difference is where
+ * the withdrawal renders: a trigger line is a string in a configuration panel
+ * and could be struck through where it stood, and a censored value is a cell in
+ * a data grid. Striking through five cells would leave the grid asserting them
+ * faintly. So the cells carry a different mark and a different word, and the
+ * record of what they said lives here and in the row's own note.
+ */
+const pfasDecisionRecord = () => {
+  const R = PFAS_REACH;
+  const N = NON_DETECT.withdrawn;
+  const supports = (r) => (r.supports === 'four samples' || r.supports === 'four samples and a control'
+    ? tag(r.supports, 'warn')
+    : tag(r.supports, 'good'));
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The PFAS three-way, settled — 2 September 2026</h2>' +
+    `<p class="sf-lede mk-tight">Four surfaces described one fact and gave four answers. <strong>${esc(R.decision)}.</strong> Recorded on ${esc(R.decidedOn)}, on the screen the disagreement was recorded on.</p>` +
+    table({
+      caption: 'The four readings, and what each of them rested on. Recorded by wave 7 as three; its own last paragraph named the fourth.',
+      head: ['Reading', 'The record', 'What it said', 'What it rested on', 'What it says now'],
+      kind: 'matrix',
+      label: 'The four readings of how far the PFAS suite reached',
+      rows: R.readings.map((r) => [
+        `<strong>${esc(r.reading)}</strong>`,
+        `<a class="mk-ref" href="#${esc(r.at)}"><span class="mk-file">${esc(r.record)}</span></a>`,
+        `<span class="mk-num">${esc(r.said)}</span>`,
+        `<span class="mk-muted">${esc(r.restsOn)}</span>`,
+        `${esc(r.now)} ${r.verdict === 'stands' ? tag('stands', 'good') : tag('corrected', 'warn')}`,
+      ]),
+    }) +
+    cols(
+      panel(
+        'What was measured, before anything was drawn',
+        '<p class="mk-tight">A PFAS result requires a bottle at the second laboratory, so the question is <strong>what material reached it</strong>. Three independent records answer, and they agree with each other and with the manifest.</p>' +
+          table({
+            caption: 'Every record that could say how far the suite reached, and which reading it supports.',
+            head: ['Record', 'What it says', 'Supports', 'What kind of record it is'],
+            scroll: true,
+            label: 'The evidence the decision was taken against',
+            rows: R.evidence.map((e) => [
+              `<a class="mk-ref" href="#${esc(e.at)}">${esc(e.record)}</a>`,
+              `<span class="mk-muted">${esc(e.says)}</span>`,
+              supports(e),
+              `<span class="mk-muted">${esc(e.grade)}</span>`,
+            ]),
+          }) +
+          `<p class="mk-tight">The container count is the one that closes it. Per-sample containers sum to <span class="mk-num">${R.containers}</span> and the laboratory reconciled <strong>${esc(R.reconciled)}</strong>; a PFAS bottle at each of the ${R.cellsWithdrawn} other bores would have made <span class="mk-num">${R.wouldHaveNeeded}</span>. Two parties signed for ${R.containers}.</p>` +
+          /*
+           * A seventh record, found while enumerating and counted rather than
+           * quoted: the programme says what each bore was *asked for*, which is
+           * the one question the manifest and the chain cannot answer, because
+           * they only record what came back.
+           */
+          ((asked) =>
+            `<p class="mk-tight"><strong>And the round never asked for it anywhere else.</strong> <a class="mk-ref" href="#programme">The sampling programme</a> names a suite per bore for 2026 Q2, and ${asked.length} of its ${Q2_PROGRAMME.length} rows carries PFAS: ${asked.map((r) => `${esc(r.code)} — <em>${esc(r.suite)}</em>`).join(', ')}. The other ${Q2_PROGRAMME.length - asked.length} are <em>${esc(Q2_PROGRAMME.find((r) => !/PFAS/.test(r.suite)).suite)}</em> or narrower. That is the plan side of the same fact the bottles make from the material side, and the two were written by different people at different times.</p>`)(
+            Q2_PROGRAMME.filter((r) => /PFAS/.test(r.suite)),
+          ) +
+          `<p class="mk-tight mk-muted">The grid and the material record were checked against each other rather than assumed to agree: the manifest’s ${R.samples} carrier resolves to ${esc(R.locations.join(', '))}, the grid draws a total at ${esc(R.locations.join(', '))}, and they ${R.agrees ? 'agree' : 'do not agree'}.</p>`,
+      ),
+      panel(
+        'Why the cells are withdrawn rather than re-valued',
+        `<p class="mk-tight"><strong>A censored value is the laboratory’s own notation.</strong> <span class="sf-result sf-result--censored"><span class="sf-result__value">&lt; ${esc(PFAS_LIMITS.lor.toFixed(1))}</span></span> asserts that ${esc(R.subcontract.laboratory)} looked for the analyte and reported it below the limit of reporting. There is no version of these ${R.cellsWithdrawn} cells that is <em>nearly</em> right, because the assertion is about an act that did not happen.</p>` +
+          `<p class="mk-tight">The alternative reading — that the analyses happened and the manifest, the chain and the receipt all under-record them — would have to be drawn as three more bottles, a second consignment and a second receipt that nobody signed. That is a fabricated chain of custody in a system of record, and it is a worse defect than the one being fixed. It is the same trade <a class="mk-ref" href="#hydrograph">the trigger line</a> was refused on the day before.</p>` +
+          `<p class="mk-tight"><strong>${esc(R.subcontract.travellingQC)} did not travel either.</strong> ${esc(R.qcWhy)}</p>` +
+          C.card({
+            tone: 'neutral',
+            head: '<span class="mk-queue__kind">What would bring the results back</span>',
+            body: `<p class="mk-tight">${esc(R.reversal)} The withdrawal is a statement about the evidence, not about the bores, and the evidence is the thing that can change.</p>`,
+          }),
+      ),
+      '3fr 2fr',
+    ) +
+    cols(
+      panel(
+        'Every value it moved, with what it was',
+        table({
+          caption: 'Counted off the record as it stands now; the before is written down once, on the decision record, and read from there wherever it renders.',
+          head: ['What', 'Was', 'Now', 'Where it renders'],
+          scroll: true,
+          label: 'Values moved by the PFAS settlement',
+          rows: R.moved.map((m) => [
+            esc(m.what),
+            `<span class="mk-num mk-num--warn">${m.was}</span>`,
+            `<span class="mk-num">${m.now}</span>`,
+            `<a class="mk-ref" href="#${esc(m.at)}">${esc(m.at)}</a>`,
+          ]),
+        }),
+      ),
+      panel(
+        'What the withdrawn cells would have said, under each of the four treatments',
+        `<p class="mk-tight">${esc(N.says)}</p>` +
+          table({
+            caption: `The ${N.rows.length} withdrawn rows, run through the same evaluator the live demonstration uses. This is the before, computed rather than remembered.`,
+            head: ['Treatment', 'Each total', 'Outcome', 'Against the criterion'],
+            scroll: true,
+            label: 'The withdrawn PFAS rows under each non-detect treatment',
+            rows: N.treatments.map((t) => [
+              esc(t.label),
+              `<span class="mk-num">${esc(t.rows[0].total)}</span>`,
+              outcomeCell(t.rows[0].outcome),
+              t.rows[0].factor === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num mk-num--bad">${esc(t.rows[0].factor)}</span>`,
+            ]),
+          }) +
+          `<p class="mk-tight">${N.zeroSays}</p>` +
+          `<p class="mk-tight mk-muted"><a class="mk-ref" href="#criteria">The non-detect demonstration</a> draws the live table beside this one.</p>`,
+      ),
+      '3fr 2fr',
+    )
+  );
+};
+
 /** The laboratory batch — what a QC result actually covers. */
 const labBatches = () => (
   head('Laboratory batches', 'The unit QC is actually run on, and everything it qualifies.', {
@@ -7469,7 +7731,12 @@ const labBatches = () => (
         `${esc(b.id)} — ${esc(b.method)}`,
         facts([
           ['Laboratory', esc(b.lab)],
-          ['Samples in the batch', `<span class="mk-num">${b.samples}</span>`],
+          [
+            'Samples in the batch',
+            `<span class="mk-num">${b.samples}</span>` +
+              /* Wave 15 — the corrected count renders beside what it was. */
+              (b.wasSamples ? `<small>was <span class="mk-num">${b.wasSamples}</span> until 2 Sep 2026 — see the decision record below</small>` : ''),
+          ],
           ['Prepared', esc(b.prepared)],
           ['Analysed', esc(b.analysed)],
           ['Accreditation', esc(b.nata)],
@@ -7486,12 +7753,16 @@ const labBatches = () => (
           `<p class="mk-tight">${esc(b.consequence)}</p>`,
       ),
   ).join('') +
-  panel(
-      'One thing on this screen does not reconcile, and it is recorded rather than left to be noticed',
-      `<p class="mk-tight">The PFAS batch <span class="mk-file">${esc(BATCHES[1].id)}</span> states <strong>${BATCHES[1].samples} samples</strong>. <a class="mk-ref" href="#events">The manifest</a> gives the two PFAS tests to one sample, <span class="mk-file">${esc(EVENT_SAMPLES.find((x) => x.tests === Math.max(...EVENT_SAMPLES.map((y) => y.tests))).id)}</span> — the only one carrying ${Math.max(...EVENT_SAMPLES.map((y) => y.tests))} tests and ${EVENT_SAMPLES.find((x) => x.tests === Math.max(...EVENT_SAMPLES.map((y) => y.tests))).containers} containers. <a class="mk-ref" href="#crosstab">The grid</a> carries a PFOS + PFHxS total at ${CROSSTAB_SHAPE.sampledColumns.length} locations. Three readings of how far one suite reached, and they are not the same number.</p>` +
-        `<p class="mk-tight">All three predate this wave, which met the disagreement while <a class="mk-ref" href="#lineage">chaining the PFAS result to the records that produced it</a> and did not settle it. Settling it means choosing, and the cheapest choice empties four cells of the crosstab’s PFAS row — the row <a class="mk-ref" href="#criteria">the non-detect rule</a> is demonstrated over. That is a decision with a drawn argument on the other end of it rather than a count to nudge.</p>` +
-        `<p class="mk-tight mk-muted">What the lineage does instead is name this batch and link it. Nothing drawn this wave rests on which reading wins.</p>`,
-    ) +
+  /*
+   * Wave 15. This panel was the wave-7 deferral record: four readings of how
+   * far one suite reached, written down and left. It is the decision record
+   * now — the measurement, the evidence both readings were ranked on, what
+   * moved, and what would bring the withdrawn results back — because the
+   * screen the disagreement was recorded on is the screen its settlement
+   * belongs on. The record it replaces is preserved verbatim in the seed
+   * beside the batch, under a dated settled-note.
+   */
+  pfasDecisionRecord() +
   cols(
     panel(
       'A recovery below 100% is not simply “bad data”',
@@ -8560,14 +8831,35 @@ const samplingEvents = () => (
        * register has to answer without opening one.
        */
       e.matrix.includes('·') ? cell(`<strong>${esc(e.matrix)}</strong>`) : esc(e.matrix),
-      `<span class="mk-num">${e.samples}</span>`,
-      e.qc ? `<span class="mk-num">${e.qc}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+      /*
+       * Wave 15 — the two counts this register typed for the PFAS round render
+       * beside what they were, on the row that carries them, because a register
+       * whose numbers change without saying so is the exact failure the
+       * settlement was about.
+       */
+      `<span class="mk-num">${e.samples}</span>${e.wasSamples === undefined ? '' : `<small>was ${e.wasSamples}</small>`}`,
+      (e.qc ? `<span class="mk-num">${e.qc}</span>` : '<span class="mk-num mk-num--nil">0</span>') +
+        (e.wasQc === undefined ? '' : `<small>was ${e.wasQc}</small>`),
       esc(e.lab),
       C.status(e.state, e.state === 'planned' ? 'neutral' : e.state === 'results-partial' ? 'warn' : 'good'),
     ]),
     kind: 'matrix',
     label: 'Sampling events',
   }) +
+  /*
+   * The one row on this register that is not a collection, said out loud. It
+   * was drawn as a supplementary event of four samples and a control; the
+   * material record says it is two tests on one bottle out of the round above
+   * it, subcontracted to a second laboratory that issued its own certificate.
+   * Which is a real thing to have a row for — and a different thing from a
+   * round, so the row says which it is rather than being counted as one.
+   */
+  ((e) =>
+    notice(
+      'default',
+      `${esc(e.code)} is an analysis, not a second collection — and its two counts were re-derived on 2 September 2026.`,
+      `${esc(e.covers)} It read <span class="mk-num mk-num--warn">${e.wasSamples}</span> samples and <span class="mk-num mk-num--warn">${e.wasQc}</span> control until the settlement, and neither number had a manifest, a container or a custody transfer behind it: ${esc(PFAS_REACH.subcontract.containers === 1 ? 'one container' : `${PFAS_REACH.subcontract.containers} containers`)} reached ${esc(PFAS_REACH.subcontract.laboratory)} and the receipt reconciled <strong>${esc(PFAS_REACH.subcontract.receipt.reconciled)}</strong>. ${esc(PFAS_REACH.qcWhy)} <a class="mk-ref" href="#batches">The decision record</a> holds the measurement; <a class="mk-ref" href="#ecoc">the subcontract chain</a> holds the bottle.`,
+    ))(EVENTS.find((x) => x.code === '2026-Q2-PFAS')) +
   (() => {
     const qcRows = EVENT_SAMPLES.filter((s) => s.qc !== '—');
     const containers = EVENT_SAMPLES.reduce((n, s) => n + s.containers, 0);
@@ -10316,7 +10608,7 @@ const dataStates = () => {
         C.stateBlock('partial', {
           headline: `${COMPLETENESS.received} of ${COMPLETENESS.planned} planned results are in. ${held} of them are held in quarantine and ${COMPLETENESS.missing} were never collected.`,
           detail:
-            `${CROSSTAB_SHAPE.emptyColumns.join(', ')} was not sampled in the 2026 Q2 window, which closed 2026-05-14 in ${PROJECT.timezone}: the bore was dipped twice and found dry. The crosstab stays complete for every other location and this one’s column is <strong>drawn empty rather than omitted</strong> — a missing column reads as a bore that does not exist, and a blank cell reads as a value somebody forgot to enter. It carries the round’s own <em>dry</em> disposition — glyph and word — and the reason, across all ${CROSSTAB_SHAPE.empty} of its cells.`,
+            `${CROSSTAB_SHAPE.emptyColumns.join(', ')} was not sampled in the 2026 Q2 window, which closed 2026-05-14 in ${PROJECT.timezone}: the bore was dipped twice and found dry. The crosstab stays complete for every other location and this one’s column is <strong>drawn empty rather than omitted</strong> — a missing column reads as a bore that does not exist, and a blank cell reads as a value somebody forgot to enter. It carries the round’s own <em>dry</em> disposition — glyph and word — and the reason, across all ${CROSSTAB_SHAPE.notSampled} of its cells. <strong>A partial state has to say which absence it is counting</strong>: the same grid holds ${CROSSTAB_SHAPE.notAnalysed} further empty cells that are <em>not analysed</em> rather than <em>not sampled</em>, and a number that added the two together would describe sixteen cells with a sentence about a dry bore.`,
           action: `Open the ${held} held rows`,
           secondary: 'Open the bore session that recorded it dry',
         }),
@@ -10634,7 +10926,15 @@ const coverage = () => {
     ['FR-1.11', 'Versioned criteria library with effective dates and applicability', 'covered', 'criteria', 'P0', ''],
     ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'covered', 'licence · obligations · tarp · water', 'P1', 'The entitlement is an instrument with a year, a volume and a take against it — the last of the five'],
     ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
-    ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'covered', 'criteria', 'P1', 'The four treatments run over the seven derived PFAS totals: six results read indeterminate, compliant or 31× depending on the field'],
+    /*
+     * Wave 15. This row said "the seven derived PFAS totals: six results read
+     * indeterminate, compliant or 31×" — seven when the record held six (it
+     * was written before MW11's column was blanked and never re-derived), and
+     * six when five of them turned out never to have been analysed. Both
+     * numbers are computed now, and the sentence says what the demonstration
+     * actually demonstrates after the settlement.
+     */
+    ['FR-2.2', 'Non-detect propagation bound to the criteria set, not global', 'covered', 'criteria', 'P1', `The four treatments run over every derived PFAS total this round produced — ${NON_DETECT.active.length} — and all four agree on it, because both of its components were detected. The ${NON_DETECT.withdrawn.rows.length} rows that used to make them disagree — read indeterminate, compliant or ${NON_DETECT.withdrawn.treatments[3].rows[0].factor} depending on the field — are drawn beside it as the before, withdrawn on 2 Sep 2026 because no analysis stood behind them (was ${PFAS_REACH.was.components} totals typed as seven)`],
     ['FR-2.3', 'Derived values first-class, with rule, inputs and censoring in lineage', 'covered', 'result-detail · lineage', 'P0', 'The chain begins at the bore, not at the deliverable — location and version, construction, programme, field event, stabilisation, sample, filtration, custody, receipt and batch before the first laboratory number, each hop linking the record that owns it'],
     ['FR-2.4', 'Never overwrite a reported value; derivation additive, reversible', 'covered', 'supersession · result-detail', 'P0', ''],
     ['FR-2.5', 'Speciation conversion with the basis recorded on the result', 'partially', 'result-detail', 'P2', 'The basis is shown; the conversion surface is not'],
