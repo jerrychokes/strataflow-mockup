@@ -20,3 +20,16 @@ right.
 character-identical on both clocks; verify exit 0 across all nine families;
 the rollback card renders 1 and 0 with both befores stated. Round 2 goes back
 to the standing auditor lineage against this commit.
+
+---
+
+# Wave 15 — response to the audit, round 2: closed
+
+**The gate passed — zero findings open at any severity — and Wave 15 closes
+under §11 at `412be27`.** Round 2 verified the rollback derivation by closure
+identity (one computation serving all three surfaces on the screen), re-derived
+both values from raw literals, swept every text node on `#criteria` for
+unlabelled survivors of the old numbers and found none, and re-ran the full
+hygiene battery. The PFAS record now tells one story on every surface that
+touches it, and the five passes that were never earned are kept visible as
+exactly that.
