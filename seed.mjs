@@ -7823,8 +7823,12 @@ export const OPS_AS_AT = '2026-08-23';
  *     laboratory format ships without an application release — the sentence
  *     the module header opens with.
  *   - **A checksum and not a signature.** `.github/workflows/release.yml`
- *     attaches signed build provenance to the two image digests it publishes
- *     and to nothing else; there is no signing step for configuration.
+ *     pins its two images by digest, and its own Provenance step records that
+ *     attestation is "skipped on a private user-owned repository, because
+ *     GitHub does not offer it there" — so nothing the release publishes
+ *     carries signed provenance, configuration included. The first draft of
+ *     this bullet claimed the images carry it; the workflow's own comment
+ *     refutes that (W12-A-2).
  *   - **The diagnostic bundle carries the same inventory.**
  *     `apps/web/lib/ops/diagnostics.ts` builds `configurationReport()` from
  *     `configBundle()` — "G-56c's inventory: each artifact's own version and
@@ -7954,7 +7958,7 @@ export const CONFIG_PACKAGE = (() => {
      * drawing a mechanism the product does not have.
      */
     signatureNote:
-      'A checksum, not a signature. The release publishes signed build provenance for the two images it builds and for nothing else — configuration is not one of them — so what a package can prove on arrival is that its bytes are the bytes it was built from, and not who built them.',
+      'A checksum, not a signature. The release pins its two images by digest and attests nothing — its own workflow records that provenance attestation is skipped on this repository, because GitHub does not offer it here — so a signature is not something any artifact of this instance carries, and what a package can prove on arrival is that its bytes are the bytes it was built from, not who built them.',
     siblingWould:
       'A package exported from another deployment would name that deployment and the principal who exported it. Both fields are empty here, because this one was built from the release line rather than from any instance.',
     carriedHow:
@@ -8474,9 +8478,12 @@ export const ESTATE = (() => {
    * configuration artifact's own version *and its SHA-256*. The catalogue
    * describes that record twice and neither description names it:
    *
-   *   - `#diagnostics` lists four things in the bundle (version and commit,
-   *     migration state, recent errors, schema and policy inventory) and the
-   *     configuration category is **not among them at all**;
+   *   - `#diagnostics` names *configuration* among the bundle's categories
+   *     in its intro, but its four content rows (version and commit,
+   *     migration state, recent errors, schema and policy inventory) never
+   *     enumerate it — the per-item versions appear nowhere (the first draft
+   *     of this bullet said the category was absent outright; the screen's
+   *     own intro refutes that, W12-A-3);
    *   - `#entitlement` renders `BUNDLE.contents`, whose first row reads
    *     *"Instance version, schema version, reference-content versions"* —
    *     closer, but "reference-content versions" is a different phrase from

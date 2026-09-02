@@ -9851,7 +9851,11 @@ const entitlementScreen = () => (
           ['Commit', `<code class="mk-file">${esc(INSTANCE.commit)}</code>`],
           ['Schema', '<span class="mk-file">2026081407_notification_awareness</span> · 118 migrations applied'],
           ['Analyte dictionary', '2026.2 · loaded 2026-05-02'],
-          ['ANZG 2018 criteria', '2018.1 · loaded 2026-01-14 · reviewed by a licensed practitioner'],
+          // One source, read twice (W12-A-1): this row and #criteria both read
+          // the package arrival record. The hand-typed "loaded 2026-01-14" this
+          // replaces contradicted it — no package carries that date, and the
+          // model gives criteria content no other arrival path.
+          ['ANZG 2018 criteria', `2018.1 · arrived ${esc(CONFIG_PACKAGE.inForceFrom.arrived)} in ${esc(CONFIG_PACKAGE.inForceFrom.package)} · reviewed by a licensed practitioner`],
           ['Licence criteria', 'Customer-authored · L8842/2019/1 Table 4 v2024.2'],
           ['Database', esc(INSTANCE.database)],
           ['Deployed', 'Customer tenancy · single-tenant · no shared control plane'],
