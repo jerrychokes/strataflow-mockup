@@ -1111,7 +1111,7 @@ export function potentiometric() {
   body +=
     `<line x1="${round(cx)}" y1="${round(cy)}" x2="${round(cx + ux)}" y2="${round(cy + uy)}" stroke="${ACCENT}" stroke-width="2"/>` +
     `<path d="M${round(cx + ux)} ${round(cy + uy)}l${round(-ux * 0.16 - uy * 0.10)} ${round(-uy * 0.16 + ux * 0.10)}l${round(ux * 0.06 + uy * 0.20)} ${round(uy * 0.06 - ux * 0.20)}Z" fill="${ACCENT}"/>` +
-    `<text class="mk-annot" x="${round(cx - 4)}" y="${round(cy + 14)}" fill="${ACCENT}">Flow ${bearing.toFixed(0)}° · ${mag.toFixed(1)} m/km</text>`;
+    `<text class="mk-annot" x="${round(cx - 4)}" y="${round(cy + 14)}" fill="${ACCENT}">Flow ${bearing.toFixed(0)}° · ${mag.toFixed(2)} m/km</text>`;
 
   // The TSF, so the reader can see what sits upgradient of what.
   body +=

@@ -819,6 +819,13 @@ export const DQO = {
 /**
  * The laboratory batch the zinc question is about, named once.
  *
+ * Its id is the submission work order (W7-A-3): PAS reports the metals run
+ * under PAS-WO-268841, the number the whole submission travels under, so the
+ * same identifier names the custody hop's physical origin on `#ecoc` and this
+ * batch. The subcontracted PFAS run does not share the convention — Yarra
+ * Regional issues its own batch id — and the S1 chain's prose states this
+ * where both render.
+ *
  * `BATCHES` reads its sample count from here rather than typing a second copy,
  * because "how many results does this failed spike reach" is the question the
  * propagation basis exists to answer and two numbers for it would be worse
@@ -3014,7 +3021,7 @@ export const CUSTODY_CHAIN = {
   continues: {
     id: 'MOCK-COC-2026Q2-014-S1',
     parent: 'MOCK-COC-2026Q2-014',
-    why: 'Pilbara Analytical Services holds no NATA scope for USEPA 1633. The PFAS fraction is subcontracted, and the subcontract laboratory issues its own certificate.',
+    why: 'Pilbara Analytical Services holds no NATA scope for USEPA 1633. The PFAS fraction is subcontracted, and the subcontract laboratory issues its own certificate. One naming convention to read past: PAS-WO-268841 is the submission work order — the number the whole box travels under — and PAS also reports its metals run under it, so the same identifier names this bottle’s physical origin and the metals batch on the QA/QC screen. Yarra Regional issues its own batch, YAR-B-118420, which is why a PFAS result never cites the metals number.',
     laboratory: 'Yarra Regional Analytical',
     workOrder: 'YAR-B-118420',
     certificate: 'YAR-26-0881',

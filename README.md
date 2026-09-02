@@ -578,7 +578,7 @@ other two, provenance beginning at the bore and evidence for an inference rather
 its citations. The estimate above was right: five minutes found what a day of re-reading
 would not have, because the drawn version was internally consistent and wrong anyway.
 
-**Wave 7 (1 September 2026) closes the other two, and adds a caveat of its own.** The
+**Wave 7 (2 September 2026) closes the other two, and adds a caveat of its own.** The
 lineage chain now begins at the bore — location and version, construction, programme, field
 event, stabilisation, sample, filtration and preservation, custody, receipt, subcontract and
 batch, before the first laboratory number — with a narrative view and a compact
