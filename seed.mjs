@@ -1593,40 +1593,220 @@ export const APPLIED_UNASKED = [
  * The span reaches forward only. Re-running does not re-judge a finding
  * already raised; it produces a second assessment under a second version, and
  * both stay readable.
+ *
+ * ## The matrix dimension — wave 16, 2 September 2026
+ *
+ * **The limits are the version's content, so they live here.** They were a
+ * separate `QC_LIMITS.rules` array four thousand lines further down, which
+ * meant a finding's rule text (`QAQC`, below) and the library's own row were
+ * two copies of one number that agreed by hand. `QC_LIMITS.rules` is this
+ * array now — the same object, not a matching one — and a finding reads the
+ * row it was raised under rather than restating it. A matrix-scoped limit is
+ * part of a data quality objective version's content the way an analyte is
+ * part of a criteria set's; it is not a second version axis.
+ *
+ * **Every row states the matrix it was written for, and what says so.** The
+ * words are the glossary's five and no others (`MATRIX_WORDS`, checked on
+ * `QC_LIMITS`). Every one of these ten reads **Water**, and that is a
+ * measurement rather than a default: this set was written for the groundwater
+ * programme, its own basis is a water-quality sampling standard, and every
+ * finding it has ever raised is on a water sample. `matrixSays` carries the
+ * warrant per row, in the record's own strings — a water-quality standard, a
+ * water method, or the bench control adopted for the water suite this set
+ * governs. Where the record does not speak for another matrix, the row says
+ * that rather than guessing on the laboratory's behalf.
+ *
+ * **Stating a matrix is not changing a limit.** A version governs the number,
+ * the population and the consequence, and none of the three moves here: no
+ * verdict re-derives, no finding is re-judged, and no version is created. The
+ * field was always true of these limits and had never been written down. The
+ * moment it *becomes* a version change is the moment a limit is written for a
+ * second matrix — and this set has not been. One thing does move, and it moves
+ * in the reader's head rather than in the record: a **soil** field duplicate is
+ * now visibly held to a limit written for water, where before the library was
+ * silent about matrix and the mismatch could only be read in a comment
+ * (`SOIL.duplicate.matrix`).
+ *
+ * **`since` is derived, never typed.** A limit's effective date is its
+ * version's, because the set records no limit carried forward from an earlier
+ * one with a date of its own — and the one thing it does record about a row's
+ * own history, that the field duplicate limit moved *on 2025-07-01*, is that
+ * same date. Under the current version the two rows that moved take
+ * **2026-05-21** and the eight that did not are carried forward at
+ * **2025-07-01**, which is what "which limits, under which version, since
+ * when" answers row by row.
  */
-export const DQO = {
-  set: 'Wandalup data quality objectives',
-  basis: 'AS/NZS 5667.1, the laboratory’s NATA-scoped QA plan, and the site’s own DQOs where these are tighter.',
-  raisedAt: '2026-05-19 10:22 AWST',
-  used: {
+export const DQO = (() => {
+  const used = {
     version: '2025.2',
     effective: '2025-07-01 → 2026-05-20',
     state: 'superseded',
     why: 'In force when this round’s checks were run, so it is what every finding on it was judged against.',
-  },
-  current: {
+  };
+  const current = {
     version: '2026.1',
     effective: '2026-05-21 →',
     state: 'in force',
     by: 'D. Okafor',
     approved: '2026-05-20 16:05 AWST',
     why: 'Two changes, both tightening: the field duplicate limit, and an explicit consequence on the equipment blank rule that 2025.2 stated no action for.',
-  },
-  changes: [
+  };
+
+  /** The first date of an effective span, so a row's date is read off its version rather than typed beside it. */
+  const startOf = (span) => span.match(/\d{4}-\d{2}-\d{2}/)[0];
+
+  const limits = [
     {
-      check: 'Field duplicate RPD',
-      was: '≤ 30%',
-      now: '≤ 25%',
-      what: 'The limit only. The 5 × LOR applicability rule is unchanged.',
+      check: 'Field duplicate RPD', matrix: 'Water',
+      limit: '≤ 30%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR',
+      source: 'Site DQO, consistent with AS/NZS 5667.1',
+      matrixSays: 'AS/NZS 5667.1 is a water-quality sampling standard, and this is the site’s own field control on the groundwater programme.',
+      next: '≤ 25% — the 5 × LOR applicability rule unchanged',
     },
     {
-      check: 'Field / trip / equipment blank',
-      was: '< LOR, with no stated consequence',
-      now: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event',
-      what: 'The number did not move. What 2026.1 adds is the propagation rule 2025.2 left to a judgement, which is why one finding on this round stops needing a decision under it.',
+      check: 'Laboratory duplicate RPD', matrix: 'Water',
+      limit: '≤ 20%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR',
+      source: 'PAS QA plan rev 8',
+      matrixSays: 'Adopted from the laboratory’s plan for the water suite this set governs. What that plan states for any other matrix is not in this record, so this set does not speak for it.',
     },
-  ],
-};
+    {
+      check: 'Matrix spike recovery', matrix: 'Water',
+      limit: '70 – 130%', applies: 'One per 20 samples per matrix per batch', fallback: '—',
+      source: 'PAS QA plan rev 8',
+      matrixSays: 'Its own population counts one spike per matrix per batch — that is the counting unit, not the scope. The figure this set carries was adopted for the water suite, and the only spike it has judged was on a water sample.',
+      silent: 'States the limit and no consequence. A recovery outside it raises a finding; what that finding does to the batch is not written here, which is why the zinc propagation is a decision rather than a rule.',
+    },
+    {
+      check: 'MS/MSD RPD', matrix: 'Water',
+      limit: '≤ 30%', applies: 'Where a duplicate spike was run', fallback: '—',
+      source: 'PAS QA plan rev 8',
+      matrixSays: 'Adopted with the spike rule it belongs to, for the same water suite. No duplicate spike has been run on any other matrix on this project.',
+    },
+    {
+      check: 'Laboratory control sample recovery', matrix: 'Water',
+      limit: '80 – 120%', applies: 'One per batch, per method', fallback: '—',
+      source: 'PAS QA plan rev 8',
+      matrixSays: 'A bench control on the water methods this set governs. The soil investigation’s own batch carries no quality-control block in this record, so nothing here was adopted for it.',
+    },
+    {
+      check: 'Surrogate recovery — PFAS', matrix: 'Water',
+      limit: '70 – 130%', applies: 'Every sample, isotope-labelled',
+      source: 'USEPA 1633',
+      matrixSays: 'USEPA 1633 is written for several matrices; this set adopted it for the water PFAS suite, and no PFAS analysis on any other matrix exists on this project.',
+    },
+    {
+      check: 'Method blank', matrix: 'Water',
+      limit: '< LOR', applies: 'One per batch, per method', fallback: 'Detection above LOR qualifies every sample in the batch',
+      source: 'PAS QA plan rev 8',
+      matrixSays: 'A bench control on the water methods this set governs, on the same footing as the laboratory control sample beside it.',
+    },
+    {
+      check: 'Field / trip / equipment blank', matrix: 'Water',
+      limit: '< LOR', applies: 'One field and one trip blank per event; an equipment blank per equipment reuse',
+      source: 'Site DQO',
+      matrixSays: 'Its blanks are water by construction. A trip blank is a bottle of laboratory water, and the soil round’s own equipment blank is a rinsate — matrix water, poured over an excavator bucket, on a soil investigation.',
+      next: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event',
+    },
+    {
+      /*
+       * The one row whose text is read rather than written, and the direction
+       * is deliberate. `CONSISTENCY` states this limit where its arithmetic is
+       * done — the numeric 5 the balance is compared against and the `± 5%` a
+       * sentence prints — and it was written before this set existed. Two
+       * registers holding one figure is the settlement this wave is made of,
+       * so the library quotes the check rather than restating it, and the
+       * finding that cites the limit, the internal-consistency screen and this
+       * row are one string by identity.
+       */
+      check: 'Cation–anion balance', matrix: 'Water',
+      limit: CONSISTENCY.limits.balanceText, applies: 'TDS > 100 mg/L', fallback: '± 10% below 100 mg/L, where analytical error dominates',
+      source: 'APHA 1030E',
+      matrixSays: 'APHA 1030E is a method for the examination of water and wastewater, and an ionic balance is a property of a water analysis. There is no solid-matrix reading of it.',
+    },
+    {
+      check: 'Field parameter stabilisation', matrix: 'Water',
+      limit: '3 consecutive readings in tolerance', applies: 'Low-flow purging',
+      source: 'AS/NZS 5667.11',
+      matrixSays: 'AS/NZS 5667.11 is the groundwater sampling standard, and low-flow purging is a groundwater act. Nothing is purged before a test pit is dug.',
+    },
+  ].map((r) => ({
+    ...r,
+    version: used.version,
+    since: startOf(used.effective),
+    /* A row that moved takes the current version's date; one that did not is carried forward with its own. */
+    currentSince: r.next ? startOf(current.effective) : startOf(used.effective),
+    carried: !r.next,
+  }));
+
+  return {
+    set: 'Wandalup data quality objectives',
+    basis: 'AS/NZS 5667.1, the laboratory’s NATA-scoped QA plan, and the site’s own DQOs where these are tighter.',
+    raisedAt: '2026-05-19 10:22 AWST',
+    used,
+    current,
+    limits,
+    /** One row, by the closed check name the glossary's data quality check entry describes. */
+    limitFor: (check) => limits.find((r) => r.check === check) ?? null,
+    /**
+     * Every statement that gained the matrix word, and exactly what it said
+     * before — written down once, read wherever the new statement renders.
+     *
+     * This is wave 15's shape (`PFAS_REACH.was`) applied to a wave that moves
+     * words rather than numbers. A before typed beside each surface would be
+     * five copies of a history, and the first one edited would make the other
+     * four wrong; each screen prints its own *live* statement, computed, and
+     * reads its before from here.
+     */
+    matrixStated: [
+      {
+        id: 'library', where: `The ${limits.length} limit rows`, at: 'qc-limits',
+        was: 'Every limit carried a number, a population, a fallback and a source — and no field anywhere said what material any of them was written for.',
+      },
+      {
+        id: 'fd-2', where: 'The field duplicate finding’s rule text (FD-2)', at: 'qc',
+        was: 'DQO 2025.2 · ≤ 30% above 5 × LOR',
+      },
+      {
+        id: 'st-1', where: 'The stabilisation finding’s rule text (ST-1)', at: 'qc',
+        was: 'DQO 2025.2 · 3 consecutive readings in tolerance, low-flow',
+      },
+      {
+        id: 'dqa-precision', where: 'The precision dimension’s objective', at: 'dqa',
+        was: '≤ 30% field, ≤ 20% laboratory, above 5 × LOR',
+      },
+      {
+        id: 'dqa-accuracy', where: 'The accuracy dimension’s objective', at: 'dqa',
+        was: '80–120% LCS, 70–130% MS',
+      },
+      {
+        id: 'dqa-representativeness', where: 'The representativeness dimension’s objective', at: 'dqa',
+        was: '3 consecutive readings in tolerance before collection',
+      },
+      {
+        id: 'soil-duplicate', where: 'The soil field duplicate’s limit', at: 'composite',
+        was: 'The round’s single field-duplicate limit, read off the version-change record rather than off the library row, and stated as “≤ 30%” with nothing about the material it was written for.',
+      },
+    ],
+    /** The before for one surface, by name, so a screen cannot quote the wrong one. */
+    wasStated(id) {
+      return this.matrixStated.find((s) => s.id === id) ?? null;
+    },
+    changes: [
+      {
+        check: 'Field duplicate RPD',
+        was: '≤ 30%',
+        now: '≤ 25%',
+        what: 'The limit only. The 5 × LOR applicability rule is unchanged.',
+      },
+      {
+        check: 'Field / trip / equipment blank',
+        was: '< LOR, with no stated consequence',
+        now: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event',
+        what: 'The number did not move. What 2026.1 adds is the propagation rule 2025.2 left to a judgement, which is why one finding on this round stops needing a decision under it.',
+      },
+    ],
+  };
+})();
 
 /**
  * The laboratory batch the zinc question is about, named once.
@@ -1693,6 +1873,42 @@ export const METALS_BATCH = {
  * may ask five years later", and it is the difference between a qualifier and
  * an inference wearing one.
  */
+/**
+ * A finding's rule text, composed from the limit row it was raised under.
+ *
+ * Wave 16. It was typed — `'DQO 2025.2 · ≤ 30% above 5 × LOR'` beside a library
+ * row reading `≤ 30%`, which is two statements of one number agreeing by hand
+ * and one edit away from disagreeing. It reads the row now, and the row states
+ * the matrix, so a finding says which material its rule was written for. That
+ * costs nothing where they match — these findings are on water and the rule is
+ * a water rule — and it is the whole point where they do not.
+ *
+ * The version does **not** move: the row this reads is `DQO.limits`, which
+ * carries the 2025.2 numbers, and these findings were raised under 2025.2.
+ */
+const ruleText = (check, tail) => {
+  const r = DQO.limitFor(check);
+  return `DQO ${r.version} · ${r.matrix.toLowerCase()} · ${tail(r)}`;
+};
+
+/**
+ * A limit, quoted from the library row rather than retyped.
+ *
+ * Wave 16, and the same move as `ruleText` one field over. Seven findings
+ * cited a number the objective set holds and every one of them typed it, which
+ * is seven second sources for six figures — and two were already drifting from
+ * the library's own spelling (`80–120%` here against `80 – 120%` there, and the
+ * same for the spike range). Fixing only the field duplicate, the check this
+ * wave settled, would have left its siblings typed beside a derived neighbour,
+ * so all seven read the row.
+ *
+ * `lower` is the one place a range is read at one end: the batch's consequence
+ * sentence is about a recovery *below* the lower bound, and the bound comes out
+ * of the row's own string rather than being written again beside it.
+ */
+const limitOf = (check) => DQO.limitFor(check).limit;
+const lowerBound = (check) => limitOf(check).split('–')[0].trim();
+
 const QAQC_ROWS = [
   {
     id: 'HT-1', check: 'Holding time', scope: 'Nitrate as N · MW09', outcome: 'fail',
@@ -1719,18 +1935,18 @@ const QAQC_ROWS = [
   },
   {
     id: 'FD-1', check: 'Field duplicate RPD', scope: 'WDL-26Q2-005 / WDL-26Q2-008 · MW07', outcome: 'pass',
-    detail: 'All 14 paired analytes within 30% RPD. Largest: sulfate at 11.4%.',
+    detail: `All 14 paired analytes within the ${limitOf('Field duplicate RPD')} limit. Largest: sulfate at 11.4%.`,
     action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
     rerun: { version: '2026.1', outcomeMoves: false, says: 'The largest RPD in the pair is 11.4%, so the tightened 25% limit does not reach it.' },
   },
   {
     id: 'FD-2', check: 'Field duplicate RPD', scope: 'WDL-26Q2-003 / WDL-26Q2-004 · MW05', outcome: 'warn',
-    detail: 'Zinc 21.4 and 31.6 µg/L — RPD 38.2% against a 30% limit. Both results above 5 × LOR, so the percentage test applies and this is a real disagreement rather than noise near the limit.',
+    detail: `Zinc 21.4 and 31.6 µg/L — RPD 38.2% against the ${limitOf('Field duplicate RPD')} limit. Both results above 5 × LOR, so the percentage test applies and this is a real disagreement rather than noise near the limit.`,
     action: 'Qualifier J assigned — estimated',
     concept: 'automatic', state: 'dispositioned',
-    rule: { name: 'Field duplicate RPD', version: 'DQO 2025.2 · ≤ 30% above 5 × LOR', says: 'The site’s own objective states the limit, the applicability and the consequence, so the qualifier follows from the rule rather than from a view about this pair.' },
+    rule: { name: 'Field duplicate RPD', version: ruleText('Field duplicate RPD', (r) => `${r.limit} above 5 × LOR`), says: 'The site’s own objective states the limit, the applicability, the matrix it was written for and the consequence, so the qualifier follows from the rule rather than from a view about this pair.' },
     results: 2, qualifier: 'J',
-    basis: { kind: 'dqo', says: 'Project DQO 2025.2, Field duplicate RPD. The rule states its own consequence, so the propagation is the rule’s and the version rides on the finding.' },
+    basis: { kind: 'dqo', says: `Project DQO ${DQO.used.version}, Field duplicate RPD — matrix ${DQO.limitFor('Field duplicate RPD').matrix.toLowerCase()}, and this pair is water. The rule states its own consequence, so the propagation is the rule’s and the version rides on the finding.` },
     reaches: 'The parent and its duplicate — two results, both at MW05. It does not reach the other six bores: a field duplicate says what happened at the bore it was collected at.',
     rerun: { version: '2026.1', outcomeMoves: false, says: 'Already outside the 30% limit, so it is outside the 25% one. The finding would be raised again under 2026.1 with the same consequence.' },
   },
@@ -1742,7 +1958,7 @@ const QAQC_ROWS = [
   },
   {
     id: 'LD-1', check: 'Laboratory duplicate RPD', scope: 'PAS-WO-268841 · split of WDL-26Q2-003', outcome: 'pass',
-    detail: 'Maximum RPD 4.1% (sulfate) against a 20% limit across 14 analytes.',
+    detail: `Maximum RPD 4.1% (sulfate) against the ${limitOf('Laboratory duplicate RPD')} limit across 14 analytes.`,
     action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
   },
   {
@@ -1752,12 +1968,12 @@ const QAQC_ROWS = [
   },
   {
     id: 'LCS-1', check: 'Laboratory control sample', scope: 'PAS-WO-268841 · LCS-268841', outcome: 'pass',
-    detail: 'Recovery 96–104% across 8 analytes against an 80–120% limit.',
+    detail: `Recovery 96–104% across 8 analytes against the ${limitOf('Laboratory control sample recovery')} limit.`,
     action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
   },
   {
     id: 'MS-1', check: 'Matrix spike recovery', scope: 'PAS-WO-268841 · zinc', outcome: 'fail',
-    detail: 'Zinc recovered 62% against a 70–130% limit, reproduced at 64% on the spike duplicate. Matrix interference, not a one-off.',
+    detail: `Zinc recovered 62% against the ${limitOf('Matrix spike recovery')} limit, reproduced at 64% on the spike duplicate. Matrix interference, not a one-off.`,
     action: 'Proposed: qualifier L — biased low — on all 9 zinc results in the batch. Not applied; the basis has not been chosen.',
     concept: 'decision', state: 'unresolved',
     results: 9, qualifier: 'L', proposed: true,
@@ -1787,7 +2003,7 @@ const QAQC_ROWS = [
           basis: 'dqo',
           writes: 'Qualifier L on every zinc result in the batch, origin rule, with DQO 2025.2 named on each.',
           available: false,
-          why: 'Not available under 2025.2. Its matrix spike rule states the 70–130% limit and no propagation action, and a rule that says nothing cannot be cited as having said this. Adding the action is a new DQO version, and that is where it belongs.',
+          why: `Not available under ${DQO.used.version}. Its matrix spike rule states the ${limitOf('Matrix spike recovery')} limit and no propagation action, and a rule that says nothing cannot be cited as having said this. Adding the action is a new DQO version, and that is where it belongs.`,
         },
         {
           label: 'A hydrogeologist’s disposition — batch-wide',
@@ -1856,7 +2072,7 @@ const QAQC_ROWS = [
   },
   {
     id: 'SR-1', check: 'Surrogate recovery', scope: 'PFAS batch YAR-B-118420', outcome: 'pass',
-    detail: 'M8PFOS recovery 94% (limits 70–130%) on every sample.',
+    detail: `M8PFOS recovery 94% (limit ${limitOf('Surrogate recovery — PFAS')}) on every sample.`,
     action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
   },
   {
@@ -1867,7 +2083,7 @@ const QAQC_ROWS = [
     detail: null,
     action: 'Qualifier T on every metal result from this sample',
     concept: 'automatic', state: 'dispositioned',
-    rule: { name: 'Field parameter stabilisation', version: 'DQO 2025.2 · 3 consecutive readings in tolerance, low-flow', says: 'The purge record carries the readings and the tolerances, so whether the parameters held is computed rather than judged. What was judged is whether to sample anyway, and the field officer did that at the bore and said so.' },
+    rule: { name: 'Field parameter stabilisation', version: ruleText('Field parameter stabilisation', (r) => `${r.limit}, low-flow`), says: 'The purge record carries the readings and the tolerances, so whether the parameters held is computed rather than judged. What was judged is whether to sample anyway, and the field officer did that at the bore and said so.' },
     results: 8, qualifier: 'T',
     basis: { kind: 'sample', says: 'Sample-specific — every metal result from WDL-26Q2-006 and nothing beyond it. Stabilisation is a fact about one purge at one bore on one visit.' },
     reaches: 'A filtered metal from a turbid bore reads high, and nobody can tell afterwards whether that was formation water or suspended sediment. The qualifier says which question is open.',
@@ -5023,29 +5239,143 @@ export const PFAS_REACH = (() => {
  * raised against — and `next` on a rule is what 2026.1 changed it to. Two
  * rules moved, and one of them is why a finding stops needing a hydrogeologist
  * under the version that is current now.
+ *
+ * **Wave 16 moved the rows up into `DQO` and left this pointing at them.**
+ * `rules` is `DQO.limits` — the same array object, so the row a finding names
+ * and the row this screen prints cannot be two numbers that agree. What is
+ * added here is the *reading* half: which words a matrix may be
+ * (`MATRIX_WORDS`, the glossary's five, one source), how many limits each of
+ * the five holds, and `resolve`, the one function that answers **which limit
+ * judges this check on this matrix**. Everything that asks that question —
+ * the soil field duplicate, the library's own gap row — calls it, so the
+ * answer is one object rather than a sentence written twice.
  */
-export const QC_LIMITS = {
-  set: DQO.set,
-  version: DQO.used.version,
-  effective: DQO.used.effective,
-  basis: DQO.basis,
-  dqo: DQO,
-  used: DQO.used,
-  current: DQO.current,
-  rules: [
-    { check: 'Field duplicate RPD', limit: '≤ 30%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR', source: 'Site DQO, consistent with AS/NZS 5667.1', next: '≤ 25% — the 5 × LOR applicability rule unchanged' },
-    { check: 'Laboratory duplicate RPD', limit: '≤ 20%', applies: 'Both results ≥ 5 × LOR', fallback: 'Below 5 × LOR: absolute difference ≤ 2 × LOR', source: 'PAS QA plan rev 8' },
-    { check: 'Matrix spike recovery', limit: '70 – 130%', applies: 'One per 20 samples per matrix per batch', fallback: '—', source: 'PAS QA plan rev 8', silent: 'States the limit and no consequence. A recovery outside it raises a finding; what that finding does to the batch is not written here, which is why the zinc propagation is a decision rather than a rule.' },
-    { check: 'MS/MSD RPD', limit: '≤ 30%', applies: 'Where a duplicate spike was run', fallback: '—', source: 'PAS QA plan rev 8' },
-    { check: 'Laboratory control sample recovery', limit: '80 – 120%', applies: 'One per batch, per method', fallback: '—', source: 'PAS QA plan rev 8' },
-    { check: 'Surrogate recovery — PFAS', limit: '70 – 130%', applies: 'Every sample, isotope-labelled', source: 'USEPA 1633' },
-    { check: 'Method blank', limit: '< LOR', applies: 'One per batch, per method', fallback: 'Detection above LOR qualifies every sample in the batch', source: 'PAS QA plan rev 8' },
-    { check: 'Field / trip / equipment blank', limit: '< LOR', applies: 'One field and one trip blank per event; an equipment blank per equipment reuse', source: 'Site DQO', next: '< LOR — and a detection above it qualifies every result for that analyte collected with the same equipment after the rinse, in that event' },
-    { check: 'Cation–anion balance', limit: '± 5%', applies: 'TDS > 100 mg/L', fallback: '± 10% below 100 mg/L, where analytical error dominates', source: 'APHA 1030E' },
-    { check: 'Field parameter stabilisation', limit: '3 consecutive readings in tolerance', applies: 'Low-flow purging', source: 'AS/NZS 5667.11' },
-  ],
-  changed: 'Field duplicate RPD moved from 25% to 30% on 2025-07-01, and the 5 × LOR applicability rule was added in the same revision. Results evaluated before that date keep the limits in force then.',
-};
+export const QC_LIMITS = (() => {
+  /** The same array `DQO` holds. Not a copy: `QC_LIMITS.rules[0] === DQO.limits[0]`. */
+  const rules = DQO.limits;
+
+  /**
+   * How many limits this set holds for each of the glossary's five.
+   *
+   * `accounted` is the closure check and it is printed rather than assumed: if
+   * a row ever carried a sixth word, the five counts would stop summing to the
+   * number of rows and the screen would say so instead of quietly dropping it.
+   */
+  const held = MATRIX_WORDS.map((matrix) => ({
+    matrix,
+    limits: rules.filter((r) => r.matrix === matrix),
+  }));
+  const accounted = held.reduce((n, h) => n + h.limits.length, 0);
+
+  /**
+   * Which limit judges a check on a given matrix, and by what right.
+   *
+   * Two outcomes and they are told apart, because the difference is the whole
+   * of what a matrix dimension buys. `held: true` — the set holds a limit for
+   * this matrix, and it is the one that applies. `held: false` — it does not,
+   * and what judged the check is a limit written for a different material. The
+   * second is not an error and it is not a silent default either: the record
+   * carries the rule that was used *and* the matrix it was written for, and
+   * every surface that prints a verdict prints both.
+   *
+   * It never invents a number. Where the set holds no limit for the check at
+   * all, `rule` is null and the caller has nothing to judge against, which is
+   * a different and louder absence.
+   */
+  const resolve = (check, matrix) => {
+    const own = rules.find((r) => r.check === check && r.matrix === matrix);
+    if (own) {
+      return {
+        check, matrix, rule: own, held: true, judgedBy: matrix,
+        says: `${check} on ${matrix.toLowerCase()}: ${own.limit}, DQO ${own.version}, in force since ${own.since}.`,
+      };
+    }
+    const other = rules.find((r) => r.check === check) ?? null;
+    return {
+      check, matrix, rule: other, held: false, judgedBy: other ? other.matrix : null,
+      says: other
+        ? `This set holds no ${check} limit for ${matrix.toLowerCase()}. What judged it is the ${other.matrix.toLowerCase()} one — ${other.limit}, DQO ${other.version}, in force since ${other.since} — because it is the only ${check} limit in the set.`
+        : `This set holds no ${check} limit for any matrix, so there is nothing to judge against.`,
+    };
+  };
+
+  return {
+    set: DQO.set,
+    version: DQO.used.version,
+    effective: DQO.used.effective,
+    basis: DQO.basis,
+    dqo: DQO,
+    used: DQO.used,
+    current: DQO.current,
+    rules,
+    matrices: MATRIX_WORDS,
+    held,
+    accounted,
+    resolve,
+    /** How many rows moved in the current version, counted rather than stated in prose. */
+    moved: rules.filter((r) => r.next).length,
+    changed: 'Field duplicate RPD moved from 25% to 30% on 2025-07-01, and the 5 × LOR applicability rule was added in the same revision. Results evaluated before that date keep the limits in force then.',
+    /**
+     * Who quotes these limits, and how the quotation used to be spelled.
+     *
+     * Wave 16's second settlement, and the plainer of the two. Seven findings
+     * and seven other sentences quote a number this set holds, and thirteen of
+     * those fourteen had typed it — thirteen second sources for five figures,
+     * two of them already drifting from the library's own spelling. They read
+     * the row now. The entries below are the *befores*, one per limit rather
+     * than one per sentence, because the change happened to the number and the
+     * sentences merely carried it.
+     *
+     * Only the field duplicate needed this for the matrix work. Fixing it and
+     * leaving its siblings typed beside a derived neighbour is the shape of
+     * defect the last two audits found, so all of them moved together.
+     */
+    citedAs: [
+      {
+        check: 'Field duplicate RPD', moved: true,
+        wasTyped: '“30%” and “a 30% limit”',
+        where: 'FD-1 and FD-2 on the QA/QC workspace, the qualifier register, the near-limit card on this screen, and the round manifest’s QC linkage card',
+      },
+      {
+        check: 'Laboratory duplicate RPD', moved: true,
+        wasTyped: '“a 20% limit”',
+        where: 'LD-1',
+      },
+      {
+        check: 'Laboratory control sample recovery', moved: true,
+        wasTyped: '“an 80–120% limit”',
+        where: 'LCS-1',
+      },
+      {
+        check: 'Matrix spike recovery', moved: true,
+        wasTyped: '“a 70–130% limit”, “70–130%” and “the 70% limit”',
+        where: 'MS-1, the propagation panel and its decision facts, the withdrawn propagation option’s reason, and the batch’s consequence sentence',
+      },
+      {
+        check: 'Surrogate recovery — PFAS', moved: true,
+        wasTyped: '“(limits 70–130%)”',
+        where: 'SR-1',
+      },
+      {
+        check: 'Cation–anion balance', moved: false,
+        wasTyped: 'nothing — IB-1 already read the constant its own arithmetic is done with, and this row quotes that same string rather than restating it',
+        where: 'IB-1 and the internal-consistency workspace',
+      },
+    ],
+    /**
+     * What stating the matrix did and did not do. Rendered, not only reasoned.
+     */
+    matrixNote: {
+      what: `Every limit in this set states the matrix it was written for. All ${rules.length} read water.`,
+      notAVersion:
+        'A version governs a limit’s number, its population and its consequence, and none of the three moved. No verdict re-derives, no finding is re-judged and no version was created — the field was always true of these limits and had never been written down. Writing a limit for a second matrix would be a version change; stating the matrix of the ones already here is not.',
+      whatMoved:
+        'What moved is what a reader can see. A soil field duplicate is now visibly held to a limit written for water, where before the library was silent about matrix and the mismatch could only be read in a comment.',
+      before:
+        'Before: ten limits, each with a number, a population, a fallback and a source, and no field anywhere saying what material any of them was written for.',
+    },
+  };
+})();
 
 /** The laboratory batch — what a QC result actually covers. */
 export const BATCHES = [
@@ -5060,7 +5390,7 @@ export const BATCHES = [
       { kind: 'Matrix spike duplicate', id: 'MSD-268841', result: 'Zinc recovery 64% · RPD 3.2%', outcome: 'fail' },
     ],
     consequence:
-      'Zinc matrix-spike recovery of 62% is below the 70% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely higher, so the exceedance stands and is if anything understated.',
+      `Zinc matrix-spike recovery of 62% is below the ${lowerBound('Matrix spike recovery')}% limit and it is reproducible across the duplicate, so this is matrix interference rather than a one-off. Every zinc result in this batch — nine samples, including the MW05 exceedance at 31.6 µg/L — is qualified as biased low. A recovery below 100% biasing low means the true value is likely higher, so the exceedance stands and is if anything understated.`,
   },
   /*
    * ## SETTLED (wave 15) — 2 September 2026, on a record made 2 September 2026
@@ -5211,11 +5541,37 @@ export const BACKGROUND = {
  * "6 of 7 bores stabilised" over a round in which seven bores were planned,
  * **six were purged** and **five stabilised**. MW11 was never purged — it was
  * dry — so it could not have been in either half of that fraction.
+ *
+ * **Wave 16: the three dimensions that cite limits read them.** Precision,
+ * accuracy and representativeness each restated numbers the objective set
+ * holds — a second spelling of one figure, and one of them was already drifting
+ * (`80–120%` here against `80 – 120%` there). Each reads `DQO.limits` now and
+ * states the matrix the limit was written for, and each carries the sentence it
+ * replaced (`DQO.matrixStated`, by `wasId`) in the cell where it renders. The
+ * three that cite no limit are untouched, because deriving a dimension that
+ * cites a criteria set from a QC library would be a worse answer than a typed
+ * one.
  */
+const dqaLimit = (check) => DQO.limitFor(check);
 const DQA_ROWS = [
-  { dim: 'Precision', measure: 'Field duplicate RPD, laboratory duplicate RPD', objective: '≤ 30% field, ≤ 20% laboratory, above 5 × LOR', achieved: '1 of 15 field pairs outside — zinc at MW05, 38.2%', verdict: 'met with exception', findings: ['FD-1', 'FD-2', 'FD-3', 'LD-1'] },
-  { dim: 'Accuracy', measure: 'LCS, matrix spike, surrogate recovery', objective: '80–120% LCS, 70–130% MS', achieved: 'LCS 96–104%. Zinc matrix spike 62% — below limit, reproducible', verdict: 'not met for zinc', findings: ['LCS-1', 'MS-1', 'SR-1', 'EB-1', 'MB-1', 'FB-1', 'TB-1', 'IB-1'] },
-  { dim: 'Representativeness', measure: 'Field parameter stabilisation, purge records, sampling position', objective: '3 consecutive readings in tolerance before collection', achieved: 'REPRESENTATIVENESS', verdict: 'met with exception', findings: ['ST-1'] },
+  {
+    dim: 'Precision', measure: 'Field duplicate RPD, laboratory duplicate RPD',
+    objective: `${dqaLimit('Field duplicate RPD').limit} field, ${dqaLimit('Laboratory duplicate RPD').limit} laboratory, above 5 × LOR · ${dqaLimit('Field duplicate RPD').matrix.toLowerCase()} limits`,
+    wasId: 'dqa-precision',
+    achieved: '1 of 15 field pairs outside — zinc at MW05, 38.2%', verdict: 'met with exception', findings: ['FD-1', 'FD-2', 'FD-3', 'LD-1'],
+  },
+  {
+    dim: 'Accuracy', measure: 'LCS, matrix spike, surrogate recovery',
+    objective: `${dqaLimit('Laboratory control sample recovery').limit} LCS, ${dqaLimit('Matrix spike recovery').limit} MS · ${dqaLimit('Matrix spike recovery').matrix.toLowerCase()} limits`,
+    wasId: 'dqa-accuracy',
+    achieved: 'LCS 96–104%. Zinc matrix spike 62% — below limit, reproducible', verdict: 'not met for zinc', findings: ['LCS-1', 'MS-1', 'SR-1', 'EB-1', 'MB-1', 'FB-1', 'TB-1', 'IB-1'],
+  },
+  {
+    dim: 'Representativeness', measure: 'Field parameter stabilisation, purge records, sampling position',
+    objective: `${dqaLimit('Field parameter stabilisation').limit} before collection · ${dqaLimit('Field parameter stabilisation').matrix.toLowerCase()} limit`,
+    wasId: 'dqa-representativeness',
+    achieved: 'REPRESENTATIVENESS', verdict: 'met with exception', findings: ['ST-1'],
+  },
   { dim: 'Comparability', measure: 'Consistent methods, units and reporting limits across rounds', objective: 'No method change without a documented equivalence', achieved: 'Arsenic LOR stepped 5.0 → 1.0 µg/L at 2025-05 on a method change; recorded and drawn on the plate', verdict: 'met', findings: ['ET-1', 'SH-1', 'SH-2'] },
   { dim: 'Completeness', measure: 'Results received against results planned', objective: '≥ 95% of planned results usable', achieved: 'COMPLETENESS', verdict: 'not met', findings: ['HT-1', 'HT-2'] },
   { dim: 'Sensitivity', measure: 'Reporting limit against the applicable criterion', objective: 'LOR ≤ 0.5 × criterion for every assessed analyte', achieved: 'SENSITIVITY', verdict: 'not met', findings: ['LOR-1'] },
@@ -7951,36 +8307,208 @@ export const SOIL = (() => {
     pHNote: 'pH is not ratioed. It is a logarithm, so “1.09 times background” would be a number about nothing.',
   };
 
-  /** The blind field duplicate, computed. RPD needs a pair, and pH is not one. */
+  /**
+   * The blind field duplicate, computed. RPD needs a pair, and pH is not one.
+   *
+   * ## The matrix question, settled — wave 16, 2 September 2026
+   *
+   * The limit is no longer a string copied out of the version-change record.
+   * It is `QC_LIMITS.resolve('Field duplicate RPD', <this pair's matrix>)` —
+   * one function, and the row it hands back **is** the row the library screen
+   * prints. So the number judging 7.1% here and the number in the objective
+   * set cannot be two values that agree; there is one value.
+   *
+   * The pair's matrix is read off the manifest rather than assumed, which is
+   * the glossary's own rule: matrix is recorded, never inferred from the
+   * location.
+   *
+   * ## The applicability rule is applied, not only quoted — found here
+   *
+   * The rule the library holds is *≤ 30% where both results are ≥ 5 × LOR,
+   * absolute difference ≤ 2 × LOR below that*, and this screen used to apply
+   * the percentage half to all four ratioed analytes. **Arsenic does not reach
+   * 5 × LOR**: 8.2 and 7.9 mg/kg against a limit of reporting of 2, so the
+   * threshold is 10 and both sit under it. Its pair is judged by absolute
+   * difference — 0.3 against an allowance of 4 — and the percentage that used
+   * to be printed for it was arithmetic on noise, which is the exact defect
+   * `#qc-limits` has a panel about. Nothing about the outcome moves: every
+   * pair passes under whichever test reaches it, and the worst percentage is
+   * still zinc's. What moves is that the sentence says **three** pairs where
+   * it said four, and says which test judged the fourth.
+   *
+   * pH is judged by neither. It is a logarithm, so it has no relative percent
+   * difference, and this set holds no allowance written for a logarithmic
+   * scale. It is reported rather than judged, and the row says so instead of
+   * borrowing a number from a rule that was not written for it.
+   */
   const duplicate = (() => {
     const parent = 'WDL-26M5-S02', child = 'WDL-26M5-S03';
+    const matrix = sampleOf(child).matrix;
+    const limit = QC_LIMITS.resolve('Field duplicate RPD', matrix);
+    /** The percentage, taken out of the library's own string rather than typed beside it. */
+    const threshold = Number(limit.rule.limit.match(/[\d.]+/)[0]);
+    const rows = analytes.map((a, ai) => {
+      const p = valueOf(parent, ai), c = valueOf(child, ai);
+      const rpd = (Math.abs(p - c) / ((p + c) / 2)) * 100;
+      const absolute = Math.abs(p - c);
+      const fiveLor = a.lor * 5, allowance = a.lor * 2;
+      if (a.short === 'pH') {
+        return {
+          analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c),
+          lor: a.lor, fiveLor, rpd: null, absolute, allowance: null, test: 'not judged', within: null,
+          why: 'A logarithm has no relative percent difference, and this set holds no allowance written for a logarithmic scale. The difference is reported; it is not judged against anything.',
+        };
+      }
+      const reaches = Math.min(p, c) >= fiveLor;
+      return {
+        analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c),
+        lor: a.lor, fiveLor, rpd, absolute,
+        allowance: reaches ? null : allowance,
+        test: reaches ? 'percentage' : 'absolute',
+        within: reaches ? rpd <= threshold : absolute <= allowance,
+        why: reaches
+          ? `Both results reach 5 × LOR (${fiveLor} ${a.unit}), so the percentage test applies.`
+          : `Neither result reaches 5 × LOR (${fiveLor} ${a.unit}), so the percentage is not the test — the absolute difference is, against an allowance of 2 × LOR (${allowance} ${a.unit}).`,
+      };
+    });
+    const judged = rows.filter((r) => r.test === 'percentage');
+    const worst = judged.reduce((a, b) => (b.rpd > a.rpd ? b : a));
     return {
-      parent, child,
-      limit: DQO.changes[0].was,
-      limitVersion: DQO.used.version,
-      rows: analytes.map((a, ai) => {
-        const p = valueOf(parent, ai), c = valueOf(child, ai);
-        return a.short === 'pH'
-          ? { analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c), rpd: null, absolute: Math.abs(p - c), why: 'A logarithm has no relative percent difference; the check is an absolute difference.' }
-          : { analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c), rpd: (Math.abs(p - c) / ((p + c) / 2)) * 100, absolute: null };
-      }),
-      /*
-       * FOUND AND DEFERRED — 2 September 2026 (wave 9), owner unassigned.
+      parent, child, matrix,
+      limit,
+      limitVersion: limit.rule.version,
+      threshold,
+      rows,
+      judged,
+      worst,
+      byAbsolute: rows.filter((r) => r.test === 'absolute'),
+      unjudged: rows.filter((r) => r.test === 'not judged'),
+      outcome: rows.every((r) => r.within !== false) ? 'pass' : 'fail',
+      /**
+       * ## SETTLED (wave 16) — 2 September 2026, on a record made 2 September
+       * 2026 (wave 9)
        *
-       * `DQO` carries **one** field-duplicate limit and no matrix dimension,
-       * so a soil field duplicate is measured here against a limit written
-       * for water. Soil is heterogeneous at the scale of a trowel and the
-       * conventional soil limit is wider, so applying the water number is
-       * **stricter** and nothing is being let through by it — which is why
-       * this is recorded rather than fixed in passing. Fixing it means giving
-       * the DQO an applicability dimension by matrix, with an effective date
-       * and a version, and that is the same class of deliberate change as
-       * adding a criteria set: it belongs to a wave that redesigns
-       * `#qc-limits`, not to a rider on a soil investigation. Visible on
-       * `#composite` and on the manifest, not only here.
+       * The record is kept whole and the settled-note is at the end of it,
+       * because a debt that vanishes when it is paid leaves nobody able to
+       * tell a settled one from one that was never noticed.
+       *
+       * Its ledger tag — the found-and-deferred marker, dated 2 September 2026
+       * (wave 9), owner unassigned — is **closed rather than quoted**, and it
+       * is the only line of this record that moved. That marker is what a grep
+       * counts as the ledger, so reproducing it inside the quotation would
+       * keep the ledger reading four while three records stand; the heading
+       * above is what it became. Everything the record *found* is below it,
+       * unedited:
+       *
+       * > `DQO` carries **one** field-duplicate limit and no matrix dimension,
+       * > so a soil field duplicate is measured here against a limit written
+       * > for water. Soil is heterogeneous at the scale of a trowel and the
+       * > conventional soil limit is wider, so applying the water number is
+       * > **stricter** and nothing is being let through by it — which is why
+       * > this is recorded rather than fixed in passing. Fixing it means giving
+       * > the DQO an applicability dimension by matrix, with an effective date
+       * > and a version, and that is the same class of deliberate change as
+       * > adding a criteria set: it belongs to a wave that redesigns
+       * > `#qc-limits`, not to a rider on a soil investigation. Visible on
+       * > `#composite` and on the manifest, not only here.
+       *
+       * ## What closed it
+       *
+       * The dimension exists (`DQO.limits`, every row with a matrix, an
+       * effective date and its version) and the answer for soil was
+       * **measured before it was drawn**. `searched` below is that
+       * measurement: six records that could have carried a soil
+       * field-duplicate limit, what each one actually states, and the one
+       * question asked of all six. None states a number.
+       *
+       * So the honest state is a **computed absence** rather than an invented
+       * limit, and it is first-class: the library counts its soil rows and
+       * gets zero, the resolver hands back the water row with `held: false`
+       * and says so in a sentence, and both this screen and `#qc-limits`
+       * print that one object. The comment carried this; the record states it.
+       *
+       * **What was refused, and why.** A conventional wider soil RPD — the
+       * number a practitioner would reach for — has no source in this record.
+       * Writing one would give this catalogue a data quality limit nobody
+       * approved, on a set with a named approver and an effective date, which
+       * is the trade wave 14 refused on the licence trigger line and wave 15
+       * refused on five censored values. The direction of the error is still
+       * argued, because a reader is owed it, and it is labelled as reasoning
+       * rather than dressed as a citation.
        */
-      matrixGap:
-        'The limit applied is the round’s single field-duplicate limit. It was written for water and the data quality objectives carry no matrix dimension, so a soil duplicate is held to a water number. That is stricter rather than looser — soil is heterogeneous at the scale of a trowel and the conventional soil limit is wider — so nothing passes here that would fail a soil limit. Giving the objectives an applicability rule by matrix is a versioned change to them, with an effective date, and it is not something this investigation makes on its way past.',
+      matrixGap: {
+        raised: '2 September 2026 (wave 9)',
+        settled: '2 September 2026 (wave 16)',
+        /** The note this replaces, verbatim, so the screen can print what it used to say. */
+        was:
+          'The limit applied is the round’s single field-duplicate limit. It was written for water and the data quality objectives carry no matrix dimension, so a soil duplicate is held to a water number. That is stricter rather than looser — soil is heterogeneous at the scale of a trowel and the conventional soil limit is wider — so nothing passes here that would fail a soil limit. Giving the objectives an applicability rule by matrix is a versioned change to them, with an effective date, and it is not something this investigation makes on its way past.',
+        now:
+          `${limit.says} The set holds ${QC_LIMITS.held.find((h) => h.matrix === matrix).limits.length} limits for ${matrix.toLowerCase()} and ${QC_LIMITS.rules.length} in all, every one of them written for water — so the absence is counted rather than described, and the verdict names both the limit that judged this pair and the material that limit was written for.`,
+        question: 'Does any record on this project state a field-duplicate limit for soil?',
+        /**
+         * The six records that could have carried one, and what each states.
+         *
+         * Measured before anything was drawn. Two are the investigation's own
+         * (the plan and its certificate), two are the objective set and the
+         * laboratory plan behind half of it, one is the standard the field
+         * duplicate rule cites, and one is the criteria library — included
+         * because it is the register a reader reaches for by reflex and it is
+         * a different kind of object, which is worth saying once.
+         */
+        searched: [
+          {
+            source: plan,
+            kind: 'The investigation’s own instrument',
+            states: `Approved ${planApproved} by ${approver}. Two decisions are attributed to it in this record: the compositing scheme for each composite — ${composites[0].schemeShort} and ${composites[1].schemeShort} — and the field screen above which a discrete sample was submitted, ${screenThreshold} µS/cm.`,
+            verdict: 'No', answer: 'It fixes a sampling design; it states no acceptance limit of any kind.',
+            at: 'composite',
+          },
+          {
+            source: `${DQO.set} · ${DQO.used.version} and ${DQO.current.version}`,
+            kind: 'The site’s data quality objectives',
+            states: `${QC_LIMITS.rules.length} limits across both versions, each with a number, a population, a source and — since this wave — the matrix it was written for. ${QC_LIMITS.held.find((h) => h.matrix === 'Water').limits.length} read water; ${QC_LIMITS.held.filter((h) => h.matrix !== 'Water').reduce((n, h) => n + h.limits.length, 0)} read anything else.`,
+            verdict: 'No', answer: 'This is the register that would hold one, and it holds none.',
+            at: 'qc-limits',
+          },
+          {
+            source: 'PAS QA plan rev 8',
+            kind: 'The laboratory’s own quality plan',
+            states: `Named as the source of ${QC_LIMITS.rules.filter((r) => r.source === 'PAS QA plan rev 8').length} of the ${QC_LIMITS.rules.length} limits. What it states for a matrix other than water is not in this record — the set adopted its water figures and nothing else.`,
+            verdict: 'No', answer: 'And it governs bench duplicates rather than field ones, which is a different check.',
+            at: 'qc-limits',
+          },
+          {
+            source: `${certificate} · ${workOrder}`,
+            kind: 'The soil round’s certificate and work order',
+            states: `The results and the reporting limits. It carries no batch quality-control block in this record: ${BATCHES.length} batches are drawn with their own QC and both are water — ${BATCHES.map((b) => b.id).join(' and ')}.`,
+            verdict: 'No', answer: 'A certificate reports what was measured; it does not set the site’s acceptance limits.',
+            at: 'batches',
+          },
+          {
+            source: 'AS/NZS 5667.1',
+            kind: 'The standard the field duplicate rule cites',
+            states: `Named in the rule’s own source line — ${QC_LIMITS.rules[0].source} — and in the set’s basis. It is a water-quality sampling standard.`,
+            verdict: 'No', answer: 'And it could not: the standard the limit rests on is written for water.',
+            at: 'qc-limits',
+          },
+          {
+            source: `The criteria library — ${criteria.sets} sets`,
+            kind: 'A different kind of object, checked because a reader reaches for it',
+            states: `Evaluation criteria, not acceptance limits, and it holds ${criteria.applicable.length} sets carrying a soil or sediment matrix in any case.`,
+            verdict: 'No', answer: 'A guideline value says whether a result is acceptable; a data quality limit says whether the measurement is trustworthy. Neither stands in for the other.',
+            at: 'criteria',
+          },
+        ],
+        refused:
+          'A conventional wider soil RPD is the number a practitioner would reach for, and no record on this project states one. Writing it here would add a data quality limit to a set with a named approver and an effective date, on nobody’s authority — the trade refused on the licence trigger line the day before and on five censored values the same day. The set gains a soil limit when somebody writes one, in a new version, with a date.',
+        direction:
+          'Which way the error runs is still owed to a reader, and it is reasoning rather than a citation: soil is heterogeneous at the scale of a trowel, so a limit written for it would be wider than one written for water. That makes the water limit the stricter test, and nothing passes here that a soil limit would have failed. It is an argument about direction and it produces no number — which is exactly why it cannot be written into the library.',
+        reversal:
+          `A soil field-duplicate limit in a new version of ${DQO.set}, with its own effective date and approver, or a sampling and analysis plan that states one and is approved. Either would be read by the same resolver, and this verdict would re-derive under it — forward from that date, never backwards over a round already assessed.`,
+        /** What did not move, said out loud, because a settlement that quietly re-judged something would be worse than the gap. */
+        unmoved:
+          `No verdict moved. The worst percentage is still zinc’s and the pair still passes; ${limit.rule.limit} is the same number this screen printed before, now read off the library row instead of off the version-change record. The water round’s own field-duplicate findings were raised under ${DQO.used.version} on ${DQO.raisedAt} and are untouched — stating a limit’s matrix is not re-running a check.`,
+      },
     };
   })();
 
@@ -8317,6 +8845,72 @@ export const SOIL = (() => {
       analysesSaved: positions - composites.length,
       attributable: attributable.length,
       representedOnly: representedOnly.length,
+    },
+  };
+})();
+
+/**
+ * # Which matrices the objective set covers, and what it has been asked to judge
+ *
+ * Wave 16. The library's matrix column answers *what was this limit written
+ * for*; this answers the question a reader asks straight afterwards — **and
+ * what has it had to judge**. Both halves are counted from the registers that
+ * hold them, over the glossary's five words in the glossary's own order, so a
+ * matrix with no limits and no samples reads as a column of zeroes rather than
+ * as a row somebody forgot.
+ *
+ * The two rounds are pooled deliberately. The quarterly round is water and the
+ * soil investigation is not, and the interesting rows are the ones where those
+ * two facts cross: the soil round's own equipment blank is a **water** sample,
+ * correctly judged by a water blank limit, and its field duplicate is a
+ * **soil** sample judged by a water limit because no soil one exists. One table
+ * shows both, which is more than either round's own screen can.
+ *
+ * `accounted` is printed rather than trusted. If a limit ever carried a word
+ * outside the five, the per-matrix counts would stop summing to the number of
+ * rows, and the screen says which number it got rather than quietly dropping
+ * the row.
+ */
+export const DQO_APPLICABILITY = (() => {
+  const pool = [
+    ...EVENT_SAMPLES.map((s) => ({ id: s.id, matrix: s.matrix, qc: s.qc, round: ROUND.code })),
+    ...SOIL.samples.map((s) => ({ id: s.id, matrix: s.matrix, qc: s.qc, round: SOIL.round })),
+  ];
+  const rows = MATRIX_WORDS.map((matrix) => {
+    const limits = QC_LIMITS.held.find((h) => h.matrix === matrix).limits;
+    const sampled = pool.filter((s) => s.matrix === matrix);
+    const controls = sampled.filter((s) => s.qc !== '—');
+    return {
+      matrix,
+      limits: limits.length,
+      checks: limits.map((r) => r.check),
+      samples: sampled.length,
+      controls: controls.length,
+      controlRows: controls,
+      rounds: [...new Set(sampled.map((s) => s.round))],
+    };
+  });
+  const gap = SOIL.duplicate.limit;
+  return {
+    rows,
+    accounted: rows.reduce((n, r) => n + r.limits, 0),
+    total: QC_LIMITS.rules.length,
+    /** The one place the set is asked for a limit it does not hold, named rather than counted. */
+    gap,
+    gapAt: `${SOIL.duplicate.child} · ${SOIL.round}`,
+    says(row) {
+      if (row.limits > 0) {
+        return `${row.limits} of the ${QC_LIMITS.rules.length} limits, and ${row.controls} quality-control ${row.controls === 1 ? 'sample' : 'samples'} judged by them.`;
+      }
+      if (row.controls > 0) {
+        return `No limit in this set. ${row.controls} quality-control ${row.controls === 1 ? 'sample' : 'samples'} — judged against the ${gap.judgedBy.toLowerCase()} limit, which is stated on the verdict rather than assumed.`;
+      }
+      if (row.samples > 0) {
+        return row.samples === 1
+          ? 'No limit in this set, and no quality control to judge: one sample of this material, and it is not a duplicate, a blank or a spike.'
+          : `No limit in this set, and no quality control to judge: ${row.samples} samples of this material, and not one of them is a duplicate, a blank or a spike.`;
+      }
+      return 'No limit, and no sample of this material anywhere on the project — so nothing has ever asked for one.';
     },
   };
 })();

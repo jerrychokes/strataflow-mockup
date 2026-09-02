@@ -998,7 +998,7 @@ uses and exactly what this screen draws.
 **Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
 them is the same move: a disagreement described in a comment becomes one source read N
 times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
-records; it stands at **five** — four after wave 14, and four after wave 15, which settled one and opened one — and the ones that closed are kept as
+records; it stands at **three** — four after wave 14, four after wave 15, which settled one and opened one, and three after wave 16 — and the ones that closed are kept as
 dated settled-notes rather than deleted, because a debt that vanishes when it is paid leaves
 nobody able to tell it from one that was never noticed.
 
@@ -1206,6 +1206,71 @@ clean, and the document does not scroll horizontally at either width. All 11 fig
 laid out and every `<text>` compared against every other for overlap. Touch targets were
 measured under an emulated coarse pointer, including the expanded hit area on the inline
 help trigger, which was probed by hit-testing rather than by reading the rule.
+
+**Wave 16 (2 September 2026) gives the data quality objectives a matrix and adds no screen.**
+Wave 9 measured a **soil** field duplicate against the round's single field-duplicate limit,
+which was written for water, and recorded the mismatch rather than fixing it: the repair
+"belongs to a wave that redesigns `#qc-limits`", and this is that wave. Every limit in the
+set now states the material it was written for, in the glossary's five words, with its
+version and the date it took effect — and all **ten** read **water**, which is a measurement
+rather than a default. The ledger goes **four → three**; the record that closed keeps its
+finding verbatim with a dated settled-note beneath it, and the three that stand are
+byte-identical.
+
+**Stating a matrix is not changing a limit, and the screen says so.** A version governs a
+limit's number, its population and its consequence, and none of the three moved — no verdict
+re-derives, no finding is re-judged, no version was created. What moved is what a reader can
+see: a soil duplicate is now visibly held to a water limit, where before the library was
+silent about matrix and the mismatch could only be read in a comment. The moment it *would*
+become a version change is the moment a limit is written for a second matrix, and this set
+has not been. The `since` column is derived rather than typed: the **2** rows that moved in
+2026.1 carry **2026-05-21** under it and the **8** carried forward unchanged still carry
+**2025-07-01**, so "which limits, for which matrix, under which version, since when" is
+answered row by row.
+
+**The soil answer was measured before it was drawn, and the number was refused.** Six records
+could have carried a soil field-duplicate limit — the investigation's own sampling and
+analysis plan, this objective set, the laboratory's quality plan, the soil certificate and
+work order, the water-quality standard the field duplicate rule cites, and the criteria
+library — and each was read and each says no. The plan fixes a compositing scheme and a
+500 µS/cm field screen and states no acceptance limit of any kind; the two batches drawn with
+their own quality control are both water. So the honest state is a **counted absence**: the
+library holds **0** soil limits of **10**, the resolver hands back the water row with
+`held: false` and a sentence saying so, and the verdict names both the limit and the material
+it was written for. A conventional wider soil RPD is the number a practitioner would reach
+for and nothing in the record states one — writing it would add a limit to a set with a named
+approver and an effective date, on nobody's authority, which is the trade the licence trigger
+line was refused on the day before. Which way the error runs is still argued and labelled as
+reasoning: soil is heterogeneous at the scale of a trowel, so a soil limit would be wider,
+which makes the water limit the stricter test.
+
+**One source, and the closure is checkable.** The ten limits live on `DQO` now — a
+matrix-scoped limit is a version's content the way an analyte is a criteria set's — and
+`QC_LIMITS.rules` **is** that array rather than a copy, so the row a finding names and the row
+the library prints are the same object. The limit judging the soil duplicate is
+`QC_LIMITS.resolve('Field duplicate RPD', 'Soil')`, and its `rule` is identically the row
+`#qc-limits` renders.
+
+**Found while doing it — two.** Applying the library's own applicability rule rather than
+quoting it moves **arsenic** out of the percentage test: 8.2 and 7.9 mg/kg against a reporting
+limit of 2 do not reach 5 × LOR, so the pair is judged by absolute difference — 0.3 against an
+allowance of 4 — and the percentage printed for it was arithmetic on noise, which is the exact
+defect `#qc-limits` has a panel about. No outcome moves; the sentence says **three** pairs
+where it said four and names the test that reached the fourth, and the worst RPD is still
+zinc's **7.1%**. And **thirteen** sentences across the workspace typed a number this set holds —
+**five** figures, two already drifting from the library's spelling (`80–120%` against
+`80 – 120%`, and the same for the spike range). All thirteen read the row now, one before is
+printed per limit rather than per sentence, and the ionic balance is the fourteenth citation
+that needed nothing: it already read the constant its own arithmetic is done with, so the library
+row quotes that string instead of restating it.
+
+**Every moved statement renders beside its before.** The soil duplicate's note, the manifest's
+copy of it, the two finding rule texts that gained the word *water*, the three data quality
+assessment dimensions that cite a limit and had typed its numbers beside the library that
+holds them, and the five limits whose spelling settled. What did **not** move is
+stated as loudly: the water round's field-duplicate findings were raised under 2025.2 on
+2026-05-19 and are untouched, and the exportable configuration count is still **7**, because
+data quality objectives are not one of OM-5's three kinds and never were.
 
 **Two gaps in that.** The 1280 px sweep was run in the second pass and not repeated in the
 third — the tables converted to panning matrices since then were verified at 1000 px, which

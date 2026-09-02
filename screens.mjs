@@ -64,6 +64,11 @@ import {
   // Wave 15 — how far the PFAS suite actually reached on 2026-Q2: the
   // measurement, the decision taken against it, and every before it moved.
   PFAS_REACH,
+  // Wave 16 — the objective set's matrix dimension: which of the glossary's
+  // five each limit was written for, and what each of the five has asked of
+  // the set. The limits themselves live on `DQO` now; `QC_LIMITS.rules` is
+  // that same array.
+  DQO_APPLICABILITY,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -1851,11 +1856,11 @@ const qcWorkspace = () => {
     cols(
       panel(
         `The one the review named — ${esc(spike.scope)}`,
-        `<p class="mk-tight">The drawn version of this said <em>“Qualifier L — biased low — on all 9 zinc results in the batch”</em> and stopped. Read at speed that is a rule firing. It is not: <strong>${esc(METALS_BATCH.id)}</strong> reports the recovery on its QC page and qualifies no sample result, and DQO ${esc(DQO.used.version)}’s matrix spike rule states the 70–130% limit and no consequence. So the propagation had no basis, and the honest basis is the third one — somebody has to decide it and own it.</p>` +
+        `<p class="mk-tight">The drawn version of this said <em>“Qualifier L — biased low — on all 9 zinc results in the batch”</em> and stopped. Read at speed that is a rule firing. It is not: <strong>${esc(METALS_BATCH.id)}</strong> reports the recovery on its QC page and qualifies no sample result, and DQO ${esc(DQO.used.version)}’s matrix spike rule states the ${esc(DQO.limitFor('Matrix spike recovery').limit)} limit and no consequence. So the propagation had no basis, and the honest basis is the third one — somebody has to decide it and own it.</p>` +
           facts([
             ['Spiked sample', `<span class="mk-file mk-file--id">${esc(METALS_BATCH.spiked)}</span> · ${loc(METALS_BATCH.spikedFrom)}`],
             ['Batch', `<a class="mk-ref" href="#batches">${esc(METALS_BATCH.id)}</a> · ${METALS_BATCH.samples} samples`],
-            ['Recovery', '<span class="mk-num mk-num--bad">62%</span> against 70–130%, reproduced at 64%'],
+            ['Recovery', `<span class="mk-num mk-num--bad">62%</span> against ${esc(DQO.limitFor('Matrix spike recovery').limit)}, reproduced at 64%`],
             ['Results at stake', `<span class="mk-num mk-num--warn">${spike.results}</span> — every zinc result in the batch, if the batch-wide option is taken`],
             ['Written so far', '<span class="mk-num mk-num--nil">0</span> — the qualifier is proposed, not applied'],
           ]) +
@@ -1878,7 +1883,17 @@ const qcWorkspace = () => {
             .filter((q) => q.rerun.conceptMoves)
             .map((q) => `<p class="mk-tight"><strong>${esc(q.check)} — ${esc(q.scope)}:</strong> ${esc(q.rerun.says)}</p>`)
             .join('') +
-          `<p class="mk-tight mk-muted">A re-run does not re-judge a finding already raised: it produces a second assessment under a second version and both stay readable, because every finding carries the rule version it was raised under. That is the same property a criteria set has, and it is why the button says which version rather than just “Re-run checks”. <a class="mk-ref" href="#qc-limits">The objectives, both versions</a>.</p>`,
+          `<p class="mk-tight mk-muted">A re-run does not re-judge a finding already raised: it produces a second assessment under a second version and both stay readable, because every finding carries the rule version it was raised under. That is the same property a criteria set has, and it is why the button says which version rather than just “Re-run checks”. <a class="mk-ref" href="#qc-limits">The objectives, both versions</a>.</p>` +
+          /*
+           * Wave 16. Two findings state a rule text, and both used to type it
+           * beside a library row holding the same number. They read the row
+           * now, and the row states its matrix — so a finding says which
+           * material its rule was written for, and the version it was raised
+           * under does not move.
+           */
+          ((named) =>
+            `<p class="mk-tight"><strong>The rule text on a finding is read from the objective set, and it names the matrix.</strong> ${named.map((q) => `<em>${esc(q.id)}</em> now reads “${esc(q.rule.version)}”, was “${esc(DQO.wasStated(q.id.toLowerCase()).was)}”`).join('; ')}. Every one of them is on a water sample and every rule named is a water rule, so nothing about ${named.length === 1 ? 'it' : 'any of them'} moves — the version each was raised under is the version it was already raised under, and what the sentence gained is the material it was always about. <a class="mk-ref" href="#qc-limits">Every limit’s matrix, and what says so</a>.</p>`
+          )(QAQC.filter((q) => q.rule && q.rule.version.startsWith('DQO '))),
       ),
     ) +
     notice('warning', 'A reporting limit above the criterion is not a pass.',
@@ -2103,7 +2118,7 @@ const qualifiers = () =>
       caption: 'Qualifiers assigned from a controlled list. Free text is not offered.',
       head: ['Result', 'Qualifier', 'Meaning', 'Assigned by', 'Reason'],
       rows: [
-        [`Zinc · ${loc('MW05')}`, '<code>J</code>', 'Estimated value', 'A. Nakamura', 'Field duplicate RPD 38.2% against a 30% limit'],
+        [`Zinc · ${loc('MW05')}`, '<code>J</code>', 'Estimated value', 'A. Nakamura', `Field duplicate RPD 38.2% against the ${esc(DQO.limitFor('Field duplicate RPD').limit)} limit`],
         [`Nitrate · ${loc('MW09')}`, '<code>H</code>', 'Holding time exceeded', 'system', 'Analysed at 6 days against a 2-day window'],
         [`Arsenic · ${loc('MW05')}`, '<code>*</code>', 'Confirmed against certificate', 'A. Nakamura', 'Spike against location history — checked, real'],
         [`PFOS+PFHxS · ${loc('MW05')}`, '<code>D</code>', 'Derived value', 'system', 'Sum parameter · rule sum-pfas-anzg v2.1'],
@@ -6879,12 +6894,105 @@ const compositeSample = () => {
             tone: 'neutral',
             head: '<span class="mk-queue__kind">The field duplicate, and the limit it was judged against</span>',
             body:
-              `<p class="mk-tight">${esc(S.duplicate.child)} is a blind duplicate of ${esc(S.duplicate.parent)}. Worst relative percent difference across the four ratioed analytes: <strong>${Math.max(...S.duplicate.rows.filter((r) => r.rpd !== null).map((r) => r.rpd)).toFixed(1)}%</strong>, against a limit of ${esc(S.duplicate.limit)}; pH differs by ${S.duplicate.rows.find((r) => r.rpd === null).absolute.toFixed(1)} of a unit and is not ratioed at all.</p>` +
-              `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.duplicate.matrixGap)}</p>`,
+              `<p class="mk-tight"><span class="mk-file mk-file--id mk-atom">${esc(S.duplicate.child)}</span> is a blind duplicate of <span class="mk-file mk-file--id mk-atom">${esc(S.duplicate.parent)}</span>, matrix <strong>${esc(S.duplicate.matrix)}</strong>. Worst relative percent difference across the ${S.duplicate.judged.length} pairs the percentage test reaches: <strong>${S.duplicate.worst.rpd.toFixed(1)}%</strong> (${esc(S.duplicate.worst.analyte)}), against <strong>${esc(S.duplicate.limit.rule.limit)}</strong> — the ${esc(S.duplicate.limit.judgedBy.toLowerCase())} field-duplicate limit of DQO ${esc(S.duplicate.limit.rule.version)}, in force since ${esc(S.duplicate.limit.rule.since)}. Every pair is inside the test that reaches it, so the duplicate <strong>${S.duplicate.outcome === 'pass' ? 'passes' : 'fails'}</strong>.</p>` +
+              `<p class="mk-tight"><strong>The verdict names a limit written for water, because this set holds none for ${esc(S.duplicate.matrix.toLowerCase())}.</strong> <a class="mk-ref" href="#qc-limits">The library counts its own rows</a> and gets ${DQO_APPLICABILITY.rows.find((r) => r.matrix === S.duplicate.matrix).limits}; the fallback is stated on the verdict rather than made silently.</p>`,
           }),
       ),
       '3fr 2fr',
     ) +
+
+    /* ---------------------------------------------------------------- *
+     * The soil duplicate's limit, settled — wave 16's decision record
+     * ---------------------------------------------------------------- *
+     *
+     * It sits here rather than on `#qc-limits` because the measurement was
+     * made through this investigation's own records — its plan, its
+     * certificate, its laboratory — and because this is where a reader meets
+     * the verdict the absence shapes. The library's screen carries the
+     * counted absence and links down to this; both print the same resolution
+     * object, so neither can drift from the other.
+     *
+     * The shape is wave 15's, deliberately: the question, the records read,
+     * the decision, what was refused and why, what did not move, and the one
+     * record that would reverse it.
+     */
+    (() => {
+      const G = S.duplicate.matrixGap;
+      const testTag = (r) =>
+        r.test === 'percentage'
+          ? tag('percentage', 'good')
+          : r.test === 'absolute'
+            ? tag('absolute difference', 'warn')
+            : tag('not judged', 'neutral');
+      return (
+        '<h2 class="mk-h2" style="margin-top:1.4rem">The limit that judged this duplicate, and the one that does not exist</h2>' +
+        `<p class="mk-tight"><strong>${esc(G.question)}</strong> Recorded ${esc(G.raised)} and settled ${esc(G.settled)}. The answer was measured before anything was drawn: ${G.searched.length} records could have carried a ${esc(S.duplicate.matrix.toLowerCase())} field-duplicate limit, and ${G.searched.filter((r) => r.verdict === 'No').length === G.searched.length ? `all ${G.searched.length} of them state none` : `${G.searched.filter((r) => r.verdict === 'No').length} of the ${G.searched.length} state none`}. So the honest state is a counted absence rather than an invented number, and the verdict above names the limit that judged the pair and the material that limit was written for.</p>` +
+        table({
+          caption: `Every record that could have carried one, what it actually states, and the one question asked of all ${G.searched.length}.`,
+          head: ['Record', 'What it is', 'What it states', 'Does it state one?'],
+          kind: 'matrix',
+          label: 'Records searched for a soil field-duplicate limit',
+          rows: G.searched.map((r) => [
+            `<a class="mk-ref" href="#${esc(r.at)}"><strong>${esc(r.source)}</strong></a>`,
+            `<span class="mk-muted">${esc(r.kind)}</span>`,
+            cell(esc(r.states)),
+            cell(`<strong>${esc(r.verdict)}.</strong> ${esc(r.answer)}`),
+          ]),
+        }) +
+        cols(
+          panel(
+            'Which test judged which pair',
+            `<p class="mk-tight">The rule the library holds is a percentage <em>above</em> 5 × the limit of reporting and an absolute difference below it, and this screen used to apply the percentage half to every ratioed analyte. <strong>${esc(S.duplicate.byAbsolute.map((r) => r.analyte).join(' and '))}</strong> does not reach the threshold, so the percentage printed for it was arithmetic on noise — the exact defect <a class="mk-ref" href="#qc-limits">the objective set has a panel about</a>. Nothing about the outcome moves; what moves is that the sentence says <strong>${S.duplicate.judged.length}</strong> pairs where it said four, and names the test that reached the fourth.</p>` +
+              table({
+                caption: 'The applicability rule applied rather than quoted. One limit, three tests, and the row says which reached it.',
+                head: ['Analyte', S.duplicate.parent, S.duplicate.child, '5 × LOR', 'Test', 'Result', 'Within'],
+                kind: 'matrix',
+                label: 'Field duplicate pairs and the test that judged each',
+                rows: S.duplicate.rows.map((r) => [
+                  `<strong>${esc(r.analyte)}</strong><small>${esc(r.unit)}</small>`,
+                  `<span class="mk-num">${esc(r.parent)}</span>`,
+                  `<span class="mk-num">${esc(r.child)}</span>`,
+                  `<span class="mk-num">${r.fiveLor}</span>`,
+                  testTag(r),
+                  r.test === 'percentage'
+                    ? `<span class="mk-num">${r.rpd.toFixed(1)}%</span><small>against ${esc(S.duplicate.limit.rule.limit)}</small>`
+                    : r.test === 'absolute'
+                      ? `<span class="mk-num">${r.absolute.toFixed(1)}</span><small>against ${r.allowance} — 2 × LOR</small>`
+                      : `<span class="mk-num">${r.absolute.toFixed(1)}</span><small>reported, not judged</small>`,
+                  r.within === null
+                    ? '<span class="mk-num mk-num--nil">—</span>'
+                    : C.status(r.within ? 'within' : 'outside', r.within ? 'good' : 'bad'),
+                ]),
+              }) +
+              `<p class="mk-tight mk-muted">${esc(S.duplicate.unjudged[0].why)}</p>`,
+          ),
+          panel(
+            'What was refused, what did not move, and what would reverse it',
+            C.card({
+              tone: 'bad',
+              head: '<span class="mk-queue__kind">Refused: a conventional number with nobody’s authority</span>',
+              body: `<p class="mk-tight">${esc(G.refused)}</p>`,
+            }) +
+              C.card({
+                tone: 'neutral',
+                head: '<span class="mk-queue__kind">Which way the error runs — reasoning, not a citation</span>',
+                body: `<p class="mk-tight">${esc(G.direction)}</p>`,
+              }) +
+              C.card({
+                tone: 'good',
+                head: '<span class="mk-queue__kind">What did not move</span>',
+                body:
+                  `<p class="mk-tight">${esc(G.unmoved)}</p>` +
+                  `<p class="mk-tight mk-muted"><strong>The limit on this card, before:</strong> ${esc(DQO.wasStated('soil-duplicate').was)}</p>`,
+              }) +
+              `<p class="mk-tight"><strong>What would reverse it.</strong> ${esc(G.reversal)}</p>` +
+              `<p class="mk-tight mk-muted"><strong>Recorded ${esc(G.raised)}, and this is what it said:</strong> ${esc(G.was)}</p>` +
+              `<p class="mk-tight"><strong>And what the record says now:</strong> ${esc(G.now)}</p>`,
+          ),
+          '3fr 2fr',
+        )
+      );
+    })() +
 
     /* ---------------------------------------------------------------- *
      * Custody, and what is evaluated
@@ -7533,23 +7641,112 @@ const qcLimits = () => (
     ['Set', `<strong>${esc(QC_LIMITS.set)}</strong>`],
     ['Shown below', `${esc(DQO.used.version)} \u2014 the version this round was assessed under`],
     ['In force now', `${esc(DQO.current.version)}, from ${esc(DQO.current.effective)}`],
+    ['Matrices covered', `<strong>${esc(DQO_APPLICABILITY.rows.filter((r) => r.limits > 0).map((r) => r.matrix).join(', '))}</strong> \u2014 ${QC_LIMITS.accounted} of ${QC_LIMITS.rules.length} limits accounted for across the ${QC_LIMITS.matrices.length} the glossary allows`],
     ['Basis', esc(QC_LIMITS.basis)],
   ]) +
+
+  /* ---------------------------------------------------------------- *
+   * The limits, with the material each was written for \u2014 wave 16
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">Which limits, for which matrix, under which version, since when</h2>' +
+  `<p class="mk-tight">Four questions, and a row answers all four. <strong>Matrix</strong> is the material the limit was written for, in the ${QC_LIMITS.matrices.length} words the glossary allows and no others. <strong>Since</strong> is read off the version the row belongs to rather than typed beside it \u2014 which is why the ${QC_LIMITS.moved} rows that moved in ${esc(DQO.current.version)} carry a later date under it than the ${QC_LIMITS.rules.length - QC_LIMITS.moved} that were carried forward unchanged.</p>` +
   table({
-    caption: 'Each limit with the population it applies to, what happens where it does not apply, and what 2026.1 changed it to.',
-    head: ['Check', `Limit<small>${esc(DQO.used.version)}</small>`, 'Applies when', 'Otherwise', `Under ${esc(DQO.current.version)}`, 'Source'],
+    caption: 'Each limit with the matrix it was written for, the population it applies to, what happens where it does not apply, and what 2026.1 changed it to.',
+    head: ['Check', 'Matrix', `Limit<small>${esc(DQO.used.version)}</small>`, 'Applies when', 'Otherwise', `Under ${esc(DQO.current.version)}`, 'Source'],
     rows: QC_LIMITS.rules.map((r) => [
       `<strong>${esc(r.check)}</strong>` + (r.silent ? `<small>states no consequence</small>` : ''),
-      `<span class="mk-num">${esc(r.limit)}</span>`,
+      `${tag(r.matrix, 'neutral')}`,
+      `<span class="mk-num">${esc(r.limit)}</span><small>since ${esc(r.since)}</small>`,
       esc(r.applies),
       r.fallback && r.fallback !== '\u2014' ? `<span class="mk-muted">${esc(r.fallback)}</span>` : '<span class="mk-num mk-num--nil">\u2014</span>',
-      r.next ? `<span class="mk-num mk-num--warn">${esc(r.next)}</span>` : '<span class="mk-muted">unchanged</span>',
+      r.next
+        ? `<span class="mk-num mk-num--warn">${esc(r.next)}</span><small>from ${esc(r.currentSince)}</small>`
+        : `<span class="mk-muted">unchanged</span><small>carried forward from ${esc(r.currentSince)}</small>`,
       `<span class="mk-muted">${esc(r.source)}</span>`,
     ]),
     kind: 'matrix',
     label: 'Data quality objectives',
   }) +
-  `<p class="mk-tight">Two of the ten rules moved in ${esc(DQO.current.version)}, and the second is the interesting one. The matrix spike rule <strong>states a limit and no consequence</strong> \u2014 which is why a failed spike on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a> raises a finding that needs a hydrogeologist rather than a qualifier that applies itself. The blank rule had the same shape until ${esc(DQO.current.version)} gave it one, and that single addition is what moves one finding on the last round out of the decision queue. A rule that states a number and not what follows from it is a rule that hands every instance of itself to a person.</p>` +
+  `<p class="mk-tight"><strong>Stating the matrix is not changing the limit.</strong> ${esc(QC_LIMITS.matrixNote.notAVersion)} ${esc(QC_LIMITS.matrixNote.whatMoved)} <a class="mk-ref" href="#composite">The soil field duplicate</a> is where that shows.</p>` +
+  `<p class="mk-tight mk-muted"><strong>What this table said before:</strong> ${esc(DQO.wasStated('library').was)}</p>` +
+  `<p class="mk-tight">${QC_LIMITS.moved} of the ${QC_LIMITS.rules.length} rules moved in ${esc(DQO.current.version)}, and the second is the interesting one. The matrix spike rule <strong>states a limit and no consequence</strong> \u2014 which is why a failed spike on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a> raises a finding that needs a hydrogeologist rather than a qualifier that applies itself. The blank rule had the same shape until ${esc(DQO.current.version)} gave it one, and that single addition is what moves one finding on the last round out of the decision queue. A rule that states a number and not what follows from it is a rule that hands every instance of itself to a person.</p>` +
+
+  /* ---------------------------------------------------------------- *
+   * What the set covers, and the one thing it does not hold \u2014 wave 16
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">What this set covers, and what it does not hold</h2>' +
+  cols(
+    panel(
+      `The ${QC_LIMITS.matrices.length} matrices, and what each has asked of this set`,
+      table({
+        caption: `Counted over both rounds on the project, not over this screen: ${DQO_APPLICABILITY.accounted} of ${DQO_APPLICABILITY.total} limits are accounted for, so no row is being dropped.`,
+        head: ['Matrix', 'Limits held', 'Samples', 'Quality control', 'What that means'],
+        kind: 'matrix',
+        label: 'Data quality limits by matrix',
+        rows: DQO_APPLICABILITY.rows.map((r) => [
+          `<strong>${esc(r.matrix)}</strong>`,
+          r.limits
+            ? `<span class="mk-num">${r.limits}</span>`
+            : '<span class="mk-num mk-num--nil">0</span>',
+          r.samples ? `<span class="mk-num">${r.samples}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+          r.controls
+            ? `<span class="mk-num${r.limits ? '' : ' mk-num--warn'}">${r.controls}</span>`
+            : '<span class="mk-num mk-num--nil">0</span>',
+          cell(esc(DQO_APPLICABILITY.says(r))),
+        ]),
+      }) +
+        `<p class="mk-tight">The two rounds are pooled on purpose, because the interesting rows are where their materials cross. The soil investigation\u2019s own equipment blank is a <strong>water</strong> sample \u2014 a rinsate poured over an excavator bucket \u2014 and it is judged by a water blank limit, correctly. Its field duplicate is a <strong>soil</strong> sample, and that is the row below.</p>`,
+    ),
+    panel(
+      `No ${esc(DQO_APPLICABILITY.gap.matrix.toLowerCase())} limit, stated rather than invented`,
+      C.card({
+        tone: 'warn',
+        head: `<span class="mk-queue__kind">${esc(DQO_APPLICABILITY.gap.check)} \u00b7 ${esc(DQO_APPLICABILITY.gap.matrix)}</span>`,
+        body:
+          `<p class="mk-tight">${esc(DQO_APPLICABILITY.gap.says)}</p>` +
+          `<p class="mk-tight">It bites at <span class="mk-file mk-file--id mk-atom">${esc(SOIL.duplicate.child)}</span>, the blind field duplicate on ${esc(SOIL.round)}. This is the same object that screen prints \u2014 one resolution, read twice \u2014 so the limit named there and the absence named here cannot disagree.</p>`,
+        foot: `<span class="mk-tag mk-tag--warn">${esc(DQO_APPLICABILITY.gapAt)}</span>`,
+      }) +
+        `<p class="mk-tight"><strong>${esc(SOIL.duplicate.matrixGap.question)}</strong> ${SOIL.duplicate.matrixGap.searched.length} records could have carried one and each was read: the investigation\u2019s own plan, this set, the laboratory\u2019s quality plan, the soil certificate, the standard the field duplicate rule cites, and the criteria library. <a class="mk-ref" href="#composite">All ${SOIL.duplicate.matrixGap.searched.length} answers, in full</a> \u2014 and ${SOIL.duplicate.matrixGap.searched.filter((r) => r.verdict === 'No').length === SOIL.duplicate.matrixGap.searched.length ? 'every one of them is' : `${SOIL.duplicate.matrixGap.searched.filter((r) => r.verdict === 'No').length} of ${SOIL.duplicate.matrixGap.searched.length} are`} <em>no</em>.</p>` +
+        `<p class="mk-tight">${esc(SOIL.duplicate.matrixGap.refused)}</p>` +
+        `<div class="mk-actions"><a class="mk-btn" href="#composite">The soil duplicate, and the limit that judged it</a></div>`,
+    ),
+    '3fr 2fr',
+  ) +
+  cols(
+    panel(
+      'Water, and what says so on each row',
+      table({
+        caption: 'The matrix is a measurement, not a default. Each row names the record in its own source line that settles it.',
+        head: ['Check', 'Matrix', 'What says so'],
+        scroll: true,
+        label: 'Why each limit reads water',
+        rows: QC_LIMITS.rules.map((r) => [
+          `<strong>${esc(r.check)}</strong>`,
+          tag(r.matrix, 'neutral'),
+          cell(esc(r.matrixSays)),
+        ]),
+      }),
+    ),
+    panel(
+      'Who quotes these limits, and how it used to be spelled',
+      `<p class="mk-tight">A finding that cites a limit is quoting this table, and ${QC_LIMITS.citedAs.filter((c) => c.moved).length} of the ${QC_LIMITS.citedAs.length} used to be typed instead — restated in findings and panels across the workspace, two of them already drifting from the spelling here. They read the row now. Only the field duplicate needed it for the matrix work; leaving its siblings typed beside a derived neighbour is the defect this catalogue has been caught by twice, so all of them moved together.</p>` +
+        table({
+          caption: 'One row per limit rather than one per sentence: the change happened to the number, and the sentences carried it.',
+          head: ['Limit', 'Reads now', 'Was typed as', 'Where it is quoted'],
+          kind: 'matrix',
+          label: 'Limit citations and what they said before',
+          rows: QC_LIMITS.citedAs.map((c) => [
+            `<strong>${esc(c.check)}</strong>`,
+            `<span class="mk-num">${esc(QC_LIMITS.rules.find((r) => r.check === c.check).limit)}</span>`,
+            cell(`<span class="mk-muted">${esc(c.wasTyped)}</span>`),
+            cell(`<span class="mk-muted">${esc(c.where)}</span>`),
+          ]),
+        }) +
+        `<p class="mk-tight mk-muted">No number moved. What moved is that there is one of each: where two spellings existed, this table\u2019s is the one that survives, and a limit changed here now changes every sentence that cites it. <a class="mk-ref" href="#qc">The findings that quote them</a>.</p>`,
+    ),
+    '1fr 1fr',
+  ) +
   cols(
     panel(
       'The applicability rule is the part that was wrong',
@@ -7558,7 +7755,7 @@ const qcLimits = () => (
         head: '<span class="mk-queue__kind">Relative percent difference near the limit of reporting</span>',
         body:
           '<p class="mk-tight">RPD is only meaningful when both results sit well above the reporting limit. A duplicate pair of <code class="mk-file">1.2</code> and <code class="mk-file">1.8</code> µg/L against a 1.0 µg/L limit gives an RPD of 40% and means nothing at all — the two numbers are the same measurement inside its own uncertainty.</p>' +
-          '<p class="mk-tight">Applying the 30% limit to every pair raises a failure on almost every near-limit duplicate, and a QC flag that is usually noise is a QC flag people stop reading. Above 5 × LOR the percentage applies; below it, an absolute difference of 2 × LOR does.</p>',
+          `<p class="mk-tight">Applying the ${esc(DQO.limitFor('Field duplicate RPD').limit)} limit to every pair raises a failure on almost every near-limit duplicate, and a QC flag that is usually noise is a QC flag people stop reading. Above 5 × LOR the percentage applies; below it, an absolute difference of 2 × LOR does. <a class="mk-ref" href="#composite">The soil duplicate is where that bites</a>: ${SOIL.duplicate.byAbsolute.map((r) => r.analyte.toLowerCase()).join(' and ')} sits below the threshold, so its pair is judged by difference and not by percentage.</p>`,
         foot: '<span class="mk-tag mk-tag--good">Zinc at MW05: 21.4 and 31.6 µg/L, both above 5 × LOR — the 38.2% failure is real</span>',
       }),
     ),
@@ -7586,7 +7783,7 @@ const qcLimits = () => (
           ],
           action: 'Create version 2026.2',
           reversible:
-            `A limit is versioned with an effective date, exactly as a criteria set is. A result evaluated under ${esc(DQO.used.version)} keeps that verdict, and the version that produced it is on the result.`,
+            `A limit is versioned with an effective date, exactly as a criteria set is. A result evaluated under ${esc(DQO.used.version)} keeps that verdict, and the version that produced it is on the result. The matrix is versioned the same way: a ${esc(DQO_APPLICABILITY.gap.matrix.toLowerCase())} field-duplicate limit would be a new row in a new version rather than an edit to the ${esc(DQO_APPLICABILITY.gap.judgedBy.toLowerCase())} one, which is why this set holds ${DQO_APPLICABILITY.rows.find((r) => r.matrix === DQO_APPLICABILITY.gap.matrix).limits} of them today.`,
         }),
     ),
   )
@@ -7903,7 +8100,10 @@ const dataQuality = () => {
     rows: DQA.map((d) => [
       `<strong>${esc(d.dim)}</strong>`,
       `<span class="mk-muted">${esc(d.measure)}</span>`,
-      esc(d.objective),
+      cell(
+        esc(d.objective) +
+        (d.wasId ? `<br><span class="mk-muted">was “${esc(DQO.wasStated(d.wasId).was)}” — typed beside the library rather than read from it</span>` : ''),
+      ),
       esc(d.achieved),
       `<span class="mk-num">${d.settled.total}</span>` +
         `<small>${d.settled.automatic ? `${d.settled.automatic} automatic · ` : ''}${d.settled.byPerson ? `${d.settled.byPerson} by a person · ` : ''}${d.settled.reviewed ? `${d.settled.reviewed} reviewed · ` : ''}${d.settled.open ? `${d.settled.open} open` : 'none open'}</small>`,
@@ -7916,6 +8116,7 @@ const dataQuality = () => {
     kind: 'matrix',
     label: 'Data quality assessment',
   }) +
+  `<p class="mk-tight"><strong>${DQA.filter((d) => d.wasId).length} of the ${DQA.length} dimensions cite a data quality limit, and all ${DQA.filter((d) => d.wasId).length} read it rather than restate it.</strong> Each one used to type the numbers beside a library that holds them — a second spelling of one figure, and one of the three was already drifting from it. Each now names the matrix its limits were written for, and carries in its own cell the sentence it replaced. <a class="mk-ref" href="#qc-limits">The limits, with their matrix and their dates</a>. The other ${DQA.length - DQA.filter((d) => d.wasId).length} cite a criteria set or a completeness target rather than a limit, and are untouched.</p>` +
   `<p class="mk-tight">The <strong>Settled by</strong> column is the one the practitioner review asked for. Where it names a rule and a version — <em>${esc(DQA[0].settled.who[0] ?? '')}</em> — the consequence was deterministic and nobody had to decide it. Where it names a person, somebody did, and their reason is on <a class="mk-ref" href="#qc">the finding</a>. Where it says <em>nobody yet</em>, the dimension’s verdict is a statement about data whose qualifiers have not been applied.</p>` +
   cols(
     panel(
@@ -9129,21 +9330,31 @@ const samplingEvents = () => (
         panel(
           'The quality control this round rests on',
           table({
-            caption: 'Two controls, and one of them is about the compositing itself.',
-            head: ['Control', 'Sample', 'Parent', 'What it answers'],
-            scroll: true,
+            caption: 'Two controls, and one of them is about the compositing itself. The limit column is resolved by matrix, so the row says what judged it rather than leaving it to be assumed.',
+            head: ['Control', 'Sample', 'Matrix', 'Judged against', 'What it answers'],
+            kind: 'matrix',
             label: `Quality control for round ${S.round}`,
-            rows: soilQc.map((x) => [
-              esc(x.qc),
-              `<span class="mk-file mk-file--id mk-atom">${esc(x.id)}</span>`,
-              cell(`<span class="mk-muted">${esc(x.detail ?? x.parent)}</span>`),
-              cell(x.qc.startsWith('Field duplicate')
-                ? 'Sampling and analysis together, on soil — the only control that carries the act of collecting'
-                : esc(S.rinsate.why.split('.')[0] + '.')),
-            ]),
+            rows: soilQc.map((x) => {
+              const isDup = x.qc.startsWith('Field duplicate');
+              const m = isDup ? S.duplicate.matrix : S.rinsate.matrix;
+              const r = isDup ? S.duplicate.limit : QC_LIMITS.resolve('Field / trip / equipment blank', m);
+              return [
+                esc(x.qc),
+                `<span class="mk-file mk-file--id mk-atom">${esc(x.id)}</span>`,
+                tag(m, 'neutral'),
+                cell(
+                  `<span class="mk-num${r.held ? '' : ' mk-num--warn'}">${esc(r.rule.limit)}</span> <span class="mk-muted">DQO ${esc(r.rule.version)} · ${esc(r.rule.matrix.toLowerCase())}</span><br>` +
+                  `<span class="mk-muted">${r.held ? 'The set holds this limit for this matrix.' : `The set holds none for ${esc(m.toLowerCase())}; this is the ${esc(r.judgedBy.toLowerCase())} one.`}</span>`,
+                ),
+                cell(isDup
+                  ? 'Sampling and analysis together, on soil — the only control that carries the act of collecting'
+                  : esc(S.rinsate.why.split('.')[0] + '.')),
+              ];
+            }),
           }) +
             `<p class="mk-tight">The rinsate is the one that is particular to this round. Five increments went through one bowl and four through one splitter, so carry-over between increments would put the equipment inside the composite’s number; the blank is the only thing that says it did not, and every analyte on it is below the limit of reporting.</p>` +
-            `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.duplicate.matrixGap)}</p>`,
+            `<p class="mk-tight"><strong>The two rows resolve differently, and that is the point.</strong> The rinsate is water on a soil round and the set holds a water blank limit, so it is judged by a limit written for it. The duplicate is soil, and the set holds none — so its verdict names a water limit and says so. <a class="mk-ref" href="#composite">The record behind that</a>, and <a class="mk-ref" href="#qc-limits">the library counting its own rows</a>.</p>` +
+            `<p class="mk-tight mk-muted"><strong>Recorded ${esc(S.duplicate.matrixGap.raised)}, settled ${esc(S.duplicate.matrixGap.settled)}. What this note said before:</strong> ${esc(S.duplicate.matrixGap.was)}</p>`,
         ),
         '3fr 2fr',
       ) +
@@ -9158,7 +9369,7 @@ const samplingEvents = () => (
         C.card({
           tone: 'new',
           head: '<span class="mk-queue__kind">QC linkage</span>',
-          body: 'WDL-26Q2-004 → parent WDL-26Q2-003 · MW05 · declared at collection 2026-05-13 08:40 AWST by A. Nakamura. Zinc RPD 38.2% against a 30% limit — <a class="mk-ref" href="#qc">open in QA/QC</a>.',
+          body: `WDL-26Q2-004 → parent WDL-26Q2-003 · MW05 · declared at collection 2026-05-13 08:40 AWST by A. Nakamura. Zinc RPD 38.2% against the ${esc(DQO.limitFor('Field duplicate RPD').limit)} limit — <a class="mk-ref" href="#qc">open in QA/QC</a>.`,
         }),
     ),
     panel(
