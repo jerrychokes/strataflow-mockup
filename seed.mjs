@@ -6913,7 +6913,7 @@ export const EXCHANGE = (() => {
     { domain: 'Result value', writes: 'Result', tier: 'established',
       basis: 'Written as reported. A non-detect keeps the laboratory’s own censoring notation rather than becoming a substituted number.' },
     { domain: 'Unit', writes: 'Result_Unit', tier: 'established',
-      basis: 'The spec’s unit column, distinct from Detection_Limit_Units — the two units the file keeps apart stay apart. The canonical unit is written, with any conversion this instance applied recorded in lineage here — the file carries the number and the unit, not the conversion.' },
+      basis: 'The spec’s unit column, distinct from Detection_Limit_Units — the two units the file keeps apart stay apart. The canonical unit is written, with any conversion this instance applied recorded in lineage here — the file carries the number and the unit, not the conversion. The first draft of this row wrote “Units”, a name the thirty published columns do not include (W10-A-1).' },
     { domain: 'Sample', writes: 'SampleCode', tier: 'established',
       basis: 'The sample identifier as collected, which is the identifier the chain of custody and the certificate both name.' },
     { domain: 'Fraction — dissolved', writes: 'Total_or_Filtered', tier: 'established',

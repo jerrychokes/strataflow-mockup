@@ -4435,10 +4435,10 @@ const formatDesigner = () =>
       table({
         head: ['Source field', 'Maps to', 'Rule'],
         rows: [
-          ['<code>ChemName</code>', 'analyte', '<span class="mk-muted">dictionary lookup, then fuzzy with confidence</span>'],
+          ['<code>ChemCode</code> + <code>OriginalChemName</code>', 'analyte', '<span class="mk-muted">dictionary lookup on the code, then the name, then fuzzy with confidence</span>'],
           ['<code>Result</code>', 'result value', '<span class="mk-muted">−999 → analysis aborted · −997 → text result</span>'],
           ['<code>EQL</code>', '<strong>LOR</strong>', '<span class="mk-muted">renamed inward — the domain says LOR</span>'],
-          ['<code>Units</code>', 'unit', '<span class="mk-muted">case-normalised, converted with the rule recorded</span>'],
+          ['<code>Result_Unit</code>', 'unit', '<span class="mk-muted">case-normalised, converted with the rule recorded</span>'],
           ['<code>SampleCode</code>', 'sample', '<span class="mk-muted">joins the Sample file on the pair</span>'],
         ],
       })),
