@@ -101,7 +101,13 @@ const SECTION_VIEW = [
   // parents both questions off a bore. An instrument is a thing hanging in
   // one, and a logger series is that bore's own record at an hourly cadence.
   { label: 'Locations', lede: 'Step 1 — the bores, their survey history, and everything read while standing at one', ids: ['locations', 'location', 'facility', 'map', 'hydrograph', 'water', 'stygofauna', 'instruments', 'logger-series', 'project-settings'] },
-  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture'] },
+  // Wave 9 files the composite record here rather than under Locations: a
+  // composite is a sample, it is made during one round, and everything on its
+  // screen — the increments, the scheme, the custody instruction, the
+  // follow-up clock — belongs to the occasion the material was collected on
+  // rather than to any one place. Two of its nine increments have no place on
+  // the register at all, which settles it.
+  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture', 'composite'] },
   { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, and what each one rests on', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles'] },
   { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },

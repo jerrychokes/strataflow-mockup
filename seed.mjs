@@ -369,6 +369,36 @@ export const LOCATIONS = [
   { code: 'PB01', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — western borefield', easting: 512090, northing: 7653640, toc: 216.30, screen: '30.0 – 60.0 m', state: 'not_evaluated' },
   { code: 'PB02', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — eastern borefield', easting: 512740, northing: 7653320, toc: 214.95, screen: '32.0 – 62.0 m', state: 'not_evaluated' },
   { code: 'PB03', klass: 'production_bore', area: 'Borefield', unit: 'Superficial', position: 'Production — decommissioned 2025-11-04', easting: 511560, northing: 7654180, toc: 218.20, screen: '28.0 – 55.0 m', state: 'not_evaluated', lifecycle: 'decommissioned' },
+  /*
+   * Wave 9 — the class-soil rows, and they are deliberately a **different
+   * record shape** rather than a bore with its casing fields left blank.
+   *
+   * `docs/GLOSSARY.md`'s *location class* entry lists nine classes and soil is
+   * one of them, present since S1 "not because the others are used, but
+   * because adding one later is a migration against live data". So these are
+   * rows on the one register rather than a second register beside it — the
+   * same argument the production bores are here on.
+   *
+   * What they do **not** carry is `toc` or `screen`. A test pit has no casing
+   * and no screened interval; it has a **ground surface** elevation and a set
+   * of logged **depth intervals** (FR-1.7). Giving one a `toc` holding the
+   * ground level would be the "bore missing its casing" drawing this wave
+   * exists to avoid, so the register reads `datum` + `elevation` for the level
+   * and the interval log for the depth. Nothing else in this seed reads `toc`
+   * or `screen` across all classes — every other reader narrows to groundwater
+   * or names one bore — so those two fields stay exactly what they are.
+   *
+   * `state` is `not_evaluated` on every one of them, and that is a computed
+   * fact rather than caution: no set in `CRITERIA_LIBRARY` carries a soil or
+   * sediment matrix, so nothing is asserted about any soil result (glossary,
+   * *matrix*). `SOIL.criteria` at the foot of this file derives that emptiness
+   * rather than claiming it.
+   */
+  { code: 'TP01', klass: 'soil', area: 'TSF', unit: '—', position: 'Seepage path — nearest the TSF', easting: 513240, northing: 7652980, elevation: 206.90, datum: 'Ground surface', state: 'not_evaluated' },
+  { code: 'TP02', klass: 'soil', area: 'TSF', unit: '—', position: 'Seepage path — downgradient', easting: 513540, northing: 7652880, elevation: 205.40, datum: 'Ground surface', state: 'not_evaluated' },
+  { code: 'TP03', klass: 'soil', area: 'TSF', unit: '—', position: 'Seepage path — downgradient', easting: 513840, northing: 7652780, elevation: 204.10, datum: 'Ground surface', state: 'not_evaluated' },
+  { code: 'TP04', klass: 'soil', area: 'TSF', unit: '—', position: 'Seepage path — furthest from the TSF', easting: 514140, northing: 7652680, elevation: 202.80, datum: 'Ground surface', state: 'not_evaluated' },
+  { code: 'TP05', klass: 'soil', area: 'Borefield', unit: '—', position: 'Background — off the seepage path', easting: 511960, northing: 7654520, elevation: 216.20, datum: 'Ground surface', state: 'not_evaluated' },
 ];
 
 /**
@@ -2274,19 +2304,39 @@ export const FACILITY = {
  * Composites are out of the slice, not omitted by oversight: FR-1.7's depth
  * intervals and increments are soil and sediment work, staged S8. Every row
  * here is a discrete grab.
+ *
+ * **Still true of this round, corrected 2 September 2026 (wave 9) about the
+ * seed.** Every row below is still a discrete grab and this manifest still
+ * holds no composite. What changed is the sentence's scope: `SOIL` at the foot
+ * of this file carries a soil investigation with two composites and nine
+ * constituent increments, drawn as a proposal, so "out of the slice" is a
+ * statement about the product's sequencing rather than about what this
+ * catalogue draws.
+ *
+ * **And `matrix` was carrying the wrong word.** The glossary's *matrix* entry
+ * is a closed list of five — water, soil, sediment, vapour, biota — and it is
+ * explicitly "distinct from location class, which is a property of the place".
+ * Eight rows read `Groundwater`, which is the **location class** of the bore
+ * they came from, and three read `Field blank`/`Trip blank`/`Equipment blank`,
+ * which are **sample types** the `qc` column beside them already carries. All
+ * eleven are `Water`, because that is what is in the bottle. Nobody noticed
+ * for the reason the glossary gives — "a water matrix is overwhelmingly the
+ * common case in the slice, which is exactly why guessing it would be
+ * invisible when wrong" — and the column only became legible the moment a
+ * round arrived with three matrices in it.
  */
 export const EVENT_SAMPLES = [
-  { id: 'WDL-26Q2-001', location: 'MW01A', matrix: 'Groundwater', collected: '2026-05-12 07:55 AWST', depth: '20.4 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
-  { id: 'WDL-26Q2-002', location: 'MW03B', matrix: 'Groundwater', collected: '2026-05-12 10:20 AWST', depth: '48.8 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
-  { id: 'WDL-26Q2-003', location: 'MW05', matrix: 'Groundwater', collected: '2026-05-13 08:40 AWST', depth: '15.2 m bgl', tests: 16, results: 16, qc: '—', parent: '—', containers: 5, state: 'evaluated' },
-  { id: 'WDL-26Q2-004', location: 'MW05', matrix: 'Groundwater', collected: '2026-05-13 08:40 AWST', depth: '15.2 m bgl', tests: 14, results: 14, qc: 'Field duplicate (blind)', parent: 'WDL-26Q2-003', containers: 4, state: 'evaluated' },
-  { id: 'WDL-26Q2-005', location: 'MW07', matrix: 'Groundwater', collected: '2026-05-13 11:05 AWST', depth: '17.1 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
-  { id: 'WDL-26Q2-008', location: 'MW07', matrix: 'Groundwater', collected: '2026-05-13 11:05 AWST', depth: '17.1 m bgl', tests: 14, results: 14, qc: 'Field duplicate (blind)', parent: 'WDL-26Q2-005', containers: 3, state: 'evaluated' },
-  { id: 'WDL-26Q2-006', location: 'MW09', matrix: 'Groundwater', collected: '2026-05-14 07:30 AWST', depth: '18.6 m bgl', tests: 14, results: 13, qc: '—', parent: '—', containers: 4, state: 'results-partial' },
-  { id: 'WDL-26Q2-007', location: 'MW12', matrix: 'Groundwater', collected: '2026-05-14 11:20 AWST', depth: '19.8 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
-  { id: 'WDL-26Q2-QC1', location: '—', matrix: 'Field blank', collected: '2026-05-13 08:00 AWST', depth: '—', tests: 14, results: 14, qc: 'Field blank', parent: 'The event', detail: 'The event itself — poured at MW05, at the bore', containers: 2, state: 'evaluated' },
-  { id: 'WDL-26Q2-QC2', location: '—', matrix: 'Trip blank', collected: '2026-05-12 06:00 AWST', depth: '—', tests: 14, results: 14, qc: 'Trip blank', parent: 'The cooler', detail: 'The cooler — travelled with the samples, 12–15 May', containers: 2, state: 'evaluated' },
-  { id: 'WDL-26Q2-QC3', location: '—', matrix: 'Equipment blank', collected: '2026-05-13 10:35 AWST', depth: '—', tests: 14, results: 14, qc: 'Equipment blank (rinsate)', parent: 'Bladder pump', detail: 'Bladder pump, rinsed between WDL-26Q2-003 and WDL-26Q2-005', containers: 2, state: 'evaluated' },
+  { id: 'WDL-26Q2-001', location: 'MW01A', matrix: 'Water', collected: '2026-05-12 07:55 AWST', depth: '20.4 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
+  { id: 'WDL-26Q2-002', location: 'MW03B', matrix: 'Water', collected: '2026-05-12 10:20 AWST', depth: '48.8 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
+  { id: 'WDL-26Q2-003', location: 'MW05', matrix: 'Water', collected: '2026-05-13 08:40 AWST', depth: '15.2 m bgl', tests: 16, results: 16, qc: '—', parent: '—', containers: 5, state: 'evaluated' },
+  { id: 'WDL-26Q2-004', location: 'MW05', matrix: 'Water', collected: '2026-05-13 08:40 AWST', depth: '15.2 m bgl', tests: 14, results: 14, qc: 'Field duplicate (blind)', parent: 'WDL-26Q2-003', containers: 4, state: 'evaluated' },
+  { id: 'WDL-26Q2-005', location: 'MW07', matrix: 'Water', collected: '2026-05-13 11:05 AWST', depth: '17.1 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
+  { id: 'WDL-26Q2-008', location: 'MW07', matrix: 'Water', collected: '2026-05-13 11:05 AWST', depth: '17.1 m bgl', tests: 14, results: 14, qc: 'Field duplicate (blind)', parent: 'WDL-26Q2-005', containers: 3, state: 'evaluated' },
+  { id: 'WDL-26Q2-006', location: 'MW09', matrix: 'Water', collected: '2026-05-14 07:30 AWST', depth: '18.6 m bgl', tests: 14, results: 13, qc: '—', parent: '—', containers: 4, state: 'results-partial' },
+  { id: 'WDL-26Q2-007', location: 'MW12', matrix: 'Water', collected: '2026-05-14 11:20 AWST', depth: '19.8 m bgl', tests: 14, results: 14, qc: '—', parent: '—', containers: 4, state: 'evaluated' },
+  { id: 'WDL-26Q2-QC1', location: '—', matrix: 'Water', collected: '2026-05-13 08:00 AWST', depth: '—', tests: 14, results: 14, qc: 'Field blank', parent: 'The event', detail: 'The event itself — poured at MW05, at the bore', containers: 2, state: 'evaluated' },
+  { id: 'WDL-26Q2-QC2', location: '—', matrix: 'Water', collected: '2026-05-12 06:00 AWST', depth: '—', tests: 14, results: 14, qc: 'Trip blank', parent: 'The cooler', detail: 'The cooler — travelled with the samples, 12–15 May', containers: 2, state: 'evaluated' },
+  { id: 'WDL-26Q2-QC3', location: '—', matrix: 'Water', collected: '2026-05-13 10:35 AWST', depth: '—', tests: 14, results: 14, qc: 'Equipment blank (rinsate)', parent: 'Bladder pump', detail: 'Bladder pump, rinsed between WDL-26Q2-003 and WDL-26Q2-005', containers: 2, state: 'evaluated' },
 ];
 
 /**
@@ -2317,11 +2367,36 @@ export const LAB_QC = [
  * register's.
  */
 export const EVENTS = [
-  { code: '2026-Q2-GW', label: 'Quarterly groundwater', window: '1 Apr – 30 Jun 2026', collected: '12–14 May 2026', by: 'A. Nakamura', samples: EVENT_SAMPLES.filter((s) => s.qc === '—').length, qc: EVENT_SAMPLES.filter((s) => s.qc !== '—').length, state: 'results-complete', lab: 'Pilbara Analytical Services' },
-  { code: '2026-Q2-PFAS', label: 'PFAS supplementary', window: '1 Apr – 30 Jun 2026', collected: '13 May 2026', by: 'A. Nakamura', samples: 4, qc: 1, state: 'results-partial', lab: 'Yarra Regional Analytical' },
-  { code: '2026-M05-TSF', label: 'Monthly TSF downgradient', window: '1 – 31 May 2026', collected: '13 May 2026', by: 'D. Okafor', samples: 3, qc: 1, state: 'results-complete', lab: 'Pilbara Analytical Services' },
-  { code: '2026-Q2-SW', label: 'Quarterly surface water', window: '1 Apr – 30 Jun 2026', collected: '14 May 2026', by: 'D. Okafor', samples: 1, qc: 0, state: 'evaluated', lab: 'Pilbara Analytical Services' },
-  { code: '2026-Q3-GW', label: 'Quarterly groundwater', window: '1 Jul – 30 Sep 2026', collected: '—', by: '—', samples: 0, qc: 0, state: 'planned', lab: '—' },
+  /*
+   * `matrix` arrived with wave 9, on every row rather than only on the new
+   * one. A round collects material and material has a matrix (glossary), and
+   * this register never had to say so while there was only ever one — which
+   * is exactly the condition under which a column carrying the wrong word
+   * goes unnoticed for a year. The groundwater round's is a getter over its
+   * own manifest, so the register and the manifest cannot come apart on it.
+   */
+  { code: '2026-Q2-GW', label: 'Quarterly groundwater', window: '1 Apr – 30 Jun 2026', collected: '12–14 May 2026', by: 'A. Nakamura', samples: EVENT_SAMPLES.filter((s) => s.qc === '—').length, qc: EVENT_SAMPLES.filter((s) => s.qc !== '—').length, state: 'results-complete', lab: 'Pilbara Analytical Services', get matrix() { return [...new Set(EVENT_SAMPLES.map((s) => s.matrix))].join(' · '); } },
+  { code: '2026-Q2-PFAS', label: 'PFAS supplementary', window: '1 Apr – 30 Jun 2026', collected: '13 May 2026', by: 'A. Nakamura', samples: 4, qc: 1, state: 'results-partial', lab: 'Yarra Regional Analytical', matrix: 'Water' },
+  { code: '2026-M05-TSF', label: 'Monthly TSF downgradient', window: '1 – 31 May 2026', collected: '13 May 2026', by: 'D. Okafor', samples: 3, qc: 1, state: 'results-complete', lab: 'Pilbara Analytical Services', matrix: 'Water' },
+  { code: '2026-Q2-SW', label: 'Quarterly surface water', window: '1 Apr – 30 Jun 2026', collected: '14 May 2026', by: 'D. Okafor', samples: 1, qc: 0, state: 'evaluated', lab: 'Pilbara Analytical Services', matrix: 'Water' },
+  /*
+   * Wave 9 — the soil investigation, and it is an event like any other rather
+   * than a special case beside them. Its counts are getters for the reason
+   * `IMPORTS` uses one: the manifest it counts is declared at the foot of this
+   * file, because it needs the location register and the criteria library to
+   * exist first, and a literal here would be a second copy of an addition made
+   * five thousand lines down. `matrix` says what this round collected, which
+   * the groundwater rounds never needed to say because there was only ever
+   * one — and stating it is the glossary's rule, not a decoration.
+   */
+  {
+    code: '2026-M05-SOIL', label: 'TSF seepage soil investigation', window: '1 – 31 May 2026',
+    collected: '6–7 May 2026', by: 'D. Okafor', state: 'results-complete', lab: 'Pilbara Analytical Services',
+    matrix: 'Soil · Sediment · Water',
+    get samples() { return SOIL.counts.primary; },
+    get qc() { return SOIL.counts.qc; },
+  },
+  { code: '2026-Q3-GW', label: 'Quarterly groundwater', window: '1 Jul – 30 Sep 2026', collected: '—', by: '—', samples: 0, qc: 0, state: 'planned', lab: '—', matrix: 'Water' },
 ];
 
 
@@ -5618,6 +5693,943 @@ export const LOGGER_SERIES = (() => {
       dips: dips.length,
       findings: findings.length,
       raised: findings.filter((f) => !f.explained).length,
+    },
+  };
+})();
+
+/* ==================================================================== *
+ * Wave 9 — soil, sediment, depth intervals and composites (FR-1.7)
+ * ==================================================================== */
+
+/**
+ * A sample that is made of other samples, and the depth axis water has not got.
+ *
+ * ## Where every word comes from
+ *
+ * `docs/GLOSSARY.md` binds two entries here and supplies no third.
+ * **Location class** is a property of the *place* — soil and sediment are two
+ * of its nine, all present since S1 "not because the others are used, but
+ * because adding one later is a migration against live data". **Matrix** is a
+ * property of the *sample*, "recorded, never inferred from the location", and
+ * the entry's own example is a groundwater location yielding a water sample
+ * and, on the same visit, a sediment one.
+ *
+ * This investigation draws that example literally rather than describing it.
+ * The sediment sample below is collected at **SW01**, whose location class is
+ * *surface water*; the rinsate blank taken off soil equipment is a **water**
+ * sample on a soil round; and the two composites are soil taken at locations
+ * whose class is soil. Three samples, three matrices, and not one of them is
+ * derivable from where it was standing.
+ *
+ * The nouns the glossary has no entry for come from FR-1.7's own sentence —
+ * *"Store depth intervals on soil, sediment, and vapour samples, and represent
+ * composite samples with traceability to constituent increments"* — so
+ * **composite sample**, **constituent increment** and **depth interval** are
+ * the requirement's words rather than minted ones (QB-9, ADR-0009).
+ *
+ * Three decisions had no anchor in either document, and are recorded here
+ * rather than made in passing:
+ *
+ * - **compositing scheme** — the stated basis on which increments were
+ *   combined. Deliberately not *compositing rule*: `rule` is the derivation
+ *   engine's word (FR-2.1, FR-2.3) and a composite is emphatically **not** a
+ *   derived value. See `notDerived` below, which is the whole of that
+ *   distinction written down.
+ * - **test pit** — the practitioner's word for how the hole was made. It is
+ *   recorded as the location's `advanced` method and is not adopted as a
+ *   class; the class is `soil`, which is the glossary's.
+ * - **location codes** — `TP01`…`TP05` follow the site's own convention like
+ *   every other row on the register (MW, SW, PB, TSF-VWP). `fixtures/partner/`
+ *   and G-71 put the `MOCK-` prefix on the project code and on the
+ *   identifiers that imitate an outside party's record — the custody form and
+ *   the laboratory's work order below both carry it — because those are what
+ *   a screenshot could be mistaken for.
+ *
+ * ## Vapour is not drawn, and that is a decision
+ *
+ * FR-1.7 names three matrices and this seed carries honest context for two.
+ * There is no soil-gas programme on this site, no probe on the location
+ * register, and no criteria set that would receive a vapour result. Inventing
+ * all three to fill a requirement's third noun would be drawing a matrix
+ * rather than drawing a site, so the coverage row says *soil and sediment*
+ * and names what it left out.
+ *
+ * ## What is evaluated, and what is honestly not
+ *
+ * Nothing. `criteria` below filters `CRITERIA_LIBRARY` for a soil or sediment
+ * matrix and finds none, so every result in this investigation is
+ * `not_evaluated` — the glossary's own consequence, computed rather than
+ * asserted. A soil criteria set is a deliberate change on `#criteria` with an
+ * effective date, an applicability rule and a version; it is not something an
+ * investigation invents on its way past.
+ */
+export const SOIL = (() => {
+  const round = '2026-M05-SOIL';
+  const label = 'TSF seepage soil investigation';
+  const crew = 'D. Okafor';
+  const approver = 'R. Whitmore';
+  const laboratory = 'Pilbara Analytical Services';
+  const certificate = 'PAS2026-04361';
+  const workOrder = 'PAS-WO-268503';
+  const plan = 'Sampling and analysis plan — TSF toe seepage investigation, rev 1';
+  const planApproved = '2026-05-04';
+  /** The field screen above which a discrete sample was submitted. Decided in the plan. */
+  const screenThreshold = 500;
+
+  /** ISO date arithmetic at UTC midnight. No clock is read; a rebuild is identical. */
+  const addDays = (iso, n) =>
+    new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  const m = (v) => v.toFixed(2);
+  const span = (a, b) => `${m(a)} – ${m(b)} m`;
+
+  /*
+   * The depth-interval log — FR-1.7's first clause, and the record shape a
+   * water sample has no equivalent of.
+   *
+   * A bore is logged once, when it is drilled, and the log is construction. A
+   * test pit is logged **on the day it is opened**, by the person standing in
+   * front of it, and the log is what the sampling decision is made from. So
+   * the intervals are horizon boundaries rather than round numbers, and each
+   * one carries the field screen that was read on it.
+   *
+   * `ec` is a **field screen**: electrical conductivity on a 1:5 soil:water
+   * slurry, read on a handheld meter at the pit. It is not the laboratory's
+   * number and it is never reported as one — it exists to choose which
+   * interval goes in the jar, and the plan's rule (above `screenThreshold`)
+   * is applied below rather than described.
+   */
+  const pits = [
+    {
+      code: 'TP01', day: 1, opened: '2026-05-06 08:10 AWST',
+      advanced: 'Excavator, 600 mm mud bucket', refusal: 'Refusal on weathered granite at 2.10 m',
+      backfill: 'Backfilled with the spoil in the order it came out, compacted in 300 mm lifts, 2026-05-06 12:40',
+      intervals: [
+        { from: 0.00, to: 0.30, material: 'Silty SAND — red-brown, fine to medium, trace rootlets', moisture: 'dry', ec: 210 },
+        { from: 0.30, to: 0.90, material: 'Clayey SAND — pale brown, mottled orange', moisture: 'moist', ec: 640 },
+        { from: 0.90, to: 1.60, material: 'Sandy CLAY — orange-brown, gypsum crystals on fracture faces', moisture: 'moist', ec: 1520 },
+        { from: 1.60, to: 2.10, material: 'Weathered GRANITE — extremely low strength', moisture: 'moist', ec: 380, refusal: true },
+      ],
+    },
+    {
+      code: 'TP02', day: 1, opened: '2026-05-06 13:55 AWST',
+      advanced: 'Excavator, 600 mm mud bucket', refusal: 'Refusal on weathered granite at 2.40 m',
+      backfill: 'Backfilled with the spoil in the order it came out, compacted in 300 mm lifts, 2026-05-06 16:05',
+      intervals: [
+        { from: 0.00, to: 0.30, material: 'Silty SAND — red-brown, fine to medium', moisture: 'dry', ec: 180 },
+        { from: 0.30, to: 1.00, material: 'Clayey SAND — pale brown, faint mottling', moisture: 'moist', ec: 410 },
+        { from: 1.00, to: 1.80, material: 'Sandy CLAY — orange-brown', moisture: 'moist', ec: 760 },
+        { from: 1.80, to: 2.40, material: 'Weathered GRANITE — extremely low strength', moisture: 'moist', ec: 240, refusal: true },
+      ],
+    },
+    {
+      code: 'TP03', day: 2, opened: '2026-05-07 07:40 AWST',
+      advanced: 'Excavator, 600 mm mud bucket', refusal: 'Refusal on weathered granite at 2.00 m',
+      backfill: 'Backfilled with the spoil in the order it came out, compacted in 300 mm lifts, 2026-05-07 09:50',
+      intervals: [
+        { from: 0.00, to: 0.30, material: 'Silty SAND — red-brown, fine to medium', moisture: 'dry', ec: 190 },
+        { from: 0.30, to: 0.80, material: 'Clayey SAND — pale brown, mottled orange', moisture: 'moist', ec: 520 },
+        { from: 0.80, to: 1.70, material: 'Sandy CLAY — orange-brown, occasional gypsum', moisture: 'moist', ec: 1080 },
+        { from: 1.70, to: 2.00, material: 'Weathered GRANITE — extremely low strength', moisture: 'moist', ec: 300, refusal: true },
+      ],
+    },
+    {
+      code: 'TP04', day: 2, opened: '2026-05-07 10:25 AWST',
+      advanced: 'Excavator, 600 mm mud bucket', refusal: 'Refusal on weathered granite at 1.90 m',
+      backfill: 'Backfilled with the spoil in the order it came out, compacted in 300 mm lifts, 2026-05-07 11:55',
+      intervals: [
+        { from: 0.00, to: 0.30, material: 'Silty SAND — red-brown, fine to medium', moisture: 'dry', ec: 150 },
+        { from: 0.30, to: 1.10, material: 'Clayey SAND — pale brown', moisture: 'slightly moist', ec: 330 },
+        { from: 1.10, to: 1.90, material: 'Weathered GRANITE — extremely low strength', moisture: 'slightly moist', ec: 260, refusal: true },
+      ],
+    },
+    {
+      code: 'TP05', day: 2, opened: '2026-05-07 14:20 AWST',
+      advanced: 'Excavator, 600 mm mud bucket', refusal: 'Refusal on weathered granite at 2.30 m',
+      backfill: 'Backfilled with the spoil in the order it came out, compacted in 300 mm lifts, 2026-05-07 15:40',
+      intervals: [
+        { from: 0.00, to: 0.30, material: 'Silty SAND — red-brown, fine to medium, trace rootlets', moisture: 'dry', ec: 90 },
+        { from: 0.30, to: 1.10, material: 'Clayey SAND — pale brown', moisture: 'slightly moist', ec: 140 },
+        { from: 1.10, to: 2.30, material: 'Weathered GRANITE — extremely low strength', moisture: 'dry', ec: 110, refusal: true },
+      ],
+    },
+  ];
+
+  const pitOf = (code) => pits.find((p) => p.code === code);
+  /** The soil rows of the location register, read from it rather than listed twice. */
+  const places = LOCATIONS.filter((l) => l.klass === 'soil');
+  /** Chainage along the seepage path, computed from the register's own coordinates. */
+  const origin = LOCATIONS.find((l) => l.code === 'TP01');
+  const chainage = (code) => {
+    const l = LOCATIONS.find((x) => x.code === code);
+    return Math.round(Math.hypot(l.easting - origin.easting, l.northing - origin.northing));
+  };
+  /** The deepest thing the pit reached, computed off the log. */
+  const investigated = (code) => {
+    const p = pitOf(code);
+    return { from: p.intervals[0].from, to: p.intervals.at(-1).to, n: p.intervals.length };
+  };
+  /**
+   * Which interval a discrete came out of — the plan's rule, applied.
+   *
+   * "One discrete from the interval with the highest field screen, refusal
+   * horizons excluded, at any pit where that reading exceeds 500 µS/cm." The
+   * background pit is submitted whatever it reads, because a control that is
+   * only collected when it is interesting is not a control.
+   */
+  const chosen = (code) =>
+    pitOf(code).intervals.filter((i) => !i.refusal).reduce((a, b) => (b.ec > a.ec ? b : a));
+  const overThreshold = (code) => chosen(code).ec > screenThreshold;
+
+  /* ---------------------------------------------------------------- *
+   * The two composites, and the difference between where they were made
+   * ---------------------------------------------------------------- */
+
+  /**
+   * One increment: a position, a depth interval, a mass, and what became of it.
+   *
+   * An increment has a **position** and does not have to be a registered
+   * location. Four of C01's five were taken at test pits and the fifth at a
+   * grid node between two of them, which is what a surface composite on a
+   * grid actually looks like; the record carries the coordinate either way
+   * (FR-1.2), and the location register is not asked to grow a row for a
+   * trowel scrape.
+   */
+  const increment = ({ ref, at, node, easting, northing, from, to, mass, ec, sample = null, used = null, retained = null, note }) => ({
+    ref, at, node, easting, northing, from, to, mass, ec, sample, used, retained, note,
+    interval: span(from, to),
+    where: at ?? node,
+  });
+
+  const c01Increments = [
+    increment({ ref: 'C01-I1', at: 'TP01', easting: 513240, northing: 7652980, from: 0.00, to: 0.30, mass: 500, ec: 210, note: 'Surface scrape taken before the pit was opened' }),
+    increment({ ref: 'C01-I2', at: 'TP02', easting: 513540, northing: 7652880, from: 0.00, to: 0.30, mass: 500, ec: 180, note: 'Surface scrape taken before the pit was opened' }),
+    increment({ ref: 'C01-I3', node: 'Grid node G3', easting: 513690, northing: 7652830, from: 0.00, to: 0.30, mass: 500, ec: 200, note: 'Midway between TP02 and TP03 — a position on the grid, not a location on the register' }),
+    increment({ ref: 'C01-I4', at: 'TP03', easting: 513840, northing: 7652780, from: 0.00, to: 0.30, mass: 500, ec: 190, note: 'Surface scrape taken before the pit was opened' }),
+    increment({ ref: 'C01-I5', at: 'TP04', easting: 514140, northing: 7652680, from: 0.00, to: 0.30, mass: 500, ec: 150, note: 'Surface scrape taken before the pit was opened' }),
+  ];
+
+  const c02Increments = ['TP01', 'TP02', 'TP03', 'TP04'].map((code, i) => {
+    const l = LOCATIONS.find((x) => x.code === code);
+    const int = pitOf(code).intervals[1];
+    return increment({
+      ref: `C02-I${i + 1}`, at: code, easting: l.easting, northing: l.northing,
+      from: int.from, to: int.to, mass: 1000, ec: int.ec,
+      sample: `WDL-26M5-I0${i + 1}`, used: 250, retained: 750,
+      note: 'Submitted whole and unopened; the laboratory took its share at the bench',
+    });
+  });
+
+  const envelope = (incs) => ({
+    from: Math.min(...incs.map((i) => i.from)),
+    to: Math.max(...incs.map((i) => i.to)),
+    exact: incs.every((i) => i.from === incs[0].from && i.to === incs[0].to),
+  });
+
+  const composites = [
+    {
+      id: 'WDL-26M5-C01',
+      name: 'Surface composite — toe seepage area',
+      where: 'field',
+      whereLabel: 'Composited in the field',
+      increments: c01Increments,
+      scheme: 'Equal mass — 500 g from each of five increments, homogenised in a stainless bowl, then coned and quartered to a 1 000 g submission',
+      schemeShort: 'equal mass, five increments',
+      decidedBy: approver, decidedAt: planApproved,
+      performedBy: crew, performedAt: '2026-05-06 11:20 AWST',
+      why: 'One number for the surface of the toe seepage area. The surface interval is where run-off and wind-blown deposition would show, and it is the interval a rehabilitation decision is taken over — an average across the area answers that better than a number at one point does.',
+      equipment: 'Stainless steel bowl and trowel, decontaminated before and after; the rinsate blank is the control on that decontamination',
+      collectedMass: 2500,
+      submittedMass: 1000,
+      surplus: 'The remaining 1 500 g was returned to the TP04 spoil before backfilling, and the return is on the record.',
+      containers: 2,
+      retains: false,
+      retainsWhy: 'The five increments were tipped into one bowl and homogenised. They no longer exist as material, so no analysis of any kind can recover which position carried what. Only a new visit can.',
+      sample: null,
+    },
+    {
+      id: 'WDL-26M5-C02',
+      name: 'Shallow subsurface composite — seepage path',
+      where: 'laboratory',
+      whereLabel: 'Composited at the laboratory',
+      increments: c02Increments,
+      scheme: 'Equal mass — 250 g taken from each of four submitted increments and combined into a 1 000 g composite; the balance of each increment retained',
+      schemeShort: 'equal mass, four increments',
+      decidedBy: approver, decidedAt: planApproved,
+      instructedBy: crew, instructedAt: '2026-05-07 16:30 AWST',
+      performedBy: 'M. Toledo — PAS sample preparation', performedAt: '2026-05-11 10:15 AWST',
+      why: 'Coverage of the shallow subsurface horizon across the whole path on one analysis, with the increments kept so the coverage can be turned back into resolution if the composite reads high. That second half is the reason it was sent to the bench rather than mixed in a bowl at the pit.',
+      equipment: 'Stainless riffle splitter, laboratory bench, decontaminated between samples',
+      collectedMass: 4000,
+      submittedMass: 1000,
+      surplus: null,
+      containers: 0,
+      retains: true,
+      retainsWhy: 'The four increments arrived as four samples and 750 g of each is still in the laboratory’s store. Analysing one of them is a purchase order, not a mobilisation — until the holding time runs out.',
+      sample: null,
+    },
+  ].map((c) => ({ ...c, depth: envelope(c.increments) }));
+
+  const compositeOf = (id) => composites.find((c) => c.id === id);
+
+  /* ---------------------------------------------------------------- *
+   * The manifest
+   * ---------------------------------------------------------------- */
+
+  /**
+   * Every sample the round produced, with its matrix on it.
+   *
+   * Two link fields, and they are **not the same relation**. `parent` is
+   * FR-1.6's link — the QC sample that was made *from* another sample, one to
+   * one, upward — and the glossary is explicit that it is mandatory for the
+   * types that have one and forbidden for those that do not. `composite` is
+   * FR-1.7's — the sample this material was combined *into*, many to one. A
+   * product that ran them together would make a constituent increment look
+   * like a duplicate of the composite, which is the opposite of what it is.
+   */
+  const samples = [
+    { id: 'WDL-26M5-C01', location: '—', spans: 'TP01 · TP02 · G3 · TP03 · TP04', matrix: 'Soil', collected: '2026-05-06 11:20 AWST', from: 0.00, to: 0.30, role: 'composite', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-S01', location: 'TP01', matrix: 'Soil', collected: '2026-05-06 09:35 AWST', role: 'discrete', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-S02', location: 'TP02', matrix: 'Soil', collected: '2026-05-06 15:10 AWST', role: 'discrete', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-S03', location: 'TP02', matrix: 'Soil', collected: '2026-05-06 15:10 AWST', role: 'discrete', qc: 'Field duplicate (blind)', parent: 'WDL-26M5-S02', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-I01', location: 'TP01', matrix: 'Soil', collected: '2026-05-06 09:20 AWST', role: 'increment', qc: '—', parent: '—', composite: 'WDL-26M5-C02', containers: 2, tests: 0, results: 0, state: 'retained' },
+    { id: 'WDL-26M5-I02', location: 'TP02', matrix: 'Soil', collected: '2026-05-06 14:50 AWST', role: 'increment', qc: '—', parent: '—', composite: 'WDL-26M5-C02', containers: 2, tests: 0, results: 0, state: 'retained' },
+    { id: 'WDL-26M5-S04', location: 'TP03', matrix: 'Soil', collected: '2026-05-07 08:30 AWST', role: 'discrete', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-I03', location: 'TP03', matrix: 'Soil', collected: '2026-05-07 08:15 AWST', role: 'increment', qc: '—', parent: '—', composite: 'WDL-26M5-C02', containers: 2, tests: 0, results: 0, state: 'retained' },
+    { id: 'WDL-26M5-I04', location: 'TP04', matrix: 'Soil', collected: '2026-05-07 11:05 AWST', role: 'increment', qc: '—', parent: '—', composite: 'WDL-26M5-C02', containers: 2, tests: 0, results: 0, state: 'retained' },
+    { id: 'WDL-26M5-S05', location: 'TP05', matrix: 'Soil', collected: '2026-05-07 15:05 AWST', role: 'discrete', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-D01', location: 'SW01', matrix: 'Sediment', collected: '2026-05-07 12:40 AWST', from: 0.00, to: 0.10, role: 'discrete', qc: '—', parent: '—', composite: '—', containers: 2, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-C02', location: '—', spans: 'TP01 · TP02 · TP03 · TP04', matrix: 'Soil', collected: '2026-05-07 11:05 AWST', role: 'composite', qc: '—', parent: '—', composite: '—', containers: 0, tests: 5, results: 5, state: 'evaluated' },
+    { id: 'WDL-26M5-QC1', location: '—', matrix: 'Water', collected: '2026-05-07 12:10 AWST', role: 'control', qc: 'Equipment blank (rinsate)', parent: 'Excavator bucket and compositing bowl', detail: 'Excavator bucket and the stainless compositing bowl, rinsed after TP04 and before the creek', composite: '—', containers: 1, tests: 5, results: 5, state: 'evaluated' },
+  ].map((s) => {
+    /*
+     * The depth interval, resolved rather than typed. A discrete carries the
+     * interval the field screen chose; an increment carries the second logged
+     * horizon at its pit — the one the compositing scheme names; a composite
+     * carries the envelope of the increments it was made from; and the
+     * rinsate has none at all, because water poured over a bucket was never
+     * at a depth.
+     */
+    if (s.from !== undefined) return { ...s, interval: span(s.from, s.to) };
+    if (s.role === 'discrete') {
+      const i = chosen(s.location);
+      return { ...s, from: i.from, to: i.to, interval: span(i.from, i.to), screen: i.ec };
+    }
+    if (s.role === 'increment') {
+      const inc = c02Increments.find((x) => x.sample === s.id);
+      return { ...s, from: inc.from, to: inc.to, interval: inc.interval, screen: inc.ec, incrementRef: inc.ref };
+    }
+    if (s.role === 'composite') {
+      const c = compositeOf(s.id);
+      return { ...s, from: c.depth.from, to: c.depth.to, interval: span(c.depth.from, c.depth.to) };
+    }
+    return { ...s, from: null, to: null, interval: '—' };
+  });
+
+  const sampleOf = (id) => samples.find((s) => s.id === id);
+  const containers = samples.reduce((n, s) => n + s.containers, 0);
+  const analysed = samples.filter((s) => s.results > 0);
+  const retainedSamples = samples.filter((s) => s.state === 'retained');
+
+  /* ---------------------------------------------------------------- *
+   * Custody — the same record shape as the groundwater round's
+   * ---------------------------------------------------------------- */
+
+  /**
+   * The chain, in `CUSTODY_CHAIN`'s shape, because a composite's containers
+   * travel like anything else's.
+   *
+   * `containers` on the chain is the manifest's own sum rather than a second
+   * number beside it, exactly as the groundwater chain reconciles against its
+   * manifest. `WDL-26M5-C02` contributes **nothing** to that sum, and that is
+   * the fact worth reading twice: a laboratory composite has no containers on
+   * the chain because it did not exist when the cooler was sealed. Its four
+   * increments did, and they are what travelled.
+   */
+  const chain = {
+    id: 'MOCK-COC-2026M5-009',
+    round,
+    raisedBy: crew,
+    raisedAt: '2026-05-06 07:35 AWST',
+    laboratory,
+    workOrder,
+    containers,
+    seals: '5216',
+    state: 'received',
+    instruction:
+      'Composite instruction written on the form at dispatch: combine 250 g from each of WDL-26M5-I01 to I04 into WDL-26M5-C02, equal mass, and retain the balance of each. Written by ' +
+      crew + ' under ' + plan + ', approved by ' + approver + ' on ' + planApproved + '.',
+    transfers: [
+      { seq: 1, at: '2026-05-06 16:40 AWST', from: `${crew} — field`, to: 'Wandalup site cold store', what: 'Day 1 — 12 containers: the field composite, TP01 and TP02 discretes, the blind field duplicate and the two TP01/TP02 increments, logged in at 4.1 °C', containers: 12, seal: '—', state: 'ok' },
+      { seq: 2, at: '2026-05-07 15:55 AWST', from: `${crew} — field`, to: 'Wandalup site cold store', what: 'Day 2 — 11 containers: the TP03 and TP05 discretes, the TP03 and TP04 increments, the creek sediment and the rinsate blank, at 4.3 °C', containers: 11, seal: '—', state: 'ok' },
+      { seq: 3, at: '2026-05-07 16:15 AWST', from: 'Wandalup site cold store', to: `${crew} — field`, what: 'All 23 containers withdrawn for dispatch and reconciled against the record', containers: 23, seal: '—', state: 'ok' },
+      { seq: 4, at: '2026-05-07 16:30 AWST', from: `${crew} — field`, to: 'Pilbara Freight — consignment PF-2026-117904', what: 'Cooler sealed, seal 5216, signed, with the compositing instruction on the form', containers: 23, seal: '5216', state: 'ok', onReceipt: true },
+      { seq: 5, at: '2026-05-08 09:05 AWST', from: 'Pilbara Freight', to: `${laboratory} — receipt`, what: 'Seal 5216 verified intact, 4.6 °C, 23 of 23 containers reconciled', containers: 23, seal: '5216', state: 'ok', onReceipt: true },
+      { seq: 6, at: '2026-05-08 09:30 AWST', from: 'PAS receipt', to: `PAS laboratory — work order ${workOrder}`, what: 'Logged and preserved; the four constituent increments held unopened against the compositing instruction', containers: 23, seal: '—', state: 'ok', onReceipt: true },
+    ],
+  };
+
+  /** The laboratory-end hops, derived from the chain rather than written twice. */
+  const custody = chain.transfers
+    .filter((t) => t.onReceipt)
+    .map(({ at, from, to, what, state }) => ({ at, from, to, what, state }));
+
+  /*
+   * The compositing act is **not** a custody transfer and is not on the chain
+   * above. The glossary defines a custody transfer as one handover of a set of
+   * samples from one party to another; the bench work at 10:15 on 11 May moved
+   * nothing between parties. It is its own record, on the composite, with its
+   * own operator and time — which is also why appending it to the transfers
+   * would have quietly made the chain read seven hops long.
+   */
+
+  const receipt = {
+    at: '2026-05-08 09:05 AWST',
+    temperature: '4.6 °C',
+    limit: '≤ 6 °C',
+    seal: '5216 — intact',
+    reconciled: `${containers} of ${containers}`,
+    by: 'M. Toledo — PAS sample receipt',
+    outcome: 'pass',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * The analytical suite, the numbers, and what may be said about them
+   * ---------------------------------------------------------------- */
+
+  /*
+   * Two flags, and they are not the same question.
+   *
+   * `ratio` is whether a comparison against background means anything. pH is
+   * out because it is a logarithm and "1.09 times background" is a number
+   * about nothing.
+   *
+   * `conserved` is whether the **openness arithmetic** below applies — the
+   * bound that says one increment could be n × the composite with the rest at
+   * zero. That holds for a quantity carried in the mass and conserved when
+   * masses are combined: milligrams of sulfate per kilogram add up. It does
+   * **not** hold for pH or for the conductivity of an extract, which are
+   * properties of the combined material rather than sums over it, so those
+   * two rows are left off the table rather than given a bound that would not
+   * survive being checked.
+   */
+  const analytes = [
+    { name: 'pH (1:5 soil:water)', short: 'pH', unit: 'pH units', lor: 0.1, dp: 1, ratio: false, conserved: false, method: 'Rayment & Lyons 4A1 — 1:5 soil:water extract', suite: 'extract' },
+    { name: 'Electrical conductivity (1:5 soil:water)', short: 'EC', unit: 'µS/cm', lor: 10, dp: 0, ratio: true, conserved: false, method: 'Rayment & Lyons 3A1 — 1:5 soil:water extract', suite: 'extract' },
+    { name: 'Sulfate as SO₄ (1:5 soil:water)', short: 'Sulfate', unit: 'mg/kg', lor: 20, dp: 0, ratio: true, conserved: true, method: 'Ion chromatography on the 1:5 extract', suite: 'extract' },
+    { name: 'Arsenic (total)', short: 'Arsenic', unit: 'mg/kg', lor: 2, dp: 1, ratio: true, conserved: true, method: 'USEPA 3050B digestion · 6010B ICP-OES', suite: 'metals' },
+    { name: 'Zinc (total)', short: 'Zinc', unit: 'mg/kg', lor: 5, dp: 0, ratio: true, conserved: true, method: 'USEPA 3050B digestion · 6010B ICP-OES', suite: 'metals' },
+  ];
+
+  /** One row per analysed soil or sediment sample, in the analyte order above. */
+  const measured = {
+    'WDL-26M5-S01': [6.2, 1840, 2140, 11.4, 62],
+    'WDL-26M5-S02': [6.6, 940, 880, 8.2, 41],
+    'WDL-26M5-S03': [6.5, 905, 842, 7.9, 44],
+    'WDL-26M5-S04': [6.4, 1320, 1460, 9.6, 55],
+    'WDL-26M5-S05': [7.1, 130, 46, 4.1, 23],
+    'WDL-26M5-C01': [6.8, 620, 540, 6.9, 38],
+    'WDL-26M5-C02': [6.5, 1110, 1180, 9.1, 49],
+    'WDL-26M5-D01': [7.3, 210, 118, 5.8, 31],
+  };
+  const shown = (ai, v) => v.toFixed(analytes[ai].dp);
+  const valueOf = (id, ai) => measured[id][ai];
+
+  /**
+   * Which criteria sets apply to soil or sediment — derived, and it is empty.
+   *
+   * This is the glossary's *matrix* entry doing its work: a criterion applies
+   * by matrix among other things (FR-1.11), the library holds five sets and
+   * every one of them is freshwater or groundwater, so nothing is selectable
+   * and every result below is `not_evaluated`. Two different roads lead to
+   * that state and the screens keep them apart — *nobody stated the matrix*,
+   * and *the matrix is stated and the library has no set for it*. Only the
+   * second one is a configuration somebody can close.
+   */
+  /*
+   * FOUND AND DEFERRED — 2 September 2026 (wave 9), owner unassigned.
+   *
+   * The filter above is a regular expression over five strings, and it has to
+   * be, because `CRITERIA_LIBRARY.matrix` does not hold matrix words. It holds
+   * `Freshwater` (an ANZG **receptor**) and `Groundwater` (a **location
+   * class**) — neither is in the glossary's closed list of five, which is the
+   * same conflation the sample manifest carried until this wave. So "does a
+   * soil criteria set exist" is answered by reading strings rather than by
+   * matching a field, and the answer happens to be right.
+   *
+   * Not fixed here, deliberately. A criteria set's applicability is by matrix
+   * **and** by receptor and location group (FR-1.11), so the fix is to split
+   * one column into the dimensions it is carrying at once — a versioned change
+   * to the library with an effective date on every set, which is the same class
+   * of deliberate change as adding a soil set and belongs to a wave that
+   * redesigns `#criteria`. Stated on `#composite` where the count is printed,
+   * so nobody reads the zero as stronger than it is.
+   */
+  const criteria = {
+    matrices: [...new Set(CRITERIA_LIBRARY.map((c) => c.matrix))],
+    applicable: CRITERIA_LIBRARY.filter((c) => /soil|sediment/i.test(c.matrix)),
+    sets: CRITERIA_LIBRARY.length,
+    caveat:
+      'The library’s matrix column is not holding matrix words. Freshwater is an ANZG receptor and Groundwater is a location class, and neither is one of the glossary’s five — so this count is a match over strings rather than over a field, and it is right by inspection rather than by construction. Splitting that column into the dimensions it carries at once is a versioned change to the criteria library with an effective date on every set, and it is recorded rather than made here.',
+  };
+
+  /* The columns of the soil grid — samples, not locations, and the reason is
+   * the domain's: two of them belong to four places each. */
+  const gridColumns = [
+    { id: 'WDL-26M5-S01', head: 'TP01', sub: 'discrete' },
+    { id: 'WDL-26M5-S02', head: 'TP02', sub: 'discrete' },
+    { id: 'WDL-26M5-S04', head: 'TP03', sub: 'discrete' },
+    { id: 'WDL-26M5-S05', head: 'TP05', sub: 'background' },
+    { id: 'WDL-26M5-C01', head: 'C01', sub: 'composite · 5' },
+    { id: 'WDL-26M5-C02', head: 'C02', sub: 'composite · 4' },
+    { id: 'WDL-26M5-D01', head: 'SW01', sub: 'sediment' },
+    ...c02Increments.map((i) => ({ id: i.sample, head: i.ref.replace('C02-', ''), sub: `increment · ${i.at}` })),
+  ];
+
+  /**
+   * The cell for a constituent increment — **drawn, not omitted**, on exactly
+   * the argument `NOT_SAMPLED` is drawn on.
+   *
+   * A column that disappears reads as material that was never collected. This
+   * one was collected, it is in a laboratory store, and it has no number
+   * because it was combined before anything was measured. So the cell is
+   * present, it carries a glyph and a word as well as a position, and it
+   * carries **no outcome marks** — nothing was measured, so nothing was
+   * assessed.
+   */
+  const NOT_ANALYSED = (inc) => ({
+    empty: true,
+    glyph: '◇',
+    word: 'composited',
+    spoken:
+      `constituent increment ${inc.ref} — no result of its own. This material was combined into ${compositeOf('WDL-26M5-C02').id} ` +
+      'before analysis, so no number was ever produced for this position. It is retained at the laboratory and could still be analysed. ' +
+      'That is not a result below a limit of reporting and it is not a pass.',
+  });
+
+  const N4 = 'not_evaluated';
+  const grid = analytes.map((a, ai) => ({
+    analyte: a.name,
+    unit: a.unit,
+    lor: a.lor,
+    cells: gridColumns.map((c) =>
+      measured[c.id]
+        ? { v: shown(ai, valueOf(c.id, ai)), o: [N4, N4] }
+        : NOT_ANALYSED(c02Increments.find((i) => i.sample === c.id))),
+  }));
+
+  const gridShape = (() => {
+    const cells = grid.flatMap((r) => r.cells);
+    return {
+      analytes: grid.length,
+      columns: gridColumns.length,
+      results: cells.filter((c) => !c.empty).length,
+      empty: cells.filter((c) => c.empty).length,
+      emptyColumns: gridColumns.filter((c) => !measured[c.id]).map((c) => c.head),
+      evaluated: cells.filter((c) => !c.empty && c.o.some((o) => o !== N4)).length,
+    };
+  })();
+
+  /**
+   * Against background, because there is no criterion — and a ratio is not an
+   * outcome.
+   *
+   * With nothing selectable in the library, the comparison a practitioner
+   * actually makes is against the site's own background, and the honest way
+   * to draw that is as a ratio with the word *interpretation* on it. It does
+   * **not** become an exceedance mark on the grid; the four-state vocabulary
+   * stays what it is (G-13a) and every cell above is still `not_evaluated`.
+   *
+   * pH is excluded because a ratio of two logarithms is not a number about
+   * anything, and the sediment sample is excluded because **there is no
+   * sediment background**: TP05 is soil, the investigation collected no
+   * upstream creek-bed control, and dividing one matrix by another would be
+   * the quiet comparison the glossary's matrix entry exists to refuse.
+   */
+  const backgroundId = 'WDL-26M5-S05';
+  const background = {
+    control: backgroundId,
+    at: 'TP05',
+    rows: gridColumns
+      .filter((c) => measured[c.id] && c.id !== backgroundId && sampleOf(c.id).matrix === 'Soil')
+      .map((c) => ({
+        id: c.id,
+        head: c.head,
+        sub: c.sub,
+        ratios: analytes.map((a, ai) =>
+          a.ratio ? { analyte: a.short, x: valueOf(c.id, ai) / valueOf(backgroundId, ai) } : null),
+      })),
+    excluded: [
+      { id: 'WDL-26M5-D01', why: 'Sediment, and the investigation collected no upstream sediment control. A soil background is not one, so this sample has a number and no comparison — which is a finding about the design rather than about the creek.' },
+    ],
+    pHNote: 'pH is not ratioed. It is a logarithm, so “1.09 times background” would be a number about nothing.',
+  };
+
+  /** The blind field duplicate, computed. RPD needs a pair, and pH is not one. */
+  const duplicate = (() => {
+    const parent = 'WDL-26M5-S02', child = 'WDL-26M5-S03';
+    return {
+      parent, child,
+      limit: DQO.changes[0].was,
+      limitVersion: DQO.used.version,
+      rows: analytes.map((a, ai) => {
+        const p = valueOf(parent, ai), c = valueOf(child, ai);
+        return a.short === 'pH'
+          ? { analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c), rpd: null, absolute: Math.abs(p - c), why: 'A logarithm has no relative percent difference; the check is an absolute difference.' }
+          : { analyte: a.short, unit: a.unit, parent: shown(ai, p), child: shown(ai, c), rpd: (Math.abs(p - c) / ((p + c) / 2)) * 100, absolute: null };
+      }),
+      /*
+       * FOUND AND DEFERRED — 2 September 2026 (wave 9), owner unassigned.
+       *
+       * `DQO` carries **one** field-duplicate limit and no matrix dimension,
+       * so a soil field duplicate is measured here against a limit written
+       * for water. Soil is heterogeneous at the scale of a trowel and the
+       * conventional soil limit is wider, so applying the water number is
+       * **stricter** and nothing is being let through by it — which is why
+       * this is recorded rather than fixed in passing. Fixing it means giving
+       * the DQO an applicability dimension by matrix, with an effective date
+       * and a version, and that is the same class of deliberate change as
+       * adding a criteria set: it belongs to a wave that redesigns
+       * `#qc-limits`, not to a rider on a soil investigation. Visible on
+       * `#composite` and on the manifest, not only here.
+       */
+      matrixGap:
+        'The limit applied is the round’s single field-duplicate limit. It was written for water and the data quality objectives carry no matrix dimension, so a soil duplicate is held to a water number. That is stricter rather than looser — soil is heterogeneous at the scale of a trowel and the conventional soil limit is wider — so nothing passes here that would fail a soil limit. Giving the objectives an applicability rule by matrix is a versioned change to them, with an effective date, and it is not something this investigation makes on its way past.',
+    };
+  })();
+
+  /** The rinsate blank: a water sample on a soil round, and the control on the bowl. */
+  const rinsate = {
+    id: 'WDL-26M5-QC1',
+    matrix: 'Water',
+    covers: 'The excavator bucket and the stainless compositing bowl, rinsed after TP04 and before the creek',
+    results: [
+      { analyte: 'pH', value: '6.9', unit: 'pH units' },
+      { analyte: 'Electrical conductivity', value: '3', unit: 'µS/cm' },
+      { analyte: 'Sulfate as SO₄', value: '<0.5', unit: 'mg/L' },
+      { analyte: 'Arsenic (total)', value: '<0.5', unit: 'µg/L' },
+      { analyte: 'Zinc (total)', value: '<1', unit: 'µg/L' },
+    ],
+    verdict: 'Every analyte below the limit of reporting.',
+    why:
+      'It is the only control on the compositing step. Five increments went through one bowl and four went through one splitter; if either carried material between them, the composite is a number about the equipment. The blank says it did not — and its matrix is water on a soil round, which is the matrix entry’s point made by a bottle rather than by an argument.',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * What compositing buys, what it costs, and the deadline on the cost
+   * ---------------------------------------------------------------- */
+
+  const positions = composites.reduce((n, c) => n + c.increments.length, 0);
+  const attributable = [...new Set(samples.filter((s) => s.role === 'discrete' && s.qc === '—').map((s) => s.location))];
+  const representedOnly = [...new Set(composites.flatMap((c) => c.increments.map((i) => i.where)))]
+    .filter((w) => !attributable.includes(w));
+
+  /**
+   * The arithmetic of the limit, per composite and per analyte.
+   *
+   * `ceiling` is what one increment could be and still produce this composite
+   * if every other increment were zero — the composite's value times the
+   * number of increments. `floorLor` is the reporting limit as the increments
+   * see it: an increment carrying less than n × LOR contributes less than the
+   * composite's own reporting limit and can vanish inside it entirely.
+   *
+   * Both hold only for a **mass-conserved** quantity, so `conserved` gates
+   * the rows the screen prints. pH and the conductivity of a 1:5 extract are
+   * properties of the combined material rather than sums over it, and giving
+   * them a bound they do not obey would be inventing arithmetic to fill a
+   * table — the exact failure the rest of this screen is about.
+   *
+   * Neither number is a claim about what any increment is. They are the width
+   * of what the composite leaves open, which is exactly what "a result on a
+   * composite cannot be attributed to one increment" means when it is put in
+   * units.
+   */
+  const openness = composites.map((c) => ({
+    id: c.id,
+    n: c.increments.length,
+    rows: analytes.map((a, ai) => ({
+      analyte: a.short,
+      unit: a.unit,
+      value: shown(ai, valueOf(c.id, ai)),
+      ceiling: valueOf(c.id, ai) * c.increments.length,
+      floorLor: a.lor * c.increments.length,
+      lor: a.lor,
+      ratio: a.ratio,
+      conserved: a.conserved,
+    })),
+    excluded: analytes.filter((a) => !a.conserved).map((a) => a.short),
+  }));
+
+  const earliestCollection = '2026-05-06';
+  const holding = [
+    { suite: '1:5 soil:water extract — pH, electrical conductivity, sulfate', days: 28, rule: 'Extracted within 28 days of collection, held at ≤ 6 °C', extracted: '2026-05-11' },
+    { suite: 'Total metals — arsenic, zinc', days: 180, rule: 'Digested within 180 days of collection, held at ≤ 6 °C', extracted: '2026-05-12' },
+  ].map((h) => ({
+    ...h,
+    used: daysBetween(earliestCollection, h.extracted),
+    expires: addDays(earliestCollection, h.days),
+    left: daysBetween(AS_AT, addDays(earliestCollection, h.days)),
+  }));
+  const binding = holding.reduce((a, b) => (b.left < a.left ? b : a));
+
+  /**
+   * The decision this screen exists for, with the clock on it.
+   *
+   * `TP04` has no number of its own. It contributed one increment to each
+   * composite and the plan submitted no discrete from it, because its highest
+   * field screen read below the threshold. So when the subsurface composite
+   * comes back elevated, "how much of that is TP04" has an answer only if
+   * someone buys it — and only until the shortest holding time runs out.
+   */
+  const followUp = {
+    question: 'Which of the four increments carries the sulfate in WDL-26M5-C02?',
+    answerable: true,
+    how: `Analyse the retained increments. ${retainedSamples.length} of them are in ${laboratory}’s store at 750 g each, unopened.`,
+    cost: `${retainedSamples.length} analyses instead of the one already run.`,
+    deadline: binding,
+    irreversible:
+      'The window closes on its own. Nothing on this screen can extend a holding time, and an increment analysed outside one is a number with a qualifier on it rather than an answer.',
+    ifFieldComposited:
+      'None of this would be available for the surface composite. Its five increments went into one bowl, and the only way back to a position there is a second mobilisation and a fresh set of holes.',
+  };
+
+  /**
+   * Why a composite is not a derived value — the distinction the keep-list
+   * forbids conflating, written where both words appear on one screen.
+   */
+  const notDerived = {
+    derived: 'A derived value is arithmetic over other results. It keeps its components and the versioned rule that produced it, it can be recomputed, and it never overwrites what the laboratory reported (FR-2.1, FR-2.3, FR-2.4). PFOS + PFHxS on MW05 is one.',
+    composite: 'A composite result is a number the laboratory reported on a physical sample. The combining happened to the material, before any measurement existed, so there are no component results to keep and nothing to recompute. What it carries instead is the compositing scheme, the increments and their positions.',
+    consequence: 'A product that filed a composite under derivation would offer to re-derive it, would show a rule version that does not exist, and would imply the increments have numbers behind them. All three are false, and the third is the one that would mislead a regulator.',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * Traceability, both directions
+   * ---------------------------------------------------------------- */
+
+  const forward = composites.flatMap((c) =>
+    c.increments.map((i) => ({
+      ref: i.ref,
+      where: i.where,
+      registered: Boolean(i.at),
+      interval: i.interval,
+      mass: i.mass,
+      screen: i.ec,
+      sample: i.sample,
+      composite: c.id,
+      analysed: c.id,
+      certificate,
+      results: measured[c.id] ? analytes.length : 0,
+    })));
+
+  const backward = (() => {
+    const c = compositeOf('WDL-26M5-C02');
+    const ai = analytes.findIndex((a) => a.short === 'Sulfate');
+    return {
+      result: `${shown(ai, valueOf(c.id, ai))} ${analytes[ai].unit}`,
+      analyte: analytes[ai].name,
+      sample: c.id,
+      certificate,
+      increments: c.increments,
+      cannotSay:
+        `Which of the ${c.increments.length} carried it. The material was combined before it was measured, so the number describes the combination and nothing smaller.`,
+      canSay: [
+        `The ${c.increments.length} positions it covers, each with its own depth interval and its own coordinate.`,
+        `The envelope those intervals span — ${span(c.depth.from, c.depth.to)} — and that they are not identical, so the composite has a nominal interval rather than an exact one.`,
+        'That the scheme was equal mass, so no position is weighted above another.',
+        'That the increments are retained, and until when.',
+      ],
+    };
+  })();
+
+  /**
+   * The composite result's chain, in `PROVENANCE`'s own shape so the lineage
+   * screen renders it with the same two builders and cannot describe a hop
+   * differently in one view than in the other.
+   *
+   * It has no import-run step, deliberately. The hops that carry a
+   * laboratory's file into the record — deliverable, mapping, commit — are
+   * the ones the PFAS chain already walks and they are the same here; what is
+   * particular to a composite is everything **above** the certificate, and
+   * repeating the rest would be a second copy of a chain that already exists.
+   */
+  const provenance = (() => {
+    const c = compositeOf('WDL-26M5-C02');
+    const ai = analytes.findIndex((a) => a.short === 'Sulfate');
+    const value = `${shown(ai, valueOf(c.id, ai))} ${analytes[ai].unit}`;
+    const upstream = [
+      {
+        step: 'Sampling design, and the scheme it fixed',
+        what: `${plan} · approved ${planApproved} by ${approver}`,
+        detail: `The compositing scheme was decided before anybody stood at a pit: ${c.scheme.toLowerCase()}. The plan also fixed the field-screen threshold at ${screenThreshold} µS/cm, which is what decided that TP04 got no discrete sample — and therefore what makes this composite the only thing standing between TP04 and having no number at all.`,
+        kind: 'plan', at: 'composite', node: 'Plan rev 1', nodeSub: `approved ${planApproved}`,
+      },
+      {
+        step: 'Places, and their class',
+        what: `${c.increments.map((i) => i.where).join(' · ')} · location class soil · ${PROJECT.crs}`,
+        detail: `Four registered locations, each with a ground surface elevation rather than a top of casing and a logged interval set rather than a screened interval. Class is a property of the place; the matrix of what came out of it is recorded separately, and on this round the two disagree twice — a sediment sample at a surface-water location and a water blank on a soil investigation.`,
+        kind: 'place', at: 'locations', node: '4 soil locations', nodeSub: 'class soil · TSF seepage path',
+      },
+      {
+        step: 'Depth intervals, logged at the pit',
+        what: `${c.increments.map((i) => i.interval).join(' · ')}`,
+        detail: `Each increment came out of the second logged horizon at its pit — the clayey sand — and those horizons are not at the same depth in all four. So the composite carries an envelope, ${span(c.depth.from, c.depth.to)}, and a nominal interval rather than an exact one. A record that flattened the four to one figure would be inventing a boundary that is not in any of the logs.`,
+        kind: 'field', at: 'composite', node: span(c.depth.from, c.depth.to), nodeSub: 'envelope of 4 intervals',
+      },
+      {
+        step: 'Increments collected',
+        what: `${c.increments.length} constituent increments · ${c.increments[0].mass} g each · submitted as ${c.increments.length} samples`,
+        detail: `Collected 6 and 7 May by ${crew}, each one bagged and jarred in its own right and each one given a sample identifier. That is what makes the laboratory route different from the field one: these four exist as material with numbers on the outside of them, and after a field composite they would not exist at all.`,
+        kind: 'field', at: 'events', node: `${c.increments.length} increments`, nodeSub: `${c.increments[0].mass} g each`,
+      },
+      {
+        step: 'Custody transfer',
+        what: `${chain.id} · ${chain.transfers.length} transfers · ${chain.containers} containers · seal ${chain.seals}`,
+        detail: `Raised by ${chain.raisedBy} at ${chain.raisedAt}, before the first bag was filled, and the compositing instruction travelled on the form. Transfers run 1 to ${chain.transfers.length} with no gap in the sequence. This composite contributes not one container to the count: it did not exist when the cooler was sealed.`,
+        kind: 'custody', at: 'ecoc', node: chain.id, nodeSub: `${chain.transfers.length} transfers`,
+      },
+      {
+        step: 'Laboratory receipt',
+        what: `${workOrder} · ${laboratory} · received ${receipt.at} · ${receipt.temperature} · ${receipt.reconciled} containers`,
+        detail: `Seal ${receipt.seal}, ${receipt.temperature} against ${receipt.limit}, reconciled by ${receipt.by}. The four increments were logged and held unopened against the instruction on the form rather than being prepared with the rest of the round.`,
+        kind: 'lab', at: 'receipt', node: receipt.temperature, nodeSub: receipt.at.slice(0, 10),
+      },
+      {
+        step: 'Compositing at the bench',
+        what: `${c.performedAt} · ${c.performedBy} · ${c.scheme}`,
+        detail: `Instructed by ${c.instructedBy} at ${c.instructedAt} under a scheme approved on ${c.decidedAt}. ${c.increments[0].used} g was taken from each of the four and combined; ${c.increments[0].retained} g of each was retained. This is not a custody transfer — nothing changed hands — so it is recorded here and not as a seventh row on the chain.`,
+        kind: 'lab', at: 'composite', node: 'Equal mass', nodeSub: `${c.increments[0].used} g × ${c.increments.length}`,
+      },
+      {
+        step: 'Analysis',
+        what: `${analytes[ai].method} · extracted ${holding[0].extracted} · certificate ${certificate}`,
+        detail: `Held ${holding[0].used} of ${holding[0].days} days on the extract suite. The number reported is a number about 1 000 g of combined material, and the laboratory reported it as such — there is no derivation and no rule version on it, because nothing was calculated from anything.`,
+        kind: 'lab', at: 'batches', node: certificate, nodeSub: `${holding[0].used} of ${holding[0].days} days`,
+      },
+    ];
+    const downstream = [
+      {
+        step: 'Reported result',
+        what: `${value} · ${analytes[ai].name} · reported by ${laboratory}, not derived`,
+        detail: 'A composite result is what the laboratory measured on the sample it was given. It carries a compositing scheme and a set of increments where a derived value would carry components and a rule version, and the two are not the same kind of record.',
+        kind: 'input', at: 'composite',
+      },
+      {
+        step: 'Evaluation',
+        what: `not evaluated · ${criteria.sets} criteria sets in the library, ${criteria.applicable.length} with a soil or sediment matrix`,
+        detail: `Nothing is asserted about this number. Applicability is by matrix among other things (FR-1.11), the library holds only ${criteria.matrices.join(' and ').toLowerCase()} sets, and a comparison made anyway would be a water criterion applied to a solid. That is a configuration gap somebody can close on the criteria library, with an effective date and a version — and it is different from a result nobody stated a matrix for, which reaches the same state by a road nobody can close.`,
+        kind: 'evaluation', at: 'criteria',
+      },
+      {
+        step: 'What is said instead',
+        what: `${(valueOf(c.id, ai) / valueOf(backgroundId, ai)).toFixed(1)}× the background pit at ${background.at}`,
+        detail: 'A ratio against the site’s own background is the comparison a practitioner makes when nothing is selectable, and it is an interpretation rather than an outcome. It gets no mark on the grid and it does not make anything an exceedance.',
+        kind: 'consequence', at: 'background',
+      },
+      {
+        step: 'The question it cannot answer',
+        what: `Which of the ${c.increments.length} increments carries it — no answer exists in this record`,
+        detail: `The material was combined before it was measured. What can be bought is the answer: ${followUp.how} ${followUp.cost} The binding window is ${binding.suite.split(' — ')[0]}, ${binding.left} days left as at ${AS_AT}.`,
+        kind: 'consequence', at: 'composite',
+      },
+    ];
+    return {
+      value,
+      analyte: analytes[ai].name,
+      sample: c.id,
+      certificate,
+      collected: sampleOf(c.id).collected,
+      upstream,
+      downstream,
+      chain: [...upstream, ...downstream],
+      questions: [
+        { q: 'What is this a sample of?', a: `${c.increments.length} constituent increments, equal mass, combined at the laboratory bench`, at: 'composite', step: 'Compositing at the bench' },
+        { q: 'Which places does it cover?', a: c.increments.map((i) => i.where).join(', '), at: 'locations', step: 'Places, and their class' },
+        { q: 'What depth does this number describe?', a: `${span(c.depth.from, c.depth.to)} — an envelope, because the four logged horizons are not at the same depth`, at: 'composite', step: 'Depth intervals, logged at the pit' },
+        { q: 'Who decided to composite, and on what scheme?', a: `${c.decidedBy} on ${c.decidedAt}, in ${plan}; ${c.schemeShort}`, at: 'composite', step: 'Sampling design, and the scheme it fixed' },
+        { q: 'Where was it composited — field or laboratory?', a: `Laboratory, ${c.performedAt}, by ${c.performedBy}`, at: 'composite', step: 'Compositing at the bench' },
+        { q: 'Was the chain unbroken?', a: `${chain.transfers.length} transfers with no gap in the sequence; ${receipt.reconciled} containers reconciled at ${receipt.temperature}`, at: 'ecoc', step: 'Custody transfer' },
+        { q: 'Which increment carries the sulfate?', a: 'Cannot be said. The material was combined before it was measured, and no analysis of the composite can recover it.', at: 'composite', step: 'The question it cannot answer', cannot: true },
+        { q: 'Can that still be found out?', a: `Yes, and only until ${binding.expires} — ${binding.left} days. ${followUp.how}`, at: 'composite', step: 'The question it cannot answer' },
+        { q: 'What criterion was it assessed against?', a: `None. ${criteria.applicable.length} of the ${criteria.sets} sets in the library carry a soil or sediment matrix.`, at: 'criteria', step: 'Evaluation' },
+      ],
+      trace: {
+        forkCap: `Four increments, one bag — the fan-in a line cannot draw`,
+        ruleCap: 'Combined by scheme, not by rule',
+        upstream: upstream.slice(0, 6).map((s) => ({ label: s.node, sub: s.nodeSub, at: s.at, kind: s.kind, step: s.step })),
+        fork: c.increments.map((i) => ({ label: i.ref, sub: `${i.where} · ${i.interval}`, at: 'composite', kind: 'field', step: 'Increments collected' })),
+        rule: { label: c.schemeShort, sub: `${c.increments[0].used} g from each · no result was combined`, at: 'composite', kind: 'rule', step: 'Compositing at the bench' },
+        focus: { label: value, sub: `${analytes[ai].name} · ${c.id}`, at: 'composite', kind: 'input', step: 'Reported result' },
+        downstream: [
+          { label: 'not evaluated', sub: `${criteria.applicable.length} soil sets in the library`, at: 'criteria', kind: 'evaluation', step: 'Evaluation' },
+          { label: `${(valueOf(c.id, ai) / valueOf(backgroundId, ai)).toFixed(1)}× background`, sub: 'interpretation, not an outcome', at: 'background', kind: 'consequence', step: 'What is said instead' },
+          { label: 'Which increment?', sub: `unanswerable · ${binding.left} days to buy it`, at: 'composite', kind: 'consequence', step: 'The question it cannot answer' },
+        ],
+      },
+    };
+  })();
+
+  /*
+   * FOUND AND DEFERRED — 2 September 2026 (wave 9), owner unassigned.
+   *
+   * A depth profile — sulfate against depth, one trace per pit, with the
+   * logged horizon boundaries drawn as breaks — is the plate this
+   * investigation wants and it is a **new figure family**. The approved
+   * grammar is twelve renderings at 180 mm (`design/reference/figures/`), the
+   * depth-down vertical axis is not among the moves any of them make, and
+   * `EXPANSION_BRIEF.md` §5.8 requires a written grammar proposal on the
+   * screen that would use it, flagged for Jerry, before one is drawn. So this
+   * wave draws none: the intervals are a table, and the argument for a plate
+   * is recorded on `#composite` where a reader will ask for it. The same
+   * caveat that would attach to it attaches to everything else here — the
+   * grammar has never been print-tested (G-76b, GOALS §7.4).
+   */
+  const figureProposal = {
+    what: 'Depth profile — an analyte against depth, one trace per pit, logged horizon boundaries as breaks and the composite intervals as bands',
+    whyNeeded: 'The depth axis is the one thing this matrix has that water samples do not, and a table of intervals is the least legible way to show that the signal sits in the second and third horizons rather than at the surface.',
+    whyNotDrawn: 'It is a figure family outside the twelve approved renderings — a depth-down vertical axis, and banded intervals rather than points or a line, are moves none of them makes.',
+    needs: 'A written grammar proposal to Jerry, on the screen that would use it, in the same shape as the Piper/Stiff/Durov proposals the catalogue already defers.',
+    caveat: 'And the standing caveat would attach to it as it attaches to every plate here: the grammar has never been print-tested (G-76b).',
+  };
+
+  return {
+    round, label, crew, approver, laboratory, certificate, workOrder, plan, planApproved,
+    screenThreshold,
+    window: '1 – 31 May 2026',
+    collected: '6–7 May 2026',
+    days: [
+      { n: 1, date: '2026-05-06', label: 'Day 1 — the surface composite and the two nearest pits' },
+      { n: 2, date: '2026-05-07', label: 'Day 2 — the far pits, the background pit and the creek' },
+    ],
+    why:
+      'Sulfate, arsenic and zinc have all risen at MW05 over four quarters and the TSF is upgradient of it. A soil investigation on the seepage path asks a question groundwater cannot: whether the signature is in the unsaturated zone between the embankment and the bore, and at what depth.',
+    pits, pitOf, places, chainage, investigated, chosen, overThreshold,
+    composites, compositeOf,
+    samples, sampleOf, containers, analysed, retainedSamples,
+    chain, custody, receipt,
+    analytes, measured, shown, valueOf,
+    criteria, gridColumns, grid, gridShape,
+    background, duplicate, rinsate,
+    positions, attributable, representedOnly,
+    openness, holding, binding, followUp, notDerived,
+    forward, backward, provenance, figureProposal,
+    counts: {
+      places: places.length,
+      pits: pits.length,
+      intervals: pits.reduce((n, p) => n + p.intervals.length, 0),
+      samples: samples.length,
+      primary: samples.filter((s) => s.qc === '—').length,
+      qc: samples.filter((s) => s.qc !== '—').length,
+      discretes: samples.filter((s) => s.role === 'discrete' && s.qc === '—').length,
+      increments: samples.filter((s) => s.role === 'increment').length,
+      composites: composites.length,
+      incrementPositions: positions,
+      analysed: analysed.length,
+      results: analysed.reduce((n, s) => n + s.results, 0),
+      containers,
+      analysesRun: composites.length,
+      analysesSaved: positions - composites.length,
+      attributable: attributable.length,
+      representedOnly: representedOnly.length,
     },
   };
 })();

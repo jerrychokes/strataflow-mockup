@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **70 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **71 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -633,6 +633,70 @@ just below it, which is a question with a regulatory answer. So the logger plate
 to the field record and drawn *beside* Figure 4.1 rather than on it, and `#hydrograph` says
 so on its own face.
 
+**Wave 9 (2 September 2026) draws the one sample structure this catalogue never had: a
+sample made of other samples.** FR-1.7 asks for depth intervals on soil and sediment samples
+and for composites with traceability to constituent increments, and one screen owns the step
+in the middle — `#composite`, `proposed`, because additional matrices are S8 widening in the
+PRD's own sequencing and drawing a deferred domain does not reschedule it. A small soil
+investigation on the TSF seepage path sits in the seed beside the groundwater round: five
+class-soil test pits, **18 logged depth intervals**, discrete samples chosen by a field-screen
+rule fixed in advance, and two composites over **nine constituent increments** — one mixed in
+a stainless bowl at the pit, one at a laboratory bench.
+
+**The pair is the argument.** Both composites use the same equal-mass scheme, approved on the
+same day by the same person, and where they were made decides everything afterwards: the field
+composite's five increments were homogenised and no longer exist, while the laboratory
+composite's four arrived as four samples and 750 g of each is still in a store. So "which
+increment carried the sulfate" is *permanently unanswerable* for one and *purchasable until
+2026-06-03* for the other — a decision with a clock on it, drawn as a decision.
+
+**The honest limit is a first-class statement rather than a caveat.** Nine positions were
+covered by two analyses and seven analyses were not run; that is what compositing buys.
+What it costs is stated in units: a composite of four increments reading 1180 mg/kg is
+consistent with any one of them reading up to **4720**, and an increment carrying less than
+**80 mg/kg** — four times the reporting limit — disappears inside it entirely. Both numbers
+are computed from the composite's own value and its increment count, and both are printed only
+for the mass-conserved analytes, because pH and the conductivity of a 1:5 extract are
+properties of the combined material rather than sums over it. Two positions — `TP04` and a grid
+node that is deliberately *not* on the location register — have no number of their own at all,
+and the register says so on their own rows.
+
+**A composite is not a derived value, and the screens keep the words apart.** A derived result
+is arithmetic over other results and keeps its components and a versioned rule; a composite is
+a number the laboratory reported on physical material that was combined *before* anything was
+measured. So the record carries a **compositing scheme** rather than a rule, and `#lineage`
+draws a second chain in the same two builders as the first — where the PFAS total forks
+downward into two components, the composite fans in upward from four increments, and the chain
+ends in a question it answers with *cannot say* and a price.
+
+**Every soil and sediment result reads `not evaluated`, and that is computed.** The criteria
+library holds five sets and none of them carries a soil or sediment matrix, so nothing is
+selectable and nothing is asserted — the glossary's own consequence. The screens keep two
+roads to that state apart: *nobody stated the matrix* (which nobody can close) and *the
+library holds no set for the matrix that was stated* (which somebody can, deliberately, with
+an effective date and a version). No criteria set was invented on the way past. What a
+practitioner says instead is a ratio to the site's own background, drawn as an interpretation
+that gets no mark on the grid.
+
+**And it found three things wrong in the record it was extending.** The sample manifest's
+`matrix` column carried the **wrong word on all eleven rows** — eight read *Groundwater*,
+which is the location class of the bore rather than the material in the bottle, and three read
+*Field blank* / *Trip blank* / *Equipment blank*, which are sample types the column beside them
+already held. All eleven are `Water`. The location register's *last sampled* column was a date
+typed into a template (`2026-05-1${code === 'MW11' ? '4' : '3'}`) and was wrong in four places,
+including printing a collection date for a bore the field record has dipped twice and found
+**dry**; it reads the manifests now, and a location with no sample says which kind of
+not-sampled it is. And the crosstab's matrix filter offered *Groundwater · Surface water · All
+matrices* — a location class, a class with no samples, and a plural with nothing behind it; the
+options are counted off the manifests now, in the glossary's five words.
+
+**What it deliberately did not draw.** A depth profile is the plate this investigation wants
+and it is a new figure family — a depth-down vertical axis and banded intervals are moves none
+of the twelve approved renderings makes — so `#composite` carries the written record of why it
+is absent and what it would need: a grammar proposal to Jerry, first. Vapour, the third matrix
+FR-1.7 names, is not drawn either: there is no soil-gas programme on this seed to draw it
+honestly, and the coverage row says so on its own face.
+
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
 with no accessible name, heading order, empty panels and degenerate SVG geometry — all
@@ -656,7 +720,7 @@ compositing.
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
 | `figures.mjs` | Thirteen figure generators, drawn to the approved grammar. The hourly logger plate added in wave 8 is the same line-over-time family as the hydrograph — cadence is not a family — and introduces none |
-| `screens.mjs` | The 70 screens, the job spine, and the link graph |
+| `screens.mjs` | The 71 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
 | `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |

@@ -39,6 +39,10 @@ import {
   // Wave 8 — the instrument register, the raw-and-corrected pair at one bore,
   // and the internal-consistency checks derived from the ions rather than typed.
   CONSISTENCY, INSTRUMENTS, LOGGER_SERIES, WATER_LEVELS,
+  // Wave 9 — the soil investigation, its depth intervals and the two
+  // composites. One export, because the composite, the pits, the manifest and
+  // the chain are one record that has to agree with itself.
+  SOIL,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -1838,6 +1842,18 @@ const windowConditionPanel = () => {
   );
 };
 
+/**
+ * The matrices this project holds samples of, counted off the manifests.
+ *
+ * Declared beside the crosstab because the matrix filter is the control that
+ * has to be honest about them, and used by nothing else — the grid itself is
+ * one matrix, which is the fact the filter could not previously state.
+ */
+const MATRICES = (() => {
+  const all = [...EVENT_SAMPLES, ...SOIL.samples];
+  return [...new Set(all.map((s) => s.matrix))].map((mx) => ({ m: mx, n: all.filter((s) => s.matrix === mx).length }));
+})();
+
 const crosstab = () => {
   /*
    * The location filter's options, counted rather than typed. "All 9
@@ -1893,13 +1909,23 @@ const crosstab = () => {
         C.field({ label: 'Locations', control: C.select({ options: locationOptions, value: locationOptions[0] }) }),
         C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', 'Dissolved metals (8)', 'Nutrients (4)', 'PFAS (14)', 'Field parameters (5)'], value: 'Everything in the round' }) }),
         C.field({ label: 'Period', control: C.dateRange({ from: '2026-04-01', to: '2026-06-30' }) }),
-        C.field({ label: 'Matrix', control: C.select({ options: ['Groundwater', 'Surface water', 'All matrices'], value: 'Groundwater' }) }),
+        /*
+         * Wave 9 — the matrix filter, honestly backed.
+         *
+         * It offered "Groundwater · Surface water · All matrices": one option
+         * naming a **location class** rather than a matrix, one naming a
+         * class this seed had no samples of, and a third implying more than
+         * one existed. The options are counted off the manifests now, in the
+         * glossary's own words, and the grid below is the Water set — which
+         * is what it always was and could not previously say.
+         */
+        C.field({ label: 'Matrix', control: C.select({ options: [...MATRICES.map((x) => `${x.m} (${x.n})`), `All matrices (${MATRICES.reduce((n, x) => n + x.n, 0)})`], value: `${MATRICES[0].m} (${MATRICES[0].n})` }) }),
         C.field({ label: 'Criteria sets', control: C.select({ options: ['Both sets', 'ANZG 2018 95% only', 'Licence Table 4 only'], value: 'Both sets' }) }),
         C.field({ label: 'Show', control: C.select({ options: ['Every result', 'Exceedances only', 'Indeterminate only', 'Censored only'], value: 'Every result' }) }),
       ],
       chips: [
         C.chip('2026 Q2', { prefix: 'period' }),
-        C.chip('Groundwater', { prefix: 'matrix' }),
+        C.chip(MATRICES[0].m, { prefix: 'matrix' }),
         C.chip('added zinc', { prefix: 'edited', tone: 'new' }),
       ],
       count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results · ${CROSSTAB_SHAPE.empty} cells at a bore that returned nothing`,
@@ -1978,6 +2004,89 @@ const crosstab = () => {
           `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#hardness">How the criterion is calculated</a><a class="mk-btn mk-btn--sm" href="#background">Against background</a></div>`,
       ),
     ) +
+    /* ================================================================ *
+     * Wave 9 — the matrix filter, backed by a grid rather than by a word.
+     *
+     * It is a **separate grid** and every count on it is its own. The
+     * groundwater shape above resolves through `CROSSTAB_SHAPE`; this one
+     * through `SOIL.gridShape`; nothing adds them together, because a
+     * soil result in milligrams per kilogram inside a count of water results
+     * is exactly the silent conflation the matrix entry exists to prevent.
+     * ================================================================ */
+    (() => {
+      const S = SOIL;
+      const G = S.gridShape;
+      const bgRow = (r) => r.ratios.filter(Boolean);
+      return (
+        '<h2 class="mk-h2" style="margin-top:1.4rem">The same grid, a different matrix</h2>' +
+        `<p class="sf-lede mk-tight">${esc(S.round)} · collected ${esc(S.collected)} · ${esc(S.laboratory)} certificate ${esc(S.certificate)} · ${G.analytes} analytes × ${G.columns} samples · ` +
+        `<strong>${G.results} results</strong> · ${G.empty} cells at an increment that was composited before it was analysed</p>` +
+        notice(
+          'default',
+          'The axis changes, and the domain forces it: these columns are samples, not locations.',
+          `Two of them belong to four places each. A composite is collected <em>across</em> positions, so a grid drawn analyte × location has nowhere to put one — and drawing it at the place of its first increment would be a lie with a coordinate on it. Everything else is the same: the same marks, the same censoring notation, the same criteria sets in the same order. The four ${esc(S.compositeOf('WDL-26M5-C02').id)} increments are columns for the reason ${loc('MW11')} is a column above — <a class="mk-ref" href="#composite">material that was collected</a> and produced no number is not the same thing as material nobody collected.`,
+        ) +
+        table({
+          caption: `Results by analyte and sample — ${esc(S.round)}. Every cell not evaluated, and the key says what that means.`,
+          label: `Soil and sediment results — ${S.round}`,
+          kind: 'matrix',
+          head: [
+            'Analyte<small>method · limit of reporting</small>',
+            'Unit',
+            ...S.gridColumns.map((c) => {
+              const smp = S.sampleOf(c.id);
+              return `<span class="mk-atom">${esc(c.head)}</span><small>${esc(c.sub)} · ${esc(smp.interval)}</small>`;
+            }),
+          ],
+          rows: S.grid.map((r) => {
+            const a = S.analytes.find((x) => x.name === r.analyte);
+            return [
+              `${esc(a.short)}<small>${esc(a.method)} · LOR ${a.lor} ${esc(a.unit)}</small>`,
+              `<span class="mk-muted">${esc(r.unit)}</span>`,
+              ...r.cells.map((c) => resultValue(c, CRITERIA)),
+            ];
+          }),
+        }) +
+        `<section aria-label="Criteria applied to the soil results">${criteriaLegend(CRITERIA)}${outcomeLegend()}</section>` +
+        notice(
+          'warning',
+          `All ${G.results} results read <strong>not evaluated</strong>, and that is computed rather than cautious.`,
+          `Applicability is by matrix among other things, the <a class="mk-ref" href="#criteria">criteria library</a> holds ${S.criteria.sets} sets, and <strong>${S.criteria.applicable.length}</strong> of them carry a soil or sediment matrix — every one is ${esc(S.criteria.matrices.join(' or ').toLowerCase())}. So no criterion is selectable and nothing is asserted about any of these numbers. ` +
+          `<strong>Not evaluated is not compliant</strong> and the marks keep them apart. Two roads reach this state and the product does not run them together: a sample <em>whose matrix nobody stated</em> arrives here because nothing could be chosen, and a sample whose matrix <em>is</em> stated and for which the library holds no set arrives here because of a configuration decision — which somebody can close, deliberately, with an effective date and a version. This investigation does not close it on its way past.`,
+        ) +
+        `<p class="mk-tight">The ${G.emptyColumns.length} increment columns carry a glyph and a word rather than a blank, and they carry <strong>no outcome marks at all</strong>: nothing was measured, so nothing was assessed, and a <em>not evaluated</em> mark on them would assert a result that no criterion happened to fit. What they are is material that exists, in a jar, with the analysis unbought — and <a class="mk-ref" href="#composite">the composite record</a> says until when.</p>` +
+        cols(
+          panel(
+            'What is said instead of an outcome',
+            `<p class="mk-tight">With nothing selectable, the comparison a practitioner makes is against the site’s own background — ${loc(S.background.at)}, sampled on the same round by the same crew from the equivalent horizon. It is an <strong>interpretation, not an outcome</strong>: it gets no mark on the grid and it makes nothing an exceedance.</p>` +
+              table({
+                caption: `Ratio to ${esc(S.background.control)} at ${esc(S.background.at)}. A ratio is not a criterion.`,
+                head: ['Sample', 'What it is', ...S.analytes.filter((a) => a.ratio).map((a) => `${esc(a.short)}<small>× background</small>`)],
+                kind: 'matrix',
+                label: 'Soil results against the background pit',
+                rows: S.background.rows.map((r) => [
+                  `<span class="mk-atom">${esc(r.head)}</span>`,
+                  `<span class="mk-muted">${esc(r.sub)}</span>`,
+                  ...bgRow(r).map((x) => `<span class="mk-num${x.x >= 10 ? ' mk-num--warn' : ''}">${x.x.toFixed(1)}×</span>`),
+                ]),
+              }) +
+              `<p class="mk-tight mk-muted">${esc(S.background.pHNote)} And ${esc(S.background.excluded[0].id)} is not on this table: ${esc(S.background.excluded[0].why)}</p>`,
+          ),
+          panel(
+            'The one number on the grid with no comparison at all',
+            `<p class="mk-tight">${esc(S.background.excluded[0].id)} is the sediment sample, collected at ${loc('SW01')} — a location whose class is <em>surface water</em>. The glossary’s matrix entry uses exactly this pairing as its example, and the consequence is on this grid: it has five results, no criterion, and <strong>no background of its own</strong>, because the investigation collected no upstream creek-bed control.</p>` +
+              `<p class="mk-tight">Dividing it by a soil background would be a comparison across matrices — the quiet one the glossary refuses. So the cell says nothing rather than something convenient, and the finding is about the sampling design rather than about the creek.</p>` +
+              C.card({
+                tone: 'warn',
+                head: '<span class="mk-queue__kind">What would close it</span>',
+                body: '<p class="mk-tight">One sediment sample upstream of the discharge point, on the next surface-water round. It is a line in a sampling plan, not a change to this product — and recording that it is missing is what makes it a line somebody writes.</p>',
+              }),
+          ),
+          '3fr 2fr',
+        ) +
+        `<div class="mk-actions"><a class="mk-btn" href="#composite">The composites behind two of these columns</a><a class="mk-btn" href="#events">The round that collected them</a><a class="mk-btn" href="#criteria">Why nothing applies</a></div>`
+      );
+    })() +
     notice('default', 'Everything true about a value is on the value.',
       'A superseded reading keeps its old value struck through beside the new one. A quarantined reading stays visible in brackets on a hatched ground rather than vanishing. A non-detect keeps the laboratory’s own <code>&lt;LOR</code> notation and is never rendered as a substituted number.') +
     cols(
@@ -3436,7 +3545,15 @@ const traceGraph = (T) => {
     `<ol class="mk-trace__row">${T.upstream.map((n) => node(n)).join('')}</ol>` +
     '</section>' +
     '<section class="mk-trace__band mk-trace__band--fork">' +
-    `<h3 class="mk-trace__cap">Two inputs, one bench — the fork a line cannot draw</h3>` +
+    /*
+     * Wave 9: the middle band's caption is read off the structure with the
+     * original string as the default, because the second chain on this screen
+     * has the same shape running the other way. The PFAS total **forks** —
+     * one sample, two components; a composite **fans in** — four increments,
+     * one bag. Same band, same builder, opposite arithmetic, and a fixed
+     * caption would have called one of them by the other's name.
+     */
+    `<h3 class="mk-trace__cap">${esc(T.forkCap ?? 'Two inputs, one bench — the fork a line cannot draw')}</h3>` +
     `<ol class="mk-trace__row mk-trace__row--fork">${T.fork.map((n) => node(n)).join('')}</ol>` +
     `<p class="mk-trace__rule"><span class="mk-trace__arrow" aria-hidden="true">▼</span> ` +
     `<a class="mk-ref" href="#${esc(T.rule.at)}">${esc(T.rule.label)}</a> <span class="mk-muted">${esc(T.rule.sub)}</span></p>` +
@@ -3528,7 +3645,78 @@ const lineage = () => {
       'warning',
       `The component that made the wave-6 representation fix necessary: PFHxS at ${esc(PFAS_LIMITS.mdl.toFixed(1))} &lt; 1.7 &lt; ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)}.`,
       `The component step read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)} (${esc(PFAS_LIMITS.scheme)}), origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
-    )
+    ) +
+
+    /* ================================================================ *
+     * Wave 9 — the second chain, and the one place the honest limit does
+     * provenance work.
+     *
+     * It is the same two builders over the same shapes — `chainList` for the
+     * narrative and `traceGraph` for the compact view — because a second
+     * chain builder is a second set of labels that can come to disagree with
+     * the first. What differs is the arithmetic in the middle band: the PFAS
+     * total forks downward into two components; the composite fans in upward
+     * from four increments. And what differs at the end is that this chain
+     * has a question it answers with a refusal.
+     * ================================================================ */
+    (() => {
+      const P2 = SOIL.provenance;
+      return (
+        `<h2 class="mk-h2" style="margin-top:1.6rem">A second chain, and a question it answers with <em>cannot say</em></h2>` +
+        `<p class="mk-tight">Every chain above ends in a number that can be traced to one bottle from one bore. This one cannot, and that is not a gap in the record — it is the record being accurate about an act somebody took deliberately. A <a class="mk-ref" href="#composite">composite sample</a> is made of other samples, so a result on it describes the combination and nothing smaller.</p>` +
+        `<div class="mk-lineage__subject">
+          <span class="mk-lineage__value">${esc(P2.value)}</span>
+          <span class="mk-lineage__meta">${esc(P2.analyte)} · sample <span class="mk-file">${esc(P2.sample)}</span> · collected ${esc(P2.collected)} · certificate <span class="mk-file">${esc(P2.certificate)}</span></span>
+        </div>` +
+        notice(
+          'default',
+          `${P2.chain.length} steps, and not one of them is a derivation.`,
+          'The chain above turns on a rule with a version, inputs and a recomputable output. This one turns on a <strong>compositing scheme</strong> — the same word is deliberately not used, because the combining happened to the material before any number existed. There are no component results to keep and nothing to recompute; what the chain carries instead is the increments, their positions and their depth intervals. A product that filed this under derivation would offer to re-derive a number that was never derived.',
+        ) +
+        '<h3 class="mk-h3">Explain it</h3>' +
+        chainList(P2.upstream) +
+        '<h3 class="mk-h3">And what it reached</h3>' +
+        chainList(P2.downstream, { from: P2.upstream.length }) +
+        '<h3 class="mk-h3" style="margin-top:1rem">Trace it</h3>' +
+        `<p class="mk-tight">The same hops, compact. Where the PFAS chain forks — one sample, two components — this one <strong>fans in</strong>: ${P2.trace.fork.length} increments, one bag, and the band between them is the act that made the question below unanswerable.</p>` +
+        traceGraph(P2.trace) +
+        '<h3 class="mk-h3" style="margin-top:1rem">The questions this chain has to answer</h3>' +
+        table({
+          caption: 'Eight answers and one refusal. The refusal is the row that makes the other eight worth having.',
+          head: ['Question', 'Answer', 'Step', 'Opens'],
+          scroll: true,
+          label: 'Questions the composite chain answers',
+          rows: P2.questions.map((q) => [
+            `<strong>${esc(q.q)}</strong>`,
+            q.cannot ? cell(`<span class="mk-num mk-num--bad">◇</span> <strong>${esc(q.a)}</strong>`) : esc(q.a),
+            `<span class="mk-muted">${esc(q.step)}</span>`,
+            `<a class="mk-btn mk-btn--sm" href="#${esc(q.at)}">Open</a>`,
+          ]),
+        }) +
+        cols(
+          panel(
+            'Why the refusal is a feature of the chain rather than a hole in it',
+            `<p class="mk-tight">A chain that answered “which increment” would have to invent the answer. There is no rule that recovers it, no statistical treatment that recovers it and no qualifier that expresses it — the information was never created, because the material was mixed before it was measured.</p>` +
+              `<p class="mk-tight">So the chain states the width of what it leaves open instead, in units: with ${P2.trace.fork.length} increments, this value is consistent with any one of them reading anything up to <strong>${(SOIL.openness.find((o) => o.id === P2.sample).rows.find((r) => r.analyte === 'Sulfate').ceiling).toLocaleString('en-AU')} ${esc(SOIL.analytes.find((a) => a.short === 'Sulfate').unit)}</strong> with the rest at zero. That is a computed bound rather than a caution, and it is the honest replacement for an attribution.</p>` +
+              `<p class="mk-tight">This is the one place in the catalogue where a limit does provenance work. Everywhere else a chain gets longer to answer more; here it stops, says why, and names what it would cost to go further.</p>`,
+          ),
+          panel(
+            'And what it would cost to go further',
+            `<p class="mk-tight">The increments were composited at a bench rather than in a bowl, so they still exist — ${SOIL.compositeOf(P2.sample).increments[0].retained} g of each, in a store. ${esc(SOIL.followUp.cost)}</p>` +
+              facts([
+                ['Answerable', `<strong>Yes</strong> — by purchase, not by arithmetic`],
+                ['Binding window', `${esc(SOIL.binding.suite.split(' — ')[0])}<small>${esc(SOIL.binding.rule)}</small>`],
+                ['Expires', `<span class="sf-instant">${esc(SOIL.binding.expires)}</span>`],
+                ['Left as at ' + esc(AS_AT), `<span class="mk-num${SOIL.binding.left < 14 ? ' mk-num--bad' : ''}">${SOIL.binding.left}</span> days`],
+                ['After that', 'The same analysis returns a number with a holding-time qualifier rather than an answer'],
+              ]) +
+              `<p class="mk-tight mk-muted">${esc(SOIL.followUp.ifFieldComposited)}</p>` +
+              `<div class="mk-actions"><a class="mk-btn" href="#composite">The composite record, and the decision</a></div>`,
+          ),
+          '3fr 2fr',
+        )
+      );
+    })()
   );
 };
 
@@ -4573,6 +4761,373 @@ const chainOfCustody = () => {
       // Raising is the one control here that is not irreversible, and it says
       // so rather than leaving the reader to infer it from the two above.
     })
+  );
+};
+
+/**
+ * The composite sample record — a sample that is made of other samples.
+ *
+ * **The New-Screen Test, answered.** A composite has a lifecycle of its own,
+ * and it is not the lifecycle of anything already drawn: *planned* (a scheme
+ * fixed in the sampling plan, before anybody stands at a pit) → *increments
+ * collected* (each with a position and a depth interval) → *composited*, in
+ * the field or at the laboratory, by a named person at a named minute →
+ * *analysed*, as one sample. `#events` owns the round and its manifest;
+ * `#ecoc` owns the containers moving between parties; `#receipt` owns what was
+ * found when the cooler was opened; `#lineage` owns the chain of a result. Not
+ * one of them owns the **increment-to-composite step** — the act that turns
+ * nine positions into two samples and, in doing it, throws away the ability to
+ * say which position carried what. That act needs a record, it needs its own
+ * route because it is where the follow-up decision is taken, and drawing it
+ * improves the graph: it is the only screen that reaches an increment.
+ *
+ * `state` is absent from the register entry on the rule the chain of custody
+ * and the instrument register follow: `state` is the 23 August record and this
+ * screen did not exist then. `added` carries its date instead.
+ *
+ * **No figure.** The depth profile this investigation obviously wants is a new
+ * figure family and `SOIL.figureProposal` records why it is not drawn and what
+ * it would take — a written grammar proposal to Jerry, on this screen, before
+ * anything is plotted. The record is rendered near the foot rather than left
+ * in a comment, because a reader will ask for the plate.
+ */
+const compositeSample = () => {
+  const S = SOIL;
+  const C01 = S.compositeOf('WDL-26M5-C01');
+  const C02 = S.compositeOf('WDL-26M5-C02');
+  const B = S.backward;
+  const sulfate = S.analytes.findIndex((a) => a.short === 'Sulfate');
+  const openOf = (id) => S.openness.find((o) => o.id === id);
+
+  /** One composite's increments, with everything the record holds about each. */
+  const incrementTable = (c) =>
+    table({
+      caption: `${c.increments.length} constituent increments · ${c.schemeShort} · ${c.increments[0].mass} g from each`,
+      head: ['Increment', 'Position', 'On the register', 'Depth interval<small>m below ground</small>', 'Mass<small>g</small>', 'Field screen<small>µS/cm</small>', 'Submitted as', 'Where it is now'],
+      kind: 'matrix',
+      label: `Constituent increments of ${c.id}`,
+      rows: c.increments.map((i) => [
+        `<span class="mk-file mk-atom">${esc(i.ref)}</span>`,
+        cell(`${i.at ? loc(i.at) : `<span class="mk-muted">${esc(i.node)}</span>`}<small>${esc(`${PROJECT.crs.split(' / ')[1]} ${i.easting}E ${i.northing}N`)}</small>`),
+        i.at ? C.status('location', 'good') : C.status('grid node', 'neutral'),
+        `<span class="mk-num">${esc(i.interval)}</span>`,
+        `<span class="mk-num">${i.mass}</span>`,
+        `<span class="mk-num">${i.ec}</span>`,
+        i.sample ? `<span class="mk-file mk-file--id mk-atom">${esc(i.sample)}</span>` : cell('<span class="mk-num mk-num--nil">—</span> <span class="mk-muted">tipped into the bowl; it never had one</span>'),
+        i.retained
+          ? cell(`<strong>${i.retained} g retained</strong> at ${esc(S.laboratory)}, ${i.used} g used`)
+          : cell('<span class="mk-muted">Homogenised into the composite. It does not exist as material.</span>'),
+      ]),
+    });
+
+  /** The openness arithmetic for one composite — the limit, in units. */
+  const opennessTable = (c) => {
+    const o = openOf(c.id);
+    return table({
+      caption: `What ${c.id}’s value leaves open about any one of its ${o.n} increments.`,
+      head: ['Analyte', 'Composite reads', 'Any one increment could be as high as', 'An increment below this is invisible in it'],
+      kind: 'matrix',
+      label: `What ${c.id} leaves open`,
+      rows: o.rows.filter((r) => r.conserved).map((r) => [
+        esc(r.analyte),
+        `<span class="mk-num">${esc(r.value)}</span> <span class="mk-entry__unit">${esc(r.unit)}</span>`,
+        cell(`<span class="mk-num mk-num--warn">${r.ceiling.toLocaleString('en-AU')}</span> <span class="mk-entry__unit">${esc(r.unit)}</span> <span class="mk-muted">— ${o.n} × the composite, if every other increment were zero</span>`),
+        cell(`<span class="mk-num">${r.floorLor.toLocaleString('en-AU')}</span> <span class="mk-entry__unit">${esc(r.unit)}</span> <span class="mk-muted">— ${o.n} × the ${r.lor} ${esc(r.unit)} reporting limit</span>`),
+      ]),
+    });
+  };
+
+  return (
+    head('Composite sample', 'A sample made of other samples — the increments it holds, the decision that combined them, and what that decision cost.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + btn('Record a composite', 'primary'),
+    }) +
+    notice(
+      'warning',
+      'Proposed. FR-1.7 asks for composites with traceability to constituent increments, and the increment-to-composite step has never had a record here.',
+      `Soil and sediment are two of the nine <strong>location classes</strong> the product has carried since S1, and additional matrices are S8 widening in the PRD’s own sequencing — drawing this does not reschedule it. What the drawing is for is the act in the middle: ${S.counts.incrementPositions} positions were sampled and <strong>${S.counts.analysesRun} analyses</strong> were run, and everything that makes that a defensible saving rather than a lost record — which positions, at what depth, on what scheme, decided by whom, and what can no longer be said afterwards — lives between the field sheet and the certificate. FR-1.7 names three matrices and this investigation carries two: there is no soil-gas programme on this site, so <strong>vapour is not drawn</strong> rather than invented.`,
+    ) +
+    stats([
+      stat(String(S.counts.composites), 'composite samples'),
+      stat(String(S.counts.incrementPositions), 'constituent increments'),
+      stat(`${S.counts.analysesRun} of ${S.counts.incrementPositions}`, 'analyses run for those positions', 'good'),
+      stat(String(S.counts.representedOnly), 'positions with no number of their own', 'warn'),
+      stat(`${S.binding.left} days`, 'left to buy the resolution back', S.binding.left < 14 ? 'bad' : 'warn'),
+    ]) +
+
+    /* ---------------------------------------------------------------- *
+     * The honest limit, first — before anything that could be mistaken
+     * for a reason to trust the numbers more than they deserve.
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2">What compositing buys, and what it costs</h2>' +
+    cols(
+      C.card({
+        tone: 'good',
+        head: '<span class="mk-queue__kind">What it buys — coverage</span>',
+        body:
+          `<p class="mk-tight"><strong>${S.counts.incrementPositions} positions covered by ${S.counts.analysesRun} analyses.</strong> Discrete coverage of the same ground would have cost ${S.counts.incrementPositions}; ` +
+          `<strong>${S.counts.analysesSaved}</strong> were not run. That is the whole argument for a composite and it is a real one: an investigation budget is a fixed number of analyses, and spending them on one point each buys precision about points nobody asked about.</p>` +
+          `<p class="mk-tight">Coverage is what an average over an area is for. ${esc(C01.id.slice(-3))} answers <em>what is the surface of the toe seepage area like</em>, which is the question a rehabilitation decision is taken over, and no single pit answers it at all.</p>`,
+      }),
+      C.card({
+        tone: 'bad',
+        head: '<span class="mk-queue__kind">What it costs — resolution, and it is not recoverable by arithmetic</span>',
+        body:
+          `<p class="mk-tight"><strong>A result on a composite cannot be attributed to one increment.</strong> Not <em>is difficult to</em>; cannot. The material was combined before it was measured, so the number describes the combination and there is nothing smaller inside it to recover. No rule, no re-derivation and no statistical treatment gets it back — the information was never recorded, because it was never created.</p>` +
+          `<p class="mk-tight">${esc(S.counts.representedOnly)} of the positions sampled have <strong>no number of their own at all</strong>: ${S.representedOnly.map((w) => (LOCATIONS.some((l) => l.code === w) ? loc(w) : `<span class="mk-muted">${esc(w)}</span>`)).join(' and ')}. They are covered and they are not resolved, and the register says so on their own rows.</p>`,
+      }),
+      '1fr 1fr',
+    ) +
+    `<p class="mk-tight">The cost has a size, and it is arithmetic rather than a caution. For a quantity carried in the mass, a composite of <em>n</em> increments reading <em>v</em> is consistent with one increment at <em>n × v</em> and the rest at zero; and an increment carrying less than <em>n</em> × the reporting limit contributes less than the limit and disappears inside it. Both numbers are computed from the composite’s own value and its increment count — nothing here is a rule of thumb.</p>` +
+    opennessTable(C02) +
+    `<p class="mk-tight mk-muted"><strong>${esc(openOf(C02.id).excluded.join(' and '))} are not on this table</strong>, and leaving them off is the same discipline as the rest of the screen. The bound holds for a quantity that is conserved when masses are combined — milligrams of sulfate per kilogram add up. A pH and the conductivity of a 1:5 extract are properties of the combined material rather than sums over it, so <em>n</em> × their value is not a bound on anything, and printing one would be inventing arithmetic to fill a row.</p>` +
+    `<p class="mk-tight mk-muted">The discrete samples do <strong>not</strong> bound this. ${loc('TP01')} reads ${esc(S.shown(sulfate, S.valueOf('WDL-26M5-S01', sulfate)))} ${esc(S.analytes[sulfate].unit)} of sulfate — but at ${esc(S.sampleOf('WDL-26M5-S01').interval)}, which is a different depth interval from the ${esc(S.sampleOf(C02.id).interval)} this composite covers. A number from another horizon is not a constraint on this one, and treating it as one is the mistake a depth axis exists to prevent.</p>` +
+
+    /* ---------------------------------------------------------------- *
+     * The two composites, and where each was made
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Two composites, and the difference is where they were made</h2>' +
+    `<p class="mk-tight">Both were fixed by the same plan on the same day and both use the same scheme. One was mixed in a bowl at the pit and one at a laboratory bench, and that single fact decides whether the resolution above is <strong>gone</strong> or merely <strong>unbought</strong>.</p>` +
+    table({
+      caption: 'The same decision taken twice, in two places, with two different consequences.',
+      head: ['', 'Field-composited', 'Laboratory-composited'],
+      kind: 'matrix',
+      label: 'Field compositing compared with laboratory compositing',
+      rows: [
+        ['Composite', `<a class="mk-ref" href="#composite">${esc(C01.id)}</a><small>${esc(C01.name)}</small>`, `<a class="mk-ref" href="#composite">${esc(C02.id)}</a><small>${esc(C02.name)}</small>`],
+        ['Increments', `<span class="mk-num">${C01.increments.length}</span>`, `<span class="mk-num">${C02.increments.length}</span>`],
+        ['Depth interval', cell(`<span class="mk-num">${esc(S.sampleOf(C01.id).interval)}</span> <span class="mk-muted">— exact; every increment came from the same horizon</span>`), cell(`<span class="mk-num">${esc(S.sampleOf(C02.id).interval)}</span> <span class="mk-muted">— an envelope; the four logged horizons are not at one depth</span>`)],
+        ['Combined by', `${esc(C01.performedBy)}<small>${esc(C01.performedAt)}</small>`, `${esc(C02.performedBy)}<small>${esc(C02.performedAt)}</small>`],
+        ['Containers on the chain of custody', `<span class="mk-num">${C01.containers}</span><small>the composite travelled</small>`, `<span class="mk-num mk-num--nil">${C02.containers}</span><small>it did not exist when the cooler was sealed — its ${C02.increments.length} increments travelled</small>`],
+        ['Increments afterwards', cell('<strong>Gone.</strong> Homogenised into one bowl.'), cell(`<strong>${C02.increments[0].retained} g of each, retained.</strong> Four samples in a store.`)],
+        ['“Which increment?” after the fact', cell('<strong>Unanswerable, permanently.</strong> Only a fresh mobilisation and new holes can answer it.'), cell(`<strong>Purchasable</strong> — ${S.counts.increments} analyses — <strong>until ${esc(S.binding.expires)}</strong>.`)],
+      ].map(([what, a, b]) => [`<strong>${esc(what)}</strong>`, a, b]),
+    }) +
+    `<p class="mk-tight">It is worth saying plainly which one is better, because the record should not be neutral about it: <strong>laboratory compositing keeps a door open that field compositing closes</strong>, at the cost of freighting four bags instead of one. Field compositing is still right where the increments are genuinely interchangeable and the question is an average — which is what ${esc(C01.id)} was collected to answer. What is not defensible is doing it in the field <em>without knowing</em> that the increments cannot be recovered, and that is the sentence this screen exists to put in front of somebody.</p>` +
+
+    /* ---------------------------------------------------------------- *
+     * The compositing decision as a record
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The compositing decision, as a record</h2>' +
+    `<p class="mk-tight">Who, when, on what scheme, and why — four questions a regulator asks about a composite and a filename cannot answer. The scheme was fixed in the plan before the field work and the act was performed afterwards, so both are recorded and they are not the same event: one is a decision with an approver, the other is a physical act with an operator and a minute.</p>` +
+    S.composites.map((c) =>
+      panel(
+        `${esc(c.id)} — ${esc(c.name)}`,
+        facts([
+          ['Scheme', `${esc(c.scheme)}<small>recorded as a <strong>compositing scheme</strong>, not a rule — see below</small>`],
+          ['Decided by', `${esc(c.decidedBy)} · ${esc(c.decidedAt)}<small>${esc(S.plan)}</small>`],
+          [c.where === 'field' ? 'Performed by' : 'Instructed by', c.where === 'field' ? `${esc(c.performedBy)} · ${esc(c.performedAt)}` : `${esc(c.instructedBy)} · ${esc(c.instructedAt)}<small>written on the chain of custody at dispatch</small>`],
+          [c.where === 'field' ? 'Where' : 'Performed by', c.where === 'field' ? 'At the pit, in a stainless bowl' : `${esc(c.performedBy)} · ${esc(c.performedAt)}`],
+          ['Equipment', esc(c.equipment)],
+          ['Mass in', `<span class="mk-num">${c.collectedMass.toLocaleString('en-AU')}</span> g<small>${c.increments.length} × ${c.increments[0].mass} g</small>`],
+          ['Mass composited', `<span class="mk-num">${c.submittedMass.toLocaleString('en-AU')}</span> g`],
+          ['Depth interval', `<span class="mk-num">${esc(S.sampleOf(c.id).interval)}</span><small>${c.depth.exact ? 'exact — every increment from the same horizon' : 'an envelope over intervals that differ'}</small>`],
+        ]) +
+          `<p class="mk-tight"><strong>Why:</strong> ${esc(c.why)}</p>` +
+          (c.surplus ? `<p class="mk-tight mk-muted">${esc(c.surplus)} A composite that does not say what happened to the material it did not use has left a question a challenge can ask.</p>` : '') +
+          `<p class="mk-tight">${esc(c.retainsWhy)}</p>` +
+          incrementTable(c),
+      )).join('') +
+
+    /* ---------------------------------------------------------------- *
+     * Not a derived value
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A composite is not a derived value</h2>' +
+    cols(
+      panel(
+        'The distinction, and why it is not pedantry',
+        `<p class="mk-tight"><strong>Derived.</strong> ${esc(S.notDerived.derived)}</p>` +
+          `<p class="mk-tight"><strong>Composite.</strong> ${esc(S.notDerived.composite)}</p>` +
+          `<p class="mk-tight">${esc(S.notDerived.consequence)}</p>`,
+      ),
+      panel(
+        'Which is why the word is scheme',
+        `<p class="mk-tight">The domain already spends <em>rule</em> on the derivation engine — a versioned artefact with inputs, an effective date and a recomputable output. Reusing it here would import all four of those promises onto something that keeps none of them.</p>` +
+          table({
+            head: ['', 'Derivation rule', 'Compositing scheme'],
+            rows: [
+              ['Acts on', 'Results', 'Material'],
+              ['Happens', 'After measurement', 'Before it'],
+              ['Recomputable', 'Yes, from the inputs', 'No — there are no inputs to recompute from'],
+              ['Keeps', 'Components and a rule version', 'Increments, their positions and their intervals'],
+              ['Versioned', 'Yes, with an effective date', 'Fixed per composite, in the sampling plan'],
+            ].map(([a, b, c]) => [`<strong>${esc(a)}</strong>`, esc(b), esc(c)]),
+          }) +
+          `<p class="mk-tight mk-muted">Both live on <a class="mk-ref" href="#lineage">the same lineage screen</a>, one chain each, and the shapes are deliberately not interchangeable there either.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Traceability, both directions
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Traceability, and it has to run both ways</h2>' +
+    `<p class="mk-tight">FR-1.7 asks for traceability to constituent increments. One direction is the easy one and it is not the one a challenge uses.</p>` +
+    '<h3 class="mk-h3">Forward — increment → composite → sample → results</h3>' +
+    table({
+      caption: `Every one of the ${S.counts.incrementPositions} increments, and the analysed sample it ended up inside.`,
+      head: ['Increment', 'Position', 'Depth interval', 'Combined into', 'Analysed as', 'Certificate', 'Results it is inside'],
+      kind: 'matrix',
+      label: 'From each increment forward to the results',
+      rows: S.forward.map((f) => [
+        `<span class="mk-file mk-atom">${esc(f.ref)}</span>`,
+        f.registered ? loc(f.where) : `<span class="mk-muted">${esc(f.where)}</span>`,
+        `<span class="mk-num">${esc(f.interval)}</span>`,
+        `<span class="mk-file mk-file--id mk-atom">${esc(f.composite)}</span>`,
+        f.sample ? cell(`<span class="mk-file mk-file--id mk-atom">${esc(f.sample)}</span> <span class="mk-muted">→ subsampled</span>`) : cell('<span class="mk-muted">no sample of its own — field-composited</span>'),
+        `<span class="mk-file mk-atom">${esc(f.certificate)}</span>`,
+        `<span class="mk-num">${f.results}</span>`,
+      ]),
+    }) +
+    '<h3 class="mk-h3" style="margin-top:1rem">Backward — result → composite → increments, and the one question with no answer</h3>' +
+    `<div class="mk-lineage__subject">
+      <span class="mk-lineage__value">${esc(B.result)}</span>
+      <span class="mk-lineage__meta">${esc(B.analyte)} · sample <span class="mk-file">${esc(B.sample)}</span> · certificate <span class="mk-file">${esc(B.certificate)}</span> · ${esc(S.sampleOf(B.sample).interval)} across ${B.increments.length} positions</span>
+    </div>` +
+    cols(
+      C.card({
+        tone: 'neutral',
+        head: '<span class="mk-queue__kind">What this number can say</span>',
+        body: `<ul class="mk-tight">${B.canSay.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>`,
+      }),
+      C.card({
+        tone: 'bad',
+        head: '<span class="mk-queue__kind">What it cannot say, and will not pretend to</span>',
+        body:
+          `<p class="mk-tight"><strong>${esc(B.cannotSay)}</strong></p>` +
+          `<p class="mk-tight">There is no qualifier for this and no confidence figure that would help. The honest rendering of “which increment” is a refusal with a reason, and the reason is that the question was foreclosed by an act somebody took deliberately and recorded above.</p>`,
+      }),
+      '1fr 1fr',
+    ) +
+    `<p class="mk-tight">The four increments, with what each one would cost to resolve:</p>` +
+    table({
+      caption: `The constituent increments of ${esc(B.sample)}, and what is left of each.`,
+      head: ['Increment', 'Position', 'Depth interval', 'Retained', 'Its own result', 'What resolving it would take'],
+      kind: 'matrix',
+      label: 'The increments behind the composite result',
+      rows: B.increments.map((i) => [
+        `<span class="mk-file mk-atom">${esc(i.ref)}</span>`,
+        loc(i.at),
+        `<span class="mk-num">${esc(i.interval)}</span>`,
+        `<span class="mk-num">${i.retained}</span> g`,
+        cell('<span class="mk-num mk-num--nil">◇</span> <span class="mk-muted">composited — none exists</span>'),
+        cell(`One analysis on <span class="mk-file mk-file--id mk-atom">${esc(i.sample)}</span>, <strong>before ${esc(S.binding.expires)}</strong>`),
+      ]),
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * The decision, with its clock — consequence before use
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Buying the resolution back</h2>' +
+    cols(
+      panel(
+        'The decision, and the clock on it',
+        `<p class="mk-tight">${esc(S.followUp.question)} There is an answer and it has a price and a deadline. Both are on the record rather than in somebody’s head, which is the difference between a decision and a thing that quietly stops being possible.</p>` +
+          table({
+            caption: 'The holding time is per analyte suite, and the shortest one binds the decision.',
+            head: ['Suite', 'Window', 'Used on the composite', 'Expires', 'Left as at ' + esc(AS_AT)],
+            scroll: true,
+            label: 'Holding times on the retained increments',
+            rows: S.holding.map((h) => [
+              cell(`<strong>${esc(h.suite)}</strong><small>${esc(h.rule)}</small>`),
+              `<span class="mk-num">${h.days}</span> days`,
+              `<span class="mk-num">${h.used}</span> of ${h.days}`,
+              `<span class="sf-instant">${esc(h.expires)}</span>`,
+              `<span class="mk-num${h.left < 14 ? ' mk-num--bad' : ''}">${h.left}</span> days`,
+            ]),
+          }) +
+          C.blastRadius({
+            lede: `Analysing the ${S.counts.increments} retained increments for the ${esc(S.binding.suite.split(' — ')[0])} suite would:`,
+            rows: [
+              { what: 'Analyses purchased', n: `${S.counts.increments} — one per retained increment` },
+              { what: 'Material consumed', n: `Part of the ${C02.increments[0].retained} g held for each; the remainder stays in the store` },
+              { what: 'New results', n: `${S.counts.increments} × 3 on the extract suite — none of which supersedes the composite; it stays exactly what it is` },
+              { what: 'What it would answer', n: 'Which of the four positions carries the sulfate, and whether TP04 carries any of it' },
+              { what: 'What it cannot answer', n: 'Anything about the surface composite — those five increments no longer exist' },
+            ],
+            action: `Request ${S.counts.increments} increment analyses`,
+            cancel: 'Not now',
+            reversible: `<strong>The window is not reversible and nothing here can extend it.</strong> ${esc(S.binding.left)} days remain on the ${esc(S.binding.suite.split(' — ')[0])} suite; after ${esc(S.binding.expires)} the same analysis returns a number with a holding-time qualifier on it rather than an answer. The purchase itself is ordinary and can be cancelled until the laboratory opens a jar.`,
+          }),
+      ),
+      panel(
+        'And the position that has nothing else',
+        `<p class="mk-tight">${loc('TP04')} is where this stops being an abstraction. Its best field screen read <strong>${S.chosen('TP04').ec} µS/cm</strong>, below the plan’s ${S.screenThreshold} µS/cm threshold, so no discrete sample was submitted from it. It contributed one increment to each composite and it has <strong>no result of its own on any surface in this product</strong>.</p>` +
+          `<p class="mk-tight">That is a defensible design — a threshold written in advance and applied — and it is also the exact circumstance in which somebody later asks “what was TP04?” and gets an answer only if the increment is still in a jar. It is, until ${esc(S.binding.expires)}.</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">The equipment blank is the control on the compositing step</span>',
+            body:
+              `<p class="mk-tight">Five increments through one bowl and four through one splitter. If either carried material between them, the composite is partly a number about the equipment. <span class="mk-file mk-file--id mk-atom">${esc(S.rinsate.id)}</span> — matrix <strong>${esc(S.rinsate.matrix)}</strong>, on a soil round — says it did not: ${esc(S.rinsate.verdict.toLowerCase())}</p>`,
+          }) +
+          C.card({
+            tone: 'neutral',
+            head: '<span class="mk-queue__kind">The field duplicate, and the limit it was judged against</span>',
+            body:
+              `<p class="mk-tight">${esc(S.duplicate.child)} is a blind duplicate of ${esc(S.duplicate.parent)}. Worst relative percent difference across the four ratioed analytes: <strong>${Math.max(...S.duplicate.rows.filter((r) => r.rpd !== null).map((r) => r.rpd)).toFixed(1)}%</strong>, against a limit of ${esc(S.duplicate.limit)}; pH differs by ${S.duplicate.rows.find((r) => r.rpd === null).absolute.toFixed(1)} of a unit and is not ratioed at all.</p>` +
+              `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.duplicate.matrixGap)}</p>`,
+          }),
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Custody, and what is evaluated
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The containers, on the same chain as anything else</h2>' +
+    `<p class="mk-tight">A composite’s containers travel like any sample’s, so this is <a class="mk-ref" href="#ecoc">the chain of custody</a>’s own record rather than a parallel one — same shape, same sequence discipline, same reconciliation against the manifest. ` +
+    `<span class="mk-file mk-atom">${esc(S.chain.id)}</span> · ${S.chain.transfers.length} transfers · <strong>${S.chain.containers} containers</strong>, which is the manifest’s own sum and not a second number beside it.</p>` +
+    table({
+      caption: 'Ordered by an explicit sequence, not by time — a chain with a gap in its numbering is visible where one ordered by clock silently closes over it.',
+      head: ['#', 'At', 'From', 'To', 'What', 'Containers', 'Seal'],
+      kind: 'matrix',
+      label: 'Chain of custody for the soil investigation',
+      rows: S.chain.transfers.map((t) => [
+        `<span class="mk-num">${t.seq}</span>`,
+        `<span class="sf-instant">${esc(t.at)}</span>`,
+        esc(t.from),
+        esc(t.to),
+        cell(esc(t.what)),
+        `<span class="mk-num">${t.containers}</span>`,
+        t.seal === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-file mk-atom">${esc(t.seal)}</span>`,
+      ]),
+    }) +
+    cols(
+      panel(
+        'Two things this chain does that the groundwater one did not need to',
+        `<p class="mk-tight"><strong>It carries an instruction.</strong> ${esc(S.chain.instruction)}</p>` +
+          `<p class="mk-tight"><strong>And the compositing act is deliberately not on it.</strong> The glossary’s <em>custody transfer</em> is one handover of a set of samples from one party to another; the bench work at ${esc(C02.performedAt)} moved nothing between parties. Appending it would have quietly made this chain read seven hops long and turned a laboratory operation into a custody event. It is recorded above, with its own operator and its own minute.</p>` +
+          C.receipt({
+            headline: `${esc(S.receipt.reconciled)} containers reconciled at ${esc(S.receipt.temperature)}, seal ${esc(S.receipt.seal)}.`,
+            facts: [
+              ['Received', `${esc(S.receipt.at)} · ${esc(S.receipt.by)}`],
+              ['Cooler temperature', `${esc(S.receipt.temperature)} against ${esc(S.receipt.limit)}`],
+              ['Increments', `${S.counts.increments} logged and held unopened against the instruction`],
+              ['Work order', esc(S.workOrder)],
+            ],
+            next: { target: 'receipt', label: 'How the laboratory end of a chain is drawn' },
+          }),
+      ),
+      panel(
+        'What any of this was assessed against',
+        `<p class="mk-tight"><strong>Nothing, and that is the honest answer rather than an oversight.</strong> Applicability is by matrix among other things, the criteria library holds ${S.criteria.sets} sets, and <strong>${S.criteria.applicable.length}</strong> of them carry a soil or sediment matrix — every one is ${esc(S.criteria.matrices.join(' or ').toLowerCase())}. So every result in this investigation is <strong>not evaluated</strong>, computed from the library rather than assumed.</p>` +
+          `<p class="mk-tight">Two different roads reach that state and this product keeps them apart. A sample <em>whose matrix nobody stated</em> gets there because nothing could be selected — a road nobody can close. A sample whose matrix <em>is</em> stated and for which the library holds no set gets there because of a configuration decision, and that one somebody can close: a soil criteria set is a deliberate change on <a class="mk-ref" href="#criteria">the criteria library</a>, with an effective date, an applicability rule and a version. This investigation does not make it in passing.</p>` +
+          `<p class="mk-tight">What a practitioner says instead is a comparison against the site’s own background, and it is an <em>interpretation</em> rather than an outcome — it gets no mark on <a class="mk-ref" href="#crosstab">the results grid</a> and it makes nothing an exceedance.</p>` +
+          `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.criteria.caveat)}</p>` +
+          `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#crosstab">The soil grid, every cell not evaluated</a><a class="mk-btn mk-btn--sm" href="#background">Against background</a></div>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The plate that is not drawn
+     * ---------------------------------------------------------------- */
+    notice(
+      'warning',
+      'The figure this investigation wants is not drawn, and this is the record of why.',
+      `<strong>${esc(S.figureProposal.what)}.</strong> ${esc(S.figureProposal.whyNeeded)} ${esc(S.figureProposal.whyNotDrawn)} What it needs first: ${esc(S.figureProposal.needs)} Recorded here rather than left out, because a reader arriving at a depth-intervalled investigation will look for the plate and is owed the reason it is absent. ${esc(S.figureProposal.caveat)}`,
+    ) +
+    `<div class="mk-actions"><a class="mk-btn" href="#events">The round this belongs to</a><a class="mk-btn" href="#lineage">The chain of the composite result</a><a class="mk-btn" href="#locations">The pits and their depth intervals</a><a class="mk-btn" href="#ecoc">How a chain of custody is drawn</a></div>`
   );
 };
 
@@ -5915,17 +6470,71 @@ const locationRegistry = () => {
       : `<a class="mk-ref" href="#water">≈ estimated</a>`;
   };
 
+  /*
+   * Wave 9 — two columns that used to assume every row was a bore.
+   *
+   * `Top of casing` and `Screened interval` are facts about a *cased* hole,
+   * and the register now holds five class-soil rows that have neither. The
+   * fix is not a blank cell — a test pit drawn as a bore missing its casing
+   * is exactly the drawing the wave plan forbids — so both columns say what
+   * kind of fact they carry and each row answers in its own class's terms: a
+   * bore gives its top of casing and its screened interval, a test pit gives
+   * its ground surface and the depth it was investigated to. The header names
+   * both senses, and each cell names which one it is.
+   */
+  const levelCell = (l) =>
+    `<span class="mk-num">${(l.toc ?? l.elevation).toFixed(2)}</span> <span class="mk-entry__unit">m AHD</span>` +
+    `<small>${esc((l.datum ?? 'Top of casing').toLowerCase())}</small>`;
+  const intervalCell = (l) => {
+    if (l.klass !== 'soil') return esc(l.screen);
+    const inv = SOIL.investigated(l.code);
+    return `${inv.from.toFixed(2)} – ${inv.to.toFixed(2)} m<small>${inv.n} logged depth intervals</small>`;
+  };
+
+  /*
+   * "Last sampled" was `2026-05-1${code === 'MW11' ? '4' : '3'}` — a date
+   * typed into a template, and it was wrong in four places before this wave
+   * touched it: MW01A and MW03B were collected on the 12th, and MW11 was
+   * **not sampled at all** — it was dipped twice and found dry, which is the
+   * keep-list's own item printed as a collection date. Adding five soil rows
+   * would have given every one of them 2026-05-13 as well.
+   *
+   * It reads the manifests now. A location with no sample on one says which
+   * kind of not-sampled it is, from its class and from the round's own
+   * disposition, rather than borrowing a date from a bore beside it.
+   */
+  const sampledAt = (() => {
+    const at = new Map();
+    const note = (code, iso) => {
+      if (!code || code === '—') return;
+      if (!at.has(code) || at.get(code) < iso) at.set(code, iso);
+    };
+    for (const s of EVENT_SAMPLES) note(s.location, s.collected.slice(0, 10));
+    for (const s of SOIL.samples) note(s.location, s.collected.slice(0, 10));
+    return at;
+  })();
+  const sampledCell = (l) => {
+    if (takeOf(l.code)) return '<span class="mk-num mk-num--nil">—</span>';
+    if (sampledAt.has(l.code)) return `<span class="sf-instant">${esc(sampledAt.get(l.code))}</span>`;
+    const visit = FIELD_ROUND.current.find((s) => s.location === l.code);
+    if (visit) {
+      const d = FIELD_ROUND.disposition(visit.disposition);
+      return `<span class="mk-num mk-num--nil">—</span><small>visited ${esc(visit.arrived.slice(0, 10))} — ${esc(d.label.toLowerCase())}</small>`;
+    }
+    if (l.klass === 'tsf_instrumentation') return '<span class="mk-num mk-num--nil">—</span><small>instrumented point — read, not sampled</small>';
+    if (l.klass === 'stygofauna') return '<span class="mk-num mk-num--nil">—</span><small>net-haul events — on the fauna record</small>';
+    return '<span class="mk-num mk-num--nil">—</span>';
+  };
+
   const rows = LOCATIONS.map((l) => [
     loc(l.code),
     esc(l.klass.replace(/_/g, ' ')),
     esc(l.area),
     esc(l.position),
-    `<span class="mk-num">${l.toc.toFixed(2)}</span> <span class="mk-entry__unit">m AHD</span>`,
-    esc(l.screen),
+    levelCell(l),
+    intervalCell(l),
     takeCell(l),
-    takeOf(l.code)
-      ? '<span class="mk-num mk-num--nil">—</span>'
-      : `<span class="sf-instant">2026-05-1${l.code === 'MW11' ? '4' : '3'}</span>`,
+    sampledCell(l),
     l.lifecycle
       ? C.status(l.lifecycle, 'neutral')
       : l.code === 'MW11'
@@ -5949,7 +6558,14 @@ const locationRegistry = () => {
       controls: [
         C.field({ label: 'Find', control: C.input({ placeholder: 'Code or name…', mono: true }) }),
         C.field({ label: 'Area', control: C.select({ options: ['All areas', 'Borefield', 'TSF', 'Compliance boundary', 'Wandalup Creek'], value: 'All areas' }) }),
-        C.field({ label: 'Class', control: C.select({ options: ['All classes', ...[...new Set(LOCATIONS.map((l) => l.klass))]], value: 'All classes' }) }),
+        /*
+         * The class options carry their counts now. The list was already
+         * derived from the register — wave 9 only adds the number, because a
+         * class filter is the one control on this screen where "how many of
+         * those are there" is the question being asked, and the answer moved
+         * the day soil stopped being an empty class.
+         */
+        C.field({ label: 'Class', control: C.select({ options: [`All classes (${LOCATIONS.length})`, ...[...new Set(LOCATIONS.map((l) => l.klass))].map((k) => `${k.replace(/_/g, ' ')} (${LOCATIONS.filter((l) => l.klass === k).length})`)], value: `All classes (${LOCATIONS.length})` }) }),
         C.field({ label: 'Group', control: C.select({ options: ['Any group', 'Downgradient of TSF', 'Compliance boundary', 'Background'], value: 'Any group' }) }),
         C.field({ label: 'Network health', control: C.select({ options: ['Any', 'Unsampled in 6 months', 'Missing survey data', 'Decommissioned but still in a programme'], value: 'Any' }) }),
       ],
@@ -5968,7 +6584,7 @@ const locationRegistry = () => {
     }) +
     table({
       caption: 'Sorted by area, then by position along the flow path — not alphabetically, because that is how the network is read.',
-      head: ['Code', 'Class', 'Area', 'Position', 'Top of casing', 'Screened interval', 'Take', 'Last sampled', 'Current state', 'Open items'],
+      head: ['Code', 'Class', 'Area', 'Position', 'Reference level<small>m AHD</small>', 'Interval<small>screened or investigated</small>', 'Take', 'Last sampled', 'Current state', 'Open items'],
       rows,
       kind: 'matrix',
       label: 'Location register',
@@ -5977,7 +6593,105 @@ const locationRegistry = () => {
     `bore water is taken from is one. <strong>●</strong> is a metered take and <strong>≈</strong> an estimated one — the volumes, the basis of ` +
     `each and the position against the entitlement are on <a class="mk-ref" href="#water">water take against entitlement</a>. Nobody samples ` +
     `them, which is why their state asserts nothing about quality rather than reading as compliant.</p>` +
+    `<p class="mk-tight"><strong>Last sampled reads the sample manifests</strong> rather than a date typed into the column. Six rows resolve from the ` +
+    `<a class="mk-ref" href="#events">2026 Q2 groundwater round</a> and six from the ${esc(SOIL.label.toLowerCase())}; the rest say which kind of not-sampled they are — ` +
+    `${loc('MW11')} was visited and found dry, ${loc('TSF-VWP-03')} is read rather than sampled, and the two fauna bores are net-haul events. ` +
+    `${loc('SW01')} shows the sediment sample of 7 May because that is the manifest this register can reach: its quarterly surface-water round on 14 May is a row on the ` +
+    `<a class="mk-ref" href="#events">events register</a> with no manifest behind it here.</p>` +
     C.pager({ from: 1, to: LOCATIONS.length, total: LOCATIONS.length, unit: 'locations' }) +
+    /*
+     * Wave 9 — class soil, in its own record shape.
+     *
+     * The register above holds the facts every class shares. This is the rest
+     * of what a soil location is, and there is no bore-shaped equivalent of
+     * it: a test pit is opened, logged horizon by horizon on the day, screened
+     * in the field to decide what goes in the jar, and backfilled the same
+     * afternoon. That whole record exists and is over inside four hours,
+     * where a bore's construction record is written once and read for twenty
+     * years.
+     */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Class soil — the record a test pit keeps</h2>' +
+    `<p class="mk-tight">${SOIL.counts.pits} of the ${LOCATIONS.length} rows above are class <strong>soil</strong>, and none of them is a bore with its casing fields left blank. ` +
+    `A bore is defined by what was built in it; a pit is defined by what was found in it — ${SOIL.counts.intervals} logged <strong>depth intervals</strong> across ${SOIL.counts.pits} pits, each with the material, ` +
+    `the moisture and the field screen that was read on it. The class decides which of those two records the location can legitimately carry, ` +
+    `and the matrix of what comes out is recorded separately — which is why ${loc('SW01')}, a surface-water location, has <a class="mk-ref" href="#events">a sediment sample on this round</a>.</p>` +
+    table({
+      caption: 'Every logged interval, pit by pit. The boundaries are horizon changes, not round numbers.',
+      head: ['Pit', 'Chainage<small>m along the seepage path</small>', 'Depth interval<small>m below ground</small>', 'Material', 'Moisture', 'Field screen<small>µS/cm · 1:5 slurry</small>', 'Sampled'],
+      kind: 'matrix',
+      label: 'Depth interval log for the soil investigation',
+      rows: SOIL.pits.flatMap((p) =>
+        p.intervals.map((i, n) => {
+          const took = SOIL.samples.find((s) => s.location === p.code && s.from === i.from && s.to === i.to && s.qc === '—');
+          /*
+           * An interval that produced no sample of its own may still have
+           * produced an increment — the five surface increments of the field
+           * composite were tipped into a bowl and never had an identifier.
+           * Printing "—" against them would say nothing was taken there,
+           * which is the false half of the honest limit.
+           */
+          const inc = took ? null : SOIL.composites.flatMap((c) => c.increments.map((x) => ({ ...x, of: c.id })))
+            .find((x) => x.at === p.code && x.from === i.from && x.to === i.to);
+          return [
+            n === 0 ? loc(p.code) : '<span class="mk-num mk-num--nil">·</span>',
+            n === 0
+              ? (p.code === 'TP05' ? '<span class="mk-muted">off the path</span>' : `<span class="mk-num">${SOIL.chainage(p.code)}</span>`)
+              : '',
+            `<span class="mk-num">${i.from.toFixed(2)} – ${i.to.toFixed(2)}</span>`,
+            esc(i.material),
+            esc(i.moisture),
+            i.refusal ? `<span class="mk-num mk-num--nil">${i.ec}</span><small>refusal horizon — excluded</small>` : `<span class="mk-num${i.ec > SOIL.screenThreshold ? ' mk-num--warn' : ''}">${i.ec}</span>`,
+            took
+              ? `<span class="mk-file mk-file--id mk-atom">${esc(took.id)}</span><small>${esc(took.role)}${took.role === 'increment' ? ` of ${esc(took.composite)}` : ''}</small>`
+              : inc
+                ? `<span class="mk-file mk-atom">${esc(inc.ref)}</span><small>increment of <a class="mk-ref" href="#composite">${esc(inc.of)}</a> — no sample identifier, it was composited in the field</small>`
+                : '<span class="mk-num mk-num--nil">—</span>',
+          ];
+        })),
+    }) +
+    cols(
+      panel(
+        'Which interval went in the jar, and why that is a record',
+        `<p class="mk-tight">The plan fixed the rule before anybody stood at a pit: <strong>one discrete sample from the interval with the highest field screen</strong>, refusal horizons excluded, at any pit reading above ` +
+          `<strong>${SOIL.screenThreshold} µS/cm</strong>. The background pit is submitted whatever it reads, because a control collected only when it is interesting is not a control.</p>` +
+          table({
+            head: ['Pit', 'Highest interval', 'Screen', 'Above the threshold', 'Discrete submitted'],
+            scroll: true,
+            label: 'How the field screen chose each discrete sample',
+            rows: SOIL.pits.map((p) => {
+              const pick = SOIL.chosen(p.code);
+              const took = SOIL.samples.find((s) => s.location === p.code && s.role === 'discrete' && s.qc === '—');
+              return [
+                loc(p.code),
+                `<span class="mk-num">${pick.from.toFixed(2)} – ${pick.to.toFixed(2)}</span>`,
+                `<span class="mk-num">${pick.ec}</span>`,
+                SOIL.overThreshold(p.code) ? C.status('yes', 'warn') : C.status('no', 'neutral'),
+                took ? `<span class="mk-file mk-file--id mk-atom">${esc(took.id)}</span>` : cell('<span class="mk-num mk-num--nil">none</span> <span class="mk-muted">— covered by two composites instead</span>'),
+              ];
+            }),
+          }) +
+          `<p class="mk-tight">${loc('TP04')} is the row worth reading twice. It read ${SOIL.chosen('TP04').ec} µS/cm at its best interval, below the threshold, so no discrete was submitted from it — and it contributed one increment to each of the two ` +
+          `<a class="mk-ref" href="#composite">composite samples</a>. It is a location on this register with <strong>no number of its own</strong>, and the reason is a rule that was written down in advance rather than a gap.</p>`,
+      ),
+      panel(
+        'What the pit record does not have',
+        `<p class="mk-tight">No casing, no screen, no slot aperture, no annulus, no survey epoch history — and the register does not draw empty columns where a bore would have them. What it has instead is a log, a refusal depth and a backfill record.</p>` +
+          table({
+            head: ['Pit', 'Advanced by', 'Opened', 'Refusal', 'Backfilled'],
+            scroll: true,
+            label: 'Test pit construction and reinstatement',
+            rows: SOIL.pits.map((p) => [
+              loc(p.code),
+              esc(p.advanced),
+              `<span class="sf-instant">${esc(p.opened)}</span>`,
+              cell(esc(p.refusal)),
+              cell(esc(p.backfill)),
+            ]),
+          }) +
+          `<p class="mk-tight">The backfill row is not housekeeping. A pit is an excavation on an operating site and the reinstatement is what a tenement condition asks about; it belongs on the location record for the same reason a bore’s decommissioning does — the ` +
+          `<a class="mk-ref" href="#composite">composite record</a> and this one are the two halves of what happened at these five places.</p>`,
+      ),
+    ) +
     cols(
       panel(
         'Questions this register answers without leaving it',
@@ -6096,13 +6810,20 @@ const samplingEvents = () => (
   }) +
   table({
     caption: 'State is explicit on every round, because “where is this one up to” is U1’s standing question. Primary and QC are counted apart — a round of nine samples of which four are blanks has not sampled nine bores.',
-    head: ['Round', 'What', 'Window', 'Collected', 'By', 'Primary', 'QC', 'Laboratory', 'State'],
+    head: ['Round', 'What', 'Window', 'Collected', 'By', 'Matrix', 'Primary', 'QC', 'Laboratory', 'State'],
     rows: EVENTS.map((e) => [
       `<a class="mk-ref mk-ref--loc" href="#events">${esc(e.code)}</a>`,
       esc(e.label),
       `<span class="mk-muted">${esc(e.window)}</span>`,
       `<span class="sf-instant">${esc(e.collected)}</span>`,
       esc(e.by),
+      /*
+       * Wave 9 — the column that had nothing to say until a round arrived
+       * with three matrices in it. It is on the register rather than only on
+       * the manifest because "which round collected soil" is a question the
+       * register has to answer without opening one.
+       */
+      e.matrix.includes('·') ? cell(`<strong>${esc(e.matrix)}</strong>`) : esc(e.matrix),
       `<span class="mk-num">${e.samples}</span>`,
       e.qc ? `<span class="mk-num">${e.qc}</span>` : '<span class="mk-num mk-num--nil">0</span>',
       esc(e.lab),
@@ -6184,6 +6905,10 @@ const samplingEvents = () => (
         label: 'Sample manifest for round 2026-Q2-GW',
       }) +
       '<p class="mk-tight">Every QC sample names its parent <em>by code</em>. The incumbent alternative is a naming convention — <code class="mk-file">MW05-DUP</code> beside <code class="mk-file">MW05</code>, related by a substring and by nothing the database knows, and unrelated the moment somebody types <code class="mk-file">MW05 DUP</code>.</p>' +
+      `<p class="mk-tight"><strong>Every row in the matrix column reads <em>${esc([...new Set(EVENT_SAMPLES.map((s) => s.matrix))].join(', '))}</em>, and until 2 September it did not.</strong> Eight rows said <em>Groundwater</em>, which is the ` +
+      `<a class="mk-ref" href="#locations">location class</a> of the bore rather than the material in the bottle, and three said <em>Field blank</em>, <em>Trip blank</em> and <em>Equipment blank</em>, which are sample types the QC-role column beside them already carries. ` +
+      `The glossary’s list is closed at five — water, soil, sediment, vapour, biota — and it says the matrix is recorded rather than inferred from the place. The column was invisible while every sample on the project was water; it became legible the moment ` +
+      `<a class="mk-ref" href="#composite">a round arrived carrying three matrices</a>, which is the glossary’s own argument for why guessing it would be invisible when wrong.</p>` +
       `<p class="mk-tight"><strong>${containers} containers</strong> across ${EVENT_SAMPLES.length} samples — the same ${containers} the ` +
       `<a class="mk-ref" href="#ecoc">chain of custody</a> sealed on 14 May and the same ${containers} the laboratory reconciled on ` +
       `arrival (<a class="mk-ref" href="#receipt">38 of 38</a>). Three screens, one addition: a manifest that cannot be added up to the ` +
@@ -6255,8 +6980,146 @@ const samplingEvents = () => (
         }) +
           '<p class="mk-tight">The split is the point. A <em>field</em> duplicate and a <em>laboratory</em> duplicate are both duplicates and they are not the same control: one carries the act of collecting and the other does not, so a pair that disagrees says something different depending on which it was. Products that list them under one word have thrown away the only thing the pair was collected to separate.</p>' +
           `<p class="mk-tight">The bench controls belong to the <a class="mk-ref" href="#batches">laboratory batch</a>, not to this round — a control sample applies to a batch, which is what makes “which results does this failed spike qualify” answerable. The matrix spike on ${esc(LAB_QC.find((q) => q.kind === 'Matrix spike').parent)} is the one that failed, and it qualifies every zinc result in ${esc(LAB_QC.find((q) => q.kind === 'Matrix spike').batch)} rather than the sample it was made from.</p>` +
-          '<p class="mk-tight mk-muted">No composites. FR-1.7’s depth intervals and increment traceability are soil and sediment work, staged S8 — every row above is a discrete grab, and drawing a composite here would be drawing a matrix the slice does not carry.</p>',
+          /*
+           * Written 1 September 2026: "No composites. FR-1.7's depth
+           * intervals and increment traceability are soil and sediment work,
+           * staged S8 — every row above is a discrete grab, and drawing a
+           * composite here would be drawing a matrix the slice does not
+           * carry." Corrected 2 September 2026 (wave 9) rather than deleted:
+           * the first clause is still true of *this* manifest and the last
+           * one stopped being true the day a soil round was drawn.
+           */
+          `<p class="mk-tight mk-muted"><strong>No composites on this round</strong>, and that is still true of every row above — each one is a discrete grab from a bore. <em>Written 1 September 2026:</em> “drawing a composite here would be drawing a matrix the slice does not carry.” <em>Corrected 2 September 2026:</em> the ${esc(SOIL.label.toLowerCase())} below carries ${SOIL.counts.composites} of them, drawn as a proposal — additional matrices remain S8 widening in the PRD’s own sequencing, and drawing one does not move it.</p>`,
       )
+    );
+  })() +
+
+  /* ================================================================ *
+   * Wave 9 — the soil investigation, and it is not this round with the
+   * water left out.
+   * ================================================================ */
+  (() => {
+    const S = SOIL;
+    const soilQc = S.samples.filter((x) => x.qc !== '—');
+    return (
+      `<h2 class="mk-h2" style="margin-top:1.6rem">${esc(S.round)} — ${esc(S.label.toLowerCase())}</h2>` +
+      `<p class="sf-lede mk-tight">${esc(S.collected)} · ${esc(S.crew)} · ${esc(S.laboratory)} certificate ${esc(S.certificate)} · matrices ${esc([...new Set(S.samples.map((x) => x.matrix))].join(', '))} · all times ${esc(PROJECT.timezone)}</p>` +
+      notice(
+        'default',
+        'A different kind of round, and the record shape is different all the way down.',
+        `${esc(S.why)} What it does <strong>not</strong> have is the groundwater round’s spine: there is no purge, no stabilisation series, no depth to water and no drawdown, because none of those describes a hole with no water in it. What it has instead is a <a class="mk-ref" href="#locations">depth-interval log</a> written at each pit — ${S.counts.intervals} intervals across ${S.counts.pits} pits, each with its material, its moisture and a field screen — and a rule fixed in advance for which interval goes in the jar. A soil round drawn as a groundwater round with the water columns blank would be the same defect as a test pit drawn as a bore missing its casing.`,
+      ) +
+      cols(
+        panel(
+          'What this round has instead of a purge record',
+          table({
+            head: ['The groundwater round records', 'This round records', 'Why they are not the same record'],
+            rows: [
+              ['Depth to water, dipped before the pump', 'Depth-interval log, horizon by horizon', 'One is a level in a hole; the other is what the hole is made of'],
+              ['Purge volume, rate and intake depth', 'How the pit was advanced, and its refusal depth', 'Nothing is purged. The excavation is the access'],
+              ['Stabilisation — five readings, three consecutive within tolerance', `Field screen per interval — ${SOIL.counts.intervals} readings, one per horizon`, 'Stabilisation says the water is representative; the screen says which interval to submit'],
+              ['Filtration and preservation train', 'Homogenisation, and the equipment blank on it', 'A composite is made with equipment, so the equipment needs a control'],
+              ['Drawdown against a low-flow limit', 'Backfill and reinstatement', 'The excavation has to be put back, and that is a tenement condition'],
+            ].map(([a, b, c]) => [cell(`<strong>${esc(a)}</strong>`), cell(esc(b)), `<span class="mk-muted">${esc(c)}</span>`]),
+            scroll: true,
+            label: 'What a soil round records where a groundwater round records a purge',
+          }) +
+            `<p class="mk-tight">Both are field records and both answer “was this sample representative”. They answer it with different evidence, and a product with one screen for both would have to leave half of each blank.</p>`,
+        ),
+        panel(
+          'The round at a glance',
+          facts([
+            ['Round', `<span class="mk-file">${esc(S.round)}</span>`],
+            ['Window', esc(S.window)],
+            ['Collected', `${esc(S.collected)} · ${esc(S.crew)}`],
+            ['Locations', `${S.counts.pits} class-soil pits + ${loc('SW01')} for the sediment sample`],
+            ['Depth intervals logged', `<span class="mk-num">${S.counts.intervals}</span>`],
+            ['Samples', `<span class="mk-num">${S.counts.samples}</span><small>${S.counts.primary} primary · ${S.counts.qc} quality control</small>`],
+            ['Of those, analysed', `<span class="mk-num">${S.counts.analysed}</span><small>${S.counts.increments} constituent increments retained, not analysed</small>`],
+            ['Results', `<span class="mk-num">${S.counts.results}</span>`],
+            ['Containers', `<span class="mk-num">${S.counts.containers}</span><small>on <a class="mk-ref" href="#composite">${esc(S.chain.id)}</a></small>`],
+            ['Evaluated against', '<strong>Nothing</strong><small>no criteria set in the library carries a soil or sediment matrix</small>'],
+          ]),
+        ),
+        '3fr 2fr',
+      ) +
+      table({
+        caption: 'Event → sample → test → result, with the depth interval FR-1.7 asks for and the two link fields kept apart.',
+        head: ['Sample', 'Location', 'Matrix', 'Collected · AWST', 'Depth interval<small>m below ground</small>', 'Role', 'QC role', 'Parent<small>QC link</small>', 'Composite<small>increment link</small>', 'Containers', 'Results', 'State'],
+        kind: 'matrix',
+        label: `Sample manifest for round ${S.round}`,
+        rows: S.samples.map((x) => [
+          `<span class="mk-file mk-file--id mk-atom">${esc(x.id)}</span>`,
+          x.location === '—'
+            ? cell(`<span class="mk-num mk-num--nil">—</span> <span class="mk-muted">${esc(x.spans ?? '')}</span>`)
+            : loc(x.location),
+          `<strong>${esc(x.matrix)}</strong>`,
+          `<span class="sf-instant">${esc(x.collected.replace(' AWST', ''))}</span>`,
+          x.interval === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${esc(x.interval)}</span>`,
+          x.role === 'composite'
+            ? `<a class="mk-ref" href="#composite">composite</a>`
+            : x.role === 'increment'
+              ? `<a class="mk-ref" href="#composite">increment</a>`
+              : `<span class="mk-muted">${esc(x.role)}</span>`,
+          x.qc === '—' ? '<span class="mk-num mk-num--nil">primary</span>' : `<span class="mk-tag mk-tag--new">${esc(x.qc)}</span>`,
+          x.parent === '—'
+            ? '<span class="mk-num mk-num--nil">—</span>'
+            : x.parent.startsWith('WDL-')
+              ? `<span class="mk-file mk-file--id mk-atom">${esc(x.parent)}</span>`
+              : `<span class="mk-muted">${esc(x.parent)}</span>`,
+          x.composite === '—' ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-file mk-file--id mk-atom">${esc(x.composite)}</span>`,
+          x.containers ? `<span class="mk-num">${x.containers}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+          x.results ? `<span class="mk-num">${x.results} of ${x.tests}</span>` : '<span class="mk-num mk-num--nil">retained</span>',
+          C.status(x.state, x.state === 'retained' ? 'warn' : 'good'),
+        ]),
+      }) +
+      `<p class="mk-tight"><strong>Two link columns, and they are two different relations.</strong> <em>Parent</em> is FR-1.6’s — the QC sample made <em>from</em> another sample, one to one, and the glossary is explicit that it is mandatory for the types that have one and forbidden for the types that do not. ` +
+      `<em>Composite</em> is FR-1.7’s — the sample this material was combined <em>into</em>, many to one. ${esc(S.counts.increments)} rows carry the second and none carries the first, and running the two together would make a constituent increment read as a duplicate of the composite, which is close to the opposite of what it is.</p>` +
+      `<p class="mk-tight"><strong>${S.counts.containers} containers</strong> across ${S.counts.samples} samples — the same ${S.counts.containers} <a class="mk-ref" href="#composite">the chain of custody</a> sealed on 7 May and the same ${S.counts.containers} reconciled on arrival. ` +
+      `<span class="mk-file mk-file--id mk-atom">${esc(S.compositeOf('WDL-26M5-C02').id)}</span> contributes <strong>none of them</strong>: it was made at a laboratory bench four days after the cooler was sealed, so it has a sample identifier, five results and no containers at all. A manifest that gave it two to make the column tidy would have invented a journey.</p>` +
+      cols(
+        panel(
+          'Three samples, three matrices, and not one of them inferable from its place',
+          table({
+            head: ['Sample', 'Location', 'Location class', 'Matrix', 'What the pairing shows'],
+            scroll: true,
+            label: 'Matrix against location class on the soil round',
+            rows: [
+              ['WDL-26M5-S01', 'TP01', 'soil', 'Soil', 'The ordinary case — class and matrix agree, which is why the distinction is invisible most of the time'],
+              ['WDL-26M5-D01', 'SW01', 'surface water', 'Sediment', 'The glossary’s own example: a location whose class is water yielding a sample whose material is not'],
+              ['WDL-26M5-QC1', '—', 'no location', 'Water', 'A rinsate poured over an excavator bucket on a soil round. It has no location at all, and its matrix is water'],
+            ].map(([id, at, klass, matrix, why]) => [
+              `<span class="mk-file mk-file--id mk-atom">${esc(id)}</span>`,
+              at === '—' ? '<span class="mk-num mk-num--nil">—</span>' : loc(at),
+              `<span class="mk-muted">${esc(klass)}</span>`,
+              `<strong>${esc(matrix)}</strong>`,
+              cell(esc(why)),
+            ]),
+          }) +
+            `<p class="mk-tight">The glossary puts it in one sentence — <em>a groundwater location can yield a water sample and, on the same visit, a sediment one</em> — and the consequence is the part worth drawing: the two are not evaluated against the same criteria and not held to the same holding times. Inferring the matrix from the class would have made ${esc('WDL-26M5-D01')} a water sample at a creek, assessed against a freshwater guideline, silently.</p>`,
+        ),
+        panel(
+          'The quality control this round rests on',
+          table({
+            caption: 'Two controls, and one of them is about the compositing itself.',
+            head: ['Control', 'Sample', 'Parent', 'What it answers'],
+            scroll: true,
+            label: `Quality control for round ${S.round}`,
+            rows: soilQc.map((x) => [
+              esc(x.qc),
+              `<span class="mk-file mk-file--id mk-atom">${esc(x.id)}</span>`,
+              cell(`<span class="mk-muted">${esc(x.detail ?? x.parent)}</span>`),
+              cell(x.qc.startsWith('Field duplicate')
+                ? 'Sampling and analysis together, on soil — the only control that carries the act of collecting'
+                : esc(S.rinsate.why.split('.')[0] + '.')),
+            ]),
+          }) +
+            `<p class="mk-tight">The rinsate is the one that is particular to this round. Five increments went through one bowl and four through one splitter, so carry-over between increments would put the equipment inside the composite’s number; the blank is the only thing that says it did not, and every analyte on it is below the limit of reporting.</p>` +
+            `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.duplicate.matrixGap)}</p>`,
+        ),
+        '3fr 2fr',
+      ) +
+      `<div class="mk-actions"><a class="mk-btn" href="#composite">The composites, their increments and the honest limit</a><a class="mk-btn" href="#locations">The pits and their depth intervals</a><a class="mk-btn" href="#crosstab">The soil results</a></div>`
     );
   })() +
   cols(
@@ -7907,7 +8770,16 @@ const coverage = () => {
     ['FR-1.4', 'Bore construction detail sufficient to reproduce a construction log', 'covered', 'location', 'P1', ''],
     ['FR-1.5', 'Screened intervals to hydrostratigraphic units; nested clusters', 'covered', 'location', 'P1', ''],
     ['FR-1.6', 'Event → sample → test → result, QC types linked to parents', 'covered', 'events · receipt · qc', 'P0', ''],
-    ['FR-1.7', 'Depth intervals and composites with increment traceability', 'deferred', '—', 'P3', 'Soil, sediment and vapour matrices are S8; nothing drawn'],
+    /*
+     * Wave 9 — 2 September 2026, and the same rule wave 8 used on FR-1.10:
+     * the row moves from `deferred` to `proposed`, which is a claim about
+     * this catalogue and not about the product. Additional matrices are S8
+     * widening in the PRD's §13.2 sequencing, that marking is untouched, and
+     * the screen that owns the row is `proposed` in the register. The note
+     * says what was drawn *and* what was not, because FR-1.7 names three
+     * matrices and this seed carries honest context for two.
+     */
+    ['FR-1.7', 'Depth intervals and composites with increment traceability', 'proposed', 'composite · locations · events · lineage', 'P3', 'Drawn 2 Sep 2026 as a proposal, for soil and sediment. 18 depth intervals across 5 test pits, 2 composites over 9 constituent increments with positions and intervals both ways, and the limit stated: a composite result cannot be attributed to one increment. Vapour is not drawn — no soil-gas programme exists on this seed to draw it honestly. Additional matrices remain S8 widening'],
     ['FR-1.8', 'Analyte dictionary: CAS, synonyms, speciation, congener families', 'covered', 'dictionary', 'P1', ''],
     ['FR-1.9', 'LOR, MDL and PQL distinct; detect status first-class', 'covered', 'result-detail · crosstab', 'P0', ''],
     /*
@@ -8297,6 +9169,33 @@ export const JOBS = [
        */
       { id: 'instruments', label: 'Instruments and loggers', body: instrumentRegister, now: 'proposed', added: '2026-09-02' },
       { id: 'logger-series', label: 'Logger series — raw and corrected', body: loggerSeriesScreen, now: 'proposed', added: '2026-09-02' },
+      /*
+       * Wave 9, and the same `state`-less rule a third time: this screen did
+       * not exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A
+       * composite is a durable record with a lifecycle of its own — planned as
+       * a scheme in the sampling plan, increments collected at positions with
+       * their depth intervals, composited in the field or at the bench by a
+       * named person at a named minute, then analysed as one sample. (2) No
+       * existing screen owns the increment-to-composite step: `events` owns
+       * the round and its manifest, `ecoc` the containers moving between
+       * parties, `receipt` what was found when the cooler was opened, and
+       * `lineage` the chain of one result — while the act that turns nine
+       * positions into two samples, foreclosing "which position carried this"
+       * as it goes, falls between all four. (3) It needs its own state: the
+       * follow-up decision, its holding-time clock and the increment
+       * inventory are a workspace rather than a panel on something else.
+       * (4) It improves the graph rather than the count — it is the only
+       * screen that reaches a constituent increment, and it gives `lineage`,
+       * `locations` and `events` a target they would otherwise have to
+       * describe instead of link.
+       *
+       * `proposed`, and it stays that way: additional matrices are S8
+       * widening in the PRD's own sequencing (§13.2), and drawing a deferred
+       * domain does not reschedule it.
+       */
+      { id: 'composite', label: 'Composite sample', body: compositeSample, now: 'proposed', added: '2026-09-02' },
       { id: 'certificate', label: 'Certificate and supersession', body: certificate, state: 'engine-only', now: 'shipped' },
       { id: 'migration', label: 'Legacy reconciliation', body: migration, state: 'engine-only', now: 'shipped' },
       { id: 'field-capture', label: 'Field capture', body: fieldCapture, state: 'proposed', now: 'proposed' },
@@ -8422,12 +9321,14 @@ export const RELATED = {
   projects: ['project-home', 'project-settings', 'roles', 'home'],
   'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings'],
 
-  locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water', 'instruments'],
+  locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water', 'instruments', 'composite'],
   // Wave 8: the bore reaches what is hanging in it, and the series that
   // instrument is writing — both questions asked while standing at one.
   location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents', 'lineage', 'purge', 'instruments', 'logger-series'],
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
-  events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme'],
+  // Wave 9: the round reaches the composite collected inside it, which is the
+  // one sample on its manifest that no other screen can open.
+  events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme', 'composite'],
   imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats', 'logger-series'],
   'import-review': ['import-commit', 'quarantine', 'qc', 'dictionary', 'mapping-profiles'],
   'import-commit': ['crosstab', 'quarantine', 'exceedances', 'audit'],
@@ -8446,6 +9347,12 @@ export const RELATED = {
   // records they are made of rather than only into each other.
   instruments: ['logger-series', 'location', 'locations', 'field-capture', 'imports', 'hydrograph'],
   'logger-series': ['instruments', 'location', 'hydrograph', 'imports', 'qc', 'audit', 'map'],
+
+  // Wave 9 — the composite. It exits into the round it belongs to, the places
+  // its increments came from, the chain its containers travelled on and the
+  // library that has nothing to assess it against, because every one of those
+  // is a record it reads rather than restates.
+  composite: ['events', 'locations', 'ecoc', 'receipt', 'lineage', 'crosstab', 'criteria', 'background'],
 
   qc: ['batches', 'qc-limits', 'consistency', 'qualifiers', 'validation', 'dqa'],
   batches: ['qc', 'qc-limits', 'receipt', 'result-detail'],
@@ -8497,7 +9404,10 @@ export const RELATED = {
   // Five of these are new edges and every one of them is a hop on the chain —
   // the location and its construction, the session that collected the sample,
   // the custody record, the laboratory receipt and the analytical batch.
-  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches'],
+  // Wave 9 adds one more: the second chain on this screen ends at a question
+  // only the composite record can answer, so it links there rather than
+  // describing it.
+  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite'],
   audit: ['lineage', 'supersession', 'roles'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],
