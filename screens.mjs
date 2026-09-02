@@ -53,6 +53,11 @@ import {
   // Wave 12 — the configuration package read against what is in force, and
   // the vendor's own register of the deployments it operates.
   CONFIG_PACKAGE, ESTATE,
+  // Wave 13 — the four settlements, each one source read N times: the derived
+  // bundle contents and the configuration inventory inside them, the two
+  // clocks as one statement, the import screen's four tiles, and the matrix
+  // vocabulary the criteria library now holds.
+  BUNDLE_CONTENTS, CONFIG_INVENTORY, IMPORT_TILES, MATRIX_WORDS, OPS_CLOCK,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -111,6 +116,25 @@ const stats = (items) => `<div class="mk-stats">${items.join('')}</div>`;
  */
 const cell = (html) => `<span class="mk-cell">${html}</span>`;
 
+/**
+ * Which clock a date or a countdown is on, stated where it is drawn.
+ *
+ * Wave 13, settlement 2. This catalogue runs on two as-at dates: the project
+ * and monitoring surfaces measure from `AS_AT`, and the instance and
+ * administration surfaces from `OPS_AS_AT`. Wave 11 recorded the disagreement
+ * and deferred it on the ground that moving either one re-derives countdowns
+ * across screens no wave had opened — which is still true, and still deferred.
+ * What is settled is the half that costs nothing and was the whole complaint:
+ * **a reader never has to work out which day a number is measured from.**
+ *
+ * One helper, one sentence, one source (`OPS_CLOCK`), so the phrase is
+ * identical on every face and moving the constant moves all of them. `what`
+ * names the values on this surface that are on it, because "this screen is on
+ * the other clock" is weaker than "these values are".
+ */
+const opsClock = (what) =>
+  `<p class="mk-tight mk-muted"><strong>${esc(OPS_CLOCK.head)}</strong> ${esc(what)} ${esc(OPS_CLOCK.tail)}</p>`;
+
 const cols = (a, b, ratio = '3fr 2fr') => `<div class="mk-cols" style="--mk-cols:${ratio}">${a}${b}</div>`;
 /**
  * Kilolitres printed as megalitres — one decimal, grouped.
@@ -140,23 +164,59 @@ const importRuns = () =>
    * added the two together would be exactly the conflation FR-1.10 exists to
    * prevent. The number under it did not move, which is the point.
    *
-   * FOUND AND DEFERRED — 2 September 2026 (wave 8), owner unassigned. The
-   * other three tiles are still literals and they predate this wave: 231 is
-   * IMP-0241 alone, 9 is the two non-migration runs' held rows (the
-   * migration's 112 are not in it), and 1 is the reversal. Each is defensible
-   * and none of them is derived, so all three are the same class of thing the
-   * `#consistency` rider just paid off one screen over. Deriving them means
-   * deciding what "this quarter" and "held" mean across a migration run and a
-   * logger download, which is a scoping decision rather than an arithmetic
-   * one — it belongs to a wave that redesigns this screen deliberately. The
-   * logger run contributes 0 to all three, so nothing here is wrong today.
+   * SETTLED (wave 13) — 2 September 2026. Wave 8 recorded here that the other
+   * three tiles were literals, and that deriving them meant "deciding what
+   * 'this quarter' and 'held' mean across a migration run and a logger
+   * download, which is a scoping decision rather than an arithmetic one".
+   * Both decisions are taken, and both are stated on this screen in the table
+   * under the tiles: every tile reads `IMPORT_TILES`, and **its definition
+   * sentence is a field on the same object as its number**, so the sentence
+   * cannot end up one qualifier wider than the filter that produced it. Two
+   * numbers moved and both print what they said before — 231 → 18,859 and
+   * 9 → 115 — and wave 8's closing line, "the logger run contributes 0 to all
+   * three", is a computed fact below rather than a protected assumption. Full
+   * record above `IMPORT_TILES` in `seed.mjs`.
    */
-  stats([
-    stat(String(IMPORTS.length), 'runs this quarter'),
-    stat('231', 'results committed', 'good'),
-    stat('9', 'held for review', 'warn'),
-    stat('1', 'reversed', 'bad'),
-  ]) +
+  stats(IMPORT_TILES.tiles.map((t) => stat(t.value.toLocaleString('en-AU'), t.label, t.tone))) +
+  /*
+   * The definitions, drawn rather than left to the reader — and drawn as a
+   * `records` table because these are sentences, which pan badly and wrap
+   * well. Each row's first cell is the tile's own number, so a definition can
+   * never end up beside the wrong one.
+   */
+  table({
+    caption: `What each tile counts, and over what. The population is the ${IMPORT_TILES.runs} runs received in ${IMPORT_TILES.quarter} — ${IMPORT_TILES.window}, the calendar quarter this catalogue’s as-at date (${IMPORT_TILES.asAt}) falls in, resolved in ${esc(PROJECT.timezone)}.`,
+    head: ['Tile', 'What it counts', 'Which runs', 'What it said before'],
+    kind: 'records',
+    scroll: true,
+    label: 'What each import tile counts',
+    rows: IMPORT_TILES.tiles.map((t) => [
+      cell(`<strong>${t.value.toLocaleString('en-AU')}</strong> ${esc(t.label)}`),
+      cell(`<span class="mk-muted">${esc(t.counts)}</span>`),
+      cell(`<span class="mk-muted">${esc(t.includes)}</span>`),
+      cell(`<span class="mk-muted">${esc(t.was)}</span>`),
+    ]),
+  }) +
+  cols(
+    panel(
+      'The held tile against the register that lists held rows',
+      `<p class="mk-tight">${esc(IMPORT_TILES.reconciliation.says)}</p>` +
+        `<p class="mk-tight"><strong>A reversed run’s held rows are not held.</strong> Reversing withdraws the run from every register that counted it, so <code>${esc(IMPORT_TILES.reversedRun.id)}</code>’s ${IMPORT_TILES.reversedRun.held} leave this tile with everything else it wrote. The old literal counted those ${IMPORT_TILES.reversedRun.held} and left out the migration’s ${IMPORT_TILES.reconciliation.unenumerated} — two errors in opposite directions, which cancel only in the sense that nobody looked.</p>` +
+        `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#quarantine">The ${IMPORT_TILES.reconciliation.enumerated} rows the held register lists</a></div>`,
+    ),
+    panel(
+      'What the logger download contributes, computed',
+      facts([
+        ['Runs', `<span class="mk-num">${IMPORT_TILES.loggerContributes.runs}</span>`],
+        ['Results committed', `<span class="mk-num mk-num--nil">${IMPORT_TILES.loggerContributes.results}</span>`],
+        ['Held for review', `<span class="mk-num mk-num--nil">${IMPORT_TILES.loggerContributes.held}</span>`],
+        ['Reversed', `<span class="mk-num mk-num--nil">${IMPORT_TILES.loggerContributes.reversed}</span>`],
+      ]) +
+        `<p class="mk-tight">${esc(IMPORT_TILES.loggerContributes.why)}</p>` +
+        `<p class="mk-tight mk-muted">Wave 8 asserted this in a comment and the tiles were literals, so the assertion could not be wrong and could not be checked either. It is arithmetic now — <code>${esc(IMPORT_TILES.loggerContributes.id)}</code>’s kind is what keeps it out of the results tile, not a decision anybody has to remember.</p>`,
+    ),
+    '3fr 2fr',
+  ) +
   cols(
     panel(
       'Read a deliverable',
@@ -433,7 +493,8 @@ const certificate = () =>
       ['NATA accreditation', '2377 · site 1841'],
     ]) +
       notice('default', 'The source file is kept, not parsed and discarded.',
-        'FR-3.8 makes the certificate the thing every result points back to. A regulator asking where a number came from gets the laboratory’s own document, not a reconstruction of it.'),
+        'FR-3.8 makes the certificate the thing every result points back to. A regulator asking where a number came from gets the laboratory’s own document, not a reconstruction of it.') +
+      opsClock('The amendment below is dated on it — issued and received 2026-08-27, which is four days after that as-at and is the date on the record rather than a countdown from one. This certificate’s own issue and receipt are on the project clock, in May.'),
     panel('Supersession cascade', table({
       head: ['What followed the amendment', 'Outcome'],
       rows: SUPERSESSION.cascade.map((c) => [esc(c.what), `<span class="mk-muted">${esc(c.outcome)}</span>`]),
@@ -2460,6 +2521,7 @@ const crosstab = () => {
               `<span class="sf-instant">${esc(v.used)}</span>`,
             ]),
           }) +
+          opsClock('The last-used column is on it, and it is the only column on this grid that is — every result, criterion and period here is on the project clock.') +
           `<p class="mk-tight">A browser preference would not do. If the view lives on this machine then two people comparing numbers are comparing two questions, and the product has reintroduced the disagreement it exists to end.</p>`,
       ),
       panel(
@@ -2998,7 +3060,8 @@ const reportBuilder = () => {
         ['Run', `<span class="sf-instant">${esc(G.ran)}</span>`],
         ['Result', `${C.status(`${G.passed} passed`, 'good')} ${G.failed ? C.status(`${G.failed} failed`, 'bad') : ''}`],
         ['Gate', esc(G.gate)],
-      ]),
+      ]) +
+        opsClock(`The approval and the run above are on it — and the run is dated ${esc(G.ran.slice(0, 10))}, after that as-at, because it is when the comparison was executed rather than a measurement taken as of any day. Everything the document reports is on the project clock.`),
       panel(
         'What a comparison is for',
         '<p class="mk-tight">Every other check in this product measures the document against a <em>rule</em> — a unit is present, a reference resolves. This one measures it against an <strong>approved copy</strong>, which is the only way to catch a change nobody thought to write a rule about.</p>' +
@@ -3289,6 +3352,7 @@ const narrative = () => {
     ) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">The evidence set, pinned to the sentence</h2>' +
     `<p class="sf-lede mk-tight">§${esc(EVIDENCE.passage)}, third paragraph — the seepage inference. Pinned by ${esc(EVIDENCE.pinnedBy)} · <span class="sf-instant">${esc(EVIDENCE.pinnedAt)}</span> · ${EVIDENCE.tiles.length} items, ${EVIDENCE.drawn} of them drawn on this project.</p>` +
+    opsClock('The authoring and pinning timestamps on this screen are on it — 2026-08-24, which is the day after that as-at and is when the passage was written rather than a measurement taken as of it. Everything the passage is about — the round, the results, the exceedance — is on the project clock.') +
     notice(
       'default',
       esc(EVIDENCE.says),
@@ -4235,21 +4299,39 @@ const criteriaLibrary = () =>
     route: '/projects/:projectId/criteria',
     toolbar: btn('New criteria set', 'primary'),
   }) +
+  /*
+   * Wave 13, settlement 4. The matrix column held `Freshwater` and
+   * `Groundwater` — a receptor and a location class, neither one of the
+   * glossary's five matrix words — and wave 9 recorded that `#composite`'s
+   * "0 soil sets" was therefore a regular expression over strings rather than
+   * a match on a field. The column holds matrix words now and the two
+   * dimensions it was carrying at once have columns of their own, so nothing
+   * is deleted and the count downstream is right by construction. What each
+   * row used to read is printed under its matrix rather than left in the seed.
+   */
   table({
-    caption: 'A criteria set is versioned with effective dates. Evaluating 2019 data against a 2024 licence table is a defect, not a feature.',
-    head: ['Criteria set', 'Version', 'Effective', 'Matrix', 'Applies to', 'Analytes', 'State'],
+    caption: `A criteria set is versioned with effective dates. Evaluating 2019 data against a 2024 licence table is a defect, not a feature. Matrix is the material a sample is made of — one of ${MATRIX_WORDS.length}: ${MATRIX_WORDS.join(', ').toLowerCase()} — and a dimension a set does not name is unrestricted rather than unknown.`,
+    head: ['Criteria set', 'Version', 'Effective', 'Matrix', 'Protects', 'Location class', 'Applies to', 'Analytes', 'State'],
     kind: 'matrix',
     label: 'Criteria library',
     rows: CRITERIA_LIBRARY.map((c) => [
       esc(c.set),
       `<code>${esc(c.version)}</code>`,
       `<span class="sf-instant">${esc(c.effective)}</span>`,
-      esc(c.matrix),
+      `${esc(c.matrix)}<small>read <em>${esc(c.wasDrawnAs)}</em> until 2 Sep 2026</small>`,
+      c.protects === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-muted">${esc(c.protects)}</span>`,
+      c.locationClass === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-muted">${esc(c.locationClass)}</span>`,
       `<span class="mk-muted">${esc(c.applies)}</span>`,
       `<span class="mk-num">${c.analytes}</span>`,
       tag(c.state, c.state === 'active' ? 'good' : c.state === 'historic' ? 'neutral' : 'warn'),
     ]),
   }) +
+  opsClock('The arrival date of the package carrying the set in force is on it, and the draft version’s author date is 2026-08-24 — the day after that as-at, because it is when somebody wrote the draft rather than a measurement taken as of any day. The effective dates in the table are the sets’ own and belong to no clock.') +
+  notice(
+    'default',
+    `Every set here is a <strong>${esc(MATRIX_WORDS[0].toLowerCase())}</strong> set, and until 2 September 2026 the column did not say so.`,
+    `It read <em>Freshwater</em> on the two ANZG rows and <em>Groundwater</em> on the other three. Neither is a matrix. <strong>Freshwater is the receptor those values protect</strong> — the same distinction the PFAS comparison below draws with its own <em>Protects</em> column — and <strong>Groundwater is the location class of the places the licence and the site-specific set govern</strong>, which the glossary defines as a property of the place rather than of the sample: a groundwater bore can yield a water sample and, on the same visit, a sediment one. Both moved to columns of their own rather than being dropped, and the matrix column holds what is in the bottle. The consequence is one screen over: <a class="mk-ref" href="#composite">the soil investigation’s “no criteria set applies”</a> was a match over strings that happened to be right, and is a match on this field now.`,
+  ) +
   cols(
     panel(
       'PFAS is assessed here against ANZG, and ANZG is not the operative PFAS framework',
@@ -4640,7 +4722,12 @@ const configPackage = () => {
           ]),
         }) +
           '<p class="mk-tight"><strong>Each item carries its own version, and the field it carries it in is its own.</strong> A format definition states a <code class="mk-file">revision</code>; a criteria library and a template state an <code class="mk-file">artifact_version</code>. Those names are left alone rather than normalised into one, because they are read by people who know one kind and not the other.</p>' +
-          '<p class="mk-tight mk-muted">An item that declares no version is <strong>refused, never defaulted</strong>. A version invented on arrival cannot be reconciled against anything afterwards, and an item that shipped unversioned would be a row on every deployment that nobody could ever compare.</p>',
+          '<p class="mk-tight mk-muted">An item that declares no version is <strong>refused, never defaulted</strong>. A version invented on arrival cannot be reconciled against anything afterwards, and an item that shipped unversioned would be a row on every deployment that nobody could ever compare.</p>' +
+          /*
+           * Wave 13, settlement 1 — the count this panel prints follows the
+           * rule the paragraph above it states, which it did not before.
+           */
+          `<p class="mk-tight mk-muted"><strong>Corrected ${esc(CONFIG_INVENTORY.settled.on)}, ${esc(CONFIG_INVENTORY.settled.wave)}.</strong> ${esc(CONFIG_INVENTORY.settled.was)} ${esc(CONFIG_INVENTORY.settled.now)} ${CONFIG_INVENTORY.refused.map((r) => esc(r.name)).join(' and ')} declare none, which is exactly the refusal in the paragraph above, so counting them here was this panel disagreeing with itself. <a class="mk-ref" href="#diagnostics">The inventory a diagnostic bundle carries</a> is the same ${CONFIG_INVENTORY.counts.items} items.</p>`,
       ),
       panel(
         'Configuration, never code — the rule this rests on',
@@ -4686,6 +4773,7 @@ const configPackage = () => {
           ['In force here', `<code>${esc(P.inForce.id)}</code><small>taken ${esc(P.inForce.taken)}</small>`],
           ['As at', `<span class="sf-instant">${esc(P.asAt)}</span>`],
         ]) +
+          opsClock('The two days this package has been sitting inert are counted from it.') +
           `<p class="mk-tight"><strong>Two origins are plausible and this one names which.</strong> ${esc(P.provenance.siblingWould)}</p>` +
           `<p class="mk-tight mk-muted">${esc(P.provenance.carriedHow)} <a class="mk-ref" href="#exchange">Both of those are drawn</a>.</p>`,
       ),
@@ -5291,7 +5379,8 @@ const instanceHealth = () =>
       caption: 'Service health, as /healthz reports it.',
       head: ['Service', 'State', 'Detail'],
       rows: INSTANCE.services.map((s) => [esc(s.name), tag(s.state, 'good'), `<span class="mk-muted">${esc(s.detail)}</span>`]),
-    }),
+    }) +
+      opsClock('The scheduler’s last tick, the backup below and the release date beside the version are all on it — this whole screen is an administration surface.'),
     /*
      * Wave 12 — the customer side of two seams, on the panel that already
      * holds the version. `configuration` is the package this instance took,
@@ -5328,20 +5417,86 @@ const diagnostics = () =>
       ['RPO', esc(INSTANCE.backup.rpo)],
       ['RTO', esc(INSTANCE.backup.rto)],
       ['Drill executed', esc(INSTANCE.backup.drill)],
-    ]) + '<p class="mk-tight mk-muted">The drill runs the whole cycle — back up, write more, drop the database, restore, measure. An untested restore is not a backup.</p>'),
+    ]) + '<p class="mk-tight mk-muted">The drill runs the whole cycle — back up, write more, drop the database, restore, measure. An untested restore is not a backup.</p>' +
+      opsClock('The backup and the drill above are dated on it.')),
+    /*
+     * Wave 13, settlement 1. This panel enumerated four content rows, named
+     * *configuration* only in the sentence above them, and listed "Any
+     * principal identifier" as absent while the entitlement screen counted
+     * ~1,400 of them in the logs. It renders `BUNDLE_CONTENTS` now — the five
+     * categories the generator actually writes, in its own words — and the
+     * configuration category is drawn all the way down, because it is the one
+     * the estate board's whole configuration column rests on.
+     */
     panel('Customer-initiated diagnostics',
-      '<p class="mk-tight">There is no telemetry from a customer deployment, so a diagnostic bundle is something the customer runs and sends: version, configuration, logs, schema state, recent errors.</p>' +
-      table({
-        head: ['In the bundle', 'Not in the bundle'],
-        rows: [
-          ['Version and commit', '<span class="mk-muted">Any monitoring result</span>'],
-          ['Migration state', '<span class="mk-muted">Any location or coordinate</span>'],
-          ['Recent errors, redacted', '<span class="mk-muted">Any principal identifier</span>'],
-          ['Schema and policy inventory', '<span class="mk-muted">Any certificate or report</span>'],
-        ],
-      }),
+      `<p class="mk-tight">There is no telemetry from a customer deployment, so a diagnostic bundle is something the customer runs and sends: version, configuration, logs, schema state, recent errors. <strong>${BUNDLE_CONTENTS.counts.categories} categories and ${BUNDLE_CONTENTS.counts.files} files, and every one of them is enumerated below</strong> — <a class="mk-ref" href="#entitlement">the preview a customer reads before sending</a> draws the same list with its sizes and its sensitivities.</p>` +
+      `<ul class="mk-list">${BUNDLE_CONTENTS.excluded
+        .map((x) => `<li><strong>Not in the bundle — ${esc(x.what)}.</strong> ${esc(x.why)}</li>`)
+        .join('')}</ul>` +
+      `<p class="mk-tight mk-muted">${esc(BUNDLE_CONTENTS.noBackup)}</p>`,
     ),
     '1fr 1fr',
+  ) +
+  /* ---------------------------------------------------------------- *
+   * What a bundle carries — full width, because it is the record two
+   * screens read and a three-sentence column inside a half-width panel
+   * pans rather than reads.
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">What a bundle carries, file by file</h2>' +
+  table({
+    caption: `${BUNDLE_CONTENTS.counts.categories} categories, ${BUNDLE_CONTENTS.counts.files} files. Each one is a plain text file a reviewer can read without this application, and the manifest names the ${BUNDLE_CONTENTS.counts.excluded} omissions above so the promise travels with the archive.`,
+    head: ['In the bundle', 'File', 'What it carries'],
+    kind: 'records',
+    scroll: true,
+    label: 'What a diagnostic bundle carries',
+    rows: BUNDLE_CONTENTS.categories.map((c) => [
+      cell(`<strong>${esc(c.what)}</strong>`),
+      cell(`<code class="mk-file mk-atom">${esc(c.file)}</code>`),
+      cell(`<span class="mk-muted">${esc(c.detail)}</span>`),
+    ]),
+  }) +
+  /* ---------------------------------------------------------------- *
+   * The configuration inventory — the field the estate board rests on
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">The configuration category, drawn all the way down</h2>' +
+  `<p class="sf-lede mk-tight">One category carries a list rather than a file’s worth of state, and it is the one <a class="mk-ref" href="#estate">the vendor’s estate board</a> reads: <strong>${esc(BUNDLE_CONTENTS.categories[1].sensitive)}</strong>. A version says which criteria these are without knowing which build is running; a checksum is what makes drift across an estate detectable rather than assumed absent. The ${CONFIG_INVENTORY.counts.items} items hash together to <code class="mk-file mk-atom">sha256:${esc(CONFIG_INVENTORY.checksum)}…</code>, which is the one number an operator compares across deployments.</p>` +
+  table({
+    caption: `Every configuration item this deployment holds, with the version field its own kind states and the SHA-256 of its bytes. The inventory checksum covers ${esc(CONFIG_INVENTORY.checksumOver)}. The code calls these artifacts; this catalogue says item, because an artifact here is the parsed form of an import.`,
+    head: ['Kind', 'Item', 'Version field', 'Version', 'SHA-256', 'Drawn on'],
+    kind: 'matrix',
+    label: 'The configuration inventory a bundle carries',
+    rows: CONFIG_INVENTORY.items.map((i) => [
+      esc(i.label),
+      `<code class="mk-file mk-atom">${esc(i.file)}</code><small>${esc(i.what)}</small>`,
+      `<code class="mk-file mk-atom">${esc(i.field)}</code>`,
+      `<code>${esc(i.version)}</code>`,
+      `<code class="mk-file mk-atom">${esc(i.checksum)}…</code>`,
+      `<a class="mk-ref" href="#${esc(i.where)}">${esc(i.whereLabel)}</a>`,
+    ]),
+  }) +
+  cols(
+    panel(
+      'Two definitions that are not configuration items, and one kind that is empty',
+      `<p class="mk-tight"><strong>The format register holds ${CONFIG_INVENTORY.counts.registerRows} definitions and ${CONFIG_INVENTORY.kinds['edd-format']} of them are here.</strong> ${CONFIG_INVENTORY.refused.map((r) => esc(r.name)).join(' and ')} declare no revision, and an item that declares no version is <strong>refused rather than defaulted</strong> — it could not be reconciled across an estate afterwards, and one that shipped unversioned would be a row on every deployment nobody could ever compare. They are formats the one historical migration was read with, on <a class="mk-ref" href="#formats">the register</a> rather than in the configuration this deployment deploys.</p>` +
+        `<p class="mk-tight">The report-template kind holds <strong>${CONFIG_INVENTORY.kinds['report-template']}</strong> and is reported anyway. An inventory that silently omits a kind teaches an operator that the kind is not configurable, which is the opposite of what portability promises — <a class="mk-ref" href="#package">the package that would fill it has arrived and is inert</a>.</p>` +
+        `<p class="mk-tight mk-muted"><strong>Corrected ${esc(CONFIG_INVENTORY.settled.on)}, ${esc(CONFIG_INVENTORY.settled.wave)}.</strong> ${esc(CONFIG_INVENTORY.settled.was)} ${esc(CONFIG_INVENTORY.settled.now)} <a class="mk-ref" href="#package">Its own kinds table</a> and this inventory are the same ${CONFIG_INVENTORY.counts.items} items read twice.</p>`,
+    ),
+    /*
+     * The settled-note, on the screen rather than only in the seed: a
+     * correction a reader cannot see is a claim. It sits here because this is
+     * where the missing field is now drawn.
+     */
+    C.card({
+      tone: 'good',
+      head:
+        `<span class="mk-queue__kind">Settled ${esc(BUNDLE_CONTENTS.settled.on)}, ${esc(BUNDLE_CONTENTS.settled.wave)}</span>` +
+        '<span class="mk-queue__age">one list, read twice</span>',
+      body:
+        `<p class="mk-tight"><strong>${esc(BUNDLE_CONTENTS.settled.was)}</strong> ${esc(BUNDLE_CONTENTS.settled.now)}</p>` +
+        `<p class="mk-tight">The one that mattered is the configuration category above: <a class="mk-ref" href="#${esc(BUNDLE_CONTENTS.settled.where)}">${esc(BUNDLE_CONTENTS.settled.whereLabel)}</a> compares a deployment’s configuration checksums against what the vendor put there, and until this wave neither of the catalogue’s bundle screens said a bundle carried a checksum at all.</p>`,
+      foot: `<span class="mk-muted">${esc(BUNDLE_CONTENTS.settled.alsoFixed)}</span>`,
+    }),
+    '3fr 2fr',
   ) +
   notice('default', 'Restore is not done until the content check passes.',
     'The backup writes a manifest — audit and lineage digests, the trigger, policy and grant inventory — and the restore is measured against it. A database that comes back up with its audit triggers missing has restored the data and lost the record.');
@@ -5450,6 +5605,7 @@ const estate = () => {
      * ---------------------------------------------------------------- */
     '<h2 class="mk-h2">Which deployments have drifted, and how far</h2>' +
     `<p class="sf-lede mk-tight">The current release is <code>${esc(E.current.version)}</code>, cut ${esc(E.current.released)}. As at ${esc(E.asAt)}. Two kinds of drift are counted separately below, because they have different causes and only one of them can be seen without asking.</p>` +
+    opsClock('Every day-count on this board is measured from it. This screen stated its as-at from the day it was drawn; the phrase is the one every other administration surface now carries.') +
     table({
       caption: 'One row per deployment. Every date is a source record’s own; every number beside it is arithmetic on that date and the as-at above.',
       head: ['Deployment', 'Customer', 'Version', 'Installed', 'Releases behind', 'Days on it', 'Config package', 'Last confirmed', 'Confirmation'],
@@ -5520,7 +5676,14 @@ const estate = () => {
       panel(
         'What a bundle carries, and what it is refused',
         `<p class="mk-tight">A diagnostic bundle is generated by the customer, inspected by the customer, and sent — or not — by the customer. It carries the application version, the applied migrations, each configuration item’s version and SHA-256, the environment variables by presence and never by value, and recent logs and errors with the customer’s data taken out of them at the boundary.</p>` +
-          `<p class="mk-tight">It carries <strong>no result, no location, no certificate and no report</strong>, and it names those ${E.counts.bundleExcludes} exclusions in its own manifest rather than leaving them to be noticed. That is what makes this screen possible without holding a single row of anybody’s monitoring data.</p>` +
+          `<p class="mk-tight">It carries <strong>no result, no location, no certificate and no report</strong>, and it names ${E.counts.bundleExcludes} omissions in its own manifest rather than leaving them to be noticed. That is what makes this screen possible without holding a single row of anybody’s monitoring data.</p>` +
+          /*
+           * Wave 13, settlement 1. What stood here was a warn card recording
+           * that neither bundle screen described the field this column rests
+           * on. Both describe it now, so the card is replaced by the link it
+           * was waiting to be able to make.
+           */
+          `<p class="mk-tight"><strong>The configuration column on this screen is that inventory, read at the other end.</strong> <a class="mk-ref" href="#diagnostics">The bundle screen enumerates all ${BUNDLE_CONTENTS.counts.categories} categories and draws the configuration one item by item</a> — ${CONFIG_INVENTORY.counts.items} items, each with its own version field and its SHA-256 — and the checksum this board compares a deployment against is the same field read from the same record. Until 2 September 2026 it was not on either bundle screen, and this panel carried the record of that rather than the link.</p>` +
           `<div class="mk-actions"><a class="mk-btn" href="#diagnostics">The bundle, on the customer’s side of it</a></div>`,
       ),
       '3fr 2fr',
@@ -5534,19 +5697,20 @@ const estate = () => {
       rows: E.noSource.map((n) => [cell(esc(n))]),
     }) +
     /*
-     * The wave's own deferral, drawn where it bites rather than left in the
-     * seed for somebody to find. Full record above `bundleGap` in `seed.mjs`.
+     * Wave 12's deferral stood here as a warn card and is settled rather than
+     * deleted: what it said, what closed it, and where the record now lives.
+     * The full landed-note is above `bundleField` in `seed.mjs`.
      */
     C.card({
-      tone: 'warn',
+      tone: 'good',
       head:
-        '<span class="mk-queue__kind">Found while drawing this — 2 September 2026</span>' +
-        '<span class="mk-queue__age">deferred, owner unassigned</span>',
+        '<span class="mk-queue__kind">Recorded 2 September 2026 (wave 12) — settled 2 September 2026 (wave 13)</span>' +
+        '<span class="mk-queue__age">one record, read by three screens</span>',
       body:
-        `<p class="mk-tight"><strong>The configuration column on this screen rests on a bundle field that neither of the catalogue’s own bundle screens lists.</strong> Every configuration claim here — which package a deployment is on, and the drift that refuted one of them — comes from ${esc(E.bundleGap.field)}. But <a class="mk-ref" href="#${esc(E.bundleGap.where)}">${esc(E.bundleGap.whereLabel)}</a> names configuration among a bundle’s categories and then enumerates ${E.bundleGap.diagnosticsLists} things that never include it, and <a class="mk-ref" href="#${esc(E.bundleGap.alsoWhere)}">${esc(E.bundleGap.alsoWhereLabel)}</a> lists ${E.bundleGap.entitlementLists} and calls the nearest one “reference-content versions”. <strong>No checksum appears on either.</strong></p>` +
-        '<p class="mk-tight">Two surfaces already describe one record with two different lists, and this screen adds a third that depends on a field neither mentions. The claim about the product is right — the bundle does carry it — and the catalogue’s description of the bundle is what is short.</p>',
+        `<p class="mk-tight"><strong>What was recorded here:</strong> the configuration column on this screen rests on ${esc(E.bundleField.field)}, and neither of the catalogue’s own bundle screens listed it — <a class="mk-ref" href="#${esc(E.bundleField.where)}">${esc(E.bundleField.whereLabel)}</a> named configuration among a bundle’s categories and then enumerated four things that never included it, and <a class="mk-ref" href="#${esc(E.bundleField.alsoWhere)}">${esc(E.bundleField.alsoWhereLabel)}</a> listed eight and called the nearest one “reference-content versions”. No checksum appeared on either.</p>` +
+        `<p class="mk-tight"><strong>What closed it:</strong> one derived contents list that both of those screens read, with the configuration category carrying the inventory itself — ${E.bundleField.items} items, each with its own version field and its SHA-256. The checksum in the drift finding below is a lookup into that record rather than a fourth copy of the string, so this board and both bundle screens cannot state different checksums for one item.</p>`,
       foot:
-        '<span class="mk-muted">Not fixed here: the honest repair is one derived contents list that both bundle screens read, which is a redesign of two screens outside this wave rather than a row added to each. Recorded so the disagreement is stated rather than discovered by clicking through.</span>',
+        '<span class="mk-muted">Kept as a dated record rather than removed. A deferral that vanishes when it is paid leaves a reader unable to tell a debt that was settled from one that was never noticed.</span>',
     }) +
 
     /* ---------------------------------------------------------------- *
@@ -6535,7 +6699,15 @@ const compositeSample = () => {
         `<p class="mk-tight"><strong>Nothing, and that is the honest answer rather than an oversight.</strong> Applicability is by matrix among other things, the criteria library holds ${S.criteria.sets} sets, and <strong>${S.criteria.applicable.length}</strong> of them carry a soil or sediment matrix — every one is ${esc(S.criteria.matrices.join(' or ').toLowerCase())}. So every result in this investigation is <strong>not evaluated</strong>, computed from the library rather than assumed.</p>` +
           `<p class="mk-tight">Two different roads reach that state and this product keeps them apart. A sample <em>whose matrix nobody stated</em> gets there because nothing could be selected — a road nobody can close. A sample whose matrix <em>is</em> stated and for which the library holds no set gets there because of a configuration decision, and that one somebody can close: a soil criteria set is a deliberate change on <a class="mk-ref" href="#criteria">the criteria library</a>, with an effective date, an applicability rule and a version. This investigation does not make it in passing.</p>` +
           `<p class="mk-tight">What a practitioner says instead is a comparison against the site’s own background, and it is an <em>interpretation</em> rather than an outcome — it gets no mark on <a class="mk-ref" href="#crosstab">the results grid</a> and it makes nothing an exceedance.</p>` +
-          `<p class="mk-tight mk-muted"><strong>Recorded, not fixed:</strong> ${esc(S.criteria.caveat)}</p>` +
+          /*
+           * Wave 13, settlement 4. This line was the wave-9 record: the count
+           * was "right by inspection rather than by construction", because the
+           * library's matrix column held a receptor and a location class. It
+           * is a landed-note now, and it prints both halves — what the filter
+           * was and what it is — because a correction a reader cannot check is
+           * a claim.
+           */
+          `<p class="mk-tight mk-muted"><strong>Settled ${esc(S.criteria.settled.on)}, ${esc(S.criteria.settled.wave)}.</strong> This zero was ${esc(S.criteria.settled.was)}, so it was right by inspection rather than by construction — wave 9 recorded that here and did not fix it. It is ${esc(S.criteria.settled.now)}: <a class="mk-ref" href="#${esc(S.criteria.settled.where)}">${esc(S.criteria.settled.whereLabel)}</a> carries the receptor and the location class in columns of their own, and nothing about this investigation changed. What is still open is the rest of FR-1.11 — location group, hydrostratigraphic unit, fraction and period are prose on those rows rather than fields.</p>` +
           `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#crosstab">The soil grid, every cell not evaluated</a><a class="mk-btn mk-btn--sm" href="#background">Against background</a></div>`,
       ),
       '3fr 2fr',
@@ -7594,7 +7766,8 @@ const workQueue = () => {
                 `Across all ${PROJECTS.length} bindings: every exception is dispositioned, every round in an open period is collected or explained, and no obligation is inside its warning window. The projects are named because “nothing” on a queue that spans an estate has to say what it spanned — a queue that had quietly narrowed to one site would show this same empty state. Last checked 2026-08-23 07:41 AWST.`,
               action: 'Open the 2026 Q3 programme',
               secondary: 'Review what closed this week',
-            }),
+            }) +
+            opsClock('The “last checked” moment above, and the 41-hour silence on the instrument card, are counted from it — while every round, exceedance and obligation on this queue is counted from the project clock.'),
         ),
       '5fr 4fr',
     )
@@ -7900,7 +8073,8 @@ const projectHome = () => {
               : '<span class="mk-muted">— no end date</span>',
             `<span class="sf-instant">${esc(m.lastSeen)}</span>`,
           ]),
-        }),
+        }) +
+        opsClock(`The last-seen column is on it, which is why the operator’s four rows read August and the engagement’s ${externals.length} read May: the engagement is a project record and its ${E.daysLeft} days are counted from the project clock.`),
         panel(
           `One engagement, ${E.daysLeft} days left`,
           facts([
@@ -9406,7 +9580,8 @@ const documents = () => (
           { name: 'Source file YAR-26-0881_Wandalup_PFAS.csv', detail: 'Rows 18 and 24 · stored verbatim, never the parsed form alone.', state: 'done' },
           { name: 'Certificate YAR-26-0881.pdf', detail: 'sha256:c4a1…88f2 · 1.1 MB · verified on read 2026-08-23 07:41. This is the terminus.', state: 'done' },
         ]) +
-        '<p class="mk-tight">Full-fidelity export includes the documents. A customer leaving takes the certificates with the numbers, because numbers whose evidence stayed behind are not a record of anything.</p>',
+        '<p class="mk-tight">Full-fidelity export includes the documents. A customer leaving takes the certificates with the numbers, because numbers whose evidence stayed behind are not a record of anything.</p>' +
+        opsClock('The verified-on-read moment at the end of that chain is on it; the commit and the collection above it are on the project clock, which is why one reads August and the others May.'),
     ),
     panel(
       'Uploading over a site link',
@@ -9559,6 +9734,7 @@ const projectSettings = () => (
     kind: 'matrix',
     label: 'Project membership',
   }) +
+  opsClock('The last-seen column and the deprovisioning dates below it are on it. The two rows granted under an external engagement are project records and read May, which is the project clock rather than a stale read.') +
   notice(
     'default',
     'Deprovisioning is provable, which is the requirement rather than the courtesy.',
@@ -9791,6 +9967,7 @@ const upgradeScreen = () => (
       `<span class="mk-muted">${esc(p.detail)}</span>`,
     ]),
   }) +
+  opsClock('Every date in these checks is on it — the backup taken within 24 hours, the restore drill, and the release date of the version on offer.') +
   cols(
     panel(
       'What would change',
@@ -9867,10 +10044,14 @@ const entitlementScreen = () => (
         facts([
           ['Customer', esc(ENTITLEMENT.customer)],
           ['Term', esc(ENTITLEMENT.term)],
-          ['Remaining', `<strong>${esc(ENTITLEMENT.remaining)}</strong>`],
+          // Wave 13, settlement 2: `130 days` was typed and is subtracted now —
+          // the term's own end date less OPS_AS_AT. The number is the same;
+          // what changed is that it is measured rather than remembered.
+          ['Remaining', `<strong>${esc(ENTITLEMENT.remaining)}</strong><small>${esc(ENTITLEMENT.term.split(' → ')[1])} less ${esc(OPS_CLOCK.asAt)}, subtracted rather than typed</small>`],
           ['Seats', esc(ENTITLEMENT.seats)],
           ['Support', esc(ENTITLEMENT.support)],
         ]) +
+          opsClock('The days remaining are counted from that date, and so is every other administration figure in this catalogue.') +
           C.card({
             tone: 'new',
             head: '<span class="mk-queue__kind">What happens at expiry</span>',
@@ -9879,34 +10060,58 @@ const entitlementScreen = () => (
           }),
       ) +
       '</section>',
+    /*
+     * Wave 13, settlement 1. This preview and `#diagnostics`'s content table
+     * were two hand-written descriptions of one archive — eight rows against
+     * four — and neither named the configuration inventory the estate board
+     * measures drift against. Both read `BUNDLE_CONTENTS` now. The rows here
+     * are the same five categories that screen enumerates, in the same order,
+     * with this screen's own three columns on top of them; the exclusions
+     * below them are the generator's own `NOT_INCLUDED`, which is where the
+     * eight-row list's two excluded rows went.
+     */
     panel(
       'Diagnostic bundle',
       `<p class="mk-tight"><strong>Generated by you, never by us.</strong> ${esc(BUNDLE.initiator)}</p>` +
-        '<p class="mk-tight">Every line below is inspectable before the file exists. The preview is the feature: a support bundle a customer cannot read before sending is a request to take the vendor’s word for what is in it.</p>' +
+        `<p class="mk-tight">Every line below is inspectable before the file exists. The preview is the feature: a support bundle a customer cannot read before sending is a request to take the vendor’s word for what is in it. <strong>${BUNDLE_CONTENTS.counts.categories} categories, ${BUNDLE_CONTENTS.counts.files} files</strong>, and <a class="mk-ref" href="#diagnostics">the same list the diagnostics screen draws</a>.</p>` +
+        /*
+         * Four columns, not five: the file name rides under the contents line
+         * as a `small`. A five-column table inside a 2fr panel pans the
+         * sensitivity and the include control off the edge, and those two are
+         * the whole reason a preview exists.
+         */
         table({
           head: ['Contents', 'Size', 'Sensitivity', 'Include'],
           scroll: true, label: 'Diagnostic bundle contents',
-          rows: BUNDLE.contents.map((c) => [
-            esc(c.what),
-            `<span class="mk-num${c.size === '—' ? ' mk-num--nil' : ''}">${esc(c.size)}</span>`,
-            c.sensitive === 'none'
-              ? '<span class="mk-muted">none</span>'
-              : c.sensitive === 'customer data'
-                ? C.status('customer data — excluded', 'bad')
-                : C.status(c.sensitive, 'warn'),
-            C.checkbox({
-              srLabel: c.included
-                ? `Include ${c.what} in the bundle`
-                : `${c.what} — excluded, and not selectable`,
-              checked: c.included,
-              disabled: !c.included,
-            }),
-          ]),
+          rows: [
+            ...BUNDLE_CONTENTS.categories.map((c) => [
+              `${esc(c.what)}<small><code class="mk-file mk-atom">${esc(c.file)}</code></small>`,
+              `<span class="mk-num">${esc(BUNDLE_CONTENTS.kb(c.kb))}</span>`,
+              c.sensitive === 'none' ? '<span class="mk-muted">none</span>' : C.status(c.sensitive, 'warn'),
+              C.checkbox({ srLabel: `Include ${c.what} in the bundle`, checked: true }),
+            ]),
+            [
+              `${esc(BUNDLE_CONTENTS.manifest.what)}<small><code class="mk-file mk-atom">${esc(BUNDLE_CONTENTS.manifest.file)}</code></small>`,
+              `<span class="mk-num">${esc(BUNDLE_CONTENTS.kb(BUNDLE_CONTENTS.manifest.kb))}</span>`,
+              '<span class="mk-muted">none</span>',
+              C.checkbox({ srLabel: 'The manifest — always written, and not selectable', checked: true, disabled: true }),
+            ],
+            ...BUNDLE_CONTENTS.excluded.map((x) => [
+              `${esc(x.what)}<small>never written</small>`,
+              '<span class="mk-num mk-num--nil">—</span>',
+              C.status('excluded', 'bad'),
+              C.checkbox({ srLabel: `${x.what} — excluded, and not selectable`, checked: false, disabled: true }),
+            ]),
+          ],
         }) +
+        `<p class="mk-tight mk-muted">The ${BUNDLE_CONTENTS.counts.excluded} omissions are named in the manifest rather than left to be noticed — an omission stated is a promise and an omission unstated is a gap — and the manifest itself is not selectable because an archive that could be sent without its own inventory is one nobody can check.</p>` +
         C.blastRadius({
           lede: 'Generating this bundle would write one file, here, and send nothing:',
           rows: [
-            { what: 'Bundle size', n: '3.6 MB' },
+            /* Summed from the categories rather than typed. It read 3.6 MB,
+             * which was the old eight rows added up; the list changed and the
+             * number changed with it, because it is the sum now. */
+            { what: 'Bundle size', n: BUNDLE_CONTENTS.size },
             { what: 'Files written outside this instance', n: '0' },
             { what: 'Network requests made', n: '0' },
             { what: 'Result values included', n: '0' },
@@ -9914,6 +10119,16 @@ const entitlementScreen = () => (
           ],
           action: 'Generate the bundle',
           reversible: 'The bundle is a file on this instance until you choose to send it. Delete it and nothing remains; nothing about generating it reaches Strataflow.',
+        }) +
+        C.card({
+          tone: 'good',
+          head:
+            `<span class="mk-queue__kind">Settled ${esc(BUNDLE_CONTENTS.settled.on)}, ${esc(BUNDLE_CONTENTS.settled.wave)}</span>` +
+            '<span class="mk-queue__age">one list, read twice</span>',
+          body:
+            `<p class="mk-tight"><strong>This preview and <a class="mk-ref" href="#diagnostics">the bundle table on the diagnostics screen</a> are one record now.</strong> ${esc(BUNDLE_CONTENTS.settled.was)} ${esc(BUNDLE_CONTENTS.settled.now)}</p>` +
+            `<p class="mk-tight">The one that mattered is the configuration category: <a class="mk-ref" href="#${esc(BUNDLE_CONTENTS.settled.where)}">${esc(BUNDLE_CONTENTS.settled.whereLabel)}</a> compares a deployment’s configuration checksums against what the vendor put there, and until this wave neither bundle screen said the bundle carried a checksum at all.</p>`,
+          foot: `<span class="mk-muted">${esc(BUNDLE_CONTENTS.settled.alsoFixed)}</span>`,
         }),
     ),
     '3fr 2fr',
@@ -9959,7 +10174,8 @@ const dataStates = () => {
           headline: 'Nothing needs you.',
           detail: 'Every exception is dispositioned and no obligation is inside its warning window. Last checked 2026-08-23 07:41 AWST.',
           action: 'Open the 2026 Q3 programme',
-        }),
+        }) +
+          opsClock('Every “last checked” moment demonstrated on this screen is on it, including the concurrent-edit one further down.'),
       ),
       demo(
         'An empty register — nothing has arrived',

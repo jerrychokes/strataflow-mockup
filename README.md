@@ -995,6 +995,72 @@ import stage artifact; and **estate** is the right word here rather than a borro
 the sense wave 10 recorded it as spent on — a set of deployments — is exactly the sense OM-2
 uses and exactly what this screen draws.
 
+**Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
+them is the same move: a disagreement described in a comment becomes one source read N
+times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
+records; it stands at **five**, and the four that closed are kept as dated settled-notes
+rather than deleted, because a debt that vanishes when it is paid leaves nobody able to tell
+it from one that was never noticed.
+
+**The bundle-contents gap (wave 12's record) is closed by one derived list.** Two screens
+described one archive with two different lists — `#diagnostics` enumerated **four** content
+rows and named *configuration* only in the sentence above them, `#entitlement` previewed
+**eight** and called the nearest one *"reference-content versions"* — and **no checksum
+appeared on either**, which is the field `#estate`'s whole configuration column rests on.
+Both read one record now: the **five** categories the bundle generator writes, in its own
+manifest words, with the configuration category drawn all the way down to **three**
+configuration items, each with the version field its own kind states and its SHA-256. The
+estate's warn card came off and became the link it was waiting to be able to make. Two
+numbers moved with the list and both are printed with what they said before: the bundle size
+is the sum of its parts now (**3.6 MB → 3.1 MB**) and the exclusions are the generator's own
+six rather than the old list's two.
+
+**It found two things while doing it.** `#diagnostics` listed *"Any principal identifier"* as
+absent from a bundle one panel away from `#entitlement` counting **~1,400** of them in log
+attribution lines — and the product settles it: the log denylist is credentials, stacks and
+the customer's own values, and `principal` is on none of them, because attribution is what a
+log is for. What the bundle excludes is **session data**, which is a different fact. And the
+format register holds **four** definitions of which **two declare no revision at all**: an
+unversioned configuration artifact is refused rather than defaulted, so `#package`'s *held
+here* column moves **4 → 2** and names the two that are absent and why.
+
+**The two clocks are named on every face.** `ENTITLEMENT.remaining` was the string
+`130 days`; it is 2026-12-31 less 2026-08-23 now, which is 130 days, so the number does not
+move and the typing does. **Sixteen surfaces** state which clock a date is on, in one
+sentence read from one record — and the rule for the other twelve screens carrying dates
+after the project as-at is `#estate`'s own: *when something happened* and *when something is
+due* are a source record's own and belong to no clock. **Moving `AS_AT` is still not this
+wave**, for the reason wave 11 gave, and the 91-day disagreement between the two halves of
+the membership table is still 91 days — what is settled is that both halves say which day
+they are measured from.
+
+**`#imports`' three literal tiles are derived, and two of them were wrong.** The decisions
+wave 8 said the work needed are taken and printed on the screen: *this quarter* is the
+calendar quarter the project as-at falls in, resolved in the site's own timezone, and *held*
+is a row deliberately not written on a run that has not been reversed. **Results committed:
+231 → 18,859**, because the old literal was one run and the April migration committed 18,628
+into this project. **Held for review: 9 → 115**, because the old literal counted a
+*reversed* run's six and left out a committed one's 112 — two errors in opposite directions.
+Each tile's definition sentence is a field on the same object as its number, so the sentence
+cannot end up one qualifier wider than the filter; and wave 8's *"the logger run contributes
+0 to all three"* is arithmetic on the screen now rather than a protected assumption.
+
+**The criteria library holds matrix words.** It held `Freshwater` — an ANZG **receptor** —
+and `Groundwater`, a **location class**, and neither is one of the glossary's five, so
+`#composite`'s *"0 soil criteria sets"* was a regular expression over strings that happened
+to be right. Every set is a **water** set, the two dimensions the column was carrying at once
+have columns of their own, each row prints what it used to read, and the zero is a match on
+the field. What that does **not** close is the rest of FR-1.11 — location group,
+hydrostratigraphic unit, fraction and period are still prose — and the note says so.
+
+**One thing found and recorded rather than fixed**, because this wave moves no date literal:
+**four** records sit after *both* as-at dates — the interpretation authored and pinned
+`2026-08-24`, the criteria draft proposed the same day, the amended certificate issued
+`2026-08-27`, and the golden comparison run `2026-09-01`. All four are event dates rather
+than measurements, so the clock rule leaves them outside it; each is named on its own screen
+beside the clock statement. The fourth is the one the first draft of the record missed,
+which is why every rendered date after the administration as-at was enumerated and
+classified rather than recalled.
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls

@@ -415,7 +415,12 @@ export const ENGAGEMENT = (() => {
   const state = daysLeft < 0 ? 'ended' : daysLeft <= noticeDays ? 'expiring' : 'active';
 
   /*
-   * ## FOUND AND DEFERRED — 2 September 2026 (wave 11), owner unassigned
+   * ## SETTLED (wave 13) — 2 September 2026, on a record made 2 September
+   * 2026 (wave 11)
+   *
+   * The record is kept whole and the landed-note is at the end of it, because
+   * a debt that vanishes when it is paid leaves nobody able to tell a settled
+   * one from one that was never noticed. What wave 11 wrote, unedited:
    *
    * **This catalogue runs on two clocks, and the membership register is on
    * the other one from every countdown.** `AS_AT` is 2026-05-24 and every
@@ -443,6 +448,29 @@ export const ENGAGEMENT = (() => {
    * on six screens outside its wave; this one is 91 days and the same rule
    * applies. Recorded rather than guessed at, and the engagement states its
    * own as-at date on its face so no reader has to infer which clock it is on.
+   *
+   * ## What closed it, and what did not
+   *
+   * Settled on the terms this record's own last sentence set: **what the
+   * engagement did on its face, every face does now.** `OPS_CLOCK` (declared
+   * beside `OPS_AS_AT`) is the sentence, written once, and every surface that
+   * draws an administration-clock date or countdown renders it — sixteen of
+   * them, including the membership register's *last seen* on both screens that
+   * draw it, the saved views' *last used*, the instance's scheduler tick, the
+   * backup and drill dates on the diagnostics and upgrade screens, the
+   * document chain's *verified on read*, and the entitlement's countdown. The
+   * estate and the package boards had stated their own as-at since they were
+   * drawn and now carry the same phrase as the other thirteen
+   *
+   * **`ENTITLEMENT.remaining` is derived**, from `OPS_AS_AT` and the term's own
+   * end date: 2026-08-23 → 2026-12-31 is 130 days, which is what the string
+   * said, so the number does not move and the typing does.
+   *
+   * **Moving `AS_AT` is still not done, and the reason is the one above,
+   * unchanged.** The 91-day disagreement between the two halves of the
+   * membership table is still 91 days. What is settled is that both halves say
+   * which day they are measured from, which is the difference between two
+   * clocks stated and two clocks discovered.
    */
 
   const binding = {
@@ -2311,14 +2339,70 @@ export const SUPERSESSION = {
   ],
 };
 
-/** Criteria library entries. */
+/**
+ * Criteria library entries.
+ *
+ * # The matrix column holds matrix words — settled 2 September 2026, wave 13
+ *
+ * ## What the record said
+ *
+ * Wave 9 recorded, beside `#composite`'s soil count: *"`CRITERIA_LIBRARY.matrix`
+ * does not hold matrix words. It holds `Freshwater` (an ANZG **receptor**) and
+ * `Groundwater` (a **location class**) — neither is in the glossary's closed
+ * list of five, which is the same conflation the sample manifest carried until
+ * this wave. So 'does a soil criteria set exist' is answered by reading strings
+ * rather than by matching a field, and the answer happens to be right."* The
+ * filter it described was a regular expression, `/soil|sediment/i`, over five
+ * strings that were never going to contain either word.
+ *
+ * ## What each old string actually was, drawn rather than deleted
+ *
+ * The glossary is unambiguous on both halves. **Matrix** is "the material a
+ * sample is made of — water, soil, sediment, vapour or biota", and it is
+ * "distinct from location class, which is a property of the place". So:
+ *
+ *   - Every set here is a **water** set. All five are limits on what is in a
+ *     bottle of water, which is why every soil and sediment result in this seed
+ *     reads `not evaluated` — and that is now true by matching a field rather
+ *     than by reading strings.
+ *   - `Freshwater` was the **receptor** the ANZG values protect. It moves to
+ *     `protects`, which is the word `#criteria` already uses as a column head
+ *     over the PFAS NEMP comparison beside it ("Aquatic ecosystems", "Human
+ *     health, potable"), and which the glossary's *criteria applicability*
+ *     entry uses in as many words: applying a freshwater value to a groundwater
+ *     sample "is an assessor's judgement about receptors, not a lookup".
+ *   - `Groundwater` was the **location class** of the places the licence and
+ *     the site-specific set govern. It moves to `locationClass`, which is the
+ *     glossary's own term and one of its nine.
+ *
+ * Additive, never a rename in place: `matrix` keeps its name and gains the
+ * right values, the two dimensions it was carrying at once get fields of their
+ * own, and `wasDrawnAs` keeps what the row said before so the correction can be
+ * checked rather than taken. **A dimension a set does not name is unrestricted
+ * rather than unknown** — the glossary's rule for applicability, and the reason
+ * a null here renders as a dash rather than as a gap.
+ *
+ * What this does **not** do is close FR-1.11's applicability model: a set is
+ * bound by matrix, location group, hydrostratigraphic unit, analyte, fraction
+ * and period, and four of those six are still the prose in `applies`. Splitting
+ * that is a versioned change to the library with an effective date on every
+ * set. What is settled is the column wave 9 named, and the count that read it.
+ */
 export const CRITERIA_LIBRARY = [
-  { set: 'ANZG 2018 — 95% species protection', version: '2018.1', effective: '2018-08-01 →', matrix: 'Freshwater', applies: 'All groundwater locations, Superficial unit', analytes: 58, state: 'active' },
-  { set: 'ANZG 2018 — 99% species protection', version: '2018.1', effective: '2018-08-01 →', matrix: 'Freshwater', applies: 'Not assigned', analytes: 58, state: 'available' },
-  { set: 'Licence L8842/2019/1 — Table 4', version: '2024.2', effective: '2024-07-01 →', matrix: 'Groundwater', applies: 'Compliance boundary locations', analytes: 12, state: 'active' },
-  { set: 'Licence L8842/2019/1 — Table 4', version: '2019.1', effective: '2019-03-01 – 2024-06-30', matrix: 'Groundwater', applies: 'Superseded by 2024.2', analytes: 9, state: 'historic' },
-  { set: 'Site-specific trigger values — TSF', version: '2025.1', effective: '2025-01-01 →', matrix: 'Groundwater', applies: 'MW05, MW07 (downgradient of TSF)', analytes: 6, state: 'active' },
+  { set: 'ANZG 2018 — 95% species protection', version: '2018.1', effective: '2018-08-01 →', matrix: 'Water', protects: 'Freshwater aquatic ecosystems', locationClass: null, wasDrawnAs: 'Freshwater', applies: 'All groundwater locations, Superficial unit', analytes: 58, state: 'active' },
+  { set: 'ANZG 2018 — 99% species protection', version: '2018.1', effective: '2018-08-01 →', matrix: 'Water', protects: 'Freshwater aquatic ecosystems', locationClass: null, wasDrawnAs: 'Freshwater', applies: 'Not assigned', analytes: 58, state: 'available' },
+  { set: 'Licence L8842/2019/1 — Table 4', version: '2024.2', effective: '2024-07-01 →', matrix: 'Water', protects: null, locationClass: 'Groundwater', wasDrawnAs: 'Groundwater', applies: 'Compliance boundary locations', analytes: 12, state: 'active' },
+  { set: 'Licence L8842/2019/1 — Table 4', version: '2019.1', effective: '2019-03-01 – 2024-06-30', matrix: 'Water', protects: null, locationClass: 'Groundwater', wasDrawnAs: 'Groundwater', applies: 'Superseded by 2024.2', analytes: 9, state: 'historic' },
+  { set: 'Site-specific trigger values — TSF', version: '2025.1', effective: '2025-01-01 →', matrix: 'Water', protects: null, locationClass: 'Groundwater', wasDrawnAs: 'Groundwater', applies: 'MW05, MW07 (downgradient of TSF)', analytes: 6, state: 'active' },
 ];
+
+/**
+ * The glossary's closed list of five, as a record rather than five strings.
+ *
+ * Every matrix word this catalogue prints comes from here, so a sixth cannot be
+ * introduced by typing one. The order is the glossary's own.
+ */
+export const MATRIX_WORDS = ['Water', 'Soil', 'Sediment', 'Vapour', 'Biota'];
 
 /**
  * EDD format definitions — configuration, never code (FR-3.1).
@@ -2810,6 +2894,171 @@ export const QUARANTINE = [
   { row: 12, subject: 'Zinc (filtered) · MW05-DUP · 2026-05-13', reason: 'Field duplicate RPD of 38.2% against a 30% acceptance limit. Both results are above the reporting limit, so this is a real disagreement rather than noise near the limit.', rule: 'field-duplicate-rpd · 30%', wayOut: 'Accepted with qualifier J — estimated', state: 'resolved' },
 ];
 
+/**
+ * # The import screen's four stat tiles, derived — settled 2 September 2026,
+ * wave 13
+ *
+ * ## What the record said, and what it said it was waiting for
+ *
+ * Wave 8 recorded, beside the tiles in `screens.mjs`: *"the other three tiles
+ * are still literals and they predate this wave: 231 is IMP-0241 alone, 9 is
+ * the two non-migration runs' held rows (the migration's 112 are not in it),
+ * and 1 is the reversal … Deriving them means deciding what 'this quarter' and
+ * 'held' mean across a migration run and a logger download, which is a scoping
+ * decision rather than an arithmetic one."* That is the decision, taken here
+ * and stated on the screen: **each tile's definition sentence is a field on
+ * the tile, so the sentence and the filter are one thing rather than two that
+ * can drift.** A count one qualifier narrower than its printed definition is
+ * how this goes wrong, and the only defence is that the definition is not
+ * written anywhere else.
+ *
+ * ## The two decisions the record was waiting for
+ *
+ * **"This quarter" is the calendar quarter the project clock's as-at date
+ * falls in** — `AS_AT` is 2026-05-24, so 1 April to 30 June 2026 — resolved in
+ * the site's own timezone, which is the rule the completeness screen already
+ * states in as many words (*"a sample taken at 08:00 on 1 April local time
+ * belongs to the June quarter, not this one"*). Calendar rather than fiscal,
+ * deliberately: this project's reporting year ends in June and its *fiscal*
+ * Q4 is April–June, so the two windows coincide here and would not everywhere;
+ * the round these runs carry is coded `2026-Q2` on the calendar, and a tile
+ * counting one thing while the round beside it is named for another would be
+ * the disagreement rather than the fix.
+ *
+ * **"Held" is a row read, understood and deliberately not written**, summed
+ * over the quarter's runs that have not been reversed. Reversing a run
+ * withdraws it — its results leave every register that counted them — so its
+ * held rows are not waiting for anybody either, and IMP-0240's 6 are out.
+ *
+ * ## Three of the four numbers move, and here is each one
+ *
+ *   - **runs this quarter: 5 → 5.** It was already `IMPORTS.length`; it is now
+ *     the same list filtered to the quarter, which is every run, so the number
+ *     is unchanged and the sentence under it is now true of the filter.
+ *   - **results committed: 231 → 18,859.** The old literal was IMP-0241 alone.
+ *     A committed results run writes `rows − held` results — 42 rows, 3 held,
+ *     39 committed is the arithmetic the review screen already draws — so the
+ *     migration's 18,740 rows less its 112 held is **18,628**, and 231 + 18,628
+ *     is 18,859. The migration committed those results into this project and a
+ *     tile that left them out was counting one run rather than a quarter.
+ *   - **held for review: 9 → 115.** The old literal was IMP-0240's 6 plus
+ *     IMP-0239's 3. It had it exactly the wrong way round: IMP-0240 is
+ *     *reversed*, so its 6 are not held any more, and the migration's 112 are
+ *     held on a run that stands. 3 + 112 = 115.
+ *   - **reversed: 1 → 1.** One run in the quarter is in state `reversed`, and
+ *     it is the run the literal meant.
+ *
+ * Wave 8's closing line — *"the logger run contributes 0 to all three"* — was
+ * a protected assumption and is a computed fact now: `loggerContributes`
+ * carries what IMP-0243 puts into each tile, and it is 1 run, 0 results (its
+ * kind is `series`, so the results filter never reaches it), 0 held and 0
+ * reversed. Reading its `rows` here would resolve a getter that needs the
+ * logger series four thousand lines below, and no tile does.
+ *
+ * Declared here rather than beside `IMPORTS` because the held tile reconciles
+ * against `QUARANTINE`, which is declared above this line and below the runs.
+ */
+export const IMPORT_TILES = (() => {
+  const year = Number(AS_AT.slice(0, 4));
+  const quarter = Math.ceil(Number(AS_AT.slice(5, 7)) / 3);
+  const startMonth = (quarter - 1) * 3 + 1;
+  const from = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+  /* The first instant of the next quarter, so the window is half-open and the
+   * last day of a 30- or 31-day month needs no special case. */
+  const until = quarter === 4 ? `${year + 1}-01-01` : `${year}-${String(startMonth + 3).padStart(2, '0')}-01`;
+  const day = (run) => run.received.slice(0, 10);
+  const runs = IMPORTS.filter((r) => day(r) >= from && day(r) < until);
+
+  const committed = runs.filter((r) => r.kind === 'results' && r.state === 'committed');
+  const standing = runs.filter((r) => r.state !== 'reversed');
+  const reversed = runs.filter((r) => r.state === 'reversed');
+  const results = committed.reduce((n, r) => n + (r.rows - r.held), 0);
+  const held = standing.reduce((n, r) => n + r.held, 0);
+
+  /* The migration is the run that moves two of the three numbers, so it is
+   * found by the property that makes it the migration rather than by index. */
+  const migration = committed.find((r) => r.lab.includes('migration'));
+  const series = runs.find((r) => r.kind === 'series');
+
+  /** What the held register enumerates, against what the runs count. */
+  const enumerated = QUARANTINE.filter((q) => q.state === 'held').length;
+  const enumeratedRun = standing.find((r) => r.held === enumerated && r.kind === 'results');
+
+  const quarterLabel = `${year} Q${quarter}`;
+  const window = `1 ${['January', 'April', 'July', 'October'][quarter - 1]} – ${quarter === 1 ? '31 March' : quarter === 2 ? '30 June' : quarter === 3 ? '30 September' : '31 December'} ${year}`;
+
+  return {
+    quarter: quarterLabel,
+    window,
+    from,
+    until,
+    asAt: AS_AT,
+    runs: runs.length,
+    results,
+    held,
+    reversed: reversed.length,
+    migration,
+    migrationCommitted: migration.rows - migration.held,
+    reversedRun: reversed[0],
+    enumerated,
+    enumeratedRun,
+    /**
+     * One row per tile, and the sentence is the filter written out. Nothing
+     * on the screen states a definition that is not on this object.
+     */
+    tiles: [
+      {
+        value: runs.length,
+        label: 'runs this quarter',
+        tone: 'neutral',
+        counts: `Every import run received in ${quarterLabel} — ${window}, the calendar quarter ${AS_AT} falls in, resolved in the site’s own timezone.`,
+        includes: `All ${runs.length} kinds of run together: ${runs.filter((r) => r.kind === 'results').length} laboratory or migration deliverables and ${runs.filter((r) => r.kind === 'series').length} logger download.`,
+        was: 'the whole register’s length, which was the same 5 — the filter is new, the number is not',
+      },
+      {
+        value: results,
+        label: 'results committed',
+        tone: 'good',
+        counts: `Results written to the record by the runs above whose kind is results and whose state is committed — each one’s rows less the rows it held.`,
+        includes: `${committed.length} runs: ${committed.map((r) => r.id).join(' and ')}. The logger download commits water levels rather than results and contributes 0; the reversed run is not committed and contributes 0.`,
+        was: '231 — IMP-0241 alone, which left out the migration’s 18,628',
+      },
+      {
+        value: held,
+        label: 'held for review',
+        tone: 'warn',
+        counts: 'Rows read, understood and deliberately not written, summed over the runs above that have not been reversed.',
+        includes: `${standing.filter((r) => r.held > 0).length} runs carry any: ${standing.filter((r) => r.held > 0).map((r) => `${r.id} (${r.held})`).join(', ')}. Reversing a run withdraws it, so IMP-0240’s ${reversed[0].held} are not held any more.`,
+        was: '9 — IMP-0240’s 6 and IMP-0239’s 3, which counted a reversed run and left out a committed one',
+      },
+      {
+        value: reversed.length,
+        label: 'reversed',
+        tone: 'bad',
+        counts: 'Runs above whose state is reversed. A reversal is an event on the record, not an erasure.',
+        includes: `${reversed.map((r) => r.id).join(', ')}, reversed after ${reversed[0].rows} rows were committed and superseded by a complete deliverable.`,
+        was: '1 — the same run, typed',
+      },
+    ],
+    /** Wave 8's protected assumption, computed. */
+    loggerContributes: {
+      id: series.id,
+      runs: 1,
+      results: 0,
+      held: series.held,
+      reversed: 0,
+      why: 'Its kind is series, so the results tile never reaches it; it held no row and it has not been reversed. It is one of the five runs, and that is the whole of what it contributes.',
+    },
+    /** The held tile against the register that enumerates held rows. */
+    reconciliation: {
+      enumerated,
+      run: enumeratedRun.id,
+      unenumerated: held - enumerated,
+      says: `The held register lists ${enumerated} rows, and they are ${enumeratedRun.id}’s — one row each, with the rule that held it and the way out of it. The other ${held - enumerated} are the migration’s, and they are a count on a run rather than rows anybody can open: nothing in this catalogue enumerates them, which is a fact about the migration rather than about the tile.`,
+    },
+  };
+})();
+
 /** The licence as an entity (§11.2). */
 export const LICENCE = {
   id: 'L8842/2019/1',
@@ -3002,7 +3251,27 @@ export const MEMBERS = [
 export const ENTITLEMENT = {
   customer: 'Wandalup Resources Pty Ltd',
   term: '2026-01-01 → 2026-12-31',
-  remaining: '130 days',
+  /**
+   * The countdown, derived from the term's own end date and the administration
+   * clock — **settled 2 September 2026, wave 13**, the arithmetic half of
+   * wave 11's two-clocks record.
+   *
+   * It was the string `'130 days'`, typed on 23 August 2026, and wave 12's
+   * `OPS_AS_AT` comment listed it as one of seven literals nobody could grep as
+   * a set. The subtraction it stood in for: **2026-08-23 → 2026-12-31 = 8 (the
+   * rest of August) + 30 + 31 + 30 + 31 = 130 days.** The number does not move.
+   * What moves is that it is the subtraction now rather than the memory of one,
+   * measured from the same `OPS_AS_AT` the estate and package boards use, so
+   * moving that constant moves this with it.
+   *
+   * A getter rather than a computed constant because `OPS_AS_AT` is declared
+   * four thousand lines below this record — the same reason `IMPORTS`' logger
+   * run holds its row count as one. It resolves when a screen renders, long
+   * after both.
+   */
+  get remaining() {
+    return `${daysBetween(OPS_AS_AT, this.term.split(' → ')[1])} days`;
+  },
   seats: '12 named · 5 in use this month',
   atExpiry: 'The instance keeps running read-only. Ingestion and report generation stop; every existing record, export and backup stays reachable, and the data is the customer’s in their own tenancy either way (DR-1).',
   support: 'Business hours AWST · 1 business day response · escalation to the operator',
@@ -3034,20 +3303,28 @@ export const UPGRADE = {
  * inspect before it is exported is a request to take the vendor's word for
  * what it holds, and this product's whole position is single-tenant, in the
  * customer's own cloud.
+ *
+ * ## The contents list moved out of here — settled 2 September 2026, wave 13
+ *
+ * `BUNDLE.contents` was eight hand-written rows and `#diagnostics` drew four
+ * different ones, which is what wave 12's `bundleGap` record was about. There
+ * is one derived list now — `BUNDLE_CONTENTS`, declared beside the
+ * configuration inventory it reads, because the configuration category cannot
+ * be described without it — and both screens render it. What is left here is
+ * the pair of facts that are about the *act* of generating a bundle rather
+ * than about what is in one.
+ *
+ * What the eight rows said, kept because a deleted list cannot be checked
+ * against the one that replaced it: *Instance version, schema version,
+ * reference-content versions* (2 KB) · *Service health and last 200 scheduler
+ * ticks* (48 KB) · *Application logs, last 24 hours* (3.1 MB) · *Slow-query
+ * log and query plans* (410 KB) · *Migration history and schema DDL* (96 KB) ·
+ * *Row counts per table* (4 KB) · *Result values, coordinates or certificates*
+ * (excluded) · *Backup contents* (excluded).
  */
 export const BUNDLE = {
   generated: 'not yet — nothing is written until you generate it',
   initiator: 'You. Strataflow cannot generate this remotely and has no path into this instance.',
-  contents: [
-    { what: 'Instance version, schema version, reference-content versions', size: '2 KB', sensitive: 'none', included: true },
-    { what: 'Service health and last 200 scheduler ticks', size: '48 KB', sensitive: 'none', included: true },
-    { what: 'Application logs, last 24 hours', size: '3.1 MB', sensitive: 'principal identities appear in attribution lines', included: true },
-    { what: 'Slow-query log and query plans', size: '410 KB', sensitive: 'table and column names; no row values', included: true },
-    { what: 'Migration history and schema DDL', size: '96 KB', sensitive: 'none', included: true },
-    { what: 'Row counts per table', size: '4 KB', sensitive: 'none', included: true },
-    { what: 'Result values, coordinates or certificates', size: '—', sensitive: 'customer data', included: false },
-    { what: 'Backup contents', size: '—', sensitive: 'customer data', included: false },
-  ],
 };
 
 /** Column sets a returning user recalls rather than rebuilds (§6.1, EX-24). */
@@ -6601,37 +6878,43 @@ export const SOIL = (() => {
    *
    * This is the glossary's *matrix* entry doing its work: a criterion applies
    * by matrix among other things (FR-1.11), the library holds five sets and
-   * every one of them is freshwater or groundwater, so nothing is selectable
-   * and every result below is `not_evaluated`. Two different roads lead to
-   * that state and the screens keep them apart — *nobody stated the matrix*,
-   * and *the matrix is stated and the library has no set for it*. Only the
-   * second one is a configuration somebody can close.
-   */
-  /*
-   * FOUND AND DEFERRED — 2 September 2026 (wave 9), owner unassigned.
+   * every one of them is a **water** set, so nothing is selectable and every
+   * result below is `not_evaluated`. Two different roads lead to that state and
+   * the screens keep them apart — *nobody stated the matrix*, and *the matrix
+   * is stated and the library has no set for it*. Only the second one is a
+   * configuration somebody can close.
    *
-   * The filter above is a regular expression over five strings, and it has to
-   * be, because `CRITERIA_LIBRARY.matrix` does not hold matrix words. It holds
-   * `Freshwater` (an ANZG **receptor**) and `Groundwater` (a **location
-   * class**) — neither is in the glossary's closed list of five, which is the
-   * same conflation the sample manifest carried until this wave. So "does a
-   * soil criteria set exist" is answered by reading strings rather than by
-   * matching a field, and the answer happens to be right.
+   * ## SETTLED (wave 13) — 2 September 2026
    *
-   * Not fixed here, deliberately. A criteria set's applicability is by matrix
-   * **and** by receptor and location group (FR-1.11), so the fix is to split
-   * one column into the dimensions it is carrying at once — a versioned change
-   * to the library with an effective date on every set, which is the same class
-   * of deliberate change as adding a soil set and belongs to a wave that
-   * redesigns `#criteria`. Stated on `#composite` where the count is printed,
-   * so nobody reads the zero as stronger than it is.
+   * Wave 9 recorded here that this zero was *right by inspection rather than by
+   * construction*: the filter was `/soil|sediment/i` over five strings, because
+   * `CRITERIA_LIBRARY.matrix` held `Freshwater` (an ANZG receptor) and
+   * `Groundwater` (a location class) and neither is one of the glossary's five.
+   * The library holds matrix words now — the full record is above
+   * `CRITERIA_LIBRARY` — and the two dimensions that column was carrying at
+   * once have fields of their own, so this filter is a **match on the field**:
+   * `Soil` or `Sediment` against a value that is `Water` on every row. Right by
+   * construction, which is what the record asked for.
+   *
+   * The half wave 9 named that is still open: FR-1.11's other four dimensions —
+   * location group, hydrostratigraphic unit, fraction and period — are still
+   * prose in `applies`, and splitting those is a versioned change to the
+   * library. That is not the same debt as this one and it was never the one
+   * recorded here.
    */
   const criteria = {
     matrices: [...new Set(CRITERIA_LIBRARY.map((c) => c.matrix))],
-    applicable: CRITERIA_LIBRARY.filter((c) => /soil|sediment/i.test(c.matrix)),
+    applicable: CRITERIA_LIBRARY.filter((c) => c.matrix === 'Soil' || c.matrix === 'Sediment'),
     sets: CRITERIA_LIBRARY.length,
-    caveat:
-      'The library’s matrix column is not holding matrix words. Freshwater is an ANZG receptor and Groundwater is a location class, and neither is one of the glossary’s five — so this count is a match over strings rather than over a field, and it is right by inspection rather than by construction. Splitting that column into the dimensions it carries at once is a versioned change to the criteria library with an effective date on every set, and it is recorded rather than made here.',
+    /** What the filter now matches on, printed beside the count it produced. */
+    settled: {
+      on: '2026-09-02',
+      wave: 'wave 13',
+      was: 'a regular expression over strings that were not matrix words — the library’s column held Freshwater, an ANZG receptor, and Groundwater, a location class',
+      now: `a match on the matrix field: ${MATRIX_WORDS[1]} or ${MATRIX_WORDS[2]} against a library whose every set reads ${MATRIX_WORDS[0]}`,
+      where: 'criteria',
+      whereLabel: 'the criteria library, where the column is drawn',
+    },
   };
 
   /* The columns of the soil grid — samples, not locations, and the reason is
@@ -7736,8 +8019,436 @@ export const EXCHANGE = (() => {
  * derived below is arithmetic on this constant and a dated source record;
  * nothing is typed. The existing seven literals are left exactly as they are —
  * moving them is the deferred work, not this wave's.
+ *
+ * ## SETTLED (wave 13) — 2 September 2026
+ *
+ * The half that is now paid: **`ENTITLEMENT.remaining` is the seventh literal
+ * no longer** — it derives from this constant and the term's own end date, and
+ * the record above it carries the arithmetic. And every surface that renders a
+ * date or a countdown on this clock now **says so where it renders**, from
+ * `OPS_CLOCK` below, so the sentence a reader needs is beside the number
+ * rather than in a seed comment they will never open. The other six literals
+ * keep their dates exactly as they are, as this comment said they would.
+ *
+ * The half that is deliberately still open, with the reason unchanged:
+ * **moving `AS_AT` itself is not this wave either.** Doing it re-derives every
+ * countdown on the obligations board, the programme, the notification and the
+ * holding-time clocks, and would change numbers on screens no wave has opened.
+ * The honest settlement wave 13 makes is the one wave 11 named — *no reader
+ * can mistake which as-at a number is on* — and that is a legibility claim
+ * rather than a re-dating one.
  */
 export const OPS_AS_AT = '2026-08-23';
+
+/**
+ * The two clocks, as one record every face can read.
+ *
+ * The catalogue has two as-at dates and both are legitimate: the project and
+ * monitoring surfaces are drawn as at `AS_AT`, and the instance and
+ * administration surfaces as at `OPS_AS_AT`. What was not legitimate was
+ * leaving a reader to work out which one a number was on by noticing that
+ * *last seen* was three months after *collected*.
+ *
+ * So this is the sentence, written once. Every surface drawing an
+ * administration-clock date or countdown renders it; the project surfaces
+ * state theirs the way they always have, in the board's own "as at" line and
+ * in the round's own dates. Two clocks stated is a different thing from two
+ * clocks discovered.
+ *
+ * ## Where it is drawn, and the rule that decides
+ *
+ * **Sixteen surfaces** render it: `#home`, `#project-home`, `#project-settings`,
+ * `#crosstab`, `#documents`, `#data-states`, `#certificate`, `#narrative`,
+ * `#report`, `#criteria`, `#instance`, `#upgrade`, `#diagnostics`,
+ * `#entitlement`, `#package` and `#estate`. The last two already stated their
+ * as-at in their own words and now carry the same phrase as the rest, because a
+ * sentence that is nearly identical on fourteen screens and worded differently
+ * on two is a sentence a reader stops trusting.
+ *
+ * The rule for the rest is `#estate`'s own, stated there since it was drawn:
+ * **a date that is *when something happened* or *when something is due* is a
+ * source record's own and belongs to no clock** — a release date, a licence
+ * expiry, a period boundary, a round's due date. What belongs to a clock is a
+ * value reported *as of* one: a last-seen, a last-checked, a days-remaining, a
+ * days-behind. Thirteen more screens carry dates after `AS_AT` and every one of
+ * them is the first kind, which is why they say nothing about a clock.
+ *
+ * ## Vocabulary, recorded with its anchor
+ *
+ * **"Administration clock"** is not minted here: wave 12 opened the comment
+ * above `OPS_AS_AT` with *"The administration clock, named rather than typed
+ * an eighth time"*, and this record gives that name a face. **"Project
+ * clock"** is its counterpart and is new — the catalogue had no name for the
+ * `AS_AT` half because until there were two names it did not need one, and a
+ * sentence that names one clock and calls the other *the other one* is the
+ * sentence a reader has to decode. Neither is a glossary term and neither
+ * describes the product: both are names for two dates in **this catalogue**,
+ * which is why they are said on the catalogue's own faces rather than drawn as
+ * a field on any record.
+ *
+ * ## Found while doing this, recorded rather than fixed
+ *
+ * **Four** records sit *after* the administration as-at as well as after the
+ * project one, and they were counted by measurement rather than by memory —
+ * every rendered date later than `OPS_AS_AT` was enumerated and classified,
+ * and the rest are due dates, contract terms, upgrade windows, a holding-time
+ * expiry and this wave's own settled-notes:
+ *
+ *   - the interpretation authored and pinned at `2026-08-24` (`#narrative`);
+ *   - the criteria draft proposed on `2026-08-24` (`#criteria`);
+ *   - the amended certificate issued and received on `2026-08-27`
+ *     (`#certificate`);
+ *   - the golden comparison run at `2026-09-01 08:12` (`#report`) — the one
+ *     the first draft of this note missed, which is why it was measured.
+ *
+ * All four are event dates, so the rule above puts them outside a clock — but
+ * a reader who noticed would be right to ask, so each is named on its own
+ * screen beside the clock statement rather than left to be found. This wave
+ * **moves no date literal**, by its own scope. Not a deferral record: it is
+ * one sentence of arithmetic whenever somebody moves either clock, and it
+ * belongs to that change.
+ */
+export const OPS_CLOCK = {
+  asAt: OPS_AS_AT,
+  phrase: `as at ${OPS_AS_AT}`,
+  name: 'the administration clock',
+  other: AS_AT,
+  otherName: 'the project clock',
+  /** The clause every face leads with. */
+  head: `Administration clock — as at ${OPS_AS_AT}.`,
+  /** The clause every face closes with, so no two paraphrase it apart. */
+  tail: `The instance and administration surfaces of this catalogue measure from that day; the project and monitoring surfaces measure from ${AS_AT}, so a value here is not stale beside one there — it is on the other clock.`,
+  get says() {
+    return `${this.head} ${this.tail}`;
+  },
+  /** Why the two are not simply reconciled, kept beside the statement. */
+  why:
+    `Reconciling them means moving one, and moving ${AS_AT} re-derives every countdown on the obligations board, the programme and the notification. What is settled instead is that no number has to be traced to find out which day it is measured from.`,
+};
+
+/**
+ * # The configuration inventory this deployment holds — settled 2 September
+ * 2026, wave 13
+ *
+ * ## Why it exists
+ *
+ * Wave 12 drew `#estate`'s configuration column and its drift finding on top
+ * of the diagnostic bundle's configuration report — *each configuration item's
+ * own version and its SHA-256* — and recorded that **the catalogue described
+ * the bundle twice without naming that field either time**. This is the field,
+ * drawn once, as the thing the bundle carries and the thing drift is measured
+ * against. `BUNDLE_CONTENTS` below reads it, `CONFIG_PACKAGE`'s per-item
+ * checksums read it, and the estate's one confirmed drift reads it, so the
+ * four surfaces cannot state four different checksums for one artifact.
+ *
+ * ## Anchors, and every one was read in the app repo
+ *
+ *   - **The shape.** `apps/web/lib/ops/config-bundle.ts` (G-56c):
+ *     `ConfigArtifact` is `{ kind, name, version, checksum, bytes }` — the
+ *     name is "the filename, which is what an operator sees on disk", the
+ *     version is "the artifact's own version, read from inside it", and the
+ *     checksum is "SHA-256 of the file's bytes. What drift is detected
+ *     against."
+ *   - **Its own version field per kind.** `versionOf()` reads `revision` for a
+ *     format and `artifact_version` for the other two, "left alone rather than
+ *     normalised, because those names are read by people who know one kind and
+ *     not the other".
+ *   - **An unversioned artifact is refused rather than defaulted.** The same
+ *     function throws: *"An unversioned configuration artifact cannot be
+ *     reconciled across an estate, and defaulting it would let one deploy
+ *     unnoticed."* That is what `refused` below is drawing.
+ *   - **The inventory checksum covers configuration and nothing else.**
+ *     `configBundle()` hashes `kind:name:version:checksum` lines and stops.
+ *   - **The bundle carries this inventory and never the content.**
+ *     `apps/web/lib/ops/diagnostics.ts`'s `ConfigurationReport.artifacts` is
+ *     commented *"G-56c's inventory: each artifact's own version and SHA-256,
+ *     never its content"*, and its configuration category's manifest line
+ *     reads *"Configuration shape — env var names as set/unset, config
+ *     artifacts as versions and SHA-256s"*.
+ *
+ * ## The one thing this surfaced, and it is a real one
+ *
+ * The format register holds **four** definitions and two of them —
+ * `ESdat legacy export` and `EQUIS EDD (4-file)`, both migration-only — carry
+ * no version at all. Under the rule above, an artifact that declares no
+ * version is refused, so those two cannot be configuration artifacts: they are
+ * register rows for formats the one historical migration was read with. The
+ * inventory therefore holds **three** items, not five, and
+ * `CONFIG_PACKAGE.kinds` now counts *held here* from this record rather than
+ * from `FORMATS.length` — **the EDD-format row on `#package` moves from 4 to
+ * 2**, and the screen says which two are missing and why, rather than letting
+ * a reader find two counts of one thing.
+ *
+ * Every checksum here is fictional on the same convention as every digest and
+ * identifier in this seed. What is not fictional is the shape: twelve hex
+ * characters of a SHA-256, shown truncated exactly as the product's own
+ * manifest renders one (`sha256.slice(0, 16)`).
+ */
+export const CONFIG_INVENTORY = (() => {
+  const anzg = CRITERIA_LIBRARY.find((c) => c.set === CRITERIA[0].name && c.state === 'active');
+  const esdat = FORMATS.find((f) => f.name === 'ESdat ELDF-4');
+  const yarra = FORMATS.find((f) => f.name === 'Yarra Regional v2');
+
+  const items = [
+    {
+      kind: 'criteria-library',
+      label: 'Criteria library',
+      file: 'anzg-2018.json',
+      what: anzg.set,
+      field: 'artifact_version',
+      version: anzg.version,
+      checksum: 'a41f6c0928d7',
+      kb: 118,
+      where: 'criteria',
+      whereLabel: 'the criteria library',
+    },
+    {
+      kind: 'edd-format',
+      label: 'EDD format definition',
+      file: 'esdat.json',
+      what: esdat.name,
+      field: 'revision',
+      version: esdat.version,
+      checksum: '7e2d915cb083',
+      kb: 24,
+      where: 'formats',
+      whereLabel: 'the format registry',
+    },
+    {
+      kind: 'edd-format',
+      label: 'EDD format definition',
+      file: 'yarra-regional.json',
+      what: yarra.name,
+      field: 'revision',
+      version: yarra.version,
+      checksum: 'b6c40e79f215',
+      kb: 19,
+      where: 'formats',
+      whereLabel: 'the format registry',
+    },
+  ];
+
+  /**
+   * Register rows that are not configuration artifacts, drawn rather than
+   * quietly absent — the same argument the product makes about an empty kind.
+   */
+  const refused = FORMATS.filter((f) => f.version === '—').map((f) => ({
+    name: f.name,
+    state: f.state,
+    why: 'Declares no revision, and an item that declares no version is refused rather than defaulted — it could not be reconciled across an estate afterwards.',
+  }));
+
+  const countOf = (kind) => items.filter((i) => i.kind === kind).length;
+
+  return {
+    items,
+    refused,
+    kinds: {
+      'criteria-library': countOf('criteria-library'),
+      'edd-format': countOf('edd-format'),
+      /* Reported and reported as empty, because an inventory that omits a kind
+       * teaches an operator that the kind is not configurable. */
+      'report-template': countOf('report-template'),
+    },
+    /** One literal, on the same fictional convention as every digest here. */
+    checksum: '3d81ba0c5e47',
+    checksumOver: 'kind:name:version:checksum, one line per item, and nothing else — not the application version',
+    counts: {
+      items: items.length,
+      refused: refused.length,
+      registerRows: FORMATS.length,
+      kb: items.reduce((n, i) => n + i.kb, 0),
+    },
+    settled: {
+      on: '2026-09-02',
+      wave: 'wave 13',
+      was: 'The configuration package screen counted the EDD-format kind as “held here: 4”, straight off the format register’s length.',
+      now: `It counts the definitions that carry a revision — ${countOf('edd-format')} — and the ${refused.length} that do not are named beside them as what they are.`,
+    },
+  };
+})();
+
+/**
+ * # What is in a diagnostic bundle, derived once and read by both screens —
+ * settled 2 September 2026, wave 13
+ *
+ * ## What this replaces
+ *
+ * Wave 12's `bundleGap` record: *"two surfaces already describe one record
+ * with two different lists — four rows against eight — and this wave adds a
+ * third that depends on a field neither of them mentions."* `#diagnostics`
+ * enumerated four content rows and named *configuration* only in its intro
+ * sentence; `#entitlement` previewed eight and called the nearest one
+ * *"reference-content versions"*; **no checksum appeared on either**, which is
+ * the field `#estate`'s whole configuration column rests on. Both screens read
+ * this record now, and the configuration category carries the inventory
+ * itself.
+ *
+ * ## The categories are the product's five, not the catalogue's four or eight
+ *
+ * `apps/web/lib/ops/diagnostics.ts` opens with OM-1's own list — *"OM-1 names
+ * five categories: version, configuration, logs, schema state, recent
+ * errors"* — and `DiagnosticsCategoryName` is that union, closed. Every `what`
+ * below is the manifest line the generator writes for that category, quoted.
+ * So the four rows `#diagnostics` drew map onto the five like this, and the
+ * mapping is the record of what was corrected:
+ *
+ *   - *Version and commit* → **version**, unchanged in substance.
+ *   - *Migration state* and *Schema and policy inventory* were **two rows for
+ *     one category**: the bundle writes one `schema.json` and it is the
+ *     applied migrations by name and applied-at. There is no DDL in it and no
+ *     policy inventory — `schemaReport()` reads `kysely_migration` and
+ *     nothing else — so the second row was describing a file the bundle does
+ *     not contain.
+ *   - *Recent errors, redacted* → **errors**, unchanged in substance.
+ *   - **logs** was named in the screen's intro sentence and enumerated
+ *     nowhere, and it is the largest thing in the archive.
+ *   - **configuration** is the one the whole deferral was about.
+ *
+ * And the eight rows `#entitlement` drew: *service health and last 200
+ * scheduler ticks*, *slow-query log and query plans* and *row counts per
+ * table* are **not in the bundle at all** — three files the generator never
+ * writes — and *migration history and schema DDL* is half right for the
+ * reason above. They are recorded here rather than deleted, because a list
+ * that vanishes cannot be compared with the one that replaced it.
+ *
+ * ## What was found while doing it, and it is not the configuration field
+ *
+ * `#diagnostics` listed **"Any principal identifier"** under *not in the
+ * bundle*, one panel away from `#entitlement` saying the application logs
+ * carry *"principal identities … in attribution lines"* and a blast radius
+ * counting **~1,400** of them. Both cannot be true, and the product settles
+ * it: `apps/web/lib/ops/log.ts`'s denylist is passwords, tokens, connection
+ * strings, stacks and the customer's own values — `principal` and `subject`
+ * are not on it, deliberately, because attribution is what a log is for. What
+ * the bundle excludes is **session data**, which is a different fact: *"Who is
+ * signed in is the customer's directory's business and the instance's, not
+ * Strataflow's."* The exclusions below are the generator's own `NOT_INCLUDED`
+ * map, six of them, each with the reason it ships in every manifest.
+ *
+ * ## Sizes
+ *
+ * Fictional, like every size in this seed, but **the total is not typed**: the
+ * blast radius on `#entitlement` reads the sum of the parts. It said `3.6 MB`,
+ * which was the old eight rows added up; the five categories and the manifest
+ * come to 3.1 MB, and the number moves because the list did.
+ */
+export const BUNDLE_CONTENTS = (() => {
+  const kb = (n) => (n < 1024 ? `${n} KB` : `${(n / 1024).toFixed(1)} MB`);
+
+  const categories = [
+    {
+      category: 'version',
+      file: 'version.json',
+      what: 'Application version, commit, runtime and platform',
+      detail: `${INSTANCE.version} @ ${INSTANCE.commit}, and the Node, platform and architecture it is running on.`,
+      sensitive: 'none',
+      kb: 2,
+    },
+    {
+      category: 'configuration',
+      file: 'configuration.json',
+      what: 'Configuration shape — env var names as set/unset, config artifacts as versions and SHA-256s',
+      detail: `${CONFIG_INVENTORY.counts.items} configuration items with their own versions and checksums, and 12 environment variables by presence only — never by value.`,
+      sensitive: 'item names, versions and checksums; never an item’s content',
+      kb: 6,
+      /** The field the estate's configuration column and its drift finding rest on. */
+      inventory: CONFIG_INVENTORY,
+    },
+    {
+      category: 'logs',
+      file: 'logs/recent.ndjson',
+      what: 'Recent structured log records (G-85), re-redacted at the bundle boundary',
+      detail: 'Up to 2,000 records. Every line is parsed and passed through the denylist a second time on the way in, and a line that does not parse as a structured record is dropped and counted rather than copied.',
+      sensitive: 'principal identities appear in attribution lines',
+      kb: 3100,
+    },
+    {
+      category: 'errors',
+      file: 'errors.json',
+      what: 'Recent errors — name and message only, never a stack',
+      detail: 'Rebuilt field by field from an allowlist, so a stack smuggled in under another key cannot cross.',
+      sensitive: 'error names and messages',
+      kb: 84,
+    },
+    {
+      category: 'schema',
+      file: 'schema.json',
+      what: 'Schema state — every applied migration, by name and applied-at',
+      detail: '118 migrations, latest 2026081407_notification_awareness. A database that cannot be reached is recorded as a name and a message rather than failing the bundle — the bundle for an instance that is down is the one somebody needs.',
+      sensitive: 'none',
+      kb: 14,
+    },
+  ];
+
+  /** The inventory of the archive itself, which is why an omission is a promise. */
+  const manifest = {
+    file: 'MANIFEST.md',
+    what: 'Every category, its file, its detail and its SHA-256 — including the categories that could not be included, and why',
+    kb: 2,
+  };
+
+  /** The generator's own `NOT_INCLUDED`, and the reason each ships in every manifest. */
+  const excluded = [
+    {
+      what: 'Result values and monitoring data',
+      why: 'The customer’s data, not diagnostic data. No sample, result, location or laboratory row is read by the bundle generator, and log lines are re-redacted at the boundary in case a debug line elsewhere wrote one.',
+    },
+    {
+      what: 'Credentials and secrets',
+      why: 'No password, client secret, session secret, token or API key — by field-name denylist on every log line, and by never reading an environment variable’s value at all.',
+    },
+    {
+      what: 'Environment variable values',
+      why: 'Names and whether each is set, never what it is set to. The database URL carries a password; the rule has no exceptions so nobody has to decide which others do.',
+    },
+    {
+      what: 'Session data',
+      why: 'Who is signed in is the customer’s directory’s business and the instance’s, not Strataflow’s.',
+    },
+    {
+      what: 'The audit trail',
+      why: 'Audit rows carry before/after state — which is result values by another route.',
+    },
+    {
+      what: 'Stack traces',
+      why: 'A parser’s stack holds fragments of the file it was parsing. Errors travel as name and message only.',
+    },
+  ];
+
+  const totalKb = categories.reduce((n, c) => n + c.kb, 0) + manifest.kb;
+
+  return {
+    categories,
+    manifest,
+    excluded,
+    kb,
+    size: kb(totalKb),
+    counts: {
+      categories: categories.length,
+      files: categories.length + 1,
+      excluded: excluded.length,
+      inventory: CONFIG_INVENTORY.counts.items,
+      totalKb,
+    },
+    /**
+     * One thing that is absent without being on the exclusion list, and it is
+     * the one the estate board turns on.
+     */
+    noBackup:
+      'A backup manifest. The archive has five categories and none of them is a backup, which is why a deployment’s backup date on the estate board is read off the vendor’s own upgrade record and never off a bundle.',
+    settled: {
+      on: '2026-09-02',
+      wave: 'wave 13',
+      was: 'Two screens described one record with two lists — four content rows on the diagnostics screen and eight on the entitlement preview — neither naming the configuration inventory, and no checksum on either.',
+      now: `One derived list, read by both: the ${categories.length} categories the bundle generator writes, with the configuration category carrying ${CONFIG_INVENTORY.counts.items} items, each with its own version field and its SHA-256.`,
+      alsoFixed:
+        'Found while doing it: the diagnostics screen listed “Any principal identifier” as not in the bundle, one panel away from the entitlement preview counting ~1,400 of them in log attribution lines. The logs do carry them — attribution is what a log is for — and what the bundle excludes is session data, which is a different fact.',
+      where: 'estate',
+      whereLabel: 'the estate board that reads this field',
+    },
+  };
+})();
 
 /**
  * # The configuration package (OM-5)
@@ -7849,11 +8560,20 @@ export const CONFIG_PACKAGE = (() => {
    * report-template kind is reported and reported as empty. That is the
    * product's own rule about its own inventory, and it is why the arriving
    * template is drawn as `new` rather than as a first entry nobody expected.
+   *
+   * **Held here reads `CONFIG_INVENTORY` — settled 2 September 2026, wave 13.**
+   * The EDD-format row said `FORMATS.length`, which was **4**, and two of those
+   * four register rows declare no revision at all: an artifact with no version
+   * is refused by the configuration reader rather than defaulted, so they are
+   * formats the migration was read with rather than configuration this
+   * deployment holds. It reads **2** now, off the same inventory the bundle
+   * carries and the estate measures drift against, and the panel names the two
+   * that are absent.
    */
   const KINDS = [
-    { kind: 'criteria-library', label: 'Criteria library', field: 'artifact_version', held: 1 },
-    { kind: 'edd-format', label: 'EDD format definition', field: 'revision', held: FORMATS.length },
-    { kind: 'report-template', label: 'Report template', field: 'artifact_version', held: 0 },
+    { kind: 'criteria-library', label: 'Criteria library', field: 'artifact_version', held: CONFIG_INVENTORY.kinds['criteria-library'] },
+    { kind: 'edd-format', label: 'EDD format definition', field: 'revision', held: CONFIG_INVENTORY.kinds['edd-format'] },
+    { kind: 'report-template', label: 'Report template', field: 'artifact_version', held: CONFIG_INVENTORY.kinds['report-template'] },
   ];
 
   /* What the arriving criteria item reaches on the record already committed. */
@@ -7865,6 +8585,18 @@ export const CONFIG_PACKAGE = (() => {
   ).map((r) => r.analyte);
   const hardnessAnalytes = HARDNESS.derived.map((d) => d.analyte);
   const hardnessReach = anzgCells(CROSSTAB.filter((r) => hardnessAnalytes.includes(r.analyte)));
+
+  /**
+   * What is here now, by the artifact's own filename — settled 2 September
+   * 2026, wave 13.
+   *
+   * `checksumHere` was a literal on each item and it is a lookup into
+   * `CONFIG_INVENTORY` now, so the checksum this screen compares against, the
+   * one the diagnostic bundle carries, and the one the estate's drift finding
+   * measures against are one string rather than three that happen to match.
+   * Both values are unchanged: `a41f6c0928d7` and `7e2d915cb083`.
+   */
+  const here = (file) => CONFIG_INVENTORY.items.find((i) => i.file === file) ?? null;
 
   const items = [
     {
@@ -7882,7 +8614,7 @@ export const CONFIG_PACKAGE = (() => {
        * *next* document is assembled.
        */
       consequential: true,
-      checksumHere: 'a41f6c0928d7',
+      checksumHere: here('anzg-2018.json').checksum,
       checksumArriving: 'c58b30ea7194',
       moved:
         'The hardness relationship. 2018.1 carries it as three per-analyte constants; 2018.2 declares it as the named rule the evaluation already applies, so the version that produced a criterion is recorded on the criterion rather than inferred from the set it came in.',
@@ -7898,7 +8630,7 @@ export const CONFIG_PACKAGE = (() => {
       arriving: esdat.version,
       verdict: 'identical',
       consequential: false,
-      checksumHere: '7e2d915cb083',
+      checksumHere: here('esdat.json').checksum,
       checksumArriving: '7e2d915cb083',
       moved: 'Nothing. The bytes hash the same, so the package carries the definition this instance already runs.',
       notMoved:
@@ -7913,7 +8645,8 @@ export const CONFIG_PACKAGE = (() => {
       arriving: '2026.1',
       verdict: 'new',
       consequential: false,
-      checksumHere: null,
+      /* Nothing here to hash: the kind is empty until this package lands. */
+      checksumHere: here('dwer-groundwater-quarterly.json'),
       checksumArriving: '2b6408f7ce15',
       moved:
         'The kind was empty here and now holds one. It is the regulator’s prescribed structure — sections, order and the tables each one must carry — which is the same for every customer lodging under it, and that is why it is a thing the vendor ships rather than a thing each customer builds.',
@@ -8375,10 +9108,17 @@ export const ESTATE = (() => {
        * import would start failing again with nothing connecting the two —
        * which is why the module reports drift as a different event from a
        * planned change rather than folding the two together.
+       *
+       * **`deployedChecksum` reads the inventory — settled 2 September 2026,
+       * wave 13.** It was the literal `'7e2d915cb083'`, which was the same
+       * string `CONFIG_PACKAGE` carried and neither bundle screen described.
+       * It is a lookup now, so the value the vendor deployed and the value the
+       * bundle reports are the same field read twice rather than two literals
+       * that agreed. The rendered value does not move.
        */
       configDrift: {
-        item: 'edd-format · esdat.json',
-        deployedChecksum: '7e2d915cb083',
+        item: `edd-format · ${CONFIG_INVENTORY.items.find((i) => i.file === 'esdat.json').file}`,
+        deployedChecksum: CONFIG_INVENTORY.items.find((i) => i.file === 'esdat.json').checksum,
         foundChecksum: 'af17d6b40c92',
         found: '2026-08-20',
         means:
@@ -8469,55 +9209,43 @@ export const ESTATE = (() => {
   ];
 
   /**
-   * ## FOUND AND DEFERRED — 2 September 2026 (wave 12), owner unassigned
+   * ## SETTLED (wave 13) — 2 September 2026
    *
-   * **The mechanism this screen rests on is not on either of the two screens
-   * that describe the bundle.** Every configuration claim here — the package
-   * a deployment is on, and the drift that refuted one of them — comes from
-   * the bundle's configuration report, which in the product carries each
-   * configuration artifact's own version *and its SHA-256*. The catalogue
-   * describes that record twice and neither description names it:
+   * This is where wave 12's `bundleGap` record stood, and it is settled rather
+   * than deleted. What it said: *"the mechanism this screen rests on is not on
+   * either of the two screens that describe the bundle"* — every configuration
+   * claim here comes from the bundle's configuration report, which carries each
+   * configuration item's own version **and its SHA-256**, and the catalogue
+   * described that record twice without naming the field. `#diagnostics`
+   * enumerated **4** content rows and named *configuration* only in its intro
+   * sentence; `#entitlement` previewed **8** and called the nearest one
+   * *"reference-content versions"*; **no checksum appeared on either.** It was
+   * drawn on this screen as a warn card, which came off with the record.
    *
-   *   - `#diagnostics` names *configuration* among the bundle's categories
-   *     in its intro, but its four content rows (version and commit,
-   *     migration state, recent errors, schema and policy inventory) never
-   *     enumerate it — the per-item versions appear nowhere (the first draft
-   *     of this bullet said the category was absent outright; the screen's
-   *     own intro refutes that, W12-A-3);
-   *   - `#entitlement` renders `BUNDLE.contents`, whose first row reads
-   *     *"Instance version, schema version, reference-content versions"* —
-   *     closer, but "reference-content versions" is a different phrase from
-   *     the configuration inventory, and **no checksum appears on either
-   *     screen**, which is the field the whole drift finding turns on.
+   * What replaced it is the repair that record named: **one derived contents
+   * list that both bundle screens read.** `BUNDLE_CONTENTS` holds the five
+   * categories the bundle generator writes, and its configuration category
+   * carries `CONFIG_INVENTORY` — the three items with their own version fields
+   * and their SHA-256s. So this screen's `configPackage` column and the drift
+   * finding below now rest on a record the catalogue draws rather than one it
+   * asserts, and `configDrift.deployedChecksum` is a lookup into that same
+   * inventory rather than a fourth copy of one string.
    *
-   * So two surfaces already describe one record with two different lists —
-   * four rows against eight — and this wave adds a third that depends on a
-   * field neither of them mentions.
-   *
-   * **Why it is not fixed here.** Closing it means editing `#diagnostics`'s
-   * table and `BUNDLE.contents`, which is a third and fourth enhancement in a
-   * wave capped at two, and it is the wrong shape of fix besides: the honest
-   * repair is to derive one bundle-contents list and have both screens read
-   * it, which is a redesign of two screens outside this wave rather than a
-   * row added to each. It is the same class as wave 8's import-tiles record —
-   * defensible literals that predate the wave and want a deliberate pass.
-   *
-   * Drawn where it bites: the estate states that its configuration column
-   * rests on a bundle field the catalogue's own bundle screens do not list,
-   * rather than letting a reader find the disagreement by clicking through.
+   * Nothing on this screen moved as a value. What moved is that a reader
+   * following the configuration column arrives somewhere.
    */
-  const bundleGap = {
+  const bundleField = {
     field: 'each configuration item’s version and SHA-256',
-    diagnosticsLists: 4,
-    entitlementLists: 8,
     where: 'diagnostics',
     whereLabel: 'the bundle on the customer’s side',
     alsoWhere: 'entitlement',
     alsoWhereLabel: 'the bundle’s contents preview',
+    items: CONFIG_INVENTORY.counts.items,
+    settledOn: '2026-09-02',
   };
 
   return {
-    bundleGap,
+    bundleField,
     asAt,
     releases,
     current,
@@ -8556,7 +9284,16 @@ export const ESTATE = (() => {
       oldestConfirmation: oldest.confirmedDays,
       oldestId: oldest.id,
       sources: sources.length,
-      bundleExcludes: BUNDLE.contents.filter((c) => !c.included).length,
+      /*
+       * Settled 2 September 2026, wave 13: it counted the two excluded rows of
+       * `BUNDLE.contents`, a list that no longer exists. It counts the bundle
+       * generator's own `NOT_INCLUDED` map now — the six omissions that ship in
+       * every manifest — which is the same list `#diagnostics` and
+       * `#entitlement` draw. **2 → 6**, and the sentence beside it moved with
+       * the number.
+       */
+      bundleExcludes: BUNDLE_CONTENTS.counts.excluded,
+      bundleCategories: BUNDLE_CONTENTS.counts.categories,
       scheduled: rows.filter((r) => r.scheduled !== null).length,
     },
   };
