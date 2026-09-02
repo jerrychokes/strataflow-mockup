@@ -188,7 +188,21 @@ const monthLabel = (i) => {
  * Hydrograph — water level elevation, with rainfall in its own panel
  * ------------------------------------------------------------------ */
 
-export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true, trigger = null } = {}) {
+/**
+ * The plate's own vertical extent, exported so a screen can say what falls
+ * outside it without computing the domain a second time.
+ *
+ * Wave 14 needed it for one sentence: the withdrawn 195.6 m AHD trigger line
+ * now sits below the bottom of this plate, and "below the plate's own axis" is
+ * a claim that has to be measured against the axis rather than asserted.
+ */
+export const HYDROGRAPH_BORES = ['MW05', 'MW07', 'MW01A'];
+export const HYDROGRAPH_DOMAIN = (() => {
+  const all = HYDROGRAPH_BORES.flatMap((code) => (WATER_LEVELS.series[code] ?? []).map((p) => p.elevation));
+  return { lo: Math.min(...all) - 0.4, hi: Math.max(...all) + 0.4 };
+})();
+
+export function hydrograph({ bores = HYDROGRAPH_BORES, rainfall = true, dips = true } = {}) {
   const W = 760, H = rainfall ? 448 : 340;
   const x = 58, w = W - x - 18;
   const rainH = rainfall ? 62 : 0;
@@ -205,10 +219,22 @@ export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true,
 
   let body = frame(x, y, w, h, xt, yt, xs, ys, monthLabel, (t) => t.toFixed(1));
 
-  if (trigger !== null) {
-    body +=
-      `<line x1="${x}" y1="${round(ys(trigger))}" x2="${x + w}" y2="${round(ys(trigger))}" stroke="${RED}" stroke-width="1.2" stroke-dasharray="6 3"/>` +
-      `<text class="mk-annot" x="${x + w - 4}" y="${round(ys(trigger)) - 5}" text-anchor="end" fill="${RED}">Trigger level ${trigger.toFixed(1)} m AHD</text>`;
+  /*
+   * The resurvey, ruled where it happened.
+   *
+   * A step in an elevation series is either the water moving or the datum
+   * moving, and only one of those is a hydrogeological finding. The datum's
+   * own epoch is on the record, so the plate marks it rather than leaving a
+   * reader to decide which kind of step they are looking at (ADR-0015).
+   */
+  for (const step of WATER_LEVELS.steps.filter((st) => bores.includes(st.code))) {
+    const i = WATER_LEVELS.months.findIndex((m) => `${m}-15` >= step.epoch);
+    if (i <= 0) continue;
+    body += hoverable(
+      `<line x1="${round(xs(i - 0.5))}" y1="${y}" x2="${round(xs(i - 0.5))}" y2="${y + h}" stroke="${MUTED}" stroke-width="0.9" stroke-dasharray="3 3"/>`,
+      `${step.code} · ${step.reason.toLowerCase()} ${step.epoch} — top of casing ${step.from.toFixed(2)} → ${step.to.toFixed(2)} m AHD. Readings from this epoch reduce through the new datum and nothing behind it moves; the step is the datum, not the water.`,
+    );
+    body += `<text class="mk-annot" x="${round(xs(i - 0.5)) + 4}" y="${y + 11}" fill="${MUTED}">${esc(step.code)} resurvey</text>`;
   }
 
   series.forEach((s, si) => {
@@ -241,6 +267,33 @@ export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true,
   // labels instead. The depths below are measured against the 10 px type rather
   // than chosen, and `test:figures` in the build re-checks every plate for
   // overlapping text — which is how both collisions were found.
+  /*
+   * The round's own dips, drawn on the plate the series is anchored to.
+   *
+   * The same mark the logger plate uses for the same observation — a filled
+   * diamond on a leader, because somebody stood at the bore with a tape — and
+   * it lands on the trace rather than beside it, which is the whole of what
+   * wave 14 changed. Before the re-anchoring these three marks would have sat
+   * between four and six metres off their own traces.
+   */
+  if (dips) {
+    const iLast = WATER_LEVELS.months.length - 1;
+    body += series
+      .map((s) => {
+        const a = WATER_LEVELS.anchorOf(s.code);
+        if (!a || a.field === null) return '';
+        const px = xs(iLast), py = ys(a.field);
+        return hoverable(
+          `<line x1="${round(px)}" y1="${round(py - 8)}" x2="${round(px)}" y2="${round(py + 8)}" stroke="${INK}" stroke-width="0.8"/>` +
+            marker(SHAPES[3], px, py, 3.6, INK, INK),
+          `Manual dip · ${s.code} · ${WATER_LEVELS.months.at(-1)} · ${a.dip.toFixed(2)} m btoc · ${a.field.toFixed(2)} m AHD — top of casing ${a.toc.toFixed(2)} less the round's own depth to water, the value this trace is anchored to`,
+          px,
+          py,
+        );
+      })
+      .join('');
+  }
+
   const legendY = y + h + 30;
   body += series
     .map((s, si) => {
@@ -252,6 +305,12 @@ export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true,
       );
     })
     .join('');
+  if (dips) {
+    const lx = x + series.length * 132;
+    body +=
+      marker(SHAPES[3], lx + 6, legendY, 3.6, INK, INK) +
+      `<text class="mk-annot" x="${round(lx + 16)}" y="${legendY + 3.5}" fill="${INK}">Manual dip</text>`;
+  }
 
   if (rainfall) {
     const ry = y + h + 56, rh = rainH - 16;
@@ -276,10 +335,21 @@ export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true,
     `MOCK-WDL · ${bores.join(', ')} · Jan 2023 – May 2026 · datum at measurement date (GDA2020, AHD)`,
   ]);
 
-  const fall = (WATER_LEVELS.series.MW05.at(-1).elevation - WATER_LEVELS.series.MW05[0].elevation).toFixed(1);
+  /*
+   * The fall is measured in depth, not in elevation — because the elevation
+   * series carries a datum step and a datum step is not the water falling.
+   * Stated in elevation it would read 1.5 m, three tenths of which is the 2024
+   * resurvey. This is the sentence a screen reader is given, so it is the one
+   * that most has to be about groundwater.
+   */
+  const m5 = WATER_LEVELS.series.MW05;
+  const fall = (m5.at(-1).dtw - m5[0].dtw).toFixed(1);
+  const step = WATER_LEVELS.steps.find((st) => st.code === 'MW05');
   return (
     svgOpen(W, H, 'Groundwater elevation hydrograph',
-      `Water level at MW05 fell ${Math.abs(fall)} m over three years while MW01A and MW07 held steady, with seasonal recovery each wet season.`) +
+      `Water level at MW05 fell ${Math.abs(fall)} m over three years while MW01A and MW07 held steady, with seasonal recovery each wet season.` +
+      (step ? ` The step at ${step.epoch} is the resurvey that moved the top of casing ${Math.abs(step.metres).toFixed(2)} m, not a change in the water.` : '') +
+      ` Each trace ends on the round's own manual dip, drawn as a filled diamond.`) +
     body + '</svg>'
   );
 }
@@ -1179,6 +1249,43 @@ export function probabilityPlot() {
  * produce a two-dimensional surface, and adding points to it that are also on
  * the line does not help.
  *
+ * ## The first of those two sentences was not true, and wave 14 measured it
+ *
+ * Wave 14 re-anchored the monthly series to the field record and was asked to
+ * assert that this table already agreed with it. It did not. Reduced from
+ * `LOCATIONS.toc` less the round's own dip, three of the five monitoring bores
+ * matched to a centimetre — and **MW07 was 0.53 m out and MW12 was 1.41 m
+ * out**, against a plate whose largest residual was 0.04 m. Two heads had been
+ * adjusted until the plane fitted them, which is the opposite of the claim
+ * above: a fit through numbers chosen to make it fit measures nothing.
+ *
+ * So the five bores that carry a dip are **computed** here — `toc` less the
+ * round's depth to water, the same subtraction the hydrograph and the logger
+ * plate make — and what moved is recorded per row rather than in prose:
+ *
+ * | Bore  | Was  | Reduced from the round | Moved |
+ * |-------|-----:|-----------------------:|------:|
+ * | MW01A | 203.4 | 203.40 | — |
+ * | MW05  | 199.8 | 199.64 | −0.16 |
+ * | MW07  | 198.7 | 199.23 | +0.53 |
+ * | MW09  | 197.0 | 197.02 | +0.02 |
+ * | MW12  | 205.6 | 204.19 | −1.41 |
+ *
+ * The fit moves with them, and the plate says so rather than being tuned back:
+ * bearing 119° → 103°, gradient 1.93 → 1.74 m/km, **largest residual 0.04 →
+ * 0.55 m**. The reading has not changed — flow still runs north-west to
+ * east-south-east and the TSF still sits upgradient of MW05 and MW07 — and the
+ * residual is now what this plate's own comment says a residual is for: the
+ * measure of how far from planar the aquifer is, rather than a measure of how
+ * carefully the inputs were chosen.
+ *
+ * **The two subterranean-fauna heads are estimates and are marked as such.**
+ * STY01 and STY02 carry no session on the field round, so there is no dip to
+ * reduce and nothing to compute them from; they are stated values, and they
+ * are what keeps a near-collinear network from producing an ill-conditioned
+ * plane. `estimated` is on the row, the count is printed on the plate, and the
+ * sentence above no longer claims *every* head is reduced from the record.
+ *
  * ## MW11 carries no head, and the plate says so (wave 7)
  *
  * The field record for this round has MW11 dipped to the base of its screened
@@ -1190,15 +1297,25 @@ export function probabilityPlot() {
  * through it. The fit runs over the control points that have a head.
  */
 const HEADS = [
-  { code: 'MW12', e: 511420, n: 7654890, h: 205.6 },
-  { code: 'STY01', e: 511800, n: 7653400, h: 203.5 },
-  { code: 'MW01A', e: 512340, n: 7654210, h: 203.4 },
-  { code: 'MW05', e: 513910, n: 7653180, h: 199.8 },
-  { code: 'MW07', e: 514430, n: 7652940, h: 198.7 },
-  { code: 'STY02', e: 515000, n: 7653400, h: 198.1 },
-  { code: 'MW09', e: 515120, n: 7652410, h: 197.0 },
+  { code: 'MW12', e: 511420, n: 7654890, was: 205.6 },
+  { code: 'STY01', e: 511800, n: 7653400, h: 203.5, estimated: true },
+  { code: 'MW01A', e: 512340, n: 7654210, was: 203.4 },
+  { code: 'MW05', e: 513910, n: 7653180, was: 199.8 },
+  { code: 'MW07', e: 514430, n: 7652940, was: 198.7 },
+  { code: 'STY02', e: 515000, n: 7653400, h: 198.1, estimated: true },
+  { code: 'MW09', e: 515120, n: 7652410, was: 197.0 },
   { code: 'MW11', e: 515640, n: 7652120, h: null, dry: true },
-];
+].map((p) => {
+  if (p.h !== undefined) return p;
+  /*
+   * The head, reduced rather than stated: this round's depth to water under
+   * the top of casing in force on the day it was read. One subtraction, made
+   * in one place, so this plate and the hydrograph cannot hold two answers.
+   */
+  const dip = FIELD_ROUND.current.find((s) => s.location === p.code).depthToWater;
+  const h = Number((LOCATIONS.find((l) => l.code === p.code).toc - dip).toFixed(2));
+  return { ...p, h, dip, moved: Number((h - p.was).toFixed(2)) };
+});
 
 /** The points that carry a head. A dry bore contributes a position and nothing else. */
 const HEAD_CONTROL = HEADS.filter((p) => p.h !== null);
@@ -1255,6 +1372,14 @@ export const POTENTIOMETRIC_FIT = (() => {
     drawn: HEADS.length,
     dry: HEADS.filter((p) => p.dry).map((p) => p.code),
     excluded: ['MW03B'],
+    /** Control points reduced from the round's own dip, and the two that are not. */
+    reduced: HEAD_CONTROL.filter((p) => !p.estimated).length,
+    estimated: HEAD_CONTROL.filter((p) => p.estimated).map((p) => p.code),
+    /** What each reduced head used to be stated as, and how far it moved. */
+    moved: HEADS.filter((p) => p.moved !== undefined && p.moved !== 0).map((p) => ({ code: p.code, was: p.was, now: p.h, moved: p.moved })),
+    worstWas: 0.04,
+    bearingWas: '119°',
+    gradientWas: '1.93 m/km',
     bearing,
     bearingText: `${bearing.toFixed(0)}°`,
     gradient: mag,
@@ -1371,8 +1496,8 @@ export function potentiometric() {
   // its provenance, not two lines of reasoning.
   const ry = y + h + 22;
   body +=
-    `<text class="mk-annot" x="${x}" y="${ry}" fill="${INK}" font-weight="600">Planar least-squares fit · ${POTENTIOMETRIC_FIT.control} superficial bores</text>` +
-    `<text class="mk-annot" x="${x}" y="${ry + 14}" fill="${MUTED}">Largest residual ${worst.toFixed(2)} m · MW03B excluded (confined) · ${POTENTIOMETRIC_FIT.dry.join(', ')} dry</text>`;
+    `<text class="mk-annot" x="${x}" y="${ry}" fill="${INK}" font-weight="600">Planar least-squares fit · ${POTENTIOMETRIC_FIT.control} superficial bores, ${POTENTIOMETRIC_FIT.reduced} reduced from the round</text>` +
+    `<text class="mk-annot" x="${x}" y="${ry + 14}" fill="${MUTED}">Largest residual ${worst.toFixed(2)} m · MW03B excluded (confined) · ${POTENTIOMETRIC_FIT.dry.join(', ')} dry · ${POTENTIOMETRIC_FIT.estimated.join(', ')} estimated</text>`;
 
   body += provenance(x, H - 16, [
     'MOCK-WDL · 2026-Q2-GW · heads derived at the measurement date through the datum then in force · GDA2020 MGA50',

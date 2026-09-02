@@ -58,6 +58,9 @@ import {
   // clocks as one statement, the import screen's four tiles, and the matrix
   // vocabulary the criteria library now holds.
   BUNDLE_CONTENTS, CONFIG_INVENTORY, IMPORT_TILES, MATRIX_WORDS, OPS_CLOCK,
+  // Wave 14 — the water-level series re-anchored to the field record, and the
+  // decision taken about the trigger line it used to be drawn under.
+  LEVEL_TRIGGER,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -2635,11 +2638,12 @@ const locationDetail = () => {
           esc(b.unit),
           esc(b.screen),
           `<span class="mk-num">${esc(b.swl)}</span>`,
-          `<span class="mk-num">${esc(b.head)}</span>`,
+          `<span class="mk-num">${esc(b.headText)}</span>`,
           `<span class="mk-num">${esc(b.ec)}</span>`,
         ]),
       }) +
       `<p class="mk-tight"><strong>Vertical gradient: ${esc(NEST.gradient)}.</strong> ${esc(NEST.inference)}</p>` +
+      `<p class="mk-tight mk-muted">The standing level, the head and the difference are read off <a class="mk-ref" href="#field-capture">the round</a> and the datum in force on its last day rather than typed here — the head is a top of casing less a depth to water, and this table used to hold the answer instead of the subtraction. It said <span class="mk-num">${esc(NEST.was.swl)}</span>, <span class="mk-num">${esc(NEST.was.head)}</span> and <em>${esc(NEST.was.gradient)}</em>, and all three reproduce, so what moved is the typing. The same subtraction is what <a class="mk-ref" href="#hydrograph">Figure 4.1</a> is anchored to and what <a class="mk-ref" href="#map">the potentiometric fit</a> reduces its heads from.</p>` +
       C.card({
         tone: 'good',
         head: '<span class="mk-queue__kind">Why this is not a footnote</span>',
@@ -2734,18 +2738,101 @@ const hydrographWorkspace = () =>
     toolbar: btn('Export SVG') + btn('Save configuration') + btn('Add to report', 'primary'),
   }) +
   cols(
-    figure('4.1', 'Groundwater elevation, MW05 · MW07 · MW01A', F.hydrograph({ trigger: 195.6 }),
-      'Rainfall in its own panel, never on a second axis inside the plot.'),
+    figure('4.1', `Groundwater elevation, ${esc(F.HYDROGRAPH_BORES.join(' · '))}`, F.hydrograph(),
+      'Rainfall in its own panel, never on a second axis inside the plot. Each trace ends on the round’s own manual dip, and the ruled epoch is a resurvey moving a datum rather than a change in the water.'),
     panel('Configuration',
       '<div class="mk-config">' +
-      ['Locations · MW05, MW07, MW01A', 'Period · Jan 2023 – May 2026', 'Y axis · elevation, m AHD',
-       'Rainfall overlay · site gauge, monthly', 'Trigger line · 195.6 m AHD (TSF licence)',
+      [`Locations · ${F.HYDROGRAPH_BORES.join(', ')}`, 'Period · Jan 2023 – May 2026', 'Y axis · elevation, m AHD',
+       'Rainfall overlay · site gauge, monthly',
+       `Anchor · ${WATER_LEVELS.anchoredTo}`,
        'Datum · in force at each measurement date']
         .map((c) => `<div class="mk-config__row">${esc(c)}</div>`).join('') +
+      /*
+       * The withdrawn row, struck but wrapping. `struck()` is the catalogue's
+       * supersession mark and it is deliberately not used here: `.sf-result`
+       * is `white-space: nowrap`, which is right for a result value and wrong
+       * for a sentence — measured, it pushed this screen 509 px past the
+       * canvas at 375. Same two tokens, without the nowrap parent.
+       */
+      `<div class="mk-config__row">` +
+      `<span class="sf-visually-hidden">${esc(`${LEVEL_TRIGGER.was} — ${LEVEL_TRIGGER.now}`)}</span>` +
+      `<span class="sf-result__superseded" aria-hidden="true">${esc(LEVEL_TRIGGER.was)}</span>` +
+      `<span class="mk-muted" aria-hidden="true"> — ${esc(LEVEL_TRIGGER.now)}</span></div>` +
       '</div>' +
-      '<p class="mk-tight mk-muted">Saved with the figure, not with the session. QB-3 is that next quarter’s figure is identical except for the new data — which means the configuration is a stored object, not something rebuilt by hand.</p>' +
-      `<p class="mk-tight mk-muted"><strong>A dry bore is a gap.</strong> ${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} was dipped to the base of its screened interval on the May round and found dry, so its trace breaks rather than drawing a line through it — and it contributes no point to <a class="mk-ref" href="#map">the potentiometric surface</a> either. A polyline across a null asserts a water level nobody measured.</p>`),
+      '<p class="mk-tight mk-muted">Saved with the figure, not with the session. QB-3 is that next quarter’s figure is identical except for the new data — which means the configuration is a stored object, not something rebuilt by hand. The withdrawn row stays on it struck through, for the reason a superseded result does: a reader holding the version of this plate that carried the line has to be able to find the row that put it there.</p>' +
+      `<p class="mk-tight mk-muted"><strong>A dry bore is a gap.</strong> ${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} was dipped to the base of its screened interval on the May round and found dry, so its trace breaks rather than drawing a line through it — it contributes no point to <a class="mk-ref" href="#map">the potentiometric surface</a>, and because the record holds no standing level for it at all it carries no monthly series either. A polyline across a null asserts a water level nobody measured.</p>`),
     '2fr 1fr',
+  ) +
+  /*
+   * Wave 14 — the baseline, and the trigger line the baseline was hiding.
+   *
+   * The reconciliation is a table because it is the evidence: three columns
+   * that used to disagree by metres and now hold one number, with what the old
+   * rule drew beside each of them. Nothing here is typed — every cell reads
+   * `WATER_LEVELS.anchor`, which the generator fills as it draws.
+   */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">The baseline this plate stands on</h2>' +
+  table({
+    caption: `Every bore’s May 2026 value against the field record. The series is anchored to ${esc(WATER_LEVELS.anchoredTo)}, so the third column is the second one — one subtraction, made once. The fourth is what the rule this replaced drew for the same month.`,
+    head: ['Bore', 'Top of casing<small>m AHD</small>', 'Round’s dip<small>m btoc</small>', 'Field record<small>toc − dip</small>', 'Figure 4.1, May 2026', 'What it drew before', 'Moved'],
+    rows: WATER_LEVELS.anchor.map((a) => [
+      loc(a.code),
+      `<span class="mk-num">${a.toc.toFixed(2)}</span>`,
+      a.dip === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${a.dip.toFixed(2)}</span>`,
+      a.field === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${a.field.toFixed(2)}</span>`,
+      a.field === null
+        ? `<span class="mk-muted">no series</span>`
+        : `<span class="mk-num">${WATER_LEVELS.series[a.code].at(-1).elevation.toFixed(2)}</span>`,
+      `<span class="mk-num mk-num--nil">${a.was.toFixed(2)}</span>`,
+      a.offset === null
+        ? `<span class="mk-muted">${esc(a.why)}</span>`
+        : `<span class="mk-num">${a.offset > 0 ? '+' : ''}${a.offset.toFixed(2)}</span>`,
+    ]),
+    kind: 'matrix',
+    label: 'The water-level baseline, bore by bore',
+  }) +
+  cols(
+    panel(
+      'What was wrong, and what the correction was allowed to touch',
+      `<p class="mk-tight">The monthly series was shaped by <code class="mk-file">base = loc.toc − 12.5</code> — a spread chosen to separate three traces on a plate — and never reconciled with the depths the round actually recorded. Every bore was out, ${esc(WATER_LEVELS.anchor.filter((a) => Math.abs(a.offset ?? 0) > 1).length)} of them by more than a metre and MW05 by <span class="mk-num">${Math.abs(WATER_LEVELS.anchorOf('MW05').offset).toFixed(2)}</span> m.</p>` +
+        `<p class="mk-tight"><strong>The datum was corrected and the fiction was not.</strong> The seasonal structure, the wet-season recoveries and the long decline at MW05 are the same numbers they were: the generator draws the same shape, as a <em>depth to water</em> whose last month is the round’s own dip, and derives the elevation through the survey in force that month. For every month after the resurvey the new value is the old one plus that bore’s constant offset — which is what correcting a datum without touching a shape means arithmetically.</p>` +
+        `<p class="mk-tight"><strong>The step is real now, and it is at the bore that was resurveyed.</strong> ${WATER_LEVELS.steps.map((s) => `${esc(s.code)}’s top of casing moved <span class="mk-num">${s.from.toFixed(2)}</span> → <span class="mk-num">${s.to.toFixed(2)}</span> m AHD at ${esc(s.epoch)}`).join('; ')} — so the plate steps <span class="mk-num">${Math.abs(WATER_LEVELS.steps[0].metres).toFixed(2)}</span> m down there, ruled and named, because a step in an elevation series is either the water moving or the datum moving and only one of those is a finding. The note above this generator used to claim that step at MW03B, which has no survey history at all.</p>` +
+        `<p class="mk-tight mk-muted">The three traces spanned <span class="mk-num">10.52</span> m and now span <span class="mk-num">${(F.HYDROGRAPH_DOMAIN.hi - F.HYDROGRAPH_DOMAIN.lo - 0.8).toFixed(2)}</span> m. Two estimates made when the finding was recorded did not survive being measured: it was expected to span 4.3 m, and MW05 and MW07 were expected to overlap “where they are now clearly separate” — they were already overlapping, and re-anchoring moved them from <span class="mk-num">0.28</span> m apart in May to <span class="mk-num">${(WATER_LEVELS.anchorOf('MW05').field - WATER_LEVELS.anchorOf('MW07').field).toFixed(2)}</span> m apart.</p>`,
+    ),
+    panel(
+      `The trigger line, and the record it is not in`,
+      `<p class="mk-tight">Figure 4.1 carried a dashed red line at <span class="mk-num">${LEVEL_TRIGGER.value.toFixed(1)}</span> m AHD labelled <em>${esc(LEVEL_TRIGGER.was)}</em>. Re-anchoring moved MW05 from <span class="mk-num">${LEVEL_TRIGGER.aboveBefore.toFixed(2)}</span> m <strong>below</strong> that line to <span class="mk-num">${LEVEL_TRIGGER.aboveNow.toFixed(2)}</span> m <strong>above</strong> it, which is a regulatory question rather than a rendering one — so it was measured before anything was drawn.</p>` +
+        table({
+          caption: `Every register that could carry a level criterion, searched for one in ${esc(LEVEL_TRIGGER.unit)}. The control column runs the identical search for ${esc(LEVEL_TRIGGER.controlUnit)} — a unit this site does hold criteria in — so a column of zeroes is evidence rather than a search that does not work.`,
+          head: ['Register', 'Rows read', `Criteria in ${esc(LEVEL_TRIGGER.unit)}`, `Control · ${esc(LEVEL_TRIGGER.controlUnit)}`],
+          rows: LEVEL_TRIGGER.registers.map((r) => [
+            esc(r.register),
+            `<span class="mk-num">${esc(r.of)}</span>`,
+            `<span class="mk-num ${r.hits === 0 ? 'mk-num--nil' : ''}">${r.hits}</span>`,
+            `<span class="mk-num">${r.control}</span>`,
+          ]),
+          kind: 'matrix',
+          label: 'Where a level trigger would be cited',
+        }) +
+        `<p class="mk-tight"><strong>${LEVEL_TRIGGER.citations} citations against ${LEVEL_TRIGGER.controlCitations} for the control.</strong> The number existed in ${LEVEL_TRIGGER.occurrences} places, both on this screen — the argument to the figure and the configuration row beside it — and the licence its parenthesis named lists ${esc(LEVEL_TRIGGER.registers[0].of)} conditions, the ones carrying a monitoring obligation, which is the class a level trigger belongs to. Against the series it was typed beside it sat <span class="mk-num">${LEVEL_TRIGGER.startedAbove.toFixed(2)}</span> m above the trace’s first value, was reached only in the ${LEVEL_TRIGGER.monthsAboveBefore} months to ${esc(LEVEL_TRIGGER.lastAbove)}, and stood above the drawn level for the other ${LEVEL_TRIGGER.months - LEVEL_TRIGGER.monthsAboveBefore}. That is a ceiling drawn for a picture.</p>` +
+        `<p class="mk-tight"><strong>So the line is withdrawn, not re-valued.</strong> There is nothing on the record to re-derive it from, and writing a licence condition to justify a number that never had one would leave this catalogue holding an obligation nobody imposed — a worse defect than the one being fixed. What replaces it on the plate is the round’s own dip at each bore, which is what the traces now end on.</p>` +
+        C.blastRadius({
+          lede: 'What the withdrawal moved, measured:',
+          rows: [
+            { what: 'Places the figure drew the line', n: `${LEVEL_TRIGGER.occurrences} → 0` },
+            { what: 'MW05 against it, May 2026', n: `${LEVEL_TRIGGER.drawnBefore.toFixed(2)} → ${LEVEL_TRIGGER.drawnNow.toFixed(2)} m AHD` },
+            { what: `Where ${LEVEL_TRIGGER.value.toFixed(1)} falls on the re-anchored axis`, n: `${(F.HYDROGRAPH_DOMAIN.lo - LEVEL_TRIGGER.value).toFixed(2)} m below the plate` },
+            { what: 'Exceedance, TARP or obligation records affected', n: '0' },
+            { what: `Exceedances already open at ${esc(LEVEL_TRIGGER.code)}`, n: `${LEVEL_TRIGGER.chemistry.exceedances} of ${LEVEL_TRIGGER.chemistry.ofExceedances}` },
+          ],
+          action: 'Withdrawn — recorded, not silently dropped',
+          cancel: 'The configuration row keeps the withdrawn line struck through',
+          reversible:
+            'Reversible by the only thing that would make it right: a condition on the licence record naming a level at a named bore. It would then reach the obligations board, the exceedance register and the TARP through the machinery the chemistry conditions already use, and this plate would draw it from there rather than from an argument typed into a figure call.',
+        }) +
+        `<p class="mk-tight mk-muted"><strong>Nothing is absorbed by the withdrawal, and the two stories agree.</strong> Had the line been real, the re-anchored MW05 would sit <span class="mk-num">${LEVEL_TRIGGER.aboveNow.toFixed(2)}</span> m above it in all ${LEVEL_TRIGGER.monthsAboveNow} months — and <em>above</em> is the side this bore is already on everywhere else: ${LEVEL_TRIGGER.chemistry.exceedances} of the round’s ${LEVEL_TRIGGER.chemistry.ofExceedances} <a class="mk-ref" href="#exceedances">exceedances</a> are here, the <a class="mk-ref" href="#tarp">TARP</a> stands at ${esc(LEVEL_TRIGGER.chemistry.highest)}, and <a class="mk-ref" href="#narrative">the interpretation</a> argues a seepage mound. A high water level downgradient of a tailings facility agrees with a mound. What would have contradicted the record is this plate showing MW05 comfortably under a compliance line while every other screen calls it the impacted bore.</p>`,
+    ),
+    '1fr 1fr',
   ) +
   /*
    * Wave 8 — FR-1.10's own words, drawn: the continuous series *separately
@@ -2767,14 +2854,13 @@ const hydrographWorkspace = () =>
         `<p class="mk-tight mk-muted">Same grammar, no new family: closed frame, 1-2-5 ticks, shape and dash for series identity, the second quantity — atmospheric pressure — in its own panel underneath rather than on a second axis. What differs from Figure 4.1 is cadence, and cadence is not a family (§5.8). A Durov or a Schoeller would still need a written grammar proposal before it was drawn.</p>`,
     ),
     panel(
-      'Why this is a second plate and not a third trace on Figure 4.1',
+      'Why this is still a second plate, and what stopped being the reason',
       ((code) => {
-        const bore = LOCATIONS.find((l) => l.code === code);
-        const dip = FIELD_ROUND.current.find((s) => s.location === code);
-        return `<p class="mk-tight">The two plates do not stand on the same baseline, and the difference is metres rather than centimetres. Figure 4.1 draws <strong>${esc(code)}</strong> at <span class="mk-num">${WATER_LEVELS.series[code].at(-1).elevation.toFixed(2)}</span> m AHD in ${esc(WATER_LEVELS.months.at(-1))}; the round’s own dip at that bore reduces to <span class="mk-num">${(bore.toc - dip.depthToWater).toFixed(2)}</span> m AHD through the survey in force, and <a class="mk-ref" href="#map">the fitted potentiometric surface</a> holds it at <span class="mk-num">${F.POTENTIOMETRIC_FIT.headOf(code).toFixed(1)}</span>.</p>`;
+        const a = WATER_LEVELS.anchorOf(code);
+        return `<p class="mk-tight"><strong>The two plates share a baseline now.</strong> Figure 4.1 draws <strong>${esc(code)}</strong> at <span class="mk-num">${WATER_LEVELS.series[code].at(-1).elevation.toFixed(2)}</span> m AHD in ${esc(WATER_LEVELS.months.at(-1))}; the round’s own dip at that bore reduces to <span class="mk-num">${a.field.toFixed(2)}</span> m AHD through the survey in force; <a class="mk-ref" href="#map">the fitted potentiometric surface</a> holds it at <span class="mk-num">${F.POTENTIOMETRIC_FIT.headOf(code).toFixed(2)}</span>; and this plate’s own compensation is referenced to the same figure. Four structures, one number.</p>`;
       })(LOGGER_SERIES.code) +
-        '<p class="mk-tight">Two of those three agree; the monthly series is the one that does not, and it is the one this plate would have had to join. <strong>The finding is recorded rather than fixed in passing</strong>, in the seed beside the series it describes, with the six-bore comparison and the reason: re-anchoring changes what Figure 4.1 shows, and it moves this bore from four metres above the licence trigger line to just below it. Which of those is the true relationship between a compliance bore and its trigger is a question with a regulatory answer, and it is not one to settle inside a wave about telemetry.</p>' +
-        '<p class="mk-tight mk-muted">So the hourly plate is anchored to the field record — the baseline two independent structures corroborate — and drawn beside the monthly one rather than on it. A reader comparing the two elevations is reading a real disagreement, which is why it is said here rather than left to be discovered.</p>',
+        `<p class="mk-tight"><strong>What this panel said until 2 September 2026, and what was wrong with it.</strong> It said the two plates “do not stand on the same baseline, and the difference is metres rather than centimetres” — true then: Figure 4.1 drew this bore at <span class="mk-num">${WATER_LEVELS.anchorOf(LOGGER_SERIES.code).was.toFixed(2)}</span> m AHD against a field record of <span class="mk-num">${WATER_LEVELS.anchorOf(LOGGER_SERIES.code).field.toFixed(2)}</span>. It also said re-anchoring would move this bore “from four metres above the licence trigger line to just below it”, and that was backwards on both ends: the drawn series sat <span class="mk-num">${LEVEL_TRIGGER.aboveBefore.toFixed(2)}</span> m <em>below</em> the line and the re-anchored one sits <span class="mk-num">${LEVEL_TRIGGER.aboveNow.toFixed(2)}</span> m <em>above</em> it. The seed record it summarised had the direction right; the sentence on the screen reversed it, and it stood for a day.</p>` +
+        `<p class="mk-tight"><strong>The remaining reason is cadence and span, which is enough.</strong> This plate holds ${LOGGER_SERIES.counts.water.toLocaleString('en-AU')} hourly water levels over ${esc(LOGGER_SERIES.window.from.slice(0, 10))} to ${esc(LOGGER_SERIES.window.to.slice(0, 10))}; Figure 4.1 holds ${WATER_LEVELS.months.length} monthly values over ${esc(WATER_LEVELS.months[0])} to ${esc(WATER_LEVELS.months.at(-1))}. On one x-axis the hourly series is two and a half months of a forty-one month window — a vertical smudge under a tenth of the plot width, with its service gap, its anomaly and its three dips unreadable. A shared baseline makes the two comparable; it does not make them one drawing.</p>`,
     ),
     '1fr 1fr',
   ) +
@@ -2910,6 +2996,8 @@ const mapScreen = () =>
       'Which way the water goes',
       '<p class="mk-tight">Every location on this project carries a position — <em>upgradient</em>, <em>downgradient of TSF</em>, <em>compliance boundary</em> — and until this plate those were attributes somebody typed. This derives them.</p>' +
         `<p class="mk-tight">The surface is a planar least-squares fit through the ${F.POTENTIOMETRIC_FIT.control} superficial bores that carry a head this round. That is the honest method for a network this size: it states one gradient and one direction and cannot invent local structure the data does not support. Interpolating a curved surface through seven bores draws detail nobody measured, and it is the picture that gets argued with.</p>` +
+        `<p class="mk-tight"><strong>${F.POTENTIOMETRIC_FIT.reduced} of those ${F.POTENTIOMETRIC_FIT.control} heads are reduced from the round; ${esc(F.POTENTIOMETRIC_FIT.estimated.join(' and '))} are estimates and the plate says so.</strong> A head is a top of casing less a depth to water, and the ${F.POTENTIOMETRIC_FIT.reduced} monitoring bores that were dipped this round have theirs computed from <a class="mk-ref" href="#field-capture">the field record</a> — the same subtraction <a class="mk-ref" href="#hydrograph">the hydrograph</a> is anchored to, made once. The two subterranean-fauna bores carry no session on that round, so there is no dip to reduce; they are stated values, and they are what keeps a near-collinear network from producing an ill-conditioned plane.</p>` +
+        `<p class="mk-tight"><strong>Two of the reduced heads used to be something else.</strong> Until 2 September 2026 this table held numbers that had been adjusted until the plane fitted them: ${F.POTENTIOMETRIC_FIT.moved.map((m) => `${esc(m.code)} <span class="mk-num">${m.was.toFixed(2)}</span> → <span class="mk-num">${m.now.toFixed(2)}</span>`).join(', ')}. MW12 was <span class="mk-num">1.41</span> m from what the tape and the survey say, on a plate whose largest residual was ${F.POTENTIOMETRIC_FIT.worstWas.toFixed(2)} m. A fit through numbers chosen to make it fit measures nothing, which is why the residual below is larger now and means more.</p>` +
         `<p class="mk-tight"><strong>${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} is drawn and is not a control point.</strong> It was dipped to the base of its screened interval on 14 May and found dry, so it has no standing level and therefore no head — it had been contributing one, a water table fifteen metres above where the tape found nothing. The bore stays on the plate with an open mark and the word: a compliance-boundary bore that disappears from a network map because it held no water that week is the reading this figure can least afford.</p>` +
         '<p class="mk-tight"><strong>The network geometry decides whether this figure is possible at all.</strong> Six of these bores sit almost on one line, and a plane fitted through collinear points is barely constrained across that line — the first version of this plate returned a flow direction of due south on a site whose every other screen says south-east, with a residual of 1.46 m against its own one-metre limit. Two bores genuinely off the transect fixed it. That is why the residual is printed on the plate rather than kept in a log: it is the figure telling you whether to believe it.</p>' +
         '<p class="mk-tight"><strong>MW03B is excluded.</strong> It screens the confined unit. Contouring two aquifers as one surface is the commonest error on a plate like this, and it produces a flow direction that is an average of two systems and true of neither.</p>' +
@@ -2917,7 +3005,7 @@ const mapScreen = () =>
           tone: 'good',
           head: '<span class="mk-queue__kind">What it confirms</span>',
           body:
-            `<p class="mk-tight">Flow runs from the north-west to the east-south-east — ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, on a largest residual of ${esc(F.POTENTIOMETRIC_FIT.worstText)} — so a planar surface fits this network almost exactly. The TSF sits upgradient of MW05 and MW07, which sit upgradient of the compliance boundary at MW09 and MW11. The stored positions are correct — and these three numbers are read off the fit rather than typed beside it, which is what let removing a phantom head move them without leaving a stale sentence behind.</p>`,
+            `<p class="mk-tight">Flow runs from the north-west to the east-south-east — ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, on a largest residual of ${esc(F.POTENTIOMETRIC_FIT.worstText)} — so a plane holds this network to about half a metre over four kilometres, which is close but not exact and the plate prints the number rather than the adverb. The TSF sits upgradient of MW05 and MW07, which sit upgradient of the compliance boundary at MW09 and MW11. The stored positions are correct — and these three numbers are read off the fit rather than typed beside it, which is what let removing a phantom head move them without leaving a stale sentence behind, and what let the heads being reduced from the round move them again. They read ${esc(F.POTENTIOMETRIC_FIT.bearingWas)} at ${esc(F.POTENTIOMETRIC_FIT.gradientWas)} on ${F.POTENTIOMETRIC_FIT.worstWas.toFixed(2)} m until 2 September 2026, and the sentence beside them said <em>almost exactly</em>.</p>`,
         }),
     ),
     '3fr 2fr',
@@ -3431,8 +3519,9 @@ const narrative = () => {
       panel(
         'A diagram that changed does flag it',
         `<p class="mk-tight">The same sentence cites <span class="mk-token mk-token--flagged">${esc(N.flaggedTokens[0].renders)}<span class="mk-token__mark" aria-hidden="true">▲ changed</span></span> — the potentiometric surface. Its number has not moved. Its <strong>content</strong> has.</p>` +
-          `<p class="mk-tight">${esc(N.flaggedTokens[0].contentChanged.what)}</p>` +
-          `<p class="mk-tight"><strong>What moved:</strong> ${esc(N.flaggedTokens[0].contentChanged.moved)} The fit now runs through ${F.POTENTIOMETRIC_FIT.control} bores rather than ${F.POTENTIOMETRIC_FIT.drawn}: flow ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, largest residual ${esc(F.POTENTIOMETRIC_FIT.worstText)}.</p>` +
+          `<p class="mk-tight"><span class="sf-instant">${esc(N.flaggedTokens[0].contentChanged.at)}</span> — ${esc(N.flaggedTokens[0].contentChanged.what)}</p>` +
+          `<p class="mk-tight"><strong>What moved:</strong> ${esc(N.flaggedTokens[0].contentChanged.moved)} Flow ${esc(F.POTENTIOMETRIC_FIT.bearingWas)} → ${esc(F.POTENTIOMETRIC_FIT.bearingText)}, gradient ${esc(F.POTENTIOMETRIC_FIT.gradientWas)} → ${esc(F.POTENTIOMETRIC_FIT.gradientText)}, largest residual ${F.POTENTIOMETRIC_FIT.worstWas.toFixed(2)} m → ${esc(F.POTENTIOMETRIC_FIT.worstText)}.</p>` +
+          `<p class="mk-tight mk-muted"><strong>Flagged once before, and the earlier change is kept:</strong> <span class="sf-instant">${esc(N.flaggedTokens[0].contentChanged.previously.at)}</span> — ${esc(N.flaggedTokens[0].contentChanged.previously.what)} ${esc(N.flaggedTokens[0].contentChanged.previously.moved)} The fit runs through ${F.POTENTIOMETRIC_FIT.control} bores rather than ${F.POTENTIOMETRIC_FIT.drawn} because of that one. An author who has not opened this passage since May is owed both changes, not the most recent.</p>` +
           `<p class="mk-tight"><strong>What is owed:</strong> ${esc(N.flaggedTokens[0].contentChanged.owed)}</p>` +
           `<div class="mk-actions"><a class="mk-btn" href="#map">Open the plate as it stands now</a><a class="mk-btn" href="#field-capture">Why MW11 carries no head</a></div>`,
       ),
@@ -7170,7 +7259,7 @@ const loggerSeriesScreen = () => {
     cols(
       panel(
         'Why the potentiometric surface does not move',
-        `<p class="mk-tight">The ${esc(F.POTENTIOMETRIC_FIT.control)}-point fit on <a class="mk-ref" href="#map">the map</a> is built from the round’s <strong>manual dips</strong>, one per bore, taken within three days of each other. This correction reaches a continuous series at one bore and does not touch the dip that bore contributed — which is why the answer is zero rather than small.</p>` +
+        `<p class="mk-tight">${F.POTENTIOMETRIC_FIT.reduced} of the ${esc(F.POTENTIOMETRIC_FIT.control)} points on <a class="mk-ref" href="#map">the map</a>’s fit are reduced from the round’s <strong>manual dips</strong>, one per bore, taken within three days of each other; the other ${F.POTENTIOMETRIC_FIT.estimated.length} — ${esc(F.POTENTIOMETRIC_FIT.estimated.join(' and '))} — carry no session on that round and are estimates. This correction reaches a continuous series at one bore and does not touch the dip that bore contributed — which is why the answer is zero rather than small.</p>` +
           `<p class="mk-tight">It would not always be. A fit built from logged levels at an instant would move by ${L.correction.shift.toFixed(2)} m at this bore, and the bearing and gradient with it. The reason to state which inputs a surface has is that the answer to “did this reach the flow direction” depends entirely on it.</p>` +
           `<p class="mk-tight mk-muted">${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} contributes no head to that fit either, for a different reason: it was dipped to the base of its screened interval and found dry. A dry bore is a fact about the aquifer, not a gap in the record, and it is drawn on the plate without a head.</p>`,
       ),

@@ -764,6 +764,44 @@ export const LOCATIONS = [
 ];
 
 /**
+ * Survey history per bore — the datum a depth reading reduces through.
+ *
+ * ADR-0015: a resurvey takes effect from its own epoch and moves nothing
+ * behind it, so a top of casing is not a number but a history, and
+ * `LOCATIONS.toc` is the *current* entry of it. The history is declared here,
+ * beside the register it qualifies, rather than inside `CONSTRUCTION` —
+ * because wave 14 anchored the water-level series to a measured depth and
+ * derives its elevation at each month through the datum in force that month,
+ * which needs the history before the construction record exists.
+ * `CONSTRUCTION` reads this rather than holding a second copy of it.
+ *
+ * **Only MW05 has been resurveyed**, and the absence of an entry is a fact
+ * rather than a default: a bore with no history here reduces through
+ * `LOCATIONS.toc` for every reading because no survey after the first is on
+ * this record.
+ */
+export const SURVEYS = {
+  MW05: [
+    { epoch: '2024-03-18', reason: 'Resurvey', toc: 208.11, applies: 'Readings from 2024-03-18 onward', by: 'Pilbara Survey Co' },
+    { epoch: '2019-04-15', reason: 'Original survey', toc: 208.42, applies: 'Readings 2019-04-15 to 2024-03-17', by: 'Pilbara Survey Co' },
+  ],
+};
+
+/**
+ * Top of casing in force on a date — the datum that day's reading reduces through.
+ *
+ * The same lookup `LOGGER_SERIES` runs once an hour, written once so the
+ * monthly series and the hourly one cannot disagree about which survey a
+ * reading stands on.
+ */
+export const tocAt = (code, on) => {
+  const current = LOCATIONS.find((l) => l.code === code)?.toc ?? null;
+  const history = SURVEYS[code];
+  if (!history) return current;
+  return (history.find((s) => s.epoch <= on) ?? history.at(-1)).toc;
+};
+
+/**
  * Subterranean fauna monitoring — a WA approval condition with no home.
  *
  * The EPA routinely conditions mining approvals in this state on stygofauna
@@ -1005,11 +1043,24 @@ export const INDETERMINATE_QUOTE = { perSample: 18, by: 'Pilbara Analytical Serv
  * Standing water level, monthly, three years, per bore.
  *
  * Shaped rather than random: a wet-season recovery each Q1, a long decline at
- * MW05 as the TSF seepage mound migrates, and a step at MW03B where a resurvey
- * moved the datum (G-07b) — the hydrograph shows elevation, so the step is a
- * real feature of the series and not an error to smooth away.
+ * MW05 as the TSF seepage mound migrates, and a step where a resurvey moved
+ * the datum (G-07b) — the hydrograph shows elevation, so the step is a real
+ * feature of the series and not an error to smooth away.
  *
- * ## FOUND AND DEFERRED — 2 September 2026 (wave 8), owner unassigned
+ * **What the tape reads is a depth; an elevation is derived from it.** The
+ * generator draws a *depth to water* whose last month is the round's own dip,
+ * and reduces each month through `tocAt` — the survey in force that month —
+ * which is the rule ADR-0015 states and `#location` prints on its face. So the
+ * May 2026 value at every bore reconciles with `LOCATIONS.toc` less the
+ * round's dip by construction rather than by coincidence, and the resurvey
+ * step is where the datum moved rather than where the water did.
+ *
+ * ## SETTLED (wave 14) — 2 September 2026, on a record made 2 September 2026
+ * (wave 8)
+ *
+ * The record is kept whole and the settled-note is at the end of it, because a
+ * debt that vanishes when it is paid leaves nobody able to tell a settled one
+ * from one that was never noticed. What wave 8 wrote, unedited:
  *
  * **This series does not stand on the same baseline as the field record, and
  * the difference is metres.** Measured while wave 8 was deciding what to
@@ -1047,6 +1098,74 @@ export const INDETERMINATE_QUOTE = { perSample: 18, by: 'Pilbara Analytical Serv
  * The claim about a step at MW03B is the smaller half of the same finding:
  * `drift` has no MW03B term, so there is no step in the numbers this comment
  * describes.
+ *
+ * ## What closed it, and what did not
+ *
+ * **The datum is corrected and the shape is not.** `base = loc.toc - 12.5` is
+ * gone. The generator now draws the same seasonal structure — same seed, same
+ * `wet`, same `drift`, same noise draws in the same order — as a **depth to
+ * water**, anchored so that its last month *is* the round's own dip, and
+ * derives each month's elevation through `tocAt`. Two consequences, both
+ * measured rather than asserted:
+ *
+ * - Every bore's May 2026 value equals `LOCATIONS.toc` less the round's dip
+ *   **exactly**, because it is that subtraction. The offset each bore moved by
+ *   is `field − was`, computed per bore and carried on `WATER_LEVELS.anchor`
+ *   with what the old rule drew, so no screen has to be told the old number.
+ * - The shape is preserved: for every month after MW05's resurvey the new
+ *   elevation is the old one plus that bore's constant offset, which is what
+ *   "correct the datum, keep the fiction" means arithmetically.
+ *
+ * **The step is real now, and it is at the bore that was actually resurveyed.**
+ * The head of this comment claimed a resurvey step at MW03B; MW03B has no
+ * survey history on this record and never had one. MW05 does — 208.42 m AHD
+ * until 2024-03-18 and 208.11 m from it — so the series steps 0.31 m *down*
+ * at that epoch, where the datum moved and the water did not, and the head of
+ * the comment names the bore that has one rather than the bore that does not.
+ *
+ * **MW11 has no series at all, for the reason it has no head.** The round
+ * dipped it to 22.0 m btoc, the base of its screened interval, and found it
+ * dry to the weight, so the record holds no standing level to anchor a series
+ * against. The old rule drew it anyway, at a water table more than ten metres
+ * above where the tape found nothing — the same assertion wave 7 removed from
+ * the potentiometric fit at the same bore, for the same reason. It draws its
+ * noise like every other bore so that dropping it moved nobody else's shape,
+ * and `WATER_LEVELS.anchor` carries the row with the reason in place of a
+ * number.
+ *
+ * **The three columns agree now, and the table above is the one to compare
+ * against.** Recomputed at the same two decimals the record used:
+ *
+ * | Bore  | Figure 4.1, May 2026 | `LOCATIONS.toc` − the round's dip | `HEADS` (the fitted surface) |
+ * |-------|---------------------:|----------------------------------:|-----------------------------:|
+ * | MW01A | 203.40               | 203.40                            | 203.40                       |
+ * | MW03B | 204.26               | 204.26                            | — (confined, excluded)       |
+ * | MW05  | **199.64**           | **199.64**                        | 199.64                       |
+ * | MW07  | 199.23               | 199.23                            | 199.23                       |
+ * | MW09  | 197.02               | 197.02                            | 197.02                       |
+ * | MW12  | 204.19               | 204.19                            | 204.19                       |
+ *
+ * The third column agrees because it was made to: the fitted heads were
+ * **also** wrong, and closing this record meant closing that one too — MW07
+ * stood 0.53 m and MW12 1.41 m from the field record on a plate whose largest
+ * residual was 0.04 m, which is what a plane fitted through numbers chosen to
+ * make it fit looks like. `HEADS` reduces the five dipped bores now, the fit
+ * moves with them (119° → 103°, 1.93 → 1.74 m/km, residual **0.04 → 0.55 m**),
+ * and the record of that is in `figures.mjs` beside the table it corrects.
+ *
+ * **Two of the record's own estimates did not survive being measured**, and
+ * they are corrected here rather than quietly inherited. It said the three
+ * traces "currently span 9.6 m and would span 4.3 m": measured, they spanned
+ * **10.52 m** and now span **5.38 m**. It said "MW05 and MW07 would overlap
+ * where they are now clearly separate": their ranges already overlapped, and
+ * re-anchoring moved their May values from **0.28 m** apart to **0.41 m**
+ * apart — further apart, not nearer. The direction the record gave for the
+ * trigger was right; the panel on `#hydrograph` that summarised it had it
+ * backwards, which is recorded there.
+ *
+ * **The trigger line the record above could not settle is settled beside it**,
+ * in `LEVEL_TRIGGER` — measured first, decided against the evidence, and drawn
+ * on `#hydrograph` rather than described here.
  */
 function waterLevels() {
   const random = prng(20260512);
@@ -1057,42 +1176,90 @@ function waterLevels() {
       months.push(`${y}-${String(m).padStart(2, '0')}`);
     }
   }
+  /*
+   * A monthly reading is dated mid-month for the one purpose a date serves
+   * here: choosing the survey it reduces through. Nothing else reads it, and
+   * naming the convention is cheaper than leaving a reader to infer it from a
+   * step that lands in one month rather than the next.
+   */
+  const dateOf = (month) => `${month}-15`;
+
   const series = {};
+  const anchor = [];
   for (const loc of LOCATIONS.filter((l) => l.klass === 'groundwater')) {
-    const base = loc.toc - 12.5;
+    /*
+     * The drawn shape, unchanged from the version this re-anchoring replaced.
+     * Every groundwater bore draws its own noise whether or not it ends with a
+     * series, so a bore that cannot be anchored moves nobody else's shape.
+     */
     const drift = loc.code === 'MW05' ? -0.055 : loc.code === 'MW07' ? -0.018 : 0.004;
-    series[loc.code] = months.map((month, i) => {
+    const shape = months.map((month, i) => {
       const m = Number(month.slice(5));
       const wet = Math.sin(((m - 2) / 12) * Math.PI * 2) * 0.62;
       const noise = (random() - 0.5) * 0.16;
-      return { month, elevation: Number((base + wet + drift * i + noise).toFixed(3)) };
+      return wet + drift * i + noise;
+    });
+    const last = shape.at(-1);
+    /* What the old rule drew here in the last month, by the old rule itself. */
+    const was = Number((loc.toc - 12.5 + last).toFixed(3));
+    const dip = FIELD_ROUND.current.find((s) => s.location === loc.code)?.depthToWater ?? null;
+
+    if (dip === null) {
+      anchor.push({
+        code: loc.code, toc: loc.toc, dip: null, field: null, was, offset: null,
+        why: `Dipped to the base of its screened interval on the ${FIELD_ROUND.round} round and found dry, so the record holds no standing level to anchor a series against.`,
+      });
+      continue;
+    }
+
+    const field = Number((loc.toc - dip).toFixed(3));
+    anchor.push({ code: loc.code, toc: loc.toc, dip, field, was, offset: Number((field - was).toFixed(3)), why: null });
+    series[loc.code] = months.map((month, i) => {
+      /* The tape's own quantity: the shape rides on the depth, not on the elevation. */
+      const dtw = Number((dip - (shape[i] - last)).toFixed(3));
+      const toc = tocAt(loc.code, dateOf(month));
+      return {
+        month,
+        dtw,
+        toc,
+        elevation: Number((toc - dtw).toFixed(3)),
+        /* What the rule this replaced drew for the same month, by that rule. */
+        was: Number((loc.toc - 12.5 + shape[i]).toFixed(3)),
+      };
     });
   }
-  return { months, series };
+
+  /* The resurveys that fall inside the window, as steps the plate will show. */
+  const steps = Object.entries(SURVEYS)
+    .filter(([code]) => series[code])
+    .flatMap(([code, history]) =>
+      history
+        .filter((s) => s.epoch.slice(0, 7) > months[0] && s.epoch.slice(0, 7) <= months.at(-1))
+        .map((s) => {
+          const previous = history[history.indexOf(s) + 1];
+          return { code, epoch: s.epoch, from: previous.toc, to: s.toc, metres: Number((s.toc - previous.toc).toFixed(2)), reason: s.reason };
+        }),
+    );
+
+  return {
+    months,
+    series,
+    /** Per bore: the datum, the round's dip, the value the old rule drew, and the offset. */
+    anchor,
+    anchorOf: (code) => anchor.find((a) => a.code === code) ?? null,
+    /** The bores the record holds no standing level for, with the reason. */
+    noLevel: anchor.filter((a) => a.field === null),
+    steps,
+    anchoredTo: `${FIELD_ROUND.round} — each bore's own dip, reduced through the survey in force at the measurement date`,
+  };
 }
 
-export const WATER_LEVELS = waterLevels();
-
-/** Monthly rainfall at the site gauge, for the hydrograph overlay. */
-export const RAINFALL = (() => {
-  const random = prng(776);
-  return WATER_LEVELS.months.map((month) => {
-    const m = Number(month.slice(5));
-    const wet = m <= 3 || m >= 11 ? 1 : m <= 5 || m >= 9 ? 0.45 : 0.12;
-    return { month, mm: Math.round(wet * (40 + random() * 120)) };
-  });
-})();
-
-/** Arsenic at MW05 — the series behind the exceedance and the trend test. */
-export const ARSENIC_MW05 = (() => {
-  const random = prng(413);
-  return WATER_LEVELS.months
-    .filter((_, i) => i % 3 === 0)
-    .map((month, i) => {
-      const value = 3.4 + i * 1.72 + (random() - 0.5) * 2.4;
-      return { month, value: Number(Math.max(1.1, value).toFixed(1)), censored: false };
-    });
-})();
+/*
+ * `WATER_LEVELS`, `RAINFALL` and `ARSENIC_MW05` are declared **after**
+ * `FIELD_ROUND` — see the foot of that record. Wave 14 anchored this series to
+ * the round's own dip, so the dependency is real and the declaration order
+ * states it rather than a comment claiming it.
+ */
 
 /**
  * Electrical conductivity at MW05, round by round — the bore's own record.
@@ -4104,6 +4271,181 @@ export const FIELD_ROUND = (() => {
   };
 })();
 
+/*
+ * The monthly water-level series, and the two series whose months come off it.
+ *
+ * Declared here rather than beside their generators because wave 14 anchored
+ * `WATER_LEVELS` to the field round's own dip at each bore: the series cannot
+ * be built before the round that measured it exists. The record above
+ * `waterLevels()` holds the finding this settles and what closed it.
+ */
+export const WATER_LEVELS = waterLevels();
+
+/** Monthly rainfall at the site gauge, for the hydrograph overlay. */
+export const RAINFALL = (() => {
+  const random = prng(776);
+  return WATER_LEVELS.months.map((month) => {
+    const m = Number(month.slice(5));
+    const wet = m <= 3 || m >= 11 ? 1 : m <= 5 || m >= 9 ? 0.45 : 0.12;
+    return { month, mm: Math.round(wet * (40 + random() * 120)) };
+  });
+})();
+
+/** Arsenic at MW05 — the series behind the exceedance and the trend test. */
+export const ARSENIC_MW05 = (() => {
+  const random = prng(413);
+  return WATER_LEVELS.months
+    .filter((_, i) => i % 3 === 0)
+    .map((month, i) => {
+      const value = 3.4 + i * 1.72 + (random() - 0.5) * 2.4;
+      return { month, value: Number(Math.max(1.1, value).toFixed(1)), censored: false };
+    });
+})();
+
+/**
+ * The 195.6 m AHD line Figure 4.1 used to draw, and the decision taken about it.
+ *
+ * ## The question, and how it was settled
+ *
+ * Re-anchoring the series moved MW05 from **below** that line to **four metres
+ * above** it, and a compliance bore crossing a trigger is not a rendering
+ * detail. The wave plan set the test: *is it a real licence condition the seed
+ * committed to — cited on the licence record, carried into obligations — or
+ * was it typed to sit above the old wrong series?* So it was measured before
+ * anything was drawn.
+ *
+ * **The measurement.** A level trigger is a criterion in the elevation unit,
+ * and the unit dictionary names that unit, so the test is: does any register
+ * that could carry a criterion carry one in `m AHD`? Every register below was
+ * read in full and the answer is **zero** in all six, against a control — the
+ * identical test for `µS/cm`, a unit this site genuinely does hold criteria in
+ * — which finds the electrical-conductivity rows exactly where they are. The
+ * search is capable of finding a criterion; there is no level criterion for it
+ * to find.
+ *
+ * **The two occurrences.** `195.6` existed in exactly two places in the
+ * catalogue, both on `#hydrograph`: the argument to the figure, and the string
+ * `Trigger line · 195.6 m AHD (TSF licence)` in the configuration panel beside
+ * it. Nothing linked to either, nothing derived from either, and the licence
+ * record its parenthesis names lists **6 of 24** conditions — the ones with a
+ * monitoring obligation, which is the class a level trigger would be in.
+ *
+ * **Where the number came from is visible in the drawing.** Against the series
+ * it was typed beside, 195.6 sits 0.32 m above the first value the MW05 trace
+ * draws, is reached only by the four months of the first wet season, and
+ * stands above the drawn level for the other 37 — a line grazing the top of
+ * one trace on one plate. That is where a ceiling drawn for a picture lands,
+ * not where a limit read off an instrument does.
+ *
+ * **The decision: the trigger is scenery, and it is withdrawn rather than
+ * re-valued.** There is nothing in the record to re-derive it from, and
+ * inventing a licence condition to justify a number that never had one would
+ * be a worse defect than the one being fixed — the catalogue would then hold a
+ * regulatory obligation nobody wrote. So the line comes off the plate, the
+ * withdrawal is drawn on the screen where the line used to be, and what
+ * replaces it on Figure 4.1 is the thing the plate should always have been
+ * standing on: the round's own dip at each bore, as a mark.
+ *
+ * **Nothing is absorbed by that, and the two stories agree.** The counterfactual
+ * is stated in full on `#hydrograph` — had the line been real, MW05 would sit
+ * 4.04 m above it — and *above* is the same side of the line the chemistry
+ * story already puts this bore on: eight of the round's nine exceedances are
+ * here, the TARP stands at Level 3, and the interpretation argues a seepage
+ * mound. A high
+ * water level downgradient of a tailings storage facility agrees with a mound;
+ * it does not contradict anything. What would have contradicted the record is
+ * drawing MW05 comfortably *under* a compliance line on the one screen that
+ * shows its water level while every other screen calls it the impacted bore.
+ *
+ * **What would bring a trigger back** is a condition on the licence record
+ * naming a level at a named bore. It would then carry into the obligations
+ * board, the exceedance register and the TARP through the machinery the
+ * chemistry conditions already use, and Figure 4.1 would draw it from there
+ * rather than from an argument typed into a figure call.
+ */
+export const LEVEL_TRIGGER = (() => {
+  const value = 195.6;
+  const code = 'MW05';
+  const unit = UNITS.find((u) => u.quantity === 'Elevation').unit;
+  const controlUnit = UNITS.find((u) => u.quantity === 'Electrical conductivity').unit;
+  const holds = (needle, ...fields) => fields.some((f) => typeof f === 'string' && f.includes(needle));
+
+  /* Every register that could carry a criterion, read for one in the elevation unit. */
+  const registers = [
+    {
+      register: `Licence ${LICENCE.id} — conditions with a monitoring obligation`,
+      of: `${LICENCE.conditions.length} of 24`,
+      test: (needle) => LICENCE.conditions.filter((c) => holds(needle, c.what)).length,
+    },
+    {
+      register: 'Obligations board — what this project owes',
+      of: `${OBLIGATIONS.length}`,
+      test: (needle) => OBLIGATIONS.filter((o) => holds(needle, o.what, o.basis)).length,
+    },
+    {
+      register: 'Exceedance register — the 2026-Q2-GW round',
+      of: `${EXCEEDANCES.length}`,
+      test: (needle) => EXCEEDANCES.filter((e) => holds(needle, e.criterion, e.value)).length,
+    },
+    {
+      register: 'Trigger action response plan',
+      of: `${TARP.length}`,
+      test: (needle) => TARP.filter((t) => holds(needle, t.trigger)).length,
+    },
+    {
+      register: 'Criteria library — the sets in force',
+      of: `${CRITERIA_LIBRARY.length}`,
+      test: (needle) => CRITERIA_LIBRARY.filter((c) => holds(needle, c.set, c.applies)).length,
+    },
+    {
+      register: 'The consecutive-round condition, as evaluated',
+      of: `${WINDOW_CONDITION.series.length} drawn of 12 evaluated`,
+      test: (needle) => WINDOW_CONDITION.series.filter((s) => holds(needle, s.criterion)).length,
+    },
+  ].map((r) => ({ register: r.register, of: r.of, hits: r.test(unit), control: r.test(controlUnit) }));
+
+  const anchor = WATER_LEVELS.anchorOf(code);
+  const series = WATER_LEVELS.series[code];
+  const at = TARP.filter((t) => t.locations.split(', ').includes(code));
+
+  return {
+    value,
+    code,
+    unit,
+    controlUnit,
+    /** What the configuration panel said, kept verbatim so the screen can strike it. */
+    was: `Trigger line · ${value.toFixed(1)} ${unit} (TSF licence)`,
+    now: 'withdrawn 2 September 2026, no licence citation',
+    occurrences: 2,
+    occurrencesWhere: 'the argument to the figure and the configuration row beside it, both on `#hydrograph`',
+    registers,
+    citations: registers.reduce((n, r) => n + r.hits, 0),
+    controlCitations: registers.reduce((n, r) => n + r.control, 0),
+    /** The arithmetic the withdrawal is measured by. */
+    drawnBefore: anchor.was,
+    drawnNow: anchor.field,
+    aboveBefore: Number((value - anchor.was).toFixed(2)),
+    aboveNow: Number((anchor.field - value).toFixed(2)),
+    monthsAboveBefore: series.filter((p) => p.was > value).length,
+    monthsAboveNow: series.filter((p) => p.elevation > value).length,
+    months: series.length,
+    /** How far the line stood above the first value the old series drew. */
+    startedAbove: Number((value - series[0].was).toFixed(2)),
+    /** The last month the old series reached it, and the one after that. */
+    lastAbove: [...series].reverse().find((p) => p.was > value)?.month ?? null,
+    belowSince: series.find((p, i) => p.was <= value && series.slice(i).every((q) => q.was <= value))?.month ?? null,
+    /** The side of the line the rest of the record already puts this bore on. */
+    chemistry: {
+      exceedances: EXCEEDANCES.filter((e) => e.location === code).length,
+      ofExceedances: EXCEEDANCES.length,
+      tarp: at.length,
+      highest: at.map((t) => t.level).sort().at(-1),
+    },
+    decision: 'withdrawn — scenery, not a condition',
+    decidedOn: '2026-09-02',
+  };
+})();
+
 /**
  * The purge and stabilisation record, read out of the field round.
  *
@@ -4576,12 +4918,12 @@ export const CONSTRUCTION = (() => {
        * epoch and moves nothing behind it, which is why the elevation on the
        * location register is the *current* one and a 2022 water level still
        * reduces through the 2019 datum. `LOCATIONS` holds the current figure;
-       * this holds the history that makes it mean something.
+       * `SURVEYS` holds the history that makes it mean something — read here
+       * rather than copied, since wave 14 the monthly hydrograph reduces
+       * through the same history once a month and the logger series once an
+       * hour, and three copies of a datum is three chances to disagree.
        */
-      surveys: [
-        { epoch: '2024-03-18', reason: 'Resurvey', toc: 208.11, applies: 'Readings from 2024-03-18 onward', by: 'Pilbara Survey Co' },
-        { epoch: '2019-04-15', reason: 'Original survey', toc: 208.42, applies: 'Readings 2019-04-15 to 2024-03-17', by: 'Pilbara Survey Co' },
-      ],
+      surveys: SURVEYS.MW05,
       says:
         'The screen sits wholly within the weathered granite, below a bentonite seal at 9.0–10.5 m. A sample from this bore represents the superficial aquifer at 12–18 metres and nothing above it, which is the claim every result from MW05 is interpreted under.',
     },
@@ -4811,17 +5153,40 @@ export const PROVENANCE = (() => {
   };
 })();
 
-/** A bore nest — the vertical dimension the register flattened. */
-export const NEST = {
+/**
+ * A bore nest — the vertical dimension the register flattened.
+ *
+ * The standing level, the head and the gradient are **read off the round**
+ * rather than typed beside it (wave 14). They were three literals that
+ * happened to be right — `11.42`, `203.40` and `+0.86 m` — and a containment
+ * argument resting on a difference of 0.86 m is the last place in this
+ * catalogue that should hold a copy of a number rather than a subtraction.
+ * The dip is the field record's, the head is `tocAt` at the round's own date,
+ * and the gradient is one head less the other.
+ */
+export const NEST = (() => {
+  const on = FIELD_ROUND.days.at(-1).date;
+  const bores = [
+    { code: 'MW01A', unit: 'Superficial', screen: '18.0 – 24.0 m bgl', ec: '840 µS/cm' },
+    { code: 'MW03B', unit: 'Confined (Wandalup Sandstone)', screen: '46.0 – 52.0 m bgl', ec: '1120 µS/cm' },
+  ].map((b) => {
+    const dip = FIELD_ROUND.current.find((s) => s.location === b.code).depthToWater;
+    const head = Number((tocAt(b.code, on) - dip).toFixed(2));
+    return { ...b, dip, head, swl: `${dip.toFixed(2)} m btoc`, headText: `${head.toFixed(2)} m AHD` };
+  });
+  const [superficial, confined] = bores;
+  const difference = Number((confined.head - superficial.head).toFixed(2));
+  return {
   id: 'Nest B — Borefield',
-  bores: [
-    { code: 'MW01A', unit: 'Superficial', screen: '18.0 – 24.0 m bgl', swl: '11.42 m btoc', head: '203.40 m AHD', ec: '840 µS/cm' },
-    { code: 'MW03B', unit: 'Confined (Wandalup Sandstone)', screen: '46.0 – 52.0 m bgl', swl: '9.18 m btoc', head: '204.26 m AHD', ec: '1120 µS/cm' },
-  ],
-  gradient: 'Upward, +0.86 m from the confined unit to the superficial',
+  bores,
+  difference,
+  gradient: `${difference > 0 ? 'Upward' : 'Downward'}, ${difference > 0 ? '+' : ''}${difference.toFixed(2)} m from the confined unit to the superficial`,
   inference:
     'The confined unit sits at higher head than the superficial one, so vertical leakage here is upward and TSF seepage in the superficial aquifer cannot be reaching the confined unit at this location. That is a containment argument, and it is only visible when the two bores are read as a nest rather than as two rows in a register.',
-};
+  /** What the three literals said before they were derived (wave 14). */
+  was: { swl: '11.42 m btoc', head: '203.40 m AHD', gradient: 'Upward, +0.86 m from the confined unit to the superficial' },
+  };
+})();
 
 /**
  * The second statutory clock, which nothing modelled.
@@ -5756,11 +6121,22 @@ export const NARRATIVE = (() => {
     {
       id: 'fig-pot', title: 'Potentiometric surface, May 2026', label: 'Potentiometric surface',
       at: 'map',
+      /*
+       * A figure can change twice, and the second change does not overwrite
+       * the first — an author who has not looked since May is owed both. So
+       * `contentChanged` is the latest and `previously` is what it displaced,
+       * kept whole.
+       */
       contentChanged: {
-        at: '2026-09-01',
-        what: 'MW11 was dipped to the base of its screened interval on 14 May and found dry, so it carries no head and is no longer a control point on the fit. The plate is fitted through seven bores where it was fitted through eight, and it draws MW11 as a dry bore rather than omitting it.',
-        moved: 'The flow direction and the gradient both moved, in the third significant figure. The reading the sentence makes — the TSF sits upgradient of MW05 — did not.',
+        at: '2026-09-02',
+        what: 'Every head on the fit that belongs to a bore dipped this round is now reduced from the field record — top of casing less the round’s own depth to water — rather than stated. Two of them were not: MW07 stood 0.53 m and MW12 1.41 m away from what the tape and the survey say, on a plate whose largest residual was 0.04 m.',
+        moved: 'The flow direction, the gradient and the residual all moved, and the residual moved by an order of magnitude — because it is now measuring how far from planar the aquifer is rather than how carefully the inputs were chosen. The reading the sentence makes — the TSF sits upgradient of MW05 — did not.',
         owed: 'The author is asked to look at the plate and confirm the sentence still says what they meant. Nothing about the sentence has been changed, and nothing will be.',
+        previously: {
+          at: '2026-09-01',
+          what: 'MW11 was dipped to the base of its screened interval on 14 May and found dry, so it carries no head and is no longer a control point on the fit. The plate is fitted through seven bores where it was fitted through eight, and it draws MW11 as a dry bore rather than omitting it.',
+          moved: 'The flow direction and the gradient both moved, in the third significant figure. The reading the sentence makes — the TSF sits upgradient of MW05 — did not.',
+        },
       },
     },
   ].map((t) => {

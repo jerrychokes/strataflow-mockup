@@ -998,9 +998,9 @@ uses and exactly what this screen draws.
 **Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
 them is the same move: a disagreement described in a comment becomes one source read N
 times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
-records; it stands at **five**, and the four that closed are kept as dated settled-notes
-rather than deleted, because a debt that vanishes when it is paid leaves nobody able to tell
-it from one that was never noticed.
+records; it stands at **five** — four after wave 14 — and the ones that closed are kept as
+dated settled-notes rather than deleted, because a debt that vanishes when it is paid leaves
+nobody able to tell it from one that was never noticed.
 
 **The bundle-contents gap (wave 12's record) is closed by one derived list.** Two screens
 described one archive with two different lists — `#diagnostics` enumerated **four** content
@@ -1061,6 +1061,77 @@ than measurements, so the clock rule leaves them outside it; each is named on it
 beside the clock statement. The fourth is the one the first draft of the record missed,
 which is why every rendered date after the administration as-at was enumerated and
 classified rather than recalled.
+
+**Wave 14 (2 September 2026) settles the largest standing lie in the seed and adds no
+screen.** The monthly water-level series was shaped by `base = loc.toc − 12.5` — a spread
+chosen to separate three traces on a plate — and had never been reconciled with the depths
+the field round recorded. The deferral's own six-bore table showed the dip-derived and
+fitted columns agreeing while the drawn series sat metres away; its record said the repair
+"needs its own deliberate wave", and this is that wave. The deferral ledger stands at
+**four**, and the record that closed keeps its original text with a dated settled-note
+beneath it.
+
+**The datum is corrected and the fiction is not.** The generator draws the same seasonal
+structure — same seed, same wet-season term, same drift, same noise draws in the same order
+— as a **depth to water** whose last month *is* the round's own dip, and derives each
+month's elevation through the survey in force that month. So every bore's May 2026 value is
+`LOCATIONS.toc` less the round's dip *because it is that subtraction*, and for every month
+after the resurvey the new elevation is the old one plus that bore's constant offset —
+which is what correcting a datum without touching a shape means arithmetically. The offsets
+were derived, not typed: **MW05 +5.57**, MW07 +5.43, MW09 +4.77, MW03B +2.52, MW01A +0.29,
+MW12 −1.21. The three traces spanned 10.52 m and now span 5.38 m, and **every one of the six
+old values renders on the screen beside its correction** rather than only in the seed.
+
+**Two things the wave-8 record estimated did not survive being measured**, and both are
+recorded on `#hydrograph`: the re-anchored plate was expected to span 4.3 m (it spans 5.38),
+and MW05 and MW07 were expected to overlap "where they are now clearly separate" — they
+already overlapped, and re-anchoring moved them from 0.28 m apart in May to 0.41 m apart.
+
+**The resurvey step is real now, and it is at the bore that was resurveyed.** The comment
+above the generator had claimed a datum step at MW03B, which has no survey history at all.
+MW05 does — 208.42 m AHD until `2024-03-18` and 208.11 m from it — so the plate steps 0.31 m
+down at that epoch, ruled and named, because a step in an elevation series is either the
+water moving or the datum moving and only one of those is a finding. The survey history is
+one record now (`SURVEYS`, beside the location register), read by the construction log, the
+monthly plate once a month and the logger plate once an hour.
+
+**MW11 carries no monthly series, for the reason it carries no head.** The round dipped it
+to 22.0 m btoc, the base of its screened interval, and found it dry; the old rule drew it
+anyway at a water table ten metres above where the tape found nothing — the same assertion
+wave 7 removed from the potentiometric fit at the same bore. Its row on the reconciliation
+table carries the reason where a number would be.
+
+**The trigger line was measured before anything was drawn, and it is withdrawn.** Figure 4.1
+carried a dashed red line at 195.6 m AHD labelled *"Trigger line · 195.6 m AHD (TSF
+licence)"*, and re-anchoring moved MW05 from 1.53 m **below** it to 4.04 m **above** — a
+regulatory question, not a rendering one. Six registers that could carry a level criterion
+were searched for one in the elevation unit the unit dictionary names: **0 citations**,
+against a control search for `µS/cm` — a unit this site does hold criteria in — that finds
+**2**. The number existed in exactly two places, both on that one screen, and the licence
+its parenthesis named lists 6 of 24 conditions, the ones carrying a monitoring obligation,
+which is the class a level trigger belongs to. Against the series it was typed beside it sat
+0.32 m above the trace's first value and was reached only by the first wet season's four
+months. So it is scenery, and the line is **withdrawn rather than re-valued**: there is
+nothing on the record to re-derive it from, and writing a licence condition to justify a
+number that never had one would leave this catalogue holding an obligation nobody imposed.
+The configuration row keeps it struck through, the counterfactual is stated in full, and
+*above* is the side of the line every other screen already puts this bore on — 8 of the
+round's 9 exceedances, TARP Level 3, a seepage mound in the interpretation. **What replaces
+it on the plate is the round's own dip at each bore**, drawn as the logger plate draws one,
+landing on the trace it anchors.
+
+**Found while doing it — three, all measured.** The plate-relationship panel wave 8 wrote
+said re-anchoring would move MW05 "from four metres above the licence trigger line to just
+below it": **backwards on both ends**, and the seed record it summarised had the direction
+right. The potentiometric heads claimed to be "reduced from the top-of-casing elevations and
+standing levels already on the location register and the field round"; measured against that
+record, three matched to a centimetre and **MW07 was 0.53 m out and MW12 1.41 m out**, on a
+plate whose largest residual was 0.04 m — two heads had been adjusted until the plane fitted
+them. The five dipped bores' heads are computed now and the fit moves with them: bearing
+119° → 103°, gradient 1.93 → 1.74 m/km, **largest residual 0.04 → 0.55 m**, with the
+before-values printed where they render and the two subterranean-fauna heads declared as the
+estimates they are. And the bore nest's three literals — `11.42 m btoc`, `203.40 m AHD` and
+`+0.86 m` — are derived; all three reproduce, so what moved is the typing.
 
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
