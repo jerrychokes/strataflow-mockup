@@ -36,6 +36,9 @@ import {
   // Wave 7 — provenance from the bore, the interpretation workspace, and the
   // shape of the crosstab now that a column is drawn empty.
   CONSTRUCTION, CROSSTAB_SHAPE, EVIDENCE, NARRATIVE, PROVENANCE, RENDERING_RULE,
+  // Wave 8 — the instrument register, the raw-and-corrected pair at one bore,
+  // and the internal-consistency checks derived from the ions rather than typed.
+  CONSISTENCY, INSTRUMENTS, LOGGER_SERIES, WATER_LEVELS,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -115,9 +118,28 @@ const importRuns = () =>
     route: '/projects/:projectId/imports',
     toolbar: C.exportMenu() + btn('Upload deliverable', 'primary'),
   }) +
+  /*
+   * Wave 8: the run count is counted rather than typed, because the wave
+   * added a fifth run and a literal 4 would have gone quietly wrong. The
+   * second tile said "rows committed" and now says **results** — a logger
+   * download commits water levels and no results at all, and a tile that
+   * added the two together would be exactly the conflation FR-1.10 exists to
+   * prevent. The number under it did not move, which is the point.
+   *
+   * FOUND AND DEFERRED — 2 September 2026 (wave 8), owner unassigned. The
+   * other three tiles are still literals and they predate this wave: 231 is
+   * IMP-0241 alone, 9 is the two non-migration runs' held rows (the
+   * migration's 112 are not in it), and 1 is the reversal. Each is defensible
+   * and none of them is derived, so all three are the same class of thing the
+   * `#consistency` rider just paid off one screen over. Deriving them means
+   * deciding what "this quarter" and "held" mean across a migration run and a
+   * logger download, which is a scoping decision rather than an arithmetic
+   * one — it belongs to a wave that redesigns this screen deliberately. The
+   * logger run contributes 0 to all three, so nothing here is wrong today.
+   */
   stats([
-    stat('4', 'runs this quarter'),
-    stat('231', 'rows committed', 'good'),
+    stat(String(IMPORTS.length), 'runs this quarter'),
+    stat('231', 'results committed', 'good'),
     stat('9', 'held for review', 'warn'),
     stat('1', 'reversed', 'bad'),
   ]) +
@@ -182,22 +204,61 @@ const importRuns = () =>
     '1fr 1fr',
   ) +
   table({
-    caption: 'Every deliverable read on this project, newest first.',
-    head: ['Run', 'File', 'Format', 'Laboratory', 'Received', 'Rows', 'Held', 'State', 'By'],
+    caption: 'Every deliverable read on this project, newest first. A run says what kind of thing it carried.',
+    head: ['Run', 'Carries', 'File', 'Format', 'Source', 'Received', 'Rows', 'Held', 'State', 'By'],
     kind: 'matrix',
     label: 'Import runs',
     rows: IMPORTS.map((i) => [
-      `<a href="#import-review"><code>${esc(i.id)}</code></a>`,
+      `<a href="#${i.kind === 'series' ? 'logger-series' : 'import-review'}"><code>${esc(i.id)}</code></a>`,
+      i.kind === 'series' ? tag('water levels', 'new') : tag('results', 'neutral'),
       `<span class="mk-file">${esc(i.file)}</span>`,
       esc(i.format),
       esc(i.lab),
       `<span class="sf-instant">${esc(i.received)}</span>`,
-      `<span class="mk-num">${i.rows}</span>`,
+      `<span class="mk-num">${i.rows.toLocaleString('en-AU')}</span>`,
       i.held ? `<span class="mk-num mk-num--warn">${i.held}</span>` : '<span class="mk-num mk-num--nil">0</span>',
       tag(i.state, toneFor(i.state)),
       esc(i.by),
     ]),
   }) +
+  /*
+   * Wave 8 — FR-3.10's import kind, stated in the row-count style the rest of
+   * this screen uses. Every number below resolves through `LOGGER_SERIES`; the
+   * run's own `rows` field is the same sum, which is why the register row and
+   * this statement cannot come apart.
+   */
+  cols(
+    panel(
+      'A logger download is an import, and it commits no results',
+      ((run) =>
+        `<p class="mk-tight"><span class="mk-file">${esc(run.id)}</span> read <strong>${run.rows.toLocaleString('en-AU')} rows</strong> across <strong>${LOGGER_SERIES.counts.series} series</strong> and produced <strong>${LOGGER_SERIES.counts.results} results</strong>. That last number is the requirement rather than a quirk: FR-1.10 holds logger series separately from discrete results, so a deliverable of this size moves nothing on <a class="mk-ref" href="#crosstab">the results grid</a> and nothing on <a class="mk-ref" href="#exceedances">the exceedance register</a>.</p>` +
+        table({
+          caption: `What ${run.id} carried, counted from the series it committed.`,
+          head: ['What', 'Count', 'Where it went'],
+          rows: [
+            ['Water levels — the bore', `<span class="mk-num">${LOGGER_SERIES.counts.water.toLocaleString('en-AU')}</span>`, cell(`<a class="mk-ref" href="#logger-series">${esc(LOGGER_SERIES.code)} · ${esc(LOGGER_SERIES.logger.asset)}</a>, hourly`)],
+            ['Atmospheric pressure — the barometer', `<span class="mk-num">${LOGGER_SERIES.counts.baroReadings.toLocaleString('en-AU')}</span>`, cell(`<a class="mk-ref" href="#instruments">${esc(LOGGER_SERIES.barometer.asset)}</a> at ${esc(LOGGER_SERIES.station.name)}`)],
+            ['Hours in the window with no water level', `<span class="mk-num mk-num--warn">${LOGGER_SERIES.counts.gapHours}</span>`, cell('The instrument was out for service — <a class="mk-ref" href="#logger-series">drawn as a gap</a>, not interpolated')],
+            ['Results', `<span class="mk-num mk-num--nil">${LOGGER_SERIES.counts.results}</span>`, '<span class="mk-muted">A logger has no analyte, no sample and no test</span>'],
+          ],
+        }) +
+        `<p class="mk-tight"><strong>Two files, one deliverable</strong> — the same rule an ESdat pair follows above. The bore file and the barometric file are read together because the compensation needs both, and reading either alone would commit a series that cannot be corrected.</p>`)(IMPORTS.find((i) => i.kind === 'series')),
+    ),
+    panel(
+      'The format, and the source it compensated from',
+      facts([
+        ['Format', `<span class="mk-file">${esc(IMPORTS.find((i) => i.kind === 'series').format)}</span><small>vendor format, chosen and never defaulted</small>`],
+        ['Instrument', `<a class="mk-ref" href="#instruments">${esc(LOGGER_SERIES.logger.asset)}</a><small>${esc(LOGGER_SERIES.logger.model)}</small>`],
+        ['Location group', esc(LOGGER_SERIES.group.name)],
+        ['Barometric source', `<a class="mk-ref" href="#instruments">${esc(LOGGER_SERIES.sourceRow.source)}</a><small>in force from ${esc(LOGGER_SERIES.sourceRow.from)}</small>`],
+        ['Compensation rule', `<span class="mk-file">${esc(LOGGER_SERIES.rule.id)} ${esc(LOGGER_SERIES.rule.version)}</span>`],
+        ['Raw retained', tag('yes — pressure, unedited', 'good')],
+      ]) +
+        `<p class="mk-tight">FR-3.10 asks that the barometric source be <em>defined per location group</em>, so the importer does not ask which barometer to use: it resolves the source in force for ${esc(LOGGER_SERIES.group.name)} on the file’s own dates, and records it on every water level it derives. An importer that offered a barometer picker would be offering a way to compensate one bore against the wrong sky.</p>` +
+        `<p class="mk-tight mk-muted">The vendor and the extension are <code class="mk-file">MOCK</code>, shaped like a real one. A format that is obviously invented cannot be judged, and one that is not obviously fictional is a screenshot waiting to be mistaken for somebody’s real deliverable.</p>`,
+    ),
+    '3fr 2fr',
+  ) +
   notice(
     'default',
     'The format is chosen, never defaulted.',
@@ -1472,47 +1533,116 @@ const historyOutlierPanel = () => {
 };
 
 /*
- * Two things found here in wave 7 and handled differently, both recorded.
+ * The wave-7 deferral on this screen, landed as wave 8's rider — 2 September
+ * 2026.
  *
- * **Fixed:** the MW11 row asserted a cation–anion balance, a TDS ratio and a
- * verdict of `consistent` for a bore the field record has dipped twice and
- * found dry. It is drawn as not sampled rather than removed.
+ * Wave 7 recorded that the balances here were not derived from `MAJOR_IONS`
+ * and that recomputing them would give different numbers. It did. **Every
+ * balance on this screen was wrong**, including the −7.8% at MW05 that this
+ * screen and `#hydrochem` both reasoned from: the ions balance to within
+ * 0.7% at every bore and to 0.04% at MW05. The screen follows the
+ * computation, the argument moves to the check that actually fails — a
+ * 32% shortfall between the ions and the reported dissolved solids — and
+ * MW12 has the row its results owed it. Everything below now resolves
+ * through `CONSISTENCY` in `seed.mjs`; the only literals left on this screen
+ * are words.
  *
- * **Deferred, and recorded rather than left to be noticed:** the balances
- * below are not derived from `MAJOR_IONS`, and recomputing them from that
- * table gives different numbers — including for MW05, whose −7.8% imbalance
- * the panel beside the table reasons from at length. Reconciling the two is a
- * seed change that moves the drawn argument on this screen and the Piper and
- * Stiff plates that read the same ions, so it is not made in passing here.
- * MW12 has results and no row, which is the same debt one column along.
+ * The MW11 row is wave 7's and unchanged in substance: a bore dipped twice
+ * and found dry has no chemistry to be consistent with, and it is drawn
+ * rather than deleted because a bore that vanishes from a register reads as
+ * one that was never on the programme.
  */
-const consistency = () =>
-  head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: '/projects/:projectId/consistency' }) +
-  cols(
+const consistency = () => {
+  const K = CONSISTENCY;
+  const num = (ok, text) => `<span class="mk-num${ok ? '' : ' mk-num--warn'}">${text}</span>`;
+  /*
+   * A signed percentage with a real minus sign. `toFixed` emits a hyphen, and
+   * a hyphen beside the U+2212 every other number on these screens uses is
+   * the kind of difference nobody sees and every typographer does.
+   */
+  const signed = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
+  const subject = K.subject;
+  const sulfate = subject ? Math.round(subject.ions.SO4 * K.equivalent.SO4) : null;
+  return (
+    head('Internal consistency', 'Whether the chemistry agrees with itself.', { route: '/projects/:projectId/consistency' }) +
+    stats([
+      stat(String(K.counts.bores), 'bores with a chemistry'),
+      stat(String(K.counts.consistent), 'consistent on every check', 'good'),
+      stat(String(K.counts.raised), 'review raised', K.counts.raised ? 'warn' : 'neutral'),
+      stat(signed(K.counts.worstBalance), 'worst ionic balance', 'good'),
+    ]) +
     table({
-      caption: 'Checks that compare one reported value against another.',
-      head: ['Location', 'Cation–anion balance', 'TDS reconciliation', 'EC : TDS', 'Total vs dissolved'],
+      caption: 'Checks that compare one reported value against another. The balance and the calculated solids are derived from the ion table; the reported solids and conductivity are what the laboratory sent.',
+      head: ['Location', 'Cation–anion balance', 'Calculated solids<small>mg/L</small>', 'Reported solids<small>mg/L</small>', 'TDS reconciliation', 'EC : TDS', 'Verdict'],
+      kind: 'matrix',
+      label: 'Internal consistency checks',
       rows: [
-        [loc('MW01A'), '<span class="mk-num">+1.2%</span>', '<span class="mk-num">0.98</span>', '<span class="mk-num">0.64</span>', tag('consistent', 'good')],
-        [loc('MW03B'), '<span class="mk-num">−2.4%</span>', '<span class="mk-num">1.03</span>', '<span class="mk-num">0.61</span>', tag('consistent', 'good')],
-        [loc('MW05'), '<span class="mk-num mk-num--warn">−7.8%</span>', '<span class="mk-num">1.11</span>', '<span class="mk-num">0.67</span>', tag('review raised', 'warn')],
-        [loc('MW07'), '<span class="mk-num">+3.1%</span>', '<span class="mk-num">0.96</span>', '<span class="mk-num">0.63</span>', tag('consistent', 'good')],
-        [loc('MW09'), '<span class="mk-num">−1.8%</span>', '<span class="mk-num">1.01</span>', '<span class="mk-num">0.65</span>', tag('consistent', 'good')],
-        /*
-         * Wave 7. This row carried a cation–anion balance, a TDS ratio and a
-         * verdict of `consistent` for a bore that was dipped twice and found
-         * dry — an internal-consistency check run over a chemistry that does
-         * not exist. It is drawn rather than deleted, for the reason the
-         * crosstab's blanked column is drawn: a bore that vanishes from a
-         * register reads as a bore that was never on the programme.
-         */
-        [loc('MW11'), ...Array(3).fill('<span class="mk-num mk-num--nil">—</span>'), tag('not sampled — dry', 'neutral')],
+        ...K.rows.map((r) => [
+          loc(r.code),
+          num(!r.failed.includes('balance'), signed(r.balance)),
+          `<span class="mk-num">${r.tdsCalc.toLocaleString('en-AU')}</span>`,
+          `<span class="mk-num">${r.tds.toLocaleString('en-AU')}</span>`,
+          num(!r.failed.includes('ratio'), r.ratio.toFixed(2)),
+          num(!r.failed.includes('ecTds'), r.ecTds.toFixed(2)),
+          tag(r.verdict, r.verdict === 'consistent' ? 'good' : 'warn'),
+        ]),
+        [loc('MW11'), ...Array(5).fill('<span class="mk-num mk-num--nil">—</span>'), tag(`not sampled — ${esc(K.dry.label.toLowerCase())}`, 'neutral')],
       ],
-    }),
-    panel('MW05 — what the imbalance means',
-      '<p class="mk-tight">A −7.8% cation–anion balance says the anions exceed the cations by more than analytical error explains. On a bore whose sulfate is 918 mg/L, the likely readings are a sulfate result reported high, or a cation the suite does not include.</p>' +
-      '<p class="mk-tight mk-muted">It is raised as a review item rather than resolved. The product does not know which, and guessing would be a silent derivation (PP3).</p>'),
+    }) +
+    /*
+     * The grid runs the full width rather than sitting in a 3fr column beside
+     * a panel. Seven columns inside 500 px pans, which is correct behaviour
+     * and the wrong layout: the Verdict column — the one a reader comes here
+     * for — was off the right edge at 1280 px until this was measured.
+     */
+    cols(
+      panel(
+        subject ? `${subject.code} — what the shortfall means` : 'Every check passes',
+        subject
+          ? `<p class="mk-tight">The cation–anion balance at ${loc(subject.code)} is <strong>${signed(subject.balance)}</strong>, well inside the ${esc(K.limits.balanceText)} limit. What fails is the reconciliation: the reported ions sum to <strong>${subject.tdsCalc.toLocaleString('en-AU')} mg/L</strong> of dissolved solids and the laboratory reports <strong>${subject.tds.toLocaleString('en-AU')}</strong> — a ratio of ${subject.ratio.toFixed(2)} against ${esc(K.limits.ratioText)}.</p>` +
+            `<p class="mk-tight">A charge balance can be perfect while a third of the mass is unaccounted for, and that is what it is saying here: the charges match because the suite is internally coherent, and ${(subject.tds - subject.tdsCalc).toLocaleString('en-AU')} mg/L of it was never reported. On a bore whose sulfate is ${sulfate.toLocaleString('en-AU')} mg/L, the likely readings are an unreported constituent — silica, an organic load, or a cation the suite does not include.</p>` +
+            '<p class="mk-tight mk-muted">It is raised as a review item rather than resolved. The product does not know which, and guessing would be a silent derivation (PP3).</p>'
+          : '<p class="mk-tight">Every bore passes every check this round.</p>',
+      ),
+      panel(
+        'How each number here is made',
+        table({
+          caption: 'Two reported values per bore. Everything else on this screen is arithmetic over the ion table.',
+          head: ['Check', 'How', 'Acceptance'],
+          scroll: true,
+          label: 'The consistency checks and their acceptance limits',
+          rows: [
+            ['Cation–anion balance', cell(`<span class="mk-num">(Σ${K.cations.join(' + ')} − Σ${K.anions.join(' + ')}) ÷ (Σ + Σ) × 100</span>, in meq/L`), esc(K.limits.balanceText)],
+            ['Calculated solids', cell('Each ion in meq/L times its equivalent weight, summed'), '<span class="mk-muted">derived, not a check</span>'],
+            ['TDS reconciliation', cell('Reported dissolved solids ÷ calculated'), esc(K.limits.ratioText)],
+            ['EC : TDS', cell('Reported dissolved solids ÷ reported conductivity'), esc(K.limits.ecTdsText)],
+            ['Total vs dissolved', cell(`Not run. This round’s metals suite is <span class="mk-file">${esc(METALS_BATCH.method)}</span> — there is no total result to compare a dissolved one against, and a check reported as passing on a pair that does not exist is worse than one reported as not run.`), '<span class="mk-muted">no pair</span>'],
+          ],
+        }) +
+          `<p class="mk-tight mk-muted">${esc(LOGGER_SERIES.code)}’s conductivity is not typed here either: it is the last round of <a class="mk-ref" href="#qc">the bore’s own record</a>, the same ${K.rows.find((r) => r.code === 'MW05').ec.toLocaleString('en-AU')} µS/cm <a class="mk-ref" href="#exceedances">the licence condition</a> is assessed against.</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+    (() =>
+      panel(
+        'The rider that landed here, and what it moved',
+        '<p class="mk-tight">Until 2 September 2026 the five balances on this screen were typed strings sitting beside the ion table that refutes them. Recomputed, <strong>every one of them moved</strong>, and the largest move was the one the argument rested on.</p>' +
+          table({
+            caption: 'What the screen said, and what the ions say.',
+            head: ['Location', 'Printed until 2 Sep', 'Derived from the ions'],
+            rows: [
+              ...[['MW01A', '+1.2%'], ['MW03B', '−2.4%'], ['MW05', '−7.8%'], ['MW07', '+3.1%'], ['MW09', '−1.8%'], ['MW12', null]].map(([code, was]) => [
+                code,
+                was ? `<span class="mk-was">${was}</span>` : '<span class="mk-muted">no row at all</span>',
+                `<span class="mk-num">${signed(K.rows.find((r) => r.code === code).balance)}</span>`,
+              ]),
+            ],
+          }) +
+          '<p class="mk-tight">The review item at MW05 survives and is now on the check that can see it. That is the useful half of the finding: the typed number and the derived one both said <em>look at this bore</em>, and only one of them could say why.</p>' +
+          '<p class="mk-tight mk-muted">Recorded rather than quietly repaired, because a catalogue whose method is derived counts should be able to show what a typed one cost. Wave 7 found this and wrote it down; wave 8 paid it.</p>',
+      ))()
   );
+};
 
 const validationBoard = () =>
   head('Validation state', 'Where every result in the round sits, and who moved it there.', {
@@ -2027,6 +2157,42 @@ const locationDetail = () => {
       'The interval below the filter pack is recorded as formation material falling back around the casing. Leaving it out would say the same thing as “nobody wrote it down”, and those are different facts (PP4).'),
     '1fr 1fr',
   ) +
+  /*
+   * Wave 8 — what is hanging in this bore. The deployment, its depth, its
+   * service state and the series it is writing all resolve through the
+   * instrument register; nothing here is a second copy of them.
+   */
+  ((deployment) => {
+    const inst = INSTRUMENTS.of(deployment.instrument);
+    const group = INSTRUMENTS.groupOf(B.code);
+    const source = INSTRUMENTS.sourceFor(group.name, AS_AT);
+    return (
+      '<h2 class="mk-h2" style="margin-top:1.4rem">What is in this bore</h2>' +
+      cols(
+        panel(
+          `${esc(inst.asset)} — deployed here since ${esc(deployment.from)}`,
+          facts([
+            ['Instrument', `<a class="mk-ref" href="#instruments">${esc(inst.asset)}</a><small>${esc(inst.model)} · ${esc(inst.serial)}</small>`],
+            ['Records', `${esc(inst.reads)}<small>${esc(inst.interval)}</small>`],
+            ['Sensor depth', `<span class="mk-num">${deployment.sensor.toFixed(2)}</span> m below measuring point<small>${esc(FIELD_ROUND.current.find((s) => s.location === B.code).measuringPoint.toLowerCase())}</small>`],
+            ['Deployment', `${esc(deployment.from)} → open<small>${esc(deployment.why)}</small>`],
+            ['Last service', `${esc(INSTRUMENTS.services.filter((s) => s.instrument === inst.asset).at(-1).at)} · ${esc(INSTRUMENTS.services.filter((s) => s.instrument === inst.asset).at(-1).kind)}`],
+            ['Location group', `${esc(group.name)}<small>barometric source ${esc(source.source)}</small>`],
+            ['State', tag(inst.state, 'good')],
+          ]) +
+            `<p class="mk-tight">The screened interval this instrument hangs in is the one above: at ${deployment.sensor.toFixed(2)} m below top of casing the sensor sits inside <span class="mk-num">${B.screenFrom.toFixed(1)}–${B.screenTo.toFixed(1)}</span> m of screen, which is what makes its water levels a measurement of the same aquifer the samples came from.</p>` +
+            `<div class="mk-actions"><a class="mk-btn" href="#logger-series">The series it is writing</a><a class="mk-btn" href="#instruments">The register and its deployment history</a></div>`,
+        ),
+        panel(
+          'A continuous record and a quarterly one, held apart',
+          `<p class="mk-tight">This bore has <strong>${LOGGER_SERIES.counts.water.toLocaleString('en-AU')} water levels</strong> from the logger over ${esc(LOGGER_SERIES.window.from.slice(0, 10))} to ${esc(LOGGER_SERIES.window.to.slice(0, 10))} and <strong>${B.rounds} rounds</strong> of results behind it. They are separate records and FR-1.10 says so: a logger has no analyte, no sample and no test, and putting the two in one table would mean inventing one of each.</p>` +
+            `<p class="mk-tight"><strong>The datum rule is the same rule, run more often.</strong> Groundwater elevation is derived at the measurement date and never stored — for a quarterly dip that is ${B.rounds} derivations, and for this series it is ${LOGGER_SERIES.counts.water.toLocaleString('en-AU')}, every one of them through the ${esc(B.surveys[0].epoch)} survey because that is the one in force. A resurvey tomorrow moves neither: it takes effect from its own epoch forward.</p>` +
+            `<p class="mk-tight mk-muted">${LOGGER_SERIES.counts.dips} manual dips sit inside that window as well, and one of them <a class="mk-ref" href="#logger-series">found that ${LOGGER_SERIES.correction.reachCount.toLocaleString('en-AU')} of the logger’s water levels had been derived under a wrong deployment depth</a>. The dipper is not made redundant by a logger; it is what a logger is checked against.</p>`,
+        ),
+        '1fr 1fr',
+      )
+    );
+  })(INSTRUMENTS.deploymentAt(B.code, AS_AT)) +
   `<div class="mk-actions"><a class="mk-btn" href="#lineage">Where this construction sits in the lineage of a result</a><a class="mk-btn" href="#purge">The purge this bore's last sample came from</a></div>`
   );
 };
@@ -2053,6 +2219,37 @@ const hydrographWorkspace = () =>
       '<p class="mk-tight mk-muted">Saved with the figure, not with the session. QB-3 is that next quarter’s figure is identical except for the new data — which means the configuration is a stored object, not something rebuilt by hand.</p>' +
       `<p class="mk-tight mk-muted"><strong>A dry bore is a gap.</strong> ${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} was dipped to the base of its screened interval on the May round and found dry, so its trace breaks rather than drawing a line through it — and it contributes no point to <a class="mk-ref" href="#map">the potentiometric surface</a> either. A polyline across a null asserts a water level nobody measured.</p>`),
     '2fr 1fr',
+  ) +
+  /*
+   * Wave 8 — FR-1.10's own words, drawn: the continuous series *separately
+   * from* the discrete dips, on one plate, in the same grammar. No new figure
+   * family: a line over time with the break convention Figure 4.1's own
+   * configuration panel has stated since the third pass.
+   *
+   * It is a second plate rather than a third trace on Figure 4.1, and the
+   * reason is measured rather than aesthetic — see the note beneath it.
+   */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">The same bore, once an hour</h2>' +
+  figure('4.11', `Logger water level at ${esc(LOGGER_SERIES.code)} — continuous, with the manual dips that check it`, F.loggerSeries(),
+    'The continuous series and the discrete dips on one plate and never as one mark: the logger traces are a line, the dips are filled diamonds, and the legend says which is which. FR-1.10 in a drawing.') +
+  cols(
+    panel(
+      'Continuous and discrete, drawn apart on purpose',
+      `<p class="mk-tight">FR-1.10 asks for logger series to be represented <em>separately from discrete results</em>, and the separation is not only a schema decision — a reader has to be able to see which marks somebody stood at the bore for. So the ${LOGGER_SERIES.counts.water.toLocaleString('en-AU')} hourly water levels are traces and the ${LOGGER_SERIES.counts.dips} manual dips are filled marks with a leader, and the plate never averages one into the other.</p>` +
+        `<p class="mk-tight"><strong>The dips remain the record.</strong> One of them — <span class="sf-instant">${esc(LOGGER_SERIES.dipChecks.find((c) => c.inGap).at)}</span> — is the only water level this bore has for the fortnight the instrument was in the workshop, and another is the one that <a class="mk-ref" href="#logger-series">caught a wrong deployment depth</a> in ${LOGGER_SERIES.correction.reachCount.toLocaleString('en-AU')} corrected values. A continuous series is not a reason to stop dipping; it is a reason the dip is worth more.</p>` +
+        `<p class="mk-tight mk-muted">Same grammar, no new family: closed frame, 1-2-5 ticks, shape and dash for series identity, the second quantity — atmospheric pressure — in its own panel underneath rather than on a second axis. What differs from Figure 4.1 is cadence, and cadence is not a family (§5.8). A Durov or a Schoeller would still need a written grammar proposal before it was drawn.</p>`,
+    ),
+    panel(
+      'Why this is a second plate and not a third trace on Figure 4.1',
+      ((code) => {
+        const bore = LOCATIONS.find((l) => l.code === code);
+        const dip = FIELD_ROUND.current.find((s) => s.location === code);
+        return `<p class="mk-tight">The two plates do not stand on the same baseline, and the difference is metres rather than centimetres. Figure 4.1 draws <strong>${esc(code)}</strong> at <span class="mk-num">${WATER_LEVELS.series[code].at(-1).elevation.toFixed(2)}</span> m AHD in ${esc(WATER_LEVELS.months.at(-1))}; the round’s own dip at that bore reduces to <span class="mk-num">${(bore.toc - dip.depthToWater).toFixed(2)}</span> m AHD through the survey in force, and <a class="mk-ref" href="#map">the fitted potentiometric surface</a> holds it at <span class="mk-num">${F.POTENTIOMETRIC_FIT.headOf(code).toFixed(1)}</span>.</p>`;
+      })(LOGGER_SERIES.code) +
+        '<p class="mk-tight">Two of those three agree; the monthly series is the one that does not, and it is the one this plate would have had to join. <strong>The finding is recorded rather than fixed in passing</strong>, in the seed beside the series it describes, with the six-bore comparison and the reason: re-anchoring changes what Figure 4.1 shows, and it moves this bore from four metres above the licence trigger line to just below it. Which of those is the true relationship between a compliance bore and its trigger is a question with a regulatory answer, and it is not one to settle inside a wave about telemetry.</p>' +
+        '<p class="mk-tight mk-muted">So the hourly plate is anchored to the field record — the baseline two independent structures corroborate — and drawn beside the monthly one rather than on it. A reader comparing the two elevations is reading a real disagreement, which is why it is said here rather than left to be discovered.</p>',
+    ),
+    '1fr 1fr',
   ) +
   figure('4.2', 'Arsenic at MW05, with censoring shown', F.censoredSeries(),
     'Non-detects at their limit of reporting under an open downward triangle; the limit is its own stepped line, because it changed when the laboratory changed method.') +
@@ -2106,7 +2303,18 @@ const hydrochem = () =>
     panel('What the plate says',
       '<p class="mk-tight">Every bore except MW05 is a calcium-bicarbonate water, tightly clustered — the natural signature of the Superficial aquifer here. MW05 is sulfate-dominated and four times the ionic strength.</p>' +
       '<p class="mk-tight">That is the difference between <em>a bore with a high arsenic result</em> and <em>a bore receiving TSF seepage</em>, and it is the argument a hydrogeologist has to make in the report. The chemistry makes it; the exceedance register alone cannot.</p>' +
-      '<p class="mk-tight mk-muted">Ionic balance at MW05 is −7.8%, outside the ±5% acceptance limit, and that is stated here rather than left on the QA/QC screen. A plate drawn from data that failed a consistency check should say so on its own face.</p>'),
+      /*
+       * Wave 8's rider reaches this sentence too. It read "Ionic balance at
+       * MW05 is −7.8%, outside the ±5% acceptance limit" — a number typed on
+       * two screens and supported by neither, since the ions this plate is
+       * drawn from balance to 0.04%. The claim it was making is worth
+       * keeping, so it is made from the check that actually fails and read
+       * from the same computation the consistency screen prints.
+       */
+      ((r) =>
+        `<p class="mk-tight mk-muted">The ions this plate is drawn from balance at ${loc(r.code)} to <strong>${r.balance > 0 ? '+' : '−'}${Math.abs(r.balance).toFixed(2)}%</strong> — inside the ${esc(CONSISTENCY.limits.balanceText)} limit, so the shape of the polygon is not an artefact. What does fail is the reconciliation: they sum to ${r.tdsCalc.toLocaleString('en-AU')} mg/L against ${r.tds.toLocaleString('en-AU')} mg/L reported, a ratio of ${r.ratio.toFixed(2)}, and <a class="mk-ref" href="#consistency">a review is raised on it</a>. A plate drawn from data that failed a consistency check should say so on its own face.</p>`)(
+        CONSISTENCY.rows.find((r) => r.code === 'MW05'),
+      )),
     '3fr 2fr',
   ) +
   figure('4.4', 'Stiff diagrams by location', F.stiff(),
@@ -4365,6 +4573,479 @@ const chainOfCustody = () => {
       // Raising is the one control here that is not irreversible, and it says
       // so rather than leaving the reader to infer it from the two above.
     })
+  );
+};
+
+/**
+ * The instrument register — a durable asset with a lifecycle of its own.
+ *
+ * **The New-Screen Test, answered.** An instrument is a durable record with a
+ * lifecycle no existing screen owns: it is bought, calibrated, deployed into
+ * a bore, retrieved, serviced, redeployed at a different depth, and
+ * eventually retired — and every water level it ever wrote means what it
+ * means only because of which of those states it was in at the time.
+ * `#field-capture`'s completion preflight has counted three of these since
+ * wave 6 ("3 calibrated, 2 post-checked") and **no screen said which three**;
+ * `#location` says what a bore is, not what is hanging in it; `#imports` says
+ * a file arrived, not which instrument wrote it. The deferred telemetry
+ * journey opens on *Instrument*, and the step landed on nothing.
+ *
+ * **The label is the glossary's problem, stated rather than dodged.** The
+ * glossary's **licence** entry uses *instrument* to mean a statutory
+ * instrument — the thing an operation is held to — and this register's
+ * subject is a physical device. FR-3.10 ("common instrument vendors") and the
+ * PRD's opening sentence ("laboratory and instrument data") use the word the
+ * other way, so both senses are already in the product's own documents. The
+ * screen is called **Instruments and loggers** so the sense is never in
+ * doubt at the rail, and it says so on its own face rather than leaving a
+ * reader to work out which meaning is in play (QB-9).
+ *
+ * `state` is absent from the register entry on the same rule the chain of
+ * custody follows: `state` is the 23 August record and this screen did not
+ * exist then. `added` carries its date instead.
+ */
+const instrumentRegister = () => {
+  const I = INSTRUMENTS;
+  const P = FIELD_ROUND.preflight;
+  const clean = I.checks.byLocation.length + I.checks.byInstrument.length + I.checks.byGroup.length === 0;
+  const deployedNow = I.deployments.filter((d) => d.to === null);
+  const outOfService = I.all.filter((i) => i.state.startsWith('out of service'));
+  const corrected = I.deployments.find((d) => d.sensorWas !== null);
+  return (
+    head('Instruments and loggers', 'Every instrument on this project: where it is, when it was last calibrated, and what it has been recording.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + btn('Register an instrument', 'primary'),
+    }) +
+    notice(
+      'warning',
+      'Proposed. The instrument is the first step of a journey the product defers, and nothing owns it.',
+      'FR-1.10 and FR-3.10 are marked <strong>S8</strong> in the PRD and that marking stands — drawing this does not reschedule it. What the drawing is for is the step before the data: a water level is only as good as the instrument that wrote it, the depth that instrument was hanging at, and the date it was last calibrated, and those three facts have lived in a field officer’s notebook on every project any of us has worked on. The completion preflight on <a class="mk-ref" href="#field-capture">Field capture</a> has counted these instruments since the field round was drawn; this is the register it counts. The word <em>instrument</em> here means a device. The glossary uses it for a <strong>statutory instrument</strong> — the licence an operation is held to — and both senses are in the PRD, so this screen names which one it means rather than minting a third word for the other.',
+    ) +
+    stats([
+      stat(String(I.all.length), 'instruments on the register'),
+      stat(String(deployedNow.length), 'deployed today', 'good'),
+      stat(String(outOfService.length), 'out of service', outOfService.length ? 'warn' : 'neutral'),
+      stat(String(I.deployments.length), 'deployment intervals'),
+      stat(`${I.groups.length} / ${I.groups.length}`, 'groups with a barometric source', 'good'),
+    ]) +
+    C.receipt({
+      headline: clean
+        ? `${I.deployments.length} deployment intervals over ${I.checks.placesCovered} places, and no two of them overlap.`
+        : 'Overlapping deployment intervals found.',
+      facts: [
+        ['Two instruments in one bore at once', `${I.checks.byLocation.length} — checked at every place, not asserted`],
+        ['One instrument in two places at once', `${I.checks.byInstrument.length}`],
+        ['A group with two barometric sources at once', `${I.checks.byGroup.length}`],
+        ['A group with no source in force', I.checks.groupsWithoutSource.length ? I.checks.groupsWithoutSource.join(', ') : '0'],
+      ],
+      next: { target: 'logger-series', label: 'The series these intervals hold up' },
+    }) +
+    '<p class="mk-tight">An interval record can say “from here to there”; only a check can say “and nothing else covered that bore in between”. A deployment history that quietly overlaps is how two instruments come to claim the same hour, and the water levels from that hour then have two provenances and no way to choose between them.</p>' +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The register</h2>' +
+    table({
+      caption: 'Every instrument, whether it is in a bore, in a field kit or in the workshop.',
+      head: ['Asset', 'Kind', 'Model', 'Serial', 'Records', 'Where it is', 'State'],
+      kind: 'matrix',
+      label: 'Instrument register',
+      rows: I.all.map((i) => [
+        `<span class="mk-file mk-atom">${esc(i.asset)}</span>`,
+        esc(i.kind),
+        esc(i.model),
+        `<span class="mk-file mk-atom">${esc(i.serial)}</span>`,
+        esc(i.reads),
+        LOCATIONS.some((l) => l.code === i.held) ? loc(i.held) : `<span class="mk-muted">${esc(i.held)}</span>`,
+        tag(i.state, i.state.startsWith('out') ? 'warn' : 'good'),
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted">Serials are <code class="mk-file">MOCK-</code> prefixed and the vendor is fictional, on the <code class="mk-file">fixtures/partner/</code> convention: a screenshot of this register must never be readable as a real operator’s asset list. The shape is real — a hire company’s serial, a model, a full-scale accuracy — because a register whose fields are obviously invented cannot be judged.</p>` +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Deployment history</h2>' +
+    `<p class="mk-tight">A logger is not <em>at</em> a bore. It was at a bore <strong>over a span</strong>, at a stated depth, and the span is what makes a water level from March mean something different from one in May. So a deployment is an interval record in the same shape as a <a class="mk-ref" href="#location">location survey</a>: dated, never edited, and superseded rather than overwritten when it turns out to be wrong.</p>` +
+    table({
+      caption: 'One row per interval. A closed interval names why it closed.',
+      head: ['Instrument', 'Place', 'From', 'To', 'Sensor depth<small>m below measuring point</small>', 'Why'],
+      kind: 'matrix',
+      label: 'Deployment intervals',
+      rows: I.deployments.map((d) => [
+        `<span class="mk-file mk-atom">${esc(d.instrument)}</span>`,
+        LOCATIONS.some((l) => l.code === d.at) ? loc(d.at) : `<span class="mk-muted">${esc(d.at)}</span>`,
+        `<span class="sf-instant">${esc(d.from)}</span>`,
+        d.to ? `<span class="sf-instant">${esc(d.to)}</span>` : tag('open', 'good'),
+        d.sensor === null
+          ? '<span class="mk-num mk-num--nil">—</span>'
+          : d.sensorWas !== null
+            ? `<span class="mk-was">${d.sensorWas.toFixed(2)}</span> <span class="mk-num">${d.sensor.toFixed(2)}</span>`
+            : `<span class="mk-num">${d.sensor.toFixed(2)}</span>`,
+        esc(d.why),
+      ]),
+    }) +
+    (corrected
+      ? notice(
+        'default',
+        `One sensor depth on this register has been corrected, and the number it replaced is still on it — ${corrected.sensorWas.toFixed(2)} m, struck through, beside the ${corrected.sensor.toFixed(2)} m the cable mark says.`,
+        `The correction is <a class="mk-ref" href="#logger-series">recorded against the series it reached</a> with its reason, its rule and the ${LOGGER_SERIES.correction.reachCount.toLocaleString('en-AU')} water levels it re-derived. What was reported then and what the record says now are different questions, and a register that answers only the second one cannot be used to defend the first.`,
+      )
+      : '') +
+    cols(
+      panel(
+        'Service and calibration',
+        table({
+          caption: 'Every service event, newest first. The gap in a series is one of these rows.',
+          head: ['Instrument', 'When', 'What happened', 'By'],
+          scroll: true,
+          label: 'Service and calibration events',
+          rows: [...I.services]
+            .sort((a, b) => b.at.localeCompare(a.at))
+            .map((s) => [
+              `<span class="mk-file mk-atom">${esc(s.instrument)}</span>`,
+              `<span class="sf-instant">${esc(s.at)}</span>`,
+              cell(`<strong>${esc(s.kind)}</strong> — ${esc(s.what)}`),
+              esc(s.by),
+            ]),
+        }) +
+          `<p class="mk-tight"><strong>The fortnight ${esc(LOGGER_SERIES.logger.asset)} spent in the workshop is the fortnight <a class="mk-ref" href="#logger-series">its series has no water levels</a>.</strong> Not a coincidence and not two records that happen to agree: the series computes its break from the deployment interval these rows close and reopen, so a gap that did not match a service record could not be drawn.</p>`,
+      ),
+      panel(
+        'What the completion preflight counts',
+        `<p class="mk-tight">The field round’s completion check asks whether the probes were calibrated before it and checked after it. It counts the rows of this register — the same three instruments, read twice rather than listed twice.</p>` +
+          table({
+            head: ['Check', 'Count', 'State'],
+            rows: [
+              ['Field instruments on the register', `<span class="mk-num">${P.instruments}</span>`, C.status('counted', 'neutral')],
+              ['Calibrated before the round', `<span class="mk-num">${P.calibrated} of ${P.instruments}</span>`, C.status(P.calibrated === P.instruments ? 'complete' : 'incomplete', P.calibrated === P.instruments ? 'good' : 'warn')],
+              ['Checked after it', `<span class="mk-num">${P.postChecked} of ${P.instruments}</span>`, C.status(P.postChecked === P.instruments ? 'complete' : 'holds the round', P.postChecked === P.instruments ? 'good' : 'warn')],
+            ],
+          }) +
+          `<p class="mk-tight mk-muted">${esc(I.field.find((f) => !f.check)?.kind ?? 'One instrument')} has no post-round check, which is why the round is held. The register is where that fact lives; <a class="mk-ref" href="#field-capture">the preflight</a> is where it stops somebody.</p>` +
+          `<p class="mk-tight">Drift, where it was measured: ${I.field.filter((f) => f.drift).map((f) => `<strong>${esc(f.asset)}</strong> — ${esc(f.drift)}`).join('; ')}.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The barometric source, per location group</h2>' +
+    `<p class="mk-tight">FR-3.10 asks for barometric compensation <em>from a defined source per location group</em>, and that is a record rather than a setting. A <strong>location group</strong> is the glossary’s: a named set of locations assessed together, where membership is an assessment decision rather than a place. The source has a span, because it changed — ${esc(INSTRUMENTS.of('MOCK-BL-01').asset)} replaced ${esc(INSTRUMENTS.of('MOCK-BL-02').asset)} on 1 April 2025, and a water level from 2024 was compensated against a barometer 6.4 km away whether or not anybody remembers it.</p>` +
+    table({
+      caption: 'Which barometer each group is compensated from, and over which span.',
+      head: ['Location group', 'Members', 'Barometric source', 'From', 'To', 'Station elevation<small>m AHD</small>'],
+      kind: 'matrix',
+      label: 'Barometric source per location group',
+      rows: I.baroSources.map((b) => {
+        const group = I.groups.find((g) => g.name === b.group);
+        const src = I.of(b.source);
+        const station = I.stationOf(src.held);
+        return [
+          esc(b.group),
+          cell(group.members.map((m) => loc(m)).join(' · ')),
+          `<span class="mk-file mk-atom">${esc(b.source)}</span>`,
+          `<span class="sf-instant">${esc(b.from)}</span>`,
+          b.to ? `<span class="sf-instant">${esc(b.to)}</span>` : tag('in force', 'good'),
+          `<span class="mk-num">${station.elevation.toFixed(1)}</span>`,
+        ];
+      }),
+    }) +
+    cols(
+      panel(
+        'Why the station’s elevation is on this table',
+        `<p class="mk-tight">Atmospheric pressure falls with height, so a barometer standing ${(INSTRUMENTS.stationOf('Site gauge station').elevation - LOGGER_SERIES.referenceElevation).toFixed(1)} m above the water surface at ${loc(LOGGER_SERIES.code)} does not read the pressure that surface is under. The compensation rule carries the difference — ${LOGGER_SERIES.offsetKPa.toFixed(4)} kPa, which is <strong>${LOGGER_SERIES.offsetMetres.toFixed(4)} m of water</strong>.</p>` +
+          `<p class="mk-tight">Fifteen millimetres. It is carried anyway, and stating why is the point: a rule that drops a term because it is small on this site is a rule that drops it on the site where it is not. The inputs and the constant ride on every water level the rule produces (PP3), so the arithmetic can be re-done rather than trusted.</p>` +
+          `<p class="mk-tight mk-muted">The reference elevation is the round’s own dipped level, held constant for the deployment. Re-deriving it from the level being computed would make the rule circular, and a rule that depends on its own output is one nobody can check.</p>`,
+      ),
+      panel(
+        'Where the register is honest about what it does not cover',
+        `<p class="mk-tight">${I.checks.withoutInstrument.length} of the monitored locations have never had an instrument in them: ${I.checks.withoutInstrument.map((c) => loc(c)).join(', ')}. That is a fact about the network rather than a hole in this register, and it is on the screen because a register that lists only what it holds cannot be used to ask what is missing.</p>` +
+          `<p class="mk-tight">${loc('MW11')} is the one worth reading twice. It is a compliance-boundary bore, it was <strong>dipped twice this round and found dry</strong>, and a pressure transducer in a dry bore records atmosphere. Its group has a barometric source and no instrument to compensate — the record is coherent because the source is defined against the <em>group</em>, not against a device that happens to be in a hole.</p>` +
+          C.card({
+            tone: 'neutral',
+            head: '<span class="mk-queue__kind">Redeploying an instrument — what it writes</span>',
+            body:
+              '<p class="mk-tight">Closing one interval and opening another, with a new sensor depth. It does not touch a single pressure reading: every water level already derived keeps the depth it was derived under, and the new depth applies from the hour the instrument went back in. Getting that backwards would silently re-date years of series.</p>',
+          }),
+      ),
+      '1fr 1fr',
+    ) +
+    `<div class="mk-actions"><a class="mk-btn" href="#logger-series">The series ${esc(LOGGER_SERIES.logger.asset)} is recording</a><a class="mk-btn" href="#imports">The download that committed it</a><a class="mk-btn" href="#field-capture">The round these probes were calibrated for</a><a class="mk-btn" href="#hydrograph">The hydrograph the series is drawn on</a></div>`
+  );
+};
+
+/**
+ * The raw and corrected pair at one bore — FR-1.10, drawn.
+ *
+ * **The New-Screen Test, answered.** A continuous series is a different
+ * record from a result and the requirement says so in as many words: held
+ * *separately from discrete results*, with *raw and corrected retained
+ * independently*. No screen here owns a record with two versions of itself.
+ * `#crosstab` is a grid of results at rounds; `#hydrograph` draws a monthly
+ * water level and has no place to put a correction, a gap or an anomaly;
+ * `#lineage` traces one number rather than a hundred and fifty thousand;
+ * `#qc` raises findings on results. The deferred journey's middle four steps
+ * — raw series, gap and anomaly, correction, corrected series — all landed
+ * here, and the register id is `logger-series` because *logger* is FR-1.10's
+ * own noun for what distinguishes this from a dip, and *series* is the noun
+ * the PRD and the glossary's chart-kind entry both already use.
+ *
+ * The bore is MW05 because everything else about MW05 is already drawn: the
+ * construction, the survey history, the purge that its 13 May dip came out
+ * of, and the seepage story the level is evidence in.
+ */
+const loggerSeriesScreen = () => {
+  const L = LOGGER_SERIES;
+  const raised = L.findings.filter((f) => !f.explained);
+  const settled = L.findings.filter((f) => f.explained);
+  const check = L.dipChecks.at(-1);
+  const missed = L.dipChecks.find((c) => c.inGap);
+  const service = L.gap.service.find((s) => s.kind === 'Removed for service');
+  const back = L.gap.service.find((s) => s.kind === 'Returned to service');
+  return (
+    head(`Logger series — ${L.code}`, 'One bore’s continuous water level: what the instrument wrote, what the rule made of it, and what correcting it reached.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + btn('Download from the logger') + btn('Add to report', 'primary'),
+    }) +
+    notice(
+      'warning',
+      'Proposed. FR-1.10 and FR-3.10 are marked S8, and drawing them does not move them.',
+      'The requirement is two sentences and both of them are structural: a series from a logger is held <strong>separately from discrete results</strong>, and <strong>raw and corrected are retained independently</strong>. A product that stores only the corrected series has thrown away the ability to re-correct it when the compensation turns out to have been given a wrong number — which is exactly what happened at this bore, and it is on this screen because the raw record survived it.',
+    ) +
+    facts([
+      ['Location', loc(L.code)],
+      ['Instrument', `<a class="mk-ref" href="#instruments">${esc(L.logger.asset)}</a><small>${esc(L.logger.model)}</small>`],
+      ['Deployment', `${esc(L.deployments.at(-1).from)} → open<small>sensor at ${L.deployments.at(-1).sensor.toFixed(2)} m below measuring point</small>`],
+      ['Window drawn', `${esc(L.window.from)} – ${esc(L.window.to)} AWST<small>hourly</small>`],
+      ['Water levels retained', `<span class="mk-num">${L.counts.water.toLocaleString('en-AU')}</span><small>of ${L.window.slots.toLocaleString('en-AU')} hours in the window</small>`],
+      ['Results produced', `<span class="mk-num mk-num--nil">${L.counts.results}</span><small>a logger writes water levels, not results</small>`],
+      ['Location group', esc(L.group.name)],
+      ['Barometric source', `<a class="mk-ref" href="#instruments">${esc(L.barometer.asset)}</a><small>${esc(L.station.name)}, ${L.station.elevation.toFixed(1)} m AHD</small>`],
+      ['Compensation rule', `<span class="mk-file">${esc(L.rule.id)} ${esc(L.rule.version)}</span>`],
+    ]) +
+    figure('4.11', `Logger water level at ${L.code} — raw, corrected, and the dips that check them`, F.loggerSeries(),
+      'Hourly, in the approved hydrograph grammar. The break is drawn as a break; the manual dips are a different mark because they are a different kind of observation; the barometric series has its own panel rather than a second axis.') +
+    cols(
+      panel(
+        'Raw is retained. Corrected is derived.',
+        `<p class="mk-tight">The instrument is a <strong>non-vented absolute transducer</strong>: it measures the pressure above it, which is the water plus the atmosphere on top of the water. The number it writes is ${L.points[0].kPa.toFixed(3)} kPa at the first hour of this file, and that number is never edited by anything on this screen. Everything else here is computed from it.</p>` +
+          table({
+            caption: 'The rule, its constants and its inputs — carried on every water level it produces (PP3).',
+            head: ['Step', 'What it does', 'Input'],
+            scroll: true,
+            label: 'The compensation rule',
+            rows: [
+              ['1 · Elevation offset', cell(`The barometer stands at ${L.station.elevation.toFixed(1)} m AHD and the water surface at ${L.referenceElevation.toFixed(2)} m AHD, so the pressure at the water surface is higher by that difference times the lapse rate.`), `<span class="mk-num">${L.rule.lapse}</span> kPa/m → <span class="mk-num">+${L.offsetKPa.toFixed(4)}</span> kPa`],
+              ['2 · Compensate', cell('Subtract the barometric pressure at the bore from the recorded total pressure.'), `<span class="mk-file">${esc(L.barometer.asset)}</span>, hourly`],
+              ['3 · Water column', cell('Convert the remainder to metres of water.'), `<span class="mk-num">${L.rule.density}</span> kPa per metre at 4 °C`],
+              ['4 · Depth to water', cell('Subtract the column from the sensor’s depth below the measuring point.'), `<span class="mk-num">${L.deployments.at(-1).sensor.toFixed(2)}</span> m, from the deployment record`],
+              ['5 · Groundwater elevation', cell(`Subtract the depth to water from the top of casing <em>in force on the day the water level was measured</em> — the ${esc(L.dips[0].survey)} survey, not the current one.`), `<span class="mk-num">${L.dips[0].toc.toFixed(2)}</span> m AHD`],
+            ],
+          }) +
+          `<p class="mk-tight"><strong>Step 5 is ADR-0015 running once an hour.</strong> Groundwater elevation is derived at the measurement date and never stored — the same rule <a class="mk-ref" href="#location">the bore’s own screen</a> states for a quarterly dip. Storing ${L.counts.water.toLocaleString('en-AU')} elevations would freeze one survey into the record, and the correction that reaches back through a resurvey would find nothing it could move.</p>`,
+      ),
+      panel(
+        'Held separately from the results, which is the requirement',
+        `<p class="mk-tight">This bore contributed <strong>${L.counts.water.toLocaleString('en-AU')} water levels</strong> and <strong>${L.counts.results} results</strong> to the record over this window. The results it does have came from <a class="mk-ref" href="#crosstab">the round</a> — one sample, on one morning, with an analyte suite behind it.</p>` +
+          `<p class="mk-tight">They are not the same kind of thing and a product that put them in one table would have to invent an analyte for a water level and a sample for an hour. FR-1.10’s “separately from discrete results” is a schema decision that shows up here as two screens, two counts, and two marks on one plate.</p>` +
+          C.card({
+            tone: 'good',
+            head: '<span class="mk-queue__kind">The dipper is not replaced</span>',
+            body:
+              `<p class="mk-tight">${L.counts.dips} manual dips sit on this plate as filled diamonds. One of them — <strong>${esc(missed.at)}</strong> — is the only water level this bore has for the fortnight the instrument was in the workshop, and it exists because somebody drove out and dipped the bore knowing the logger was gone.</p>`,
+          }),
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Six water levels, reproducible with a calculator</h2>' +
+    `<p class="mk-tight">Every column but the first two is derived, and the derivation closes at the rounding the instrument reports. <span class="mk-num">(raw − barometric at bore) ÷ ${L.rule.density}</span> is the column; sensor depth minus the column is the depth to water; top of casing minus that is the elevation.</p>` +
+    table({
+      caption: 'Raw on the left, retained. Everything to the right of it is computed from it.',
+      head: ['When · AWST', 'Raw<small>kPa</small>', 'Barometric<small>kPa at station</small>', '…at the bore<small>kPa</small>', 'Sensor<small>m</small>', 'Column<small>m</small>', 'Depth to water<small>m btoc</small>', 'Elevation<small>m AHD</small>', 'Why this row'],
+      kind: 'matrix',
+      label: 'Sample water levels with their derivation',
+      rows: L.samples.map((s) => [
+        `<span class="sf-instant">${esc(s.p.at)}</span>`,
+        `<span class="mk-num">${s.p.kPa.toFixed(3)}</span>`,
+        `<span class="mk-num">${s.p.baro.toFixed(3)}</span>`,
+        `<span class="mk-num">${s.p.baroAtBore.toFixed(3)}</span>`,
+        `<span class="mk-num">${s.p.sensor.toFixed(2)}</span>`,
+        `<span class="mk-num">${s.p.column.toFixed(3)}</span>`,
+        `<span class="mk-num">${s.p.dtw.toFixed(3)}</span>`,
+        `<span class="mk-num">${s.p.elevation.toFixed(3)}</span>`,
+        esc(s.why),
+      ]),
+    }) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The gap, and why it is drawn as one</h2>' +
+    cols(
+      panel(
+        `${L.gap.days} days with no water level`,
+        facts([
+          ['From', `<span class="sf-instant">${esc(L.gap.from)} AWST</span>`],
+          ['To', `<span class="sf-instant">${esc(L.gap.to)} AWST</span>`],
+          ['Hours with no record', `<span class="mk-num">${L.gap.hours}</span>`],
+          ['Because', `${esc(service.kind)} — ${esc(service.what)}`],
+          ['Back in the bore', `${esc(back.at)} · ${esc(back.by)}`],
+        ]) +
+          `<p class="mk-tight"><strong>The trace breaks rather than crossing it.</strong> A polyline over ${L.gap.hours} missing hours asserts ${L.gap.hours} water levels nobody measured — which is the rule <a class="mk-ref" href="#hydrograph">the hydrograph</a> has stated since the third pass and this is the first plate in the catalogue with the data to draw it.</p>` +
+          `<p class="mk-tight mk-muted">The gap is computed from <a class="mk-ref" href="#instruments">the deployment interval</a> the service record closes and reopens. A gap that did not line up with a service record could not be drawn here, because there is nothing else for it to be made of.</p>`,
+      ),
+      panel(
+        'What was in the bore instead',
+        `<p class="mk-tight">Nothing. No second logger was deployed, and the register’s interval check says so: for those ${L.gap.hours} hours ${loc(L.code)} has no deployment at all.</p>` +
+          `<p class="mk-tight">What it does have is <strong>one water level</strong> — <span class="sf-instant">${esc(missed.at)} AWST</span>, ${missed.dtw.toFixed(2)} m below top of casing, dipped by ${esc(missed.by)}. The check against the logger for that dip is <strong>refused</strong> rather than computed: the nearest logged water level is a week away on either side, and a residual measured across a week is a number that looks like a check and is not one.</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">A gap is not a flat line and it is not a zero</span>',
+            body:
+              '<p class="mk-tight">The two failure modes are opposite and both are common: interpolating across the gap invents a record, and filling it with zero invents a dry bore. What happened is that nobody measured, and the only honest rendering of that is nothing.</p>',
+          }),
+      ),
+      '1fr 1fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Findings on the series</h2>' +
+    `<p class="mk-tight">The test is the one <a class="mk-ref" href="#qc">QA/QC</a> uses on a result that looks wrong against its own history — a modified z-score over the ${L.outlier.n.toLocaleString('en-AU')} hourly changes in depth to water, median ${L.outlier.median} m and median absolute deviation ${L.outlier.mad} m, flagged above ${L.outlier.threshold}. It is never taken across the gap: a fortnight of absence is not a step. It found ${L.counts.findings}, and they end differently.</p>` +
+    `<div class="mk-evid__grid">${L.findings
+      .map(
+        (f) =>
+          `<div class="mk-evid${f.explained ? '' : ' mk-evid--gap'}">` +
+          `<div class="mk-evid__head"><p class="mk-evid__kind">${esc(f.id)}</p>${C.status(f.state, f.explained ? 'good' : 'warn')}</div>` +
+          `<p class="mk-evid__ref">${esc(f.from)} → ${esc(f.to)} AWST · ${f.hours} hours · ${f.levels} water levels · score ${esc(f.score)}</p>` +
+          `<p><strong>${esc(f.what)}</strong></p>` +
+          `<p>${esc(f.because)}</p>` +
+          '</div>',
+      )
+      .join('')}</div>` +
+    cols(
+      panel(
+        'The anomaly is not smoothed, and it is not an exceedance',
+        `<p class="mk-tight">The correction re-derived every water level in its reach — including these ${raised[0].levels}. The spike is still ${raised[0].swing.toFixed(3)} m and still there, because <strong>a compensation rule is not a filter</strong>. Removing what it cannot explain would destroy the evidence for the explanation, and the thing that most needs explaining is the thing most likely to be removed.</p>` +
+          `<p class="mk-tight">The barometric record is what makes it a finding rather than weather: pressure moved ${raised[0].baroSwing.toFixed(3)} kPa over the same hours, which is ${raised[0].baroEquivalent.toFixed(3)} m of water and the wrong sign to explain a rise.</p>` +
+          `<p class="mk-tight"><strong>It is in the raw record, not in the correction.</strong> The instrument wrote ${raised[0].spanFromKPa.toFixed(3)} kPa at <span class="sf-instant">${esc(raised[0].spanFrom)}</span> and ${raised[0].peakKPa.toFixed(3)} kPa at <span class="sf-instant">${esc(raised[0].peakAt)}</span> — a rise of ${(raised[0].peakKPa - raised[0].spanFromKPa).toFixed(3)} kPa, which is ${((raised[0].peakKPa - raised[0].spanFromKPa) / L.rule.density).toFixed(3)} m of water before anything was done to it. <strong>Both traces on the plate move with it</strong>, which is what the raw trace is drawn for: an event that appeared in only one of them would be an artefact of the rule, and this is not one.</p>` +
+          `<p class="mk-tight mk-muted"><strong>An anomaly is not an exceedance.</strong> This is a movement in a bore’s own record, and nothing on <a class="mk-ref" href="#exceedances">the exceedance register</a> moves because of it. A fixed limit says the water is out of compliance; a bore’s own history says something changed. Both can be true and neither is the other.</p>`,
+      ),
+      panel(
+        'The one that resolved, and what resolved it',
+        `<p class="mk-tight">${esc(settled[0].id)} was dispositioned by rule against a record that already existed: <a class="mk-ref" href="#purge">the purge log</a> has this bore pumped at ${esc(L.purge.drawdown ? `${L.purge.drawdown.toFixed(2)} m of drawdown` : 'low flow')} from ${esc(L.purge.start)} to ${esc(L.purge.sampled)} on ${esc(L.purge.day)}, and the logger felt it.</p>` +
+          table({
+            head: ['Instrument', 'Level as found', 'Drawn down to', 'Drawdown'],
+            rows: [
+              [
+                cell(`<a class="mk-ref" href="#instruments">${esc(INSTRUMENTS.field.find((f) => f.reads === 'depth to water').asset)}</a> — the dipper`),
+                `<span class="mk-num">${L.purge.asFound.toFixed(2)}</span><small>${esc(L.purge.start)}, as found</small>`,
+                `<span class="mk-num">${L.purge.at.toFixed(2)}</span><small>${esc(L.dips.at(-1).at.slice(11))}, at collection</small>`,
+                `<span class="mk-num">${L.purge.drawdown.toFixed(2)}</span>`,
+              ],
+              [
+                cell(`<a class="mk-ref" href="#instruments">${esc(L.logger.asset)}</a> — the logger`),
+                '<span class="mk-muted">hourly, so no reading on the minute the tape went down</span>',
+                `<span class="mk-num">${check.nearest.dtw.toFixed(2)}</span><small>${esc(check.nearest.at.slice(11))}, the nearest hour</small>`,
+                `<span class="mk-num">${settled[0].swing.toFixed(2)}</span>`,
+              ],
+            ],
+          }) +
+          '<p class="mk-tight mk-muted">Two instruments, one event, agreeing. That is the strongest thing a QA record can say and it costs nothing but keeping both.</p>',
+      ),
+      '1fr 1fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The correction</h2>' +
+    notice(
+      'warning',
+      esc(L.correction.reason),
+      esc(L.correction.found),
+    ) +
+    cols(
+      panel(
+        'Reason, reach, and who',
+        facts([
+          ['Correction', `<span class="mk-file">${esc(L.correction.id)}</span>`],
+          ['Raised', `${esc(L.correction.raisedBy)} · <span class="sf-instant">${esc(L.correction.raisedAt)}</span>`],
+          ['Applied', `${esc(L.correction.appliedBy)} · <span class="sf-instant">${esc(L.correction.appliedAt)}</span>`],
+          ['Rule re-run', `<span class="mk-file">${esc(L.correction.rule)}</span>`],
+          ['Reach', `<span class="mk-num">${L.correction.reachCount.toLocaleString('en-AU')}</span> water levels<small>${esc(L.correction.reachFrom)} → ${esc(L.correction.reachTo)} AWST</small>`],
+          ['Shift', `<span class="mk-num">${L.correction.shift.toFixed(2)} m</span><small>every one of them, in the same direction</small>`],
+          ['Raw record', tag('untouched', 'good')],
+        ]) +
+          `<p class="mk-tight">${esc(L.correction.raw)}</p>` +
+          `<p class="mk-tight">${esc(L.correction.supersedes)}</p>`,
+      ),
+      panel(
+        'What was reported then, and what the record says now',
+        table({
+          caption: 'Four hours out of the reach. The struck-through value is what this screen would have shown in May.',
+          head: ['When · AWST', 'As imported<small>m btoc</small>', 'Now<small>m btoc</small>', 'Elevation now<small>m AHD</small>'],
+          scroll: true,
+          label: 'Superseded and current water levels',
+          rows: L.samples
+            .filter((s) => s.p.corrected)
+            .map((s) => [
+              `<span class="sf-instant">${esc(s.p.at)}</span>`,
+              `<span class="mk-was">${s.p.dtwAsImported.toFixed(3)}</span>`,
+              `<span class="mk-num">${s.p.dtw.toFixed(3)}</span>`,
+              `<span class="mk-num">${s.p.elevation.toFixed(3)}</span>`,
+            ]),
+        }) +
+          '<p class="mk-tight">Both readings stay on the record. A series that quietly holds only its current values can be defended in the present tense and nowhere else — and “what did your report say in May” is a question with a date in it.</p>',
+      ),
+      '2fr 3fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The dip checks, including the one that is refused</h2>' +
+    table({
+      caption: `A logger that agrees with a dipper is checked. One that does not is what a check is for. Acceptance ${esc(L.rule.dipAcceptanceText)}.`,
+      head: ['Dip · AWST', 'Dipped<small>m btoc</small>', 'Nearest water level', 'Offset<small>minutes</small>', 'As imported<small>m</small>', 'Now<small>m</small>', 'Outcome'],
+      kind: 'matrix',
+      label: 'Manual dip checks against the series',
+      rows: L.dipChecks.map((c) => [
+        `<span class="sf-instant">${esc(c.at)}</span>`,
+        `<span class="mk-num">${c.dtw.toFixed(2)}</span>`,
+        c.inGap ? '<span class="mk-muted">none — the instrument was out of the bore</span>' : `<span class="sf-instant">${esc(c.nearest.at)}</span>`,
+        c.inGap ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${c.offsetMinutes > 0 ? '+' : ''}${c.offsetMinutes}</span>`,
+        c.inGap ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num${Math.abs(c.residualAsImported) > 0.05 ? ' mk-num--bad' : ''}">${c.residualAsImported > 0 ? '+' : ''}${c.residualAsImported.toFixed(3)}</span>`,
+        c.inGap ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${c.residual > 0 ? '+' : ''}${c.residual.toFixed(3)}</span>`,
+        c.inGap ? tag('refused — no comparison', 'neutral') : tag(c.verdict, c.verdict === 'within acceptance' ? 'good' : 'bad'),
+      ]),
+    }) +
+    `<p class="mk-tight">The ${esc(check.at)} row is the one that raised the correction, and the offset column is why it is a fair comparison rather than a coincidence: the dip was read at the end of purging and the nearest logged water level is <strong>${check.offsetMinutes} minutes later</strong>, on a bore recovering from ${L.purge.drawdown.toFixed(2)} m of drawdown. The residual after correcting is ${check.residual.toFixed(3)} m. A capture time and a comparison time are different questions and the table asks both.</p>` +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">What the correction re-evaluated — and what it did not</h2>' +
+    notice(
+      'default',
+      'This series is a water level. Every exceedance on this project is a concentration.',
+      `Re-evaluation is the sixth step of the telemetry journey and the honest answer is narrow: correcting ${L.correction.reachCount.toLocaleString('en-AU')} water levels moved nothing on <a class="mk-ref" href="#exceedances">the exceedance register</a>, because all ${EXCEEDANCES.length} of its rows are chemistry — arsenic, zinc, nickel, copper, PFAS, pH, conductivity, nitrate — evaluated against concentration criteria that a water level is not an input to. Saying so is more useful than inventing an impact: a screen that reported “9 exceedances re-evaluated” after a level correction would be teaching a reader to distrust every impact statement it makes.`,
+    ) +
+    C.blastRadius({
+      lede: 'What a corrected level series does reach, counted:',
+      rows: [
+        { what: 'Water levels re-derived through the rule', n: L.correction.reachCount.toLocaleString('en-AU') },
+        { what: 'Groundwater elevations re-derived with them', n: `${L.correction.reachCount.toLocaleString('en-AU')} — derived, never stored, so they move with it` },
+        { what: 'The hydrograph trace over the corrected span', n: `moves ${L.correction.shift.toFixed(2)} m` },
+        { what: 'Control heads on the potentiometric surface', n: '0 — the 2026 Q2 fit is made of manual dips at the round' },
+        { what: 'Exceedances, TARP levels, notifications', n: '0 — none of them takes a water level as an input' },
+        { what: 'Raw pressure readings altered', n: '0' },
+      ],
+      action: 'Already applied — 2026-06-01',
+      cancel: 'Open the superseded series',
+      reversible:
+        'Reversible in the only sense that matters: the raw record is intact, so the series can be re-derived under any deployment depth, any barometric source and any version of the rule. That is the whole argument for retaining raw and corrected independently, and it is the argument this bore proved.',
+    }) +
+    cols(
+      panel(
+        'Why the potentiometric surface does not move',
+        `<p class="mk-tight">The ${esc(F.POTENTIOMETRIC_FIT.control)}-point fit on <a class="mk-ref" href="#map">the map</a> is built from the round’s <strong>manual dips</strong>, one per bore, taken within three days of each other. This correction reaches a continuous series at one bore and does not touch the dip that bore contributed — which is why the answer is zero rather than small.</p>` +
+          `<p class="mk-tight">It would not always be. A fit built from logged levels at an instant would move by ${L.correction.shift.toFixed(2)} m at this bore, and the bearing and gradient with it. The reason to state which inputs a surface has is that the answer to “did this reach the flow direction” depends entirely on it.</p>` +
+          `<p class="mk-tight mk-muted">${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} contributes no head to that fit either, for a different reason: it was dipped to the base of its screened interval and found dry. A dry bore is a fact about the aquifer, not a gap in the record, and it is drawn on the plate without a head.</p>`,
+      ),
+      panel(
+        'The chain this series sits in',
+        '<p class="mk-tight">Every hop is a record that exists, and each one is where the next screen picks it up.</p>' +
+          `<ul class="mk-list">` +
+          [
+            [`Instrument — ${L.logger.asset}, calibrated ${L.gap.service.find((s) => s.kind === 'Calibrated').at}`, 'instruments'],
+            ['Deployment — the interval, and the sensor depth it was hung at', 'instruments'],
+            [`Raw series — ${L.counts.water.toLocaleString('en-AU')} pressures, downloaded as one deliverable`, 'imports'],
+            ['Gap and anomaly — the service record, and the finding that stayed open', null],
+            [`Correction — ${L.correction.id}, ${L.correction.reachCount.toLocaleString('en-AU')} water levels re-derived`, null],
+            ['Corrected series — drawn beside the discrete dips', 'hydrograph'],
+            ['Re-evaluation — stated against the records that exist', null],
+            ['Audit — who changed what, when, and under which rule', 'audit'],
+          ]
+            .map(([label, target]) => `<li>${target ? `<a class="mk-ref" href="#${target}">${esc(label)}</a>` : esc(label)}</li>`)
+            .join('') +
+          '</ul>' +
+          `<div class="mk-actions"><a class="mk-btn" href="#instruments">The instrument register</a><a class="mk-btn" href="#hydrograph">The plate beside the monthly record</a><a class="mk-btn" href="#location">The bore</a><a class="mk-btn" href="#lineage">How a number here would be traced</a></div>`,
+      ),
+      '1fr 1fr',
+    )
   );
 };
 
@@ -7229,7 +7910,16 @@ const coverage = () => {
     ['FR-1.7', 'Depth intervals and composites with increment traceability', 'deferred', '—', 'P3', 'Soil, sediment and vapour matrices are S8; nothing drawn'],
     ['FR-1.8', 'Analyte dictionary: CAS, synonyms, speciation, congener families', 'covered', 'dictionary', 'P1', ''],
     ['FR-1.9', 'LOR, MDL and PQL distinct; detect status first-class', 'covered', 'result-detail · crosstab', 'P0', ''],
-    ['FR-1.10', 'Logger and telemetry series, raw and corrected (S8)', 'deferred', '—', 'P4', 'Domain K, deferred with the telemetry journey'],
+    /*
+     * Wave 8 — 2 September 2026. These two rows moved from `deferred` to
+     * `proposed`, which is a claim about this catalogue and not about the
+     * product: the PRD's S8 marking on both is untouched, the two screens
+     * that own them are `proposed` in the register, and the deferred journey
+     * below now walks because they exist. Drawing a deferred domain does not
+     * reschedule it, and the notes say so on the row rather than in a note
+     * somewhere else.
+     */
+    ['FR-1.10', 'Logger and telemetry series, raw and corrected (S8)', 'proposed', 'logger-series · hydrograph', 'P4', 'Drawn 2 Sep 2026 as a proposal — 1,536 hourly water levels held apart from the round’s results, raw pressure retained beside the corrected series. The PRD’s S8 marking stands'],
     ['FR-1.11', 'Versioned criteria library with effective dates and applicability', 'covered', 'criteria', 'P0', ''],
     ['FR-1.12', 'Licences, conditions, obligations, TARP, water entitlements', 'covered', 'licence · obligations · tarp · water', 'P1', 'The entitlement is an instrument with a year, a volume and a take against it — the last of the five'],
     ['FR-2.1', 'Derivation engine with rules as configurable, versioned artefacts', 'covered', 'hardness · result-detail', 'P0', ''],
@@ -7246,12 +7936,12 @@ const coverage = () => {
     ['FR-3.7', 'Idempotent on re-import of the same file', 'covered', 'imports', 'P0', 'The duplicate banner is the visible surface of a behaviour'],
     ['FR-3.8', 'Original certificate retained and linked to every result', 'covered', 'certificate · documents', 'P0', ''],
     ['FR-3.9', 'Amended certificates supersede, cascading without orphaning', 'covered', 'certificate · supersession', 'P0', ''],
-    ['FR-3.10', 'Logger and telemetry import with barometric compensation (S8)', 'deferred', '—', 'P4', ''],
+    ['FR-3.10', 'Logger and telemetry import with barometric compensation (S8)', 'proposed', 'instruments · imports · logger-series', 'P4', 'Drawn 2 Sep 2026 as a proposal — a vendor download as an import kind, and the barometric source named per location group as an interval record. The PRD’s S8 marking stands'],
     ['FR-3.11', 'Import from ESdat, HGA+ and EQuIS with a reconciliation proof', 'covered', 'migration', 'P1', ''],
     ['FR-4.1', 'Holding times by matrix and method', 'covered', 'qc', 'P0', ''],
     ['FR-4.2', 'A reporting limit above the criterion is flagged', 'covered', 'indeterminate · crosstab', 'P0', 'Claim B5 — the register the incumbents lack'],
     ['FR-4.3', 'Duplicate RPD, blanks and recoveries against configurable limits', 'covered', 'qc · qc-limits', 'P0', ''],
-    ['FR-4.4', 'Internal consistency: total/dissolved, ionic balance, TDS, EC', 'covered', 'consistency', 'P0', ''],
+    ['FR-4.4', 'Internal consistency: total/dissolved, ionic balance, TDS, EC', 'partially', 'consistency', 'P0', 'Balance, dissolved-solids reconciliation and EC : TDS all derived from the ion table since 2 Sep 2026. Total vs dissolved is stated as not run rather than passed: this round’s metals suite is dissolved-only, so there is no pair to compare'],
     ['FR-4.5', 'Spikes and outliers against the location’s own history', 'covered', 'qc', 'P2', 'Raised as a finding with its working — median, MAD and the score, over the bore’s own record'],
     ['FR-4.6', 'Validation state machine with attribution, including bulk', 'covered', 'validation', 'P0', ''],
     ['FR-4.7', 'Data lock for periods reported to a regulator', 'covered', 'qualifiers', 'P1', ''],
@@ -7368,9 +8058,28 @@ const coverage = () => {
       [['Portfolio', 'obligations'], ['Project issue', 'project-home'], ['Location / obligation', 'location'], ['Triggering data', 'result-detail'], ['Response', 'tarp'], ['Report / notification', 'notification'], ['Evidence', 'documents'], ['Audit trail', 'audit']],
       // The note is escaped where it renders, so the codes go in raw.
       `Unblocked by the second project: the first two hops cross projects — the register counts ${PORTFOLIO.obligations.length} obligations over ${PORTFOLIO.projects.length} of them, and the oldest thing owed on the estate is ${KURRAJONG.code}’s — and from Project issue onward the walk descends into ${PROJECT.code}, whose workspace is the one this catalogue draws`],
+    /*
+     * The deferred journey, walked — added 2 September 2026 (wave 8).
+     *
+     * It is `partially` and will stay that way while the product has no
+     * telemetry route: a journey is owned when every step lands on a drawn
+     * screen that is not a proposal, and five of these eight land on two
+     * screens that are proposals by decision. The row is here because the
+     * steps now resolve to something a reader can open, which is a different
+     * claim from the one the status makes.
+     */
+    ['K', 'Telemetry exception (the deferred journey)', 'partially',
+      [['Instrument', 'instruments'], ['Raw series', 'logger-series'], ['Gap / anomaly', 'logger-series'], ['Correction', 'logger-series'], ['Corrected series', 'logger-series'], ['Re-evaluation', 'logger-series'], ['Alert / TARP impact', 'tarp'], ['Audit', 'audit']],
+      `Deferred with Domain K and marked S8 in the PRD, and both of those still hold. Drawn 2 Sep 2026 on two proposed screens: the register the field round’s preflight has been counting since wave 6, and the raw-and-corrected pair at ${LOGGER_SERIES.code} — ${LOGGER_SERIES.counts.water.toLocaleString('en-AU')} hourly water levels, a ${LOGGER_SERIES.gap.days}-day gap tied to a service record, one anomaly raised and not smoothed, and a correction whose reach is ${LOGGER_SERIES.correction.reachCount.toLocaleString('en-AU')}. The seventh step is honest rather than owned: a level correction reaches no alert or TARP on this project, and the screen says which records it does reach`],
   ];
 
-  const STATUS_TONE = { covered: 'good', partially: 'warn', missing: 'bad', deferred: 'neutral', 'no screen': 'neutral', unverified: 'neutral' };
+  /*
+   * `proposed` joined this map on 2 September 2026, and it is the register's
+   * own word rather than a new one: a requirement drawn on a screen the
+   * product does not route to. It is deliberately not counted as covered —
+   * `prdCovered` below is unchanged — because a drawing is not a shipment.
+   */
+  const STATUS_TONE = { covered: 'good', partially: 'warn', missing: 'bad', deferred: 'neutral', proposed: 'new', 'no screen': 'neutral', unverified: 'neutral' };
   const prdCovered = PRD.filter((r) => r[2] === 'covered').length;
   const journeysOwned = JOURNEYS_WALK.filter((j) => j[2] === 'covered').length;
   const owners = (list) =>
@@ -7401,7 +8110,7 @@ const coverage = () => {
     notice(
       'warning',
       'Exhaustive relative to six closed lists, and no further.',
-      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
+      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. <strong>It grew on 2 September 2026</strong>: the brief’s deferred telemetry journey is walked below as a tenth row, so the journeys table is now measured against ten rather than nine. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
     ) +
     '<h2 class="mk-h2">Global expectations — every screen, no exceptions</h2>' +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Ref</th><th>Expectation</th><th>Drawn on</th><th>How</th></tr></thead><tbody>${GLOBAL.map(
@@ -7468,11 +8177,11 @@ const coverage = () => {
         `<td>${owners(own)}</td>` +
         `<td>${note ? esc(note) : '<span class="mk-muted">—</span>'}</td></tr>`,
     ).join('')}</tbody></table></div>` +
-    '<h2 class="mk-h2">The nine journeys, walked step by step (added 1 Sep 2026)</h2>' +
+    `<h2 class="mk-h2">The journeys, walked step by step — nine added 1 Sep 2026, the deferred tenth added 2 Sep 2026</h2>` +
     notice(
       'default',
       'A journey is owned when every step lands on a drawn screen that is not a proposal.',
-      `Each step below is a link, or a named hole. The deferred telemetry journey is not walked: EXPANSION_BRIEF.md defers it with Domain K, matching the PRD’s S8 marking, and walking it would require inventing the screens it defers. Journey 9 was the one held open by the data rather than by a drawing — a portfolio cannot be drawn honestly from a one-site seed, and the answer was a second project in <code class="mk-file">seed.mjs</code> rather than a screen. It carries ${KURRAJONG.bores.length} bores, ${KURRAJONG.rounds.length} rounds and ${KURRAJONG.obligations.length} obligations, and its workspace is deliberately <em>not</em> drawn: the walk crosses two projects and then descends into the one this catalogue owns, which is what the note on its row says.`,
+      `Each step below is a link, or a named hole. <strong>Written 1 September 2026:</strong> “The deferred telemetry journey is not walked: EXPANSION_BRIEF.md defers it with Domain K, matching the PRD’s S8 marking, and walking it would require inventing the screens it defers.” <strong>Corrected 2 September 2026:</strong> it is walked, and the sentence was right about the cost — walking it did require drawing the two screens it defers, and they are drawn as <em>proposals</em> rather than as product surfaces. The S8 marking on FR-1.10 and FR-3.10 is untouched and both rows above say so. Journey 9 was the one held open by the data rather than by a drawing — a portfolio cannot be drawn honestly from a one-site seed, and the answer was a second project in <code class="mk-file">seed.mjs</code> rather than a screen. It carries ${KURRAJONG.bores.length} bores, ${KURRAJONG.rounds.length} rounds and ${KURRAJONG.obligations.length} obligations, and its workspace is deliberately <em>not</em> drawn: the walk crosses two projects and then descends into the one this catalogue owns, which is what the note on its row says.`,
     ) +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>J</th><th>Journey</th><th>Status</th><th>The walk</th><th>Note</th></tr></thead><tbody>${JOURNEYS_WALK.map(
       ([n, name, status, steps, note]) =>
@@ -7580,6 +8289,14 @@ export const JOBS = [
        * otherwise render a state it does not have.
        */
       { id: 'ecoc', label: 'Chain of custody', body: chainOfCustody, now: 'proposed', added: '2026-09-01' },
+      /*
+       * Wave 8, and the same rule again: no `state`, because these two did
+       * not exist on 23 August. Both are `proposed` and stay that way — the
+       * product ships no telemetry route, FR-1.10 and FR-3.10 are marked S8
+       * in the PRD, and drawing a deferred domain does not reschedule it.
+       */
+      { id: 'instruments', label: 'Instruments and loggers', body: instrumentRegister, now: 'proposed', added: '2026-09-02' },
+      { id: 'logger-series', label: 'Logger series — raw and corrected', body: loggerSeriesScreen, now: 'proposed', added: '2026-09-02' },
       { id: 'certificate', label: 'Certificate and supersession', body: certificate, state: 'engine-only', now: 'shipped' },
       { id: 'migration', label: 'Legacy reconciliation', body: migration, state: 'engine-only', now: 'shipped' },
       { id: 'field-capture', label: 'Field capture', body: fieldCapture, state: 'proposed', now: 'proposed' },
@@ -7705,11 +8422,13 @@ export const RELATED = {
   projects: ['project-home', 'project-settings', 'roles', 'home'],
   'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings'],
 
-  locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water'],
-  location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents', 'lineage', 'purge'],
+  locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water', 'instruments'],
+  // Wave 8: the bore reaches what is hanging in it, and the series that
+  // instrument is writing — both questions asked while standing at one.
+  location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents', 'lineage', 'purge', 'instruments', 'logger-series'],
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
   events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme'],
-  imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats'],
+  imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats', 'logger-series'],
   'import-review': ['import-commit', 'quarantine', 'qc', 'dictionary', 'mapping-profiles'],
   'import-commit': ['crosstab', 'quarantine', 'exceedances', 'audit'],
   quarantine: ['import-review', 'import-commit', 'mapping-profiles', 'qc'],
@@ -7721,6 +8440,12 @@ export const RELATED = {
   // The chain is raised in the field and closed at the laboratory, so it sits
   // between the two screens that own those ends rather than beside either.
   ecoc: ['receipt', 'events', 'field-capture', 'imports', 'batches', 'lineage'],
+
+  // Wave 8 — the deferred telemetry journey, declared. The register is the
+  // first step and the series is the four in the middle; both exit into the
+  // records they are made of rather than only into each other.
+  instruments: ['logger-series', 'location', 'locations', 'field-capture', 'imports', 'hydrograph'],
+  'logger-series': ['instruments', 'location', 'hydrograph', 'imports', 'qc', 'audit', 'map'],
 
   qc: ['batches', 'qc-limits', 'consistency', 'qualifiers', 'validation', 'dqa'],
   batches: ['qc', 'qc-limits', 'receipt', 'result-detail'],
@@ -7738,7 +8463,7 @@ export const RELATED = {
   tarp: ['exceedances', 'alerts', 'notification'],
   alerts: ['tarp', 'obligations', 'notification'],
 
-  hydrograph: ['location', 'statistics', 'saved-views', 'report-figures'],
+  hydrograph: ['location', 'statistics', 'saved-views', 'report-figures', 'logger-series'],
   hydrochem: ['consistency', 'crosstab', 'report-figures'],
   statistics: ['background', 'hydrograph', 'crosstab', 'report-figures'],
   background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances'],

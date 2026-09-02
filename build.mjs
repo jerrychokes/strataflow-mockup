@@ -96,7 +96,11 @@ const ROUTE_BACKED = ALL.filter((s) => (s.now ?? s.state) === 'shipped').length;
  */
 const SECTION_VIEW = [
   { label: 'Home and across projects', lede: 'Where a session starts — and /aggregate, the two questions that cross projects', ids: ['home', 'search', 'projects', 'project-home', 'obligations'] },
-  { label: 'Locations', lede: 'Step 1 — the bores, their survey history, and everything read while standing at one', ids: ['locations', 'location', 'facility', 'map', 'hydrograph', 'water', 'stygofauna', 'project-settings'] },
+  // Wave 8 files the instrument register and the logger series here for the
+  // same reason `water` is here rather than under its own job: the product
+  // parents both questions off a bore. An instrument is a thing hanging in
+  // one, and a logger series is that bore's own record at an hourly cadence.
+  { label: 'Locations', lede: 'Step 1 — the bores, their survey history, and everything read while standing at one', ids: ['locations', 'location', 'facility', 'map', 'hydrograph', 'water', 'stygofauna', 'instruments', 'logger-series', 'project-settings'] },
   { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture'] },
   { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, and what each one rests on', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles'] },
   { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },

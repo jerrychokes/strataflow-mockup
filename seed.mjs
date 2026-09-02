@@ -616,6 +616,45 @@ export const INDETERMINATE_QUOTE = { perSample: 18, by: 'Pilbara Analytical Serv
  * MW05 as the TSF seepage mound migrates, and a step at MW03B where a resurvey
  * moved the datum (G-07b) — the hydrograph shows elevation, so the step is a
  * real feature of the series and not an error to smooth away.
+ *
+ * ## FOUND AND DEFERRED — 2 September 2026 (wave 8), owner unassigned
+ *
+ * **This series does not stand on the same baseline as the field record, and
+ * the difference is metres.** Measured while wave 8 was deciding what to
+ * anchor a logger series to:
+ *
+ * | Bore  | This series, May 2026 | `LOCATIONS.toc` − the round's dip | `HEADS` (the fitted surface) |
+ * |-------|----------------------:|----------------------------------:|-----------------------------:|
+ * | MW01A | 203.11                | 203.40                            | 203.4                        |
+ * | MW03B | 201.74                | 204.26                            | — (confined, excluded)       |
+ * | MW05  | **194.07**            | **199.64**                        | 199.8                        |
+ * | MW07  | 193.80                | 199.23                            | 198.7                        |
+ * | MW09  | 192.25                | 197.02                            | 197.0                        |
+ * | MW12  | 205.40                | 204.19                            | 205.6                        |
+ *
+ * The cause is here, in one line: `base` is `loc.toc - 12.5`, a shape chosen
+ * to spread three traces apart on a plate, and it was never reconciled with
+ * the depths the field round actually recorded. Two of the three columns
+ * agree with each other to within 0.2 m at MW01A and MW09; this one is the
+ * outlier, and it is the one the hydrograph draws.
+ *
+ * **It is recorded rather than fixed, and wave 8 designed around it rather
+ * than amplifying it.** Re-anchoring is four lines of arithmetic and its
+ * consequences are not: the three traces on Figure 4.1 currently span 9.6 m
+ * and would span 4.3 m, MW05 and MW07 would overlap where they are now
+ * clearly separate, and the licence trigger line — 195.6 m AHD, typed twice
+ * on `#hydrograph` and nowhere else — sits *above* MW05 on this series and
+ * four metres *below* it on the field record. Which of those is the true
+ * relationship between this bore and its trigger is a question with a
+ * regulatory answer, and it is not one to settle in passing inside a wave
+ * about telemetry. So wave 8's logger series is anchored to the field record
+ * — the baseline two independent structures corroborate — and drawn on its
+ * own plate beside Figure 4.1 rather than on it, which `#hydrograph` says in
+ * as many words.
+ *
+ * The claim about a step at MW03B is the smaller half of the same finding:
+ * `drift` has no MW03B term, so there is no step in the numbers this comment
+ * describes.
  */
 function waterLevels() {
   const random = prng(20260512);
@@ -745,12 +784,160 @@ export const MAJOR_IONS = {
   MW12: { Ca: 2.7, Mg: 2.1, Na: 2.5, K: 0.09, HCO3: 4.0, SO4: 1.6, Cl: 1.7 },
 };
 
+/**
+ * Internal consistency — FR-4.4, derived from the ions rather than typed.
+ *
+ * **The wave-7 rider, landed (2 September 2026).** `#consistency` printed a
+ * cation–anion balance, a TDS reconciliation and an EC : TDS ratio per bore
+ * as five typed strings beside a table of ions that says something else, and
+ * wave 7 recorded the debt rather than paying it because paying it moves a
+ * drawn argument. Recomputed from `MAJOR_IONS`, **every balance on that
+ * screen was wrong**, including the −7.8% at MW05 that the screen and
+ * `#hydrochem` both reasoned from at length: the ions in this seed balance to
+ * within 0.7% at every bore, and at MW05 to 0.04%. The screen follows the
+ * computation.
+ *
+ * That is the typed-copy drift class in its purest form — a number nobody
+ * checked, sitting next to the data that refutes it, load-bearing on two
+ * screens for ten days.
+ *
+ * **What survives is the finding, on the check that actually fails.** The
+ * ions at MW05 sum to 1698 mg/L of dissolved solids and the laboratory
+ * reports 2240 — a 32% shortfall, well outside the ±10% the reconciliation
+ * allows. That is the same reading the old panel argued ("a cation the suite
+ * does not include") arriving at the same bore through the check that can
+ * actually see it, and this time it is computed.
+ *
+ * Reported values are two per bore and they are exactly the two a laboratory
+ * reports rather than calculates: total dissolved solids dried at 180 °C, and
+ * electrical conductivity. MW05's conductivity is not typed either — it is
+ * the last round in `EC_MW05`, the same 3410 µS/cm `#qc` and `#exceedances`
+ * read.
+ */
+export const CONSISTENCY = (() => {
+  /*
+   * Equivalent weights, mg per meq — the gram formula weight over the charge.
+   * They are constants of chemistry, not of this site, and they are the only
+   * thing here that is not either measured or derived.
+   */
+  const EQUIVALENT = { Ca: 20.04, Mg: 12.15, Na: 22.99, K: 39.10, HCO3: 61.02, SO4: 48.03, Cl: 35.45 };
+  const CATIONS = ['Ca', 'Mg', 'Na', 'K'];
+  const ANIONS = ['HCO3', 'SO4', 'Cl'];
+
+  /** The acceptance limits, stated where the numbers are made. */
+  const LIMITS = {
+    balance: 5,
+    ratio: [0.9, 1.1],
+    ecTds: [0.55, 0.75],
+    balanceText: '± 5%',
+    ratioText: '0.90 – 1.10',
+    ecTdsText: '0.55 – 0.75',
+  };
+
+  /** What the laboratory reported, per bore. Nothing here is calculated. */
+  const reported = {
+    MW01A: { tds: 588, ec: 920 },
+    MW03B: { tds: 803, ec: 1320 },
+    MW05: { tds: 2240, ec: null },
+    MW07: { tds: 925, ec: 1470 },
+    MW09: { tds: 658, ec: 1010 },
+    MW12: { tds: 515, ec: 800 },
+  };
+
+  const rows = Object.entries(MAJOR_IONS).map(([code, ions]) => {
+    const cations = CATIONS.reduce((t, k) => t + ions[k], 0);
+    const anions = ANIONS.reduce((t, k) => t + ions[k], 0);
+    const balance = ((cations - anions) / (cations + anions)) * 100;
+    const tdsCalc = Object.entries(ions).reduce((t, [k, v]) => t + v * EQUIVALENT[k], 0);
+    // MW05's conductivity is the bore's own record, not a second copy of it.
+    const ec = reported[code].ec ?? EC_MW05.at(-1).value;
+    const tds = reported[code].tds;
+    const ratio = tds / tdsCalc;
+    const ecTds = tds / ec;
+    const checks = [
+      { key: 'balance', ok: Math.abs(balance) <= LIMITS.balance },
+      { key: 'ratio', ok: ratio >= LIMITS.ratio[0] && ratio <= LIMITS.ratio[1] },
+      { key: 'ecTds', ok: ecTds >= LIMITS.ecTds[0] && ecTds <= LIMITS.ecTds[1] },
+    ];
+    const failed = checks.filter((c) => !c.ok).map((c) => c.key);
+    return {
+      code,
+      ions,
+      cations: Number(cations.toFixed(2)),
+      anions: Number(anions.toFixed(2)),
+      balance: Number(balance.toFixed(2)),
+      tdsCalc: Number(tdsCalc.toFixed(0)),
+      tds,
+      ec,
+      ratio: Number(ratio.toFixed(2)),
+      ecTds: Number(ecTds.toFixed(2)),
+      failed,
+      verdict: failed.length ? 'review raised' : 'consistent',
+    };
+  });
+
+  /*
+   * MW11 has a row and no numbers. It was dipped twice and found dry: there
+   * is no water to have a chemistry, and a consistency check run over a
+   * chemistry that does not exist is what wave 7 removed from this screen.
+   * The bore stays on the register — one that vanishes reads as one that was
+   * never on the programme.
+   */
+  const dry = FIELD_DISPOSITIONS.find((d) => d.code === 'dry');
+
+  const raised = rows.filter((r) => r.failed.length);
+  return {
+    rows,
+    dry,
+    limits: LIMITS,
+    equivalent: EQUIVALENT,
+    cations: CATIONS,
+    anions: ANIONS,
+    raised,
+    /** The bore the review item is on, resolved rather than named. */
+    subject: raised[0] ?? null,
+    counts: {
+      bores: rows.length,
+      consistent: rows.filter((r) => !r.failed.length).length,
+      raised: raised.length,
+      worstBalance: rows.reduce((w, r) => (Math.abs(r.balance) > Math.abs(w.balance) ? r : w)).balance,
+    },
+  };
+})();
+
 /** The import runs register. */
 export const IMPORTS = [
-  { id: 'IMP-0241', file: 'PAS2026-04417_Wandalup_2026Q2.zip', format: 'ESdat ELDF-4', lab: 'Pilbara Analytical Services', received: '2026-05-21 09:14', rows: 231, held: 0, state: 'committed', by: 'A. Nakamura' },
-  { id: 'IMP-0240', file: 'PAS2026-04398_Wandalup_2026Q2_partial.zip', format: 'ESdat ELDF-4', lab: 'Pilbara Analytical Services', received: '2026-05-19 16:02', rows: 84, held: 6, state: 'reversed', by: 'A. Nakamura' },
-  { id: 'IMP-0239', file: 'YAR-26-0881_Wandalup_PFAS.csv', format: 'Yarra Regional v2', lab: 'Yarra Regional Analytical', received: '2026-05-18 11:47', rows: 42, held: 3, state: 'in review', by: 'D. Okafor' },
-  { id: 'IMP-0238', file: 'MOCK_Wandalup_ESdat_Legacy_Export.csv', format: 'ESdat legacy export', lab: '— (migration)', received: '2026-04-02 08:30', rows: 18740, held: 112, state: 'committed', by: 'system' },
+  /*
+   * Wave 8 — a logger download is an import run, and it is a different kind
+   * of one (FR-3.10). `kind` tells the two apart because the difference is
+   * the whole of FR-1.10: a laboratory deliverable commits **results**, and a
+   * logger file commits **water levels**, which are held separately and are
+   * never the same count. Adding them together on a stat tile would be the
+   * conflation this requirement exists to prevent.
+   *
+   * `rows` is a getter, and deliberately: the number of rows this run read is
+   * the number of water levels in the series it committed, and the series is
+   * declared at the foot of this file because it needs the field round, the
+   * bore's survey history and the instrument register to exist first. A
+   * literal here would be a second copy of a count that is computed 4,000
+   * lines down. It resolves when a screen renders, long after both.
+   */
+  {
+    id: 'IMP-0243',
+    kind: 'series',
+    file: 'MOCK_MW05_LT-A1_20260531.lvlx + MOCK_BL-01_20260531.lvlx',
+    format: 'Levelogic .lvlx v4 (MOCK)',
+    lab: '— (logger download)',
+    received: '2026-05-31 17:26',
+    get rows() { return LOGGER_SERIES.counts.rowsRead; },
+    held: 0,
+    state: 'committed',
+    by: 'A. Nakamura',
+  },
+  { id: 'IMP-0241', kind: 'results', file: 'PAS2026-04417_Wandalup_2026Q2.zip', format: 'ESdat ELDF-4', lab: 'Pilbara Analytical Services', received: '2026-05-21 09:14', rows: 231, held: 0, state: 'committed', by: 'A. Nakamura' },
+  { id: 'IMP-0240', kind: 'results', file: 'PAS2026-04398_Wandalup_2026Q2_partial.zip', format: 'ESdat ELDF-4', lab: 'Pilbara Analytical Services', received: '2026-05-19 16:02', rows: 84, held: 6, state: 'reversed', by: 'A. Nakamura' },
+  { id: 'IMP-0239', kind: 'results', file: 'YAR-26-0881_Wandalup_PFAS.csv', format: 'Yarra Regional v2', lab: 'Yarra Regional Analytical', received: '2026-05-18 11:47', rows: 42, held: 3, state: 'in review', by: 'D. Okafor' },
+  { id: 'IMP-0238', kind: 'results', file: 'MOCK_Wandalup_ESdat_Legacy_Export.csv', format: 'ESdat legacy export', lab: '— (migration)', received: '2026-04-02 08:30', rows: 18740, held: 112, state: 'committed', by: 'system' },
 ];
 
 /** The exception queue on IMP-0239, as the review screen shows it. */
@@ -1060,21 +1247,28 @@ const QAQC_ROWS = [
     basis: { kind: 'sample', says: 'Sample-specific — every metal result from WDL-26Q2-006 and nothing beyond it. Stabilisation is a fact about one purge at one bore on one visit.' },
     reaches: 'A filtered metal from a turbid bore reads high, and nobody can tell afterwards whether that was formation water or suspended sediment. The qualifier says which question is open.',
   },
+  /*
+   * Wave 8's rider reaches this row. It read "Cation–anion balance −7.8%
+   * against a ±5% acceptance limit" — the same typed number `#consistency`
+   * carried, and the ions refute it. The finding survives on the check that
+   * can see it, and every number in it is now read from `CONSISTENCY`.
+   */
   {
-    id: 'IB-1', check: 'Ionic balance', scope: 'MW05', outcome: 'warn',
-    detail: 'Cation–anion balance −7.8% against a ±5% acceptance limit.',
-    action: 'Review item raised — check sulfate and hardness',
+    id: 'IB-1', check: 'Ionic balance and TDS reconciliation', scope: CONSISTENCY.subject.code, outcome: 'warn',
+    detail:
+      `Cation–anion balance ${CONSISTENCY.subject.balance > 0 ? '+' : '−'}${Math.abs(CONSISTENCY.subject.balance).toFixed(2)}%, inside the ${CONSISTENCY.limits.balanceText} limit. Reported dissolved solids ${CONSISTENCY.subject.tds.toLocaleString('en-AU')} mg/L against ${CONSISTENCY.subject.tdsCalc.toLocaleString('en-AU')} calculated from the reported ions — a ratio of ${CONSISTENCY.subject.ratio.toFixed(2)} against ${CONSISTENCY.limits.ratioText}.`,
+    action: 'Review item raised — a third of the mass is unaccounted for',
     concept: 'decision', state: 'reviewed',
     results: 0, qualifier: null,
     review: {
       by: 'A. Nakamura', at: '2026-05-20 11:12 AWST',
-      found: 'Sulfate re-read against the certificate at 918 mg/L — transcription is not the explanation. The likeliest reading is a cation the suite does not include, and the laboratory has been asked whether they can report it from the retained sample.',
+      found: `Sulfate re-read against the certificate at ${Math.round(CONSISTENCY.subject.ions.SO4 * CONSISTENCY.equivalent.SO4).toLocaleString('en-AU')} mg/L — transcription is not the explanation, and the charges balance, so the suite is coherent as far as it goes. The likeliest reading is a constituent the suite does not include, and the laboratory has been asked whether they can report it from the retained sample.`,
       next: 'Waiting on Pilbara Analytical Services. Nothing has been qualified and nothing has been dispositioned, because the answer decides which.',
     },
   },
   {
-    id: 'ET-1', check: 'EC : TDS ratio', scope: '7 bores', outcome: 'pass',
-    detail: 'All within 0.55–0.75 of the expected relationship.',
+    id: 'ET-1', check: 'EC : TDS ratio', scope: `${CONSISTENCY.counts.bores} bores`, outcome: 'pass',
+    detail: `All within ${CONSISTENCY.limits.ecTdsText} of the expected relationship.`,
     action: '—', concept: 'outcome', state: 'clear', results: 0, qualifier: null,
   },
   {
@@ -2491,6 +2685,240 @@ function purgeOf({ location, method, pump, intake, rate, startedAt, sampledAt, f
   };
 }
 
+/* ==================================================================== *
+ * Wave 8 — the instruments, and the series two of them record
+ *
+ * **Vocabulary, decided against `docs/GLOSSARY.md` before anything was
+ * named** (QB-9, EXPANSION_BRIEF.md §5.9). The glossary has no entry for
+ * *logger*, *telemetry*, *deployment*, *calibration* as a record, or
+ * *barometric compensation*, so each word below is anchored to the nearest
+ * entry the glossary does hold and the anchor is written down here rather
+ * than left to be inferred — the precedent is wave 6's MDL and wave 7's
+ * disposition.
+ *
+ * - **water level** — what a logger records, one per hour. The glossary's
+ *   "Words Strataflow does not use" table sends *reading*, *measurement* and
+ *   *data point* to **result** or **water level**, and a logger's output has
+ *   no analyte, no test and no sample: it is a water level against a
+ *   location, measured as a **depth to water** below a named **measuring
+ *   point**. Nothing here calls one a reading.
+ * - **groundwater elevation** — derived at the measurement date from the
+ *   **location survey** in force, never stored (glossary, FR-1.3, ADR-0015).
+ *   That is the rule `#location` states; it applies once an hour here rather
+ *   than once a round.
+ * - **series** — the PRD's own noun in FR-1.10 ("timeseries from loggers …
+ *   raw and corrected series"), and the glossary's **chart kind** entry
+ *   already carries `censored_series` and reasons about "one series" as a
+ *   first-class thing. Not minted.
+ * - **instrument** — FR-3.10's own word ("common instrument vendors"), and
+ *   the PRD's opening sentence ("laboratory and instrument data"). It
+ *   collides with the glossary's **licence** entry, where *instrument* means
+ *   a statutory instrument, so the register says which sense it means on its
+ *   own face and its label is *Instruments and loggers* rather than the bare
+ *   noun.
+ * - **deployment** — an interval record in the shape of the glossary's
+ *   **location survey** history: dated, never edited, and two of them cannot
+ *   cover one bore at once. Checked below rather than asserted.
+ * - **location group** — the glossary entry, verbatim: "a named set of
+ *   locations that are assessed together". FR-3.10 defines the barometric
+ *   source *per location group*, so the source is a record against a group
+ *   and not a setting on a screen.
+ * - **correction** — the glossary's **survey reason** `correction`: the
+ *   earlier record was wrong, and a correction **supersedes** what it
+ *   replaces over the same span rather than editing it. The raw pressure
+ *   record is untouched (PP6); the corrected series is re-derived.
+ * - **calibration** — the glossary reaches it through **qualifier** ("above
+ *   calibration range"), and the field round has carried calibration and
+ *   post-round check records since wave 6. Those records move here; nothing
+ *   about them changes.
+ *
+ * **The register owns what the preflight reads.** The three field
+ * instruments below were declared inside `FIELD_ROUND` in wave 6 and counted
+ * by its completion preflight; they are declared here now and `FIELD_ROUND`
+ * reads them, so the register and the preflight are one source read twice
+ * rather than two lists that can come apart. Their serials gained the
+ * `MOCK-` prefix §5.6 requires in the same move — they had rendered on no
+ * screen until this register, so nothing already drawn changed.
+ * ==================================================================== */
+
+export const INSTRUMENTS = (() => {
+  /** Sentinel for an interval still open, so every comparison stays lexical. */
+  const OPEN = '9999-12-31';
+
+  /*
+   * The field instruments, exactly as wave 6 wrote them — a field parameter
+   * is only as good as the probe that read it. Calibration before the round
+   * is what the DQO asks for; the post-round check is what says the probe had
+   * not drifted while it was reading, and one of the three has not been
+   * recorded, which the preflight counts rather than glossing.
+   */
+  const field = [
+    { asset: 'MOCK-INST-01', kind: 'Multiparameter sonde', model: 'YSI ProDSS', serial: 'MOCK-SN-21F0994', reads: 'pH · conductivity · dissolved oxygen · redox · temperature', calibrated: '2026-05-12 05:40 AWST', check: '2026-05-14 17:10 AWST', drift: 'pH +0.02, conductivity −0.4% — within acceptance', held: 'Field kit WDL-FK-01', state: 'in service' },
+    { asset: 'MOCK-INST-02', kind: 'Turbidimeter', model: 'Hach 2100Q', serial: 'MOCK-SN-18B4471', reads: 'turbidity', calibrated: '2026-05-12 05:55 AWST', check: null, drift: null, held: 'Field kit WDL-FK-01', state: 'in service' },
+    { asset: 'MOCK-INST-03', kind: 'Water level meter', model: 'Solinst 102', serial: 'MOCK-SN-331802', reads: 'depth to water', calibrated: '2026-04-30 — tape checked against the workshop reference, 0 mm over 30 m', check: '2026-05-14 17:14 AWST', drift: 'No change against the reference mark', held: 'Field kit WDL-FK-01', state: 'in service' },
+  ];
+
+  /*
+   * The installed instruments. `Levelogic` is a MOCK vendor on the
+   * `fixtures/partner/` convention — real-world-shaped, so the model, the
+   * format and the file extension read like something a hire company would
+   * actually send, and unmistakably fictional, so a screenshot of this can
+   * never be read as a real operator's asset register.
+   */
+  const installed = [
+    { asset: 'MOCK-LT-A1', kind: 'Water level logger', model: 'Levelogic LT-5000 (MOCK)', serial: 'MOCK-SN-LT5-114327', reads: 'absolute pressure · temperature', range: '10 m water column · 0.05% FS', interval: 'hourly', state: 'in service', held: 'MW05' },
+    { asset: 'MOCK-LT-A2', kind: 'Water level logger', model: 'Levelogic LT-5000 (MOCK)', serial: 'MOCK-SN-LT5-114329', reads: 'absolute pressure · temperature', range: '10 m water column · 0.05% FS', interval: 'hourly', state: 'in service', held: 'MW07' },
+    { asset: 'MOCK-LT-A3', kind: 'Water level logger', model: 'Levelogic LT-5000 (MOCK)', serial: 'MOCK-SN-LT5-118004', reads: 'absolute pressure · temperature', range: '10 m water column · 0.05% FS', interval: 'hourly', state: 'in service', held: 'MW09' },
+    { asset: 'MOCK-LT-A4', kind: 'Water level logger', model: 'Levelogic LT-5000 (MOCK)', serial: 'MOCK-SN-LT5-118011', reads: 'absolute pressure · temperature', range: '10 m water column · 0.05% FS', interval: 'hourly', state: 'out of service — calibration expired', held: 'Workshop, Wandalup' },
+    { asset: 'MOCK-BL-01', kind: 'Barometric logger', model: 'Levelogic BL-100 (MOCK)', serial: 'MOCK-SN-BL1-90221', reads: 'atmospheric pressure · temperature', range: '0 – 150 kPa', interval: 'hourly', state: 'in service', held: 'Site gauge station' },
+    { asset: 'MOCK-BL-02', kind: 'Barometric logger', model: 'Levelogic BL-100 (MOCK)', serial: 'MOCK-SN-BL1-90188', reads: 'atmospheric pressure · temperature', range: '0 – 150 kPa', interval: 'hourly', state: 'in service', held: 'Kurrajong Road compound' },
+    { asset: 'MOCK-VW-01', kind: 'Vibrating wire piezometer', model: 'Geosense VWP-3400 (MOCK)', serial: 'MOCK-SN-VW-40712', reads: 'pore pressure · temperature', range: '350 kPa', interval: 'six-hourly', state: 'in service', held: 'TSF-VWP-03' },
+  ];
+
+  /**
+   * Where a barometer sits, in metres AHD.
+   *
+   * A station that records the weather is not a place samples are taken from,
+   * so it has no row in `LOCATIONS` and that is the honest answer rather than
+   * an omission. Its elevation is here because the compensation rule needs
+   * it, and a rule whose inputs live somewhere unstated is the silent
+   * derivation PP3 forbids.
+   */
+  const stations = [
+    { name: 'Site gauge station', elevation: 212.4, note: 'The same station the rainfall series under the hydrograph comes from.' },
+    { name: 'Kurrajong Road compound', elevation: 198.9, note: 'The former barometric source, 6.4 km east of the borefield.' },
+  ];
+
+  /*
+   * Deployments — interval records, not attributes.
+   *
+   * A logger is not *at* a bore; it was at a bore over a span, and the span
+   * is what makes a water level from March mean something different from one
+   * in May. Two of them cannot cover one bore at once and one instrument
+   * cannot be in two bores at once; both are checked below rather than
+   * trusted. `sensor` is the depth of the pressure sensor below the measuring
+   * point, and `sensorWas` is what the record said before wave 8's
+   * correction — kept, because a corrected record that discards what it
+   * corrected is not a record (PP6).
+   */
+  const deployments = [
+    // `toHour` and `fromHour` are the hours the instrument left the bore and
+    // went back into it. They live here rather than inside the service
+    // record's prose because the series' gap is computed from them, and an
+    // hour written down in two places is an hour that can come apart.
+    { instrument: 'MOCK-LT-A1', at: 'MW05', from: '2024-06-12', to: '2026-04-06', toHour: 9, sensor: 16.00, sensorWas: null, why: 'Removed for scheduled service and drift check' },
+    { instrument: 'MOCK-LT-A1', at: 'MW05', from: '2026-04-20', fromHour: 9, to: null, sensor: 15.62, sensorWas: 16.00, why: 'Returned to service after calibration' },
+    { instrument: 'MOCK-LT-A2', at: 'MW07', from: '2024-06-12', to: null, sensor: 15.40, sensorWas: null, why: 'Original installation' },
+    { instrument: 'MOCK-LT-A3', at: 'MW09', from: '2025-02-18', to: null, sensor: 14.80, sensorWas: null, why: 'Installed when the compliance-boundary line went to continuous monitoring' },
+    { instrument: 'MOCK-VW-01', at: 'TSF-VWP-03', from: '2023-08-30', to: null, sensor: 28.50, sensorWas: null, why: 'Grouted in at the embankment raise' },
+    { instrument: 'MOCK-BL-01', at: 'Site gauge station', from: '2025-04-01', to: null, sensor: null, sensorWas: null, why: 'Replaced MOCK-BL-02 as the site barometric source' },
+    { instrument: 'MOCK-BL-02', at: 'Kurrajong Road compound', from: '2024-06-12', to: null, sensor: null, sensorWas: null, why: 'Retained as the second barometric record' },
+  ];
+
+  /*
+   * Service and calibration, as events. The gap in the MW05 series is one of
+   * these rows rather than a story told beside it — the series screen
+   * resolves its gap through this record, so the fortnight the trace is
+   * missing and the fortnight the instrument was in the workshop are the same
+   * fortnight by construction.
+   */
+  const services = [
+    { instrument: 'MOCK-LT-A1', at: '2026-04-06', kind: 'Removed for service', what: 'Scheduled twelve-month service. Retrieved 09:00 AWST; the bore has no continuous record from that hour.', by: 'A. Nakamura' },
+    { instrument: 'MOCK-LT-A1', at: '2026-04-17', kind: 'Calibrated', what: 'Two-point calibration against the workshop reference column — −0.021 m over 10 m before adjustment, +0.002 m after.', by: 'Levelogic service agent (MOCK)' },
+    { instrument: 'MOCK-LT-A1', at: '2026-04-20', kind: 'Returned to service', what: 'Redeployed at MW05 at 09:00 AWST. Cable set to the mark at 15.62 m below top of casing.', by: 'A. Nakamura' },
+    { instrument: 'MOCK-BL-01', at: '2026-01-14', kind: 'Calibrated', what: 'Bench calibration against the reference barometer — +0.008 kPa. Next due 2027-01-14.', by: 'Levelogic service agent (MOCK)' },
+    { instrument: 'MOCK-LT-A4', at: '2026-02-28', kind: 'Calibration expired', what: 'Twelve months since the last calibration. The unit is held in the workshop and is not deployable until it is calibrated.', by: 'system' },
+    { instrument: 'MOCK-VW-01', at: '2025-11-19', kind: 'Zero-offset check', what: 'Barometric zero check against MOCK-BL-01 — a +1.2 kPa offset recorded and carried on the series.', by: 'D. Okafor' },
+    { instrument: 'MOCK-INST-01', at: '2026-05-12', kind: 'Calibrated', what: 'Four-point pH, one-point conductivity, air-saturated dissolved oxygen, before the round.', by: 'A. Nakamura' },
+    { instrument: 'MOCK-INST-03', at: '2026-04-30', kind: 'Tape check', what: 'Checked against the workshop reference — 0 mm over 30 m.', by: 'A. Nakamura' },
+  ];
+
+  /**
+   * The location groups the barometric source is defined against.
+   *
+   * The glossary's **location group**: a named set of locations assessed
+   * together, where membership is an assessment decision rather than a place
+   * or an area. FR-3.10 defines barometric compensation per group, which is
+   * why these exist here at all.
+   */
+  const groups = [
+    { name: 'TSF downgradient compliance', members: ['MW05', 'MW07'], why: 'The bores licence condition 12 names for the TSF seepage limits' },
+    { name: 'Compliance boundary', members: ['MW09', 'MW11'], why: 'The line the licence limits are assessed at' },
+    { name: 'Borefield background', members: ['MW01A', 'MW03B', 'MW12'], why: 'The upgradient set the background comparison is referenced against' },
+    { name: 'TSF embankment instrumentation', members: ['TSF-VWP-03'], why: 'The embankment piezometer, which carries pore pressure rather than a water level' },
+  ];
+
+  /*
+   * The barometric source, per group, as interval records — FR-3.10's "a
+   * defined source per location group", where *defined* is a record with a
+   * span rather than a field on a settings page. The site barometer replaced
+   * the Kurrajong Road one on 1 April 2025, so every group carries two rows
+   * and the one in force on a date is resolved rather than assumed.
+   */
+  const baroSources = groups.flatMap((g) => [
+    { group: g.name, source: 'MOCK-BL-02', from: '2024-06-12', to: '2025-03-31' },
+    { group: g.name, source: 'MOCK-BL-01', from: '2025-04-01', to: null },
+  ]);
+
+  const all = [...field, ...installed];
+  const of = (asset) => all.find((i) => i.asset === asset) ?? null;
+  const stationOf = (name) => stations.find((s) => s.name === name) ?? null;
+
+  /** Every interval that overlaps another on the same key. Zero is the claim. */
+  const overlaps = (rows, key) => {
+    const found = [];
+    const by = new Map();
+    for (const r of rows) {
+      if (!by.has(r[key])) by.set(r[key], []);
+      by.get(r[key]).push(r);
+    }
+    for (const [k, list] of by) {
+      const sorted = [...list].sort((a, b) => a.from.localeCompare(b.from));
+      for (let i = 1; i < sorted.length; i += 1) {
+        const prev = sorted[i - 1];
+        const cur = sorted[i];
+        if (cur.from < (prev.to ?? OPEN)) found.push(`${k}: ${prev.from}→${prev.to ?? 'open'} overlaps ${cur.from}→${cur.to ?? 'open'}`);
+      }
+    }
+    return found;
+  };
+
+  const inForce = (rows, key, value, on) =>
+    rows.filter((r) => r[key] === value && r.from <= on && on < (r.to ?? OPEN));
+
+  const sourceFor = (group, on) => inForce(baroSources, 'group', group, on)[0] ?? null;
+  const deploymentAt = (location, on) => inForce(deployments, 'at', location, on)[0] ?? null;
+  const groupOf = (code) => groups.find((g) => g.members.includes(code)) ?? null;
+
+  return {
+    field,
+    installed,
+    all,
+    stations,
+    deployments,
+    services,
+    groups,
+    baroSources,
+    of,
+    stationOf,
+    groupOf,
+    sourceFor,
+    deploymentAt,
+    /** The invariants, computed. A register that only claims these is a list. */
+    checks: {
+      byLocation: overlaps(deployments, 'at'),
+      byInstrument: overlaps(deployments, 'instrument'),
+      byGroup: overlaps(baroSources, 'group'),
+      groupsWithoutSource: groups.filter((g) => !sourceFor(g.name, AS_AT)).map((g) => g.name),
+      placesCovered: [...new Set(deployments.map((d) => d.at))].length,
+      /** Every monitored location that no instrument has ever sat in. */
+      withoutInstrument: LOCATIONS.filter(
+        (l) => (l.klass === 'groundwater' || l.klass === 'tsf_instrumentation') && !deployments.some((d) => d.at === l.code),
+      ).map((l) => l.code),
+    },
+  };
+})();
+
 export const FIELD_ROUND = (() => {
   const round = '2026-Q2-GW';
   const programme = 'GW-QTR';
@@ -2782,12 +3210,14 @@ export const FIELD_ROUND = (() => {
    * post-round check is what says the probe had not drifted while it was
    * reading — and one of the three has not been recorded, which the preflight
    * counts rather than glossing.
+   *
+   * Wave 8: they are declared on the instrument register and read here. The
+   * preflight counts the register's own rows, so "3 instruments, 3
+   * calibrated, 2 post-checked" and the register that lists them cannot come
+   * apart — which is the whole reason the register exists rather than a
+   * second list of the same three probes.
    */
-  const instruments = [
-    { kind: 'Multiparameter sonde', model: 'YSI ProDSS', serial: '21F0994', reads: 'pH · conductivity · dissolved oxygen · redox · temperature', calibrated: '2026-05-12 05:40 AWST', check: '2026-05-14 17:10 AWST', drift: 'pH +0.02, conductivity −0.4% — within acceptance' },
-    { kind: 'Turbidimeter', model: 'Hach 2100Q', serial: '18B4471', reads: 'turbidity', calibrated: '2026-05-12 05:55 AWST', check: null, drift: null },
-    { kind: 'Water level meter', model: 'Solinst 102', serial: '331802', reads: 'depth to water', calibrated: '2026-04-30 — tape checked against the workshop reference, 0 mm over 30 m', check: '2026-05-14 17:14 AWST', drift: 'No change against the reference mark' },
-  ];
+  const instruments = INSTRUMENTS.field;
 
   const planned = ['MW01A', 'MW03B', 'MW05', 'MW07', 'MW09', 'MW11', 'MW12'];
   const byCode = (code) => sessions.filter((s) => s.location === code);
@@ -4719,5 +5149,475 @@ export const EVIDENCE = (() => {
     ],
     refused:
       'The product does not weigh these against each other and does not tell the author which one is right. It keeps them with the sentence so a reviewer can see that they were considered, and so a reviewer who disagrees knows exactly what to disagree with.',
+  };
+})();
+
+/* ==================================================================== *
+ * Wave 8 — the raw and corrected series at MW05
+ *
+ * FR-1.10 in one object: a continuous series held **separately from the
+ * discrete results**, with **raw and corrected retained independently**. The
+ * raw record is the pressure the instrument wrote; every water level, every
+ * depth to water and every groundwater elevation below is *derived from that
+ * pressure* by the rule named here, at the rounding the instrument reports —
+ * so an auditor with a calculator and the six sample rows can reproduce the
+ * series without running this file.
+ *
+ * **Nothing is typed that can be computed.** The gap is the service record's
+ * own fortnight, resolved through `INSTRUMENTS.deployments`; the drawdown on
+ * 13 May is the purge log's own two numbers; the dip that caught the error is
+ * `FIELD_ROUND`'s own depth to water; the survey the elevation reduces
+ * through is `CONSTRUCTION`'s own history.
+ *
+ * **Instants are AWST wall-clock, computed in UTC arithmetic.** Australia/Perth
+ * has no daylight saving, so a fixed offset is exact — and doing the
+ * arithmetic in `Date.UTC` rather than in local time is what makes a rebuild
+ * on a machine in another zone byte-identical (§5.6). The strings carry AWST
+ * where they are drawn.
+ * ==================================================================== */
+
+export const LOGGER_SERIES = (() => {
+  const code = 'MW05';
+  const loc = LOCATIONS.find((l) => l.code === code);
+  const bore = CONSTRUCTION.of(code);
+  const session = FIELD_ROUND.sessions.find((s) => s.location === code && s.purge);
+  const roundDay = FIELD_ROUND.days.find((d) => d.n === session.day).date;
+  const readings = session.purge.readings;
+
+  /**
+   * The compensation rule, with its constants (PP3).
+   *
+   * A non-vented transducer measures **total** pressure — the water above it
+   * plus the atmosphere above that — so the atmosphere has to be taken off
+   * before anything the number says is about groundwater. `density` is the
+   * pressure of one metre of water at 4 °C; `lapse` is how fast atmospheric
+   * pressure falls with elevation in the standard atmosphere, and it is here
+   * because the barometer and the water surface are not at the same height.
+   */
+  const RULE = {
+    id: 'baro-compensation-nonvented',
+    version: 'v1.3',
+    name: 'Barometric compensation — non-vented absolute transducer',
+    density: 9.804,
+    lapse: 0.01195,
+    nominal: 101.325,
+    effective: '2025-04-01',
+    /*
+     * How far a logger may sit from a dipper before the disagreement is a
+     * finding. It is here rather than in three sentences on the screen,
+     * because it is the number the check is made of and this wave exists to
+     * stop constants being retyped beside the things that use them.
+     */
+    dipAcceptance: 0.05,
+    dipAcceptanceText: '±0.05 m',
+  };
+
+  const HOUR = 3600000;
+  const utc = (y, m, d, h, mi = 0) => Date.UTC(y, m - 1, d, h, mi);
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (ms) => {
+    const t = new Date(ms);
+    return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`;
+  };
+  const dayOf = (ms) => stamp(ms).slice(0, 10);
+  const instantOn = (isoDate, hhmm) => {
+    const [y, m, d] = isoDate.split('-').map(Number);
+    const [h, mi] = hhmm.split(':').map(Number);
+    return utc(y, m, d, h, mi);
+  };
+
+  /* The window the file covers, and the two deployments inside it. */
+  const start = utc(2026, 3, 15, 0);
+  const end = utc(2026, 5, 31, 23);
+  const slots = Math.round((end - start) / HOUR) + 1;
+
+  const mine = INSTRUMENTS.deployments.filter((d) => d.at === code);
+  const before = mine.find((d) => d.to !== null);
+  const after = mine.find((d) => d.to === null);
+  const removedAt = instantOn(before.to, `${pad(before.toHour)}:00`);
+  const redeployedAt = instantOn(after.from, `${pad(after.fromHour)}:00`);
+  const logger = INSTRUMENTS.of(after.instrument);
+
+  /* The barometric source in force, resolved through the group rather than named. */
+  const group = INSTRUMENTS.groupOf(code);
+  const sourceRow = INSTRUMENTS.sourceFor(group.name, dayOf(end));
+  const barometer = INSTRUMENTS.of(sourceRow.source);
+  const station = INSTRUMENTS.stationOf(barometer.held);
+
+  /*
+   * The elevation offset, and why it is not dropped for being small.
+   *
+   * The barometer sits at the site gauge station; the water surface at this
+   * bore stands roughly thirteen metres lower, and atmospheric pressure is
+   * higher down there by that difference times the lapse rate. It comes to a
+   * centimetre and a half of water. Carrying it costs a multiplication and
+   * makes the rule true; dropping it because it is small this time is how a
+   * rule comes to be dropped when it is not.
+   *
+   * The reference elevation is the round's own dipped level, held constant
+   * across the deployment: re-deriving it from the level being computed would
+   * make the rule circular.
+   */
+  const referenceElevation = Number((loc.toc - session.depthToWater).toFixed(2));
+  const offsetKPa = Number(((station.elevation - referenceElevation) * RULE.lapse).toFixed(4));
+  const offsetMetres = Number((offsetKPa / RULE.density).toFixed(4));
+
+  /*
+   * The barometric series — hourly, and it has no gap. The bore's logger went
+   * to the workshop; the barometer did not, which is why the compensation has
+   * an input for every hour the bore has a water level and for 336 hours it
+   * does not.
+   */
+  const baroRandom = prng(20260315);
+  const baro = [];
+  for (let i = 0; i < slots; i += 1) {
+    const days = i / 24;
+    const synoptic = 1.05 * Math.sin((2 * Math.PI * days) / 6.5 + 0.7) + 0.62 * Math.sin((2 * Math.PI * days) / 11.3 + 2.1);
+    const semidiurnal = 0.13 * Math.sin((2 * Math.PI * i) / 12 + 1.2);
+    const noise = (baroRandom() - 0.5) * 0.06;
+    baro.push({ i, ms: start + i * HOUR, at: stamp(start + i * HOUR), kPa: Number((98.8 + synoptic + semidiurnal + noise).toFixed(3)) });
+  }
+  const baroMean = baro.reduce((t, b) => t + b.kPa, 0) / baro.length;
+
+  /*
+   * The three manual dips over this window.
+   *
+   * The May one is not a new number: it is `FIELD_ROUND`'s own depth to water
+   * at this bore, at the minute the purge log recorded it. The April one was
+   * taken *because* the logger was out — it is the only water level this bore
+   * has for that fortnight, which is the whole argument against treating a
+   * logger as a replacement for a dipper.
+   */
+  const dips = [
+    { ms: utc(2026, 3, 16, 9, 20), dtw: 8.31, by: 'A. Nakamura', why: 'Routine dip at the quarterly logger download' },
+    { ms: utc(2026, 4, 14, 8, 5), dtw: 8.39, by: 'D. Okafor', why: 'Dipped because the logger was out for service — the only water level this bore has for that fortnight' },
+    { ms: instantOn(roundDay, readings.at(-1).t), dtw: session.depthToWater, by: FIELD_ROUND.crew, why: `The ${FIELD_ROUND.round} round’s own dip, read at the end of purging` },
+  ].map((d) => {
+    // Each dip's elevation is derived at *its own* measurement date through the
+    // survey in force then — the same rule the hourly water levels follow, and
+    // the reason it is derived twice rather than stored once.
+    const survey = bore.surveys.find((s) => s.epoch <= stamp(d.ms).slice(0, 10)) ?? bore.surveys.at(-1);
+    return {
+      ...d,
+      at: stamp(d.ms),
+      slot: (d.ms - start) / HOUR,
+      survey: survey.epoch,
+      toc: survey.toc,
+      elevation: Number((survey.toc - d.dtw).toFixed(3)),
+    };
+  });
+
+  /*
+   * The purge on 13 May, as the logger would have felt it.
+   *
+   * Both numbers come from the purge log: the level as found is its first
+   * reading, and the drawdown is the difference between that and the level at
+   * collection. A logger sitting in the bore records the same drawdown the
+   * field sheet describes, from a different instrument — which is why the
+   * detector flags it and why the finding resolves rather than being raised.
+   */
+  const asFound = readings[0].swl;
+  const drawdown = Number((session.depthToWater - asFound).toFixed(3));
+  const purgeStart = instantOn(roundDay, session.purge.startedAt);
+  const purgeSampled = instantOn(roundDay, session.purge.sampledAt);
+  const RECOVERY = 45 * 60000;
+
+  /* The anomaly: water up 0.38 m for five hours, and back. Nothing in the
+   * barometric record moves with it, which is what makes it a finding. */
+  const spike = { from: utc(2026, 5, 4, 2), peak: utc(2026, 5, 4, 4), to: utc(2026, 5, 4, 7), metres: 0.38 };
+
+  const anchors = [
+    { ms: dips[0].ms, dtw: dips[0].dtw },
+    { ms: dips[1].ms, dtw: dips[1].dtw },
+    { ms: instantOn(roundDay, readings[0].t), dtw: asFound },
+  ];
+  const trend = (ms) => {
+    if (ms <= anchors[0].ms) {
+      const s = (anchors[1].dtw - anchors[0].dtw) / (anchors[1].ms - anchors[0].ms);
+      return anchors[0].dtw + s * (ms - anchors[0].ms);
+    }
+    for (let k = 1; k < anchors.length; k += 1) {
+      if (ms <= anchors[k].ms) {
+        const s = (anchors[k].dtw - anchors[k - 1].dtw) / (anchors[k].ms - anchors[k - 1].ms);
+        return anchors[k - 1].dtw + s * (ms - anchors[k - 1].ms);
+      }
+    }
+    const n = anchors.length;
+    const s = (anchors[n - 1].dtw - anchors[n - 2].dtw) / (anchors[n - 1].ms - anchors[n - 2].ms);
+    return anchors[n - 1].dtw + s * (ms - anchors[n - 1].ms);
+  };
+
+  const wlRandom = prng(80426);
+  const noise = Array.from({ length: slots }, () => (wlRandom() - 0.5) * 0.006);
+  const BAROMETRIC_EFFICIENCY = 0.12;
+
+  const featureAt = (ms) => {
+    let v = 0;
+    if (ms >= spike.from && ms <= spike.to) {
+      const f = ms <= spike.peak
+        ? (ms - spike.from) / (spike.peak - spike.from)
+        : 1 - (ms - spike.peak) / (spike.to - spike.peak);
+      v -= spike.metres * f;
+    }
+    if (ms >= purgeStart) {
+      v += ms <= purgeSampled
+        ? drawdown * ((ms - purgeStart) / (purgeSampled - purgeStart))
+        : drawdown * Math.exp(-(ms - purgeSampled) / RECOVERY);
+    }
+    return v;
+  };
+
+  /*
+   * The raw record — the only thing here that is *stored*. Everything below
+   * is derived from it, from the barometric series, and from the rule.
+   */
+  const raws = [];
+  for (let i = 0; i < slots; i += 1) {
+    const ms = start + i * HOUR;
+    if (ms >= removedAt && ms < redeployedAt) continue;
+    const deployment = ms < removedAt ? before : after;
+    const dtw = trend(ms) + (BAROMETRIC_EFFICIENCY * (baro[i].kPa - baroMean)) / RULE.density + featureAt(ms) + noise[i];
+    const column = deployment.sensor - dtw;
+    const atBore = baro[i].kPa + offsetKPa;
+    raws.push({
+      i,
+      ms,
+      at: stamp(ms),
+      kPa: Number((atBore + RULE.density * column).toFixed(3)),
+      deployment,
+    });
+  }
+
+  /** The survey in force on the date a water level was measured (ADR-0015). */
+  const surveyOn = (isoDate) => bore.surveys.find((s) => s.epoch <= isoDate) ?? bore.surveys.at(-1);
+
+  const reduce = (kPa, sensor, baroKPa) => {
+    const column = (kPa - baroKPa) / RULE.density;
+    return { column, dtw: sensor - column };
+  };
+
+  const points = raws.map((r) => {
+    const atBore = Number((baro[r.i].kPa + offsetKPa).toFixed(3));
+    const corrected = reduce(r.kPa, r.deployment.sensor, atBore);
+    const asImported = reduce(r.kPa, r.deployment.sensorWas ?? r.deployment.sensor, atBore);
+    const uncompensated = reduce(r.kPa, r.deployment.sensor, RULE.nominal);
+    const survey = surveyOn(dayOf(r.ms));
+    return {
+      i: r.i,
+      ms: r.ms,
+      at: r.at,
+      day: dayOf(r.ms),
+      kPa: r.kPa,
+      baro: baro[r.i].kPa,
+      baroAtBore: atBore,
+      sensor: r.deployment.sensor,
+      sensorAsImported: r.deployment.sensorWas ?? r.deployment.sensor,
+      column: Number(corrected.column.toFixed(3)),
+      dtw: Number(corrected.dtw.toFixed(3)),
+      dtwAsImported: Number(asImported.dtw.toFixed(3)),
+      dtwUncompensated: Number(uncompensated.dtw.toFixed(3)),
+      survey: survey.epoch,
+      toc: survey.toc,
+      elevation: Number((survey.toc - corrected.dtw).toFixed(3)),
+      elevationUncompensated: Number((survey.toc - uncompensated.dtw).toFixed(3)),
+      corrected: r.ms >= redeployedAt,
+    };
+  });
+
+  /*
+   * The anomaly test — the same method `EC_MW05_OUTLIER` uses, run on the
+   * hourly change rather than on the value. A modified z-score over the
+   * bore's own record, because no fixed limit can answer "did this move
+   * faster than this bore moves". The difference is never taken across the
+   * gap: a fortnight of absence is not a step.
+   */
+  const median = (xs) => {
+    const s = [...xs].sort((a, b) => a - b);
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const steps = [];
+  for (let k = 1; k < points.length; k += 1) {
+    if (points[k].i !== points[k - 1].i + 1) continue;
+    steps.push({ k, ms: points[k].ms, at: points[k].at, d: Number((points[k].dtw - points[k - 1].dtw).toFixed(4)) });
+  }
+  const med = median(steps.map((s) => s.d));
+  const mad = median(steps.map((s) => Math.abs(s.d - med)));
+  const scored = steps.map((s) => ({ ...s, z: (0.6745 * (s.d - med)) / mad }));
+  const flagged = scored.filter((s) => Math.abs(s.z) > 3.5);
+
+  const runs = [];
+  for (const f of flagged) {
+    const last = runs.at(-1);
+    if (last && f.k === last.lastK + 1) {
+      last.lastK = f.k;
+      last.to = f.at;
+      last.toMs = f.ms;
+      last.peak = Math.abs(f.z) > Math.abs(last.peak) ? f.z : last.peak;
+      last.hours += 1;
+    } else {
+      runs.push({ firstK: f.k, lastK: f.k, from: f.at, fromMs: f.ms, to: f.at, toMs: f.ms, peak: f.z, hours: 1 });
+    }
+  }
+
+  const purgeWindow = [purgeStart, purgeSampled + 3 * HOUR];
+  const findings = runs.map((r, n) => {
+    const explained = r.fromMs >= purgeWindow[0] - HOUR && r.toMs <= purgeWindow[1];
+    const span = points.slice(r.firstK - 1, r.lastK + 1);
+    const swing = Number((Math.max(...span.map((p) => p.dtw)) - Math.min(...span.map((p) => p.dtw))).toFixed(3));
+    /*
+     * What the barometer did over the same hours, measured rather than
+     * asserted. "The barometric record does not move with it" is the whole
+     * evidence for calling a pressure step a finding instead of weather, so
+     * it is a number on the record and not a sentence beside it.
+     */
+    const overBaro = baro.slice(span[0].i, span.at(-1).i + 1).map((b) => b.kPa);
+    const baroSwing = Number((Math.max(...overBaro) - Math.min(...overBaro)).toFixed(3));
+    /*
+     * The run is a run of flagged *changes*, so the water level the change
+     * started from is one point earlier. `spanFrom` is that point and
+     * `peak` is the extreme one inside the run — both are exported because a
+     * screen that wants to say "the instrument wrote X and then Y" must not
+     * do that arithmetic on a timestamp string.
+     */
+    const peakPoint = span.reduce((best, p) => (Math.abs(p.dtw - span[0].dtw) > Math.abs(best.dtw - span[0].dtw) ? p : best), span[0]);
+    return {
+      id: `MOCK-FIND-LS-${String(n + 1).padStart(2, '0')}`,
+      from: r.from,
+      to: r.to,
+      spanFrom: span[0].at,
+      spanFromKPa: span[0].kPa,
+      peakAt: peakPoint.at,
+      peakKPa: peakPoint.kPa,
+      hours: r.hours,
+      levels: span.length,
+      swing,
+      baroSwing,
+      baroEquivalent: Number((baroSwing / RULE.density).toFixed(3)),
+      score: Math.abs(r.peak).toFixed(1),
+      explained,
+      state: explained ? 'dispositioned' : 'unresolved',
+      what: explained
+        ? `Water level fell ${swing.toFixed(3)} m and recovered, across the hours the purge log covers.`
+        : `Water level rose ${swing.toFixed(3)} m over ${r.hours} hours and returned. Atmospheric pressure moved ${baroSwing.toFixed(3)} kPa over the same hours — ${(baroSwing / RULE.density).toFixed(3)} m of water, and the wrong way to explain it.`,
+      because: explained
+        ? `The field record has this bore purged at ${session.purge.rateText} from ${session.purge.startedAt} to ${session.purge.sampledAt} on ${roundDay}, with a recorded drawdown of ${drawdown.toFixed(2)} m. The logger recorded the same event the field sheet describes, from a different instrument. Dispositioned by rule against the field record — not by anyone deciding case by case.`
+        : 'Raised, not resolved. A pressure step with no barometric counterpart is a recharge pulse, a slug of water down the annulus, or the instrument. The product does not choose between them, and the corrected series does not smooth it away: a correction that removes what it cannot explain has destroyed the evidence for the explanation.',
+    };
+  });
+
+  /*
+   * The correction. It **supersedes** — the glossary's word — the corrected
+   * series over the span it reaches, and it touches no raw pressure: the
+   * instrument's own record is what it wrote, and it was never wrong.
+   */
+  const reach = points.filter((p) => p.corrected);
+  const dipChecks = dips.map((d) => {
+    const inGap = d.ms >= removedAt && d.ms < redeployedAt;
+    if (inGap) {
+      return {
+        ...d,
+        inGap: true,
+        nearest: null,
+        offsetMinutes: null,
+        residual: null,
+        residualAsImported: null,
+        verdict: 'no comparison — the instrument was not in the bore',
+      };
+    }
+    const nearest = points.reduce((best, p) => (Math.abs(p.ms - d.ms) < Math.abs(best.ms - d.ms) ? p : best));
+    return {
+      ...d,
+      inGap: false,
+      nearest,
+      offsetMinutes: Math.round((nearest.ms - d.ms) / 60000),
+      residual: Number((nearest.dtw - d.dtw).toFixed(3)),
+      residualAsImported: Number((nearest.dtwAsImported - d.dtw).toFixed(3)),
+      verdict: null,
+    };
+  }).map((c) => ({
+    ...c,
+    verdict: c.verdict ?? (Math.abs(c.residual) <= RULE.dipAcceptance ? 'within acceptance' : 'outside acceptance'),
+  }));
+  const caught = dipChecks.find((c) => !c.inGap && Math.abs(c.residualAsImported) > RULE.dipAcceptance);
+
+  const correction = {
+    id: 'MOCK-CORR-0007',
+    subject: `Corrected water level series · ${code} · ${logger.asset}`,
+    raisedBy: 'A. Nakamura',
+    raisedAt: '2026-05-31 16:58 AWST',
+    appliedBy: 'D. Okafor',
+    appliedAt: '2026-06-01 09:12 AWST',
+    reason: `The sensor depth was recorded as ${(after.sensorWas ?? after.sensor).toFixed(2)} m below top of casing when the instrument went back in the bore. The cable mark and the redeployment record say ${after.sensor.toFixed(2)} m. Every corrected water level from that hour onward was ${(((after.sensorWas ?? after.sensor) - after.sensor)).toFixed(2)} m too deep.`,
+    found: caught
+      ? `The ${caught.at} dip read ${caught.dtw.toFixed(2)} m btoc and the series read ${caught.nearest.dtwAsImported.toFixed(2)} m — ${Math.abs(caught.residualAsImported).toFixed(2)} m apart, against a ${RULE.dipAcceptanceText} acceptance. A logger that agrees with a dipper is checked; one that does not is what a check is for.`
+      : null,
+    rule: `${RULE.id} ${RULE.version}, re-run against the corrected deployment depth`,
+    reachFrom: reach[0].at,
+    reachTo: reach.at(-1).at,
+    reachCount: reach.length,
+    shift: Number((((after.sensorWas ?? after.sensor) - after.sensor)).toFixed(3)),
+    raw: 'Untouched. The pressure record is what the instrument wrote and no correction reaches it — this one changed a number the compensation was given, not a number it was told.',
+    supersedes: 'The corrected series as imported. Both readings stay on the record and the superseded one is drawn struck through, because what was reported then is a different question from what the record says now.',
+  };
+
+  /* Six rows an auditor can reproduce with a calculator. */
+  const pick = (ms) => points.reduce((best, p) => (Math.abs(p.ms - ms) < Math.abs(best.ms - ms) ? p : best));
+  const samples = [
+    { why: 'First water level in the file', p: points[0] },
+    { why: 'Last before the instrument came out', p: points.filter((p) => p.ms < removedAt).at(-1) },
+    { why: 'First after it went back in', p: points.find((p) => p.corrected) },
+    { why: 'The anomaly, at its peak', p: pick(spike.peak) },
+    { why: 'The hour the manual dip was checked against', p: dipChecks.at(-1).nearest },
+    { why: 'Last water level in the file', p: points.at(-1) },
+  ];
+
+  return {
+    code,
+    loc,
+    bore,
+    logger,
+    barometer,
+    station,
+    group,
+    sourceRow,
+    rule: RULE,
+    barometricEfficiency: BAROMETRIC_EFFICIENCY,
+    offsetKPa,
+    offsetMetres,
+    referenceElevation,
+    window: { start, end, from: stamp(start), to: stamp(end), slots },
+    gap: {
+      from: stamp(removedAt),
+      to: stamp(redeployedAt),
+      hours: Math.round((redeployedAt - removedAt) / HOUR),
+      days: Math.round((redeployedAt - removedAt) / (24 * HOUR)),
+      service: INSTRUMENTS.services.filter((s) => s.instrument === logger.asset),
+      why: 'The instrument was in the workshop. A polyline across it would assert 336 water levels nobody measured.',
+    },
+    deployments: mine,
+    points,
+    baro,
+    dips,
+    dipChecks,
+    findings,
+    correction,
+    samples,
+    anomaly: spike,
+    purge: { start: session.purge.startedAt, sampled: session.purge.sampledAt, drawdown, asFound, at: session.depthToWater, day: roundDay },
+    outlier: { n: steps.length, median: med.toFixed(4), mad: mad.toFixed(4), threshold: '3.5', method: 'Modified z-score (Iglewicz–Hoaglin) over the hourly change in depth to water, on this bore’s own record' },
+    counts: {
+      slots,
+      gapHours: slots - points.length,
+      water: points.length,
+      baroReadings: baro.length,
+      rowsRead: points.length + baro.length,
+      series: 2,
+      results: 0,
+      reach: reach.length,
+      dips: dips.length,
+      findings: findings.length,
+      raised: findings.filter((f) => !f.explained).length,
+    },
   };
 })();

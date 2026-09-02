@@ -1,6 +1,6 @@
 # `design/mockup/` — the complete UI, drawn
 
-A clickable high-fidelity mockup of the whole Strataflow surface: **68 screens across
+A clickable high-fidelity mockup of the whole Strataflow surface: **70 screens across
 eleven jobs**, populated with one coherent fictional dataset, built on the approved
 Instrument direction and the product's own stylesheet.
 
@@ -590,6 +590,49 @@ and the redesigned screens carry more invention than the ones the review correct
 less. The wave also blanked the crosstab's MW11 column, which had drawn eleven evaluated
 results for a bore the field record has dipped twice and found dry (`W6-A-1`).
 
+**Wave 8 (2 September 2026) walks the journey the brief defers, and both screens it needed
+are proposals.** The telemetry exception — *Instrument → Raw series → Gap/anomaly →
+Correction → Corrected series → Re-evaluation → Alert/TARP impact → Audit* — was the one
+journey `#coverage` had never drawn, on the stated ground that "walking it would require
+inventing the screens it defers". That sentence was right about the cost and is corrected
+rather than deleted: the two screens exist now (`#instruments`, `#logger-series`), they are
+`proposed` in the register, and the PRD's **S8** marking on FR-1.10 and FR-3.10 is
+untouched. Drawing a deferred domain does not reschedule it.
+
+What the pair holds: an instrument register that owns the three field probes
+`#field-capture`'s completion preflight has been counting since wave 6 — no screen had ever
+said which three — plus loggers as **interval records** (which instrument, in which bore,
+over what span, at what sensor depth, checked for overlaps rather than asserted to have
+none), and the barometric source named **per location group** as a record with a span,
+which is FR-3.10's own phrase. And a raw-and-corrected pair at MW05: 1,536 hourly water
+levels derived from a retained pressure record, a 14-day gap that is computed from the
+service record rather than described beside it, an anomaly raised and **not smoothed**, a
+correction with its reason and its reach (999 water levels re-derived after a deployment
+depth was recorded 0.38 m wrong), and a re-evaluation panel that says what a corrected
+*level* series actually reaches — the hydrograph trace and the derived elevations, and
+**nothing** on an exceedance register whose nine rows are all chemistry.
+
+**The rider it carried says something about the method.** `#consistency`'s five ionic
+balances were typed strings sitting beside the ion table that refutes them, and wave 7 wrote
+the debt down rather than paying it. Recomputed from `MAJOR_IONS`, **every one of them was
+wrong** — including the −7.8% at MW05 that both that screen and `#hydrochem` reasoned from
+at length; the ions balance to −0.04% there and to within 0.61% everywhere. The screen
+follows the computation, MW12 has the row its results owed it, and the review item survives
+on the check that can actually see the problem: a third of the dissolved mass at MW05 is not
+in the reported suite. The superseded numbers are kept on the screen beside the derived
+ones, because what a screen said in May is a different question from what the record says
+now.
+
+**And it found one it did not fix, recorded in the seed beside the series it describes.**
+`WATER_LEVELS` — the monthly record the hydrograph draws — does not stand on the same
+baseline as the field round's own dips. At MW05 it reads 194.07 m AHD where the round's dip
+reduces to 199.64 and the fitted potentiometric surface holds 199.8. Two of the three agree;
+the drawn one is the outlier. Re-anchoring is four lines of arithmetic and its consequences
+are not — it moves MW05 from four metres above the licence trigger line on `#hydrograph` to
+just below it, which is a question with a regulatory answer. So the logger plate is anchored
+to the field record and drawn *beside* Figure 4.1 rather than on it, and `#hydrograph` says
+so on its own face.
+
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
 with no accessible name, heading order, empty panels and degenerate SVG geometry — all
@@ -612,8 +655,8 @@ compositing.
 | `ui.mjs` | The `sf-` markup vocabulary: marks, the result encoding, tables, panels |
 | `controls.mjs` | The `mk-` interaction vocabulary — navigation, forms, feedback, assistance. All of it a proposal |
 | `chrome.mjs` | The stylesheet for that layer, and for the viewer. Nothing here restates a token |
-| `figures.mjs` | Eleven figure generators, drawn to the approved grammar |
-| `screens.mjs` | The 68 screens, the job spine, and the link graph |
+| `figures.mjs` | Thirteen figure generators, drawn to the approved grammar. The hourly logger plate added in wave 8 is the same line-over-time family as the hydrograph — cadence is not a family — and introduces none |
+| `screens.mjs` | The 70 screens, the job spine, and the link graph |
 | `build.mjs` | Assembles `index.html`, inlining the product stylesheet; checks the link graph, section partition, dead hrefs and route-line contract |
 | `verify.mjs` | The driven-browser sweep — overflow at three widths, duplicate ids, accessible names, heading order, matrix panning, figure text collisions, coarse-pointer touch targets on both axes, stacked-label legibility, captions against the region they caption. `npm install`, then `node verify.mjs` |
 | `app.css` | The product stylesheet, vendored byte-identical so this repo builds standalone. Refresh from the app repo; never edit here |

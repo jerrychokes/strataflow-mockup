@@ -1183,4 +1183,67 @@ html, body { background: var(--mk-chrome); }
  */
 .mk-seg { flex-wrap: wrap; }
 
+
+/* ==================================================================== *
+ * Wave 8 — instruments, and a series with two versions of itself
+ * ==================================================================== */
+
+/*
+ * A value the record used to hold.
+ *
+ * Struck through and muted, but the strike is the carrying channel and the
+ * colour is redundant — a photocopy of this table still tells the two apart,
+ * and so does a reader who cannot see the grey. It is deliberately not
+ * .sf-result__superseded: that one belongs inside a result and carries the
+ * arrow-and-value arrangement with it, and a water level is not a result.
+ */
+.mk-was {
+  font-family: var(--sf-font-data); font-size: 12px;
+  text-decoration: line-through; text-decoration-thickness: 1px;
+  color: var(--sf-ink-muted);
+}
+/*
+ * Two numbers in one stacked cell are two inline elements and therefore two
+ * flex items below 767px — the wave-6 trap. A small gap keeps them legible
+ * where they do wrap, and the cell they sit in is a matrix cell, which pans.
+ */
+.mk-was + .mk-num { margin-left: .3rem; }
+
+
+/*
+ * A qualifying line inside a record fact, on its own line.
+ *
+ * FOUND IN WAVE 8, and it predates it. .sf-table tbody td small and
+ * .sf-table tbody th small are both display:block — a unit under a column
+ * header, a slot aperture under a screened interval — and the identical
+ * construction inside .sf-facts dd was left inline, so every one of them
+ * rendered as one run-on string: "12.0 - 18.0 m bgl50 mm uPVC, 0.4 mm slot"
+ * on the bore since wave 7, measured in the DOM rather than noticed by eye.
+ * Nothing in the sweep can see it — the text is present, it wraps, the
+ * document does not overflow, and it is simply unreadable.
+ *
+ * Fixed the way the table rule was fixed, and for the reason its comment
+ * gives: the inconsistency removed rather than a screen special-cased.
+ */
+.sf-facts dd small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sf-ink-muted);
+}
+
+
+/*
+ * An asset tag and a serial are one atom.
+ *
+ * The stylesheet already makes this argument about timestamps (.sf-instant,
+ * app.css: "a date is one atom and breaks across a line as nonsense"). A
+ * MOCK- identifier is the same shape of thing and the register broke them in
+ * the same way — MOCK-SN-21F099 on one line and a bare 4 on the next, which
+ * is a serial nobody can read off a screen and type into a search box. The
+ * table it sits in is a matrix and pans, so the width this costs is width the
+ * region already handles.
+ */
+.mk-atom { white-space: nowrap; }
+
 `;

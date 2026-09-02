@@ -27,6 +27,9 @@
 import {
   ARSENIC_MW05, CONSTRUCTION, CROSSTAB, CROSSTAB_COLUMNS, CROSSTAB_SHAPE, FIELD_ROUND, LOCATIONS,
   MAJOR_IONS, RAINFALL, WATER_LEVELS,
+  // Wave 8 — the hourly series the logger plate draws, and the consistency
+  // checks the Piper plate's provenance line states.
+  CONSISTENCY, LOGGER_SERIES,
 } from './seed.mjs';
 import { esc } from './ui.mjs';
 
@@ -282,6 +285,200 @@ export function hydrograph({ bores = ['MW05', 'MW07', 'MW01A'], rainfall = true,
 }
 
 /* ------------------------------------------------------------------ *
+ * Logger series — the same hydrograph grammar, at an hourly cadence
+ *
+ * **No new figure family.** This is Grammar A's line-over-time: the closed
+ * frame, the 1-2-5 ticks, the dotted grid, shape-and-dash series identity, a
+ * second quantity in its own panel underneath rather than on a second axis
+ * inside the plot, and a provenance line. What differs is the cadence — 1,536
+ * hourly water levels rather than 41 monthly ones — and cadence is not a
+ * family. Nothing here needs a grammar proposal (§5.8); a Durov or a
+ * Schoeller still would.
+ *
+ * Three conventions the monthly plate states and never had the data to draw:
+ *
+ * - **A break is a break.** `#hydrograph` has said since the third pass that
+ *   a dry bore's trace breaks rather than drawing a line through it, because
+ *   "a polyline across a null asserts a water level nobody measured". This is
+ *   the first plate in the catalogue where that sentence renders: the path
+ *   starts a new subpath wherever the hour indices are not consecutive, so
+ *   the fortnight the instrument spent in the workshop is drawn as the
+ *   fortnight it is.
+ * - **Raw and corrected are one axis and two marks.** Both are metres AHD, so
+ *   they belong on one scale; they are told apart by dash, by marker shape
+ *   and by a legend word, never by colour alone (the photocopier rule).
+ * - **A dip is a different kind of mark from a logged water level**, because
+ *   it is a different kind of observation: somebody stood at the bore with a
+ *   tape. FR-1.10's "separately from discrete" is a drawing instruction as
+ *   much as a schema one.
+ * ------------------------------------------------------------------ */
+
+export function loggerSeries({ baro = true } = {}) {
+  const L = LOGGER_SERIES;
+  const W = 760, H = baro ? 470 : 356;
+  const x = 58, w = W - x - 18;
+  const baroH = baro ? 62 : 0;
+  const y = 12, h = H - y - (baro ? baroH + 78 : 62);
+
+  const pts = L.points;
+  const values = [
+    ...pts.map((p) => p.elevation),
+    ...pts.map((p) => p.elevationUncompensated),
+    ...L.dips.map((d) => d.elevation),
+  ];
+  // Headroom at the top is deliberate: the anomaly peaks near the maximum and
+  // its label has to sit above the mark without leaving the frame.
+  const lo = Math.min(...values) - 0.06;
+  const hi = Math.max(...values) + 0.16;
+
+  const xs = scale(0, L.window.slots - 1, x + 6, x + w - 6);
+  const ys = scale(lo, hi, y + h - 6, y + 6);
+  const fortnight = 336;
+  const xt = [];
+  for (let i = 0; i < L.window.slots; i += fortnight) xt.push(i);
+  const yt = ticks(lo, hi, 5);
+  const dayLabel = (i) => {
+    const at = L.baro[Math.min(Math.round(i), L.baro.length - 1)].at;
+    return `${at.slice(8, 10)}/${at.slice(5, 7)}`;
+  };
+
+  let body = frame(x, y, w, h, xt, yt, xs, ys, dayLabel, (t) => t.toFixed(1));
+
+  /* The gap, ruled at both edges and named between them. */
+  const gapFrom = pts.filter((p) => p.at < L.gap.from).at(-1).i + 1;
+  const gapTo = pts.find((p) => p.at >= L.gap.to).i;
+  for (const i of [gapFrom, gapTo]) {
+    body += `<line x1="${round(xs(i))}" y1="${y}" x2="${round(xs(i))}" y2="${y + h}" stroke="${MUTED}" stroke-width="0.9" stroke-dasharray="3 3"/>`;
+  }
+  body += hoverable(
+    `<text class="mk-annot" x="${round((xs(gapFrom) + xs(gapTo)) / 2)}" y="${y + 15}" text-anchor="middle" fill="${MUTED}">out for service</text>`,
+    `${L.gap.days} days with no water level — ${L.logger.asset} was in the workshop from ${L.gap.from} to ${L.gap.to} AWST. ${L.gap.why}`,
+  );
+
+  /*
+   * Two traces, drawn with the same break rule: a subpath starts wherever the
+   * hour indices stop being consecutive.
+   */
+  const pathOf = (valueOf) => {
+    let d = '';
+    let prev = null;
+    for (const p of pts) {
+      d += `${prev !== null && p.i === prev + 1 ? 'L' : 'M'}${round(xs(p.i))} ${round(ys(valueOf(p)))}`;
+      prev = p.i;
+    }
+    return d;
+  };
+  const traces = [
+    { label: 'Raw, uncompensated', colour: MUTED, dash: DASHES[1], shape: SHAPES[2], value: (p) => p.elevationUncompensated,
+      tip: (p) => `${p.at} AWST · ${p.kPa} kPa recorded · ${p.elevationUncompensated.toFixed(3)} m AHD against the standard atmosphere — the retained raw record, shown uncompensated` },
+    { label: 'Corrected', colour: INK, dash: DASHES[0], shape: SHAPES[0], value: (p) => p.elevation,
+      tip: (p) => `${p.at} AWST · ${p.elevation.toFixed(3)} m AHD · depth to water ${p.dtw.toFixed(3)} m btoc — compensated against ${L.barometer.asset} and derived through the ${p.survey} survey` },
+  ];
+  const every = Math.max(1, Math.round(pts.length / 9));
+  for (const t of traces) {
+    body += `<path d="${pathOf(t.value)}" fill="none" stroke="${t.colour}" stroke-width="1.3" stroke-dasharray="${t.dash}"/>`;
+    body += pts
+      .filter((_, k) => k % every === 0)
+      .map((p) => hoverable(marker(t.shape, xs(p.i), ys(t.value(p)), 3, '#ffffff', t.colour), t.tip(p), xs(p.i), ys(t.value(p))))
+      .join('');
+  }
+
+  /* The manual dips — filled, because somebody stood at the bore with a tape. */
+  body += L.dips
+    .map((d) => {
+      const px = xs(d.slot);
+      const py = ys(d.elevation);
+      return hoverable(
+        `<line x1="${round(px)}" y1="${round(py - 9)}" x2="${round(px)}" y2="${round(py + 9)}" stroke="${INK}" stroke-width="0.8"/>` +
+          marker(SHAPES[3], px, py, 3.6, INK, INK),
+        `Manual dip · ${d.at} AWST · ${d.dtw.toFixed(2)} m btoc · ${d.elevation.toFixed(2)} m AHD · ${d.by} — ${d.why}`,
+        px,
+        py,
+      );
+    })
+    .join('');
+
+  /* The anomaly, named on the plate rather than only in the register. */
+  const raised = L.findings.find((f) => !f.explained);
+  if (raised) {
+    const peak = pts.reduce((best, p) => (p.at >= raised.from && p.at <= raised.to && p.elevation > best.elevation ? p : best), pts[0]);
+    const px = xs(peak.i);
+    const py = ys(peak.elevation);
+    body +=
+      hoverable(
+        `<circle cx="${round(px)}" cy="${round(py)}" r="7" fill="none" stroke="${RED}" stroke-width="1.2"/>`,
+        `${raised.id} · ${raised.what} ${raised.because}`,
+        px,
+        py,
+      ) +
+      `<text class="mk-annot" x="${round(px)}" y="${round(py - 12)}" text-anchor="middle" fill="${RED}">anomaly raised</text>`;
+  }
+
+  /*
+   * The legend lays itself out from measured advances rather than from a fixed
+   * column pitch. Four entries at the hydrograph's 132 px pitch collide on the
+   * second label, and a pitch chosen by eye is a collision waiting for the next
+   * word to be added.
+   */
+  const legendY = y + h + 30;
+  let lx = x;
+  for (const t of [...traces].reverse()) {
+    body +=
+      `<line x1="${round(lx)}" y1="${legendY}" x2="${round(lx + 22)}" y2="${legendY}" stroke="${t.colour}" stroke-width="1.3" stroke-dasharray="${t.dash}"/>` +
+      marker(t.shape, lx + 11, legendY, 3, '#ffffff', t.colour) +
+      `<text class="mk-annot" x="${round(lx + 28)}" y="${legendY + 3.5}" fill="${INK}">${esc(t.label)}</text>`;
+    lx += 28 + annotWidth(t.label) + 24;
+  }
+  body +=
+    marker(SHAPES[3], lx + 6, legendY, 3.6, INK, INK) +
+    `<text class="mk-annot" x="${round(lx + 16)}" y="${legendY + 3.5}" fill="${INK}">Manual dip</text>`;
+  lx += 16 + annotWidth('Manual dip') + 24;
+  body +=
+    `<circle cx="${round(lx + 6)}" cy="${legendY}" r="5" fill="none" stroke="${RED}" stroke-width="1.2"/>` +
+    `<text class="mk-annot" x="${round(lx + 16)}" y="${legendY + 3.5}" fill="${INK}">Anomaly</text>`;
+
+  /*
+   * The barometric series, in its own panel — the same rule that keeps
+   * rainfall off the elevation axis, for the same reason. A line rather than
+   * bars because it is a continuous quantity rather than an accumulation, and
+   * unbroken across the gap because the barometer never left the station.
+   */
+  if (baro) {
+    const by0 = y + h + 56, bh = baroH - 16;
+    const kPa = L.baro.map((b) => b.kPa);
+    const bLo = Math.min(...kPa), bHi = Math.max(...kPa);
+    const bys = scale(bLo, bHi, by0 + bh - 2, by0 + 2);
+    const line = L.baro.map((b, i) => `${i === 0 ? 'M' : 'L'}${round(xs(b.i))} ${round(bys(b.kPa))}`).join('');
+    body +=
+      `<rect x="${x}" y="${by0}" width="${w}" height="${bh}" fill="none" stroke="${INK}" stroke-width="1"/>` +
+      `<path d="${line}" fill="none" stroke="${MUTED}" stroke-width="0.9"/>` +
+      `<text class="mk-annot" x="${x - 6}" y="${by0 + 9}" text-anchor="end" fill="${MUTED}">${bHi.toFixed(1)}</text>` +
+      `<text class="mk-annot" x="${x - 6}" y="${by0 + bh}" text-anchor="end" fill="${MUTED}">${bLo.toFixed(1)}</text>` +
+      `<text class="mk-annot" x="${x}" y="${by0 - 5}" fill="${MUTED}">Atmospheric pressure, kPa — ${esc(L.barometer.asset)} at ${esc(L.station.name)}, no gap</text>`;
+  }
+
+  body += `<text class="mk-axis-title" transform="rotate(-90 14 ${y + h / 2})" x="14" y="${y + h / 2}" text-anchor="middle" fill="${MUTED}">Groundwater elevation, m AHD</text>`;
+  /*
+   * Two lines, because one is wider than the plate. The first attempt ran a
+   * single provenance string past x = 760 and the viewBox clipped it mid-word
+   * — a provenance line that does not fit is a provenance line that is not
+   * there, and nothing in the layout check measures a clip.
+   */
+  body += provenance(x, H - 26, [
+    `MOCK-WDL · ${L.code} · ${L.logger.asset} · ${L.window.from} – ${L.window.to} AWST · hourly`,
+    `${L.rule.id} ${L.rule.version} · barometric source ${L.barometer.asset} · datum at measurement date (GDA2020, AHD)`,
+  ]);
+
+  const fall = (pts[0].elevation - pts.at(-1).elevation).toFixed(2);
+  const raisedSwing = L.findings.find((f) => !f.explained)?.swing ?? 0;
+  return (
+    svgOpen(W, H, `Logger water level at ${L.code}, raw and corrected`,
+      `The corrected water level at ${L.code} fell ${fall} m between ${L.window.from.slice(0, 10)} and ${L.window.to.slice(0, 10)}, broken by ${L.gap.days} days while the logger was out for service, with one anomaly of ${raisedSwing.toFixed(2)} m raised and not smoothed away. The raw trace runs below it because it is drawn against a standard atmosphere this site never has.`) +
+    body + '</svg>'
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * Censored series — the rule that matters most, drawn
  * ------------------------------------------------------------------ */
 
@@ -487,8 +684,14 @@ export function piper() {
     })
     .join('');
 
+  /*
+   * Wave 8: the balance claim on this line was typed and wrong — it said
+   * MW05 sat at −7.8% against the very ions this plate is drawn from, which
+   * balance to a twentieth of a percent. It is read from `CONSISTENCY` now,
+   * so a provenance line cannot contradict the data above it.
+   */
   body += provenance(40, 500, [
-    'MOCK-WDL · 2026-Q2-GW · major ions in meq/L · ionic balance within ±5% except MW05 (−7.8%, review raised)',
+    `MOCK-WDL · 2026-Q2-GW · major ions in meq/L · ionic balance within ${CONSISTENCY.limits.balanceText} at all ${CONSISTENCY.counts.bores} bores (worst ${CONSISTENCY.counts.worstBalance > 0 ? '+' : '−'}${Math.abs(CONSISTENCY.counts.worstBalance).toFixed(2)}%)`,
   ]);
 
   return (
@@ -1059,6 +1262,16 @@ export const POTENTIOMETRIC_FIT = (() => {
     worst,
     worstText: `${worst.toFixed(2)} m`,
     residuals,
+    /**
+     * The head each control point contributes, by bore.
+     *
+     * Exported for wave 8, which needed to say what a corrected level series
+     * does and does not reach: the fit is made of the round's manual dips, so
+     * the honest answer at MW05 is "nothing moves", and a screen that wants
+     * to print the head this surface holds for a bore should read it here
+     * rather than retype it.
+     */
+    headOf: (code) => HEADS.find((p) => p.code === code)?.h ?? null,
   };
 })();
 
