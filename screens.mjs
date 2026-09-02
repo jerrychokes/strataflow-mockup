@@ -47,6 +47,9 @@ import {
   // file drawn all the way down: its outward mapping, its reconciliation and
   // what it could not carry.
   EXCHANGE,
+  // Wave 11 — the external-party engagement, and the instance's whole
+  // authorisation configuration as the one list the glossary says it is.
+  BINDINGS, ENGAGEMENT,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -4070,19 +4073,52 @@ const lineage = () => {
   );
 };
 
-const auditTrail = () =>
+/**
+ * The audit trail — and, since wave 11, the question an engagement makes
+ * somebody ask of it.
+ *
+ * "What did the consultants touch" is answered here by nothing more than the
+ * subject each row already carries. The filter below is a filter, not a
+ * mechanism: no column was added, no flag is set on a write, and the
+ * enhancement is that the question is *asked* on the screen rather than left
+ * to somebody's grep.
+ */
+const auditTrail = () => {
+  const E = ENGAGEMENT;
+  const domainOf = (who) => (who.includes('@') ? who.split('@')[1] : '—');
+  const theirs = AUDIT.filter((a) => domainOf(a.who) === E.party.domain);
+  // `system` carries no domain and is not one — the count is of identity
+  // domains that actually appear, which is the distinction the caption claims.
+  const domains = [...new Set(AUDIT.map((a) => domainOf(a.who)))].filter((d) => d !== '—');
+  return (
   head('Audit trail', 'Every mutation, who made it, and what it changed.', {
     route: '/projects/:projectId/audit',
-    toolbar: btn('Filter by principal') + btn('Export'),
+    toolbar: btn('Export'),
+  }) +
+  C.filterBar({
+    controls: [
+      C.field({ label: 'Principal', control: C.combobox({ placeholder: 'A subject, or a domain…', value: '' }) }),
+      C.field({ label: 'Table', control: C.select({ options: ['Any table', ...new Set(AUDIT.map((a) => a.table))], value: 'Any table' }) }),
+      C.field({ label: 'Action', control: C.select({ options: ['Any action', 'insert', 'update'], value: 'Any action' }) }),
+    ],
+    /*
+     * No chip, and the count is the whole trail. A filter bar that says
+     * "filtered by" over a table showing every row is the two-surfaces
+     * failure in miniature — the applied state is drawn below, on the panel
+     * that makes the claim, where the rows it returns are actually shown.
+     */
+    count: `${AUDIT.length} rows`,
   }) +
   table({
-    caption: 'Recorded by the database, not by the application. There is no unattributed path.',
+    caption: `Recorded by the database, not by the application. There is no unattributed path, and <strong>no column here marks a principal as internal or external</strong>: the party under one subject below is this screen resolving a domain, not a field on the row. ${domains.length} identity domains appear across the trail, and that is the whole of the distinction.`,
     head: ['At', 'Principal', 'Action', 'Table', 'What', 'Transaction'],
     kind: 'matrix',
     label: 'Audit trail',
     rows: AUDIT.map((a) => [
       `<span class="sf-instant">${esc(a.at)}</span>`,
-      esc(a.who),
+      domainOf(a.who) === E.party.domain
+        ? `<span class="mk-file">${esc(a.who)}</span><small><a class="mk-ref" href="#engagement">${esc(E.party.name)}</a> — external engagement</small>`
+        : esc(a.who),
       tag(a.action, a.action === 'insert' ? 'good' : 'warn'),
       `<code>${esc(a.table)}</code>`,
       esc(a.what),
@@ -4095,7 +4131,69 @@ const auditTrail = () =>
     notice('default', 'Everything inside one transaction reads back as one act.',
       'The 42 results and 42 lineage records committed at 10:22:41 share a transaction id, so “what did that import do” is one row to expand rather than eighty-four to correlate by timestamp.'),
     '1fr 1fr',
+  ) +
+  /* ---------------------------------------------------------------- *
+   * Wave 11 — the question an engagement makes somebody ask
+   * ---------------------------------------------------------------- */
+  `<h2 class="mk-h2" style="margin-top:1.4rem">“What did the consultants touch?”</h2>` +
+  cols(
+    panel(
+      `${theirs.length} of ${AUDIT.length} rows, and no special mechanism produced that number`,
+      C.filterBar({
+        controls: [C.field({ label: 'Principal', control: C.input({ value: `@${E.party.domain}`, mono: true }) })],
+        chips: [C.chip(`@${E.party.domain}`, { prefix: 'flag', tone: 'warn' })],
+        count: `${theirs.length} of ${AUDIT.length} rows`,
+      }) +
+      /*
+       * The one row the filter returns, as facts rather than as a five-column
+       * table. Five columns inside a 1fr panel is the ~90 px column wave 10
+       * split its inventory to avoid — measured here as a subject address
+       * wrapping four characters to a line — and one row does not need a
+       * header repeated above it anyway.
+       */
+      `<p class="mk-tight mk-muted">The same rows as above with one filter on them. Nothing else changes; there are simply fewer.</p>` +
+      '<h3 class="mk-h3">The one act it returns</h3>' +
+      theirs
+        .map((a) =>
+          facts([
+            ['At', `<span class="sf-instant">${esc(a.at)}</span>`],
+            ['Principal', `<span class="mk-file">${esc(a.who)}</span>`],
+            ['Action', `${tag(a.action, a.action === 'insert' ? 'good' : 'warn')} on <code>${esc(a.table)}</code>`],
+            ['What', esc(a.what)],
+            ['Transaction', `<code class="mk-muted">${esc(a.tx)}</code>`],
+          ]),
+        )
+        .join('') +
+      `<p class="mk-tight">One of the principals above is not the operator’s. <span class="mk-file">${esc(theirs[0].who)}</span> holds a <a class="mk-ref" href="#engagement">time-bounded Contributor binding</a> through an external engagement, and their act sits on the trail above with the same six fields as every other — same trigger, same transaction id, same before-and-after state.</p>` +
+        `<p class="mk-tight"><strong>Nothing marks it as external, and that is the design rather than an omission.</strong> The answer comes out of the subject the row already carries: the party owns <code class="mk-file">${esc(E.party.domain)}</code>, the operator’s directory issued the identity, and the trail records what the request arrived as. An <code>is_external</code> column would be a second copy of a fact the customer’s directory owns — set at write time, never re-derived, and wrong the first time somebody joins the operator from the consultancy.</p>` +
+        `<p class="mk-tight mk-muted">Which is why the filter above is a filter. Attribution is the mechanism; asking the question is a query.</p>`,
+    ),
+    panel(
+      'Two questions, two authorities, and they are not the same read',
+      table({
+        caption: 'The trail answers both, from the same rows, under different authority.',
+        head: ['Question', 'Who may ask it'],
+        scroll: true,
+        label: 'The two audit questions and their authorities',
+        rows: [
+          [
+            cell('<strong>What happened to this row?</strong><small>the history of one result, sample, location or criterion</small>'),
+            cell('<span class="mk-muted">Anyone who can read the row. A trail is readable exactly when its subject is — the read walks back to the row and applies that row’s own scope, so there is no second rule to get wrong and no “no records” answer that really means “not yours”.</span>'),
+          ],
+          [
+            cell('<strong>What did this principal do, everywhere?</strong><small>one subject, across every project, in a bounded window</small>'),
+            cell('<span class="mk-muted">An <strong>auditor</strong> binding, and only that. It is the one role that is instance-wide by nature, it mints a different kind of authority from a project scope, and a principal without it is refused here rather than handed a narrower answer that looks complete.</span>'),
+          ],
+        ],
+      }) +
+        `<p class="mk-tight">So the question at the top of this panel is the <em>second</em> kind. It spans projects by construction — a consultant might hold engagements on two — and an answer narrowed to one project would look like the whole answer while being part of it.</p>` +
+        `<p class="mk-tight mk-muted">And one thing the trail cannot answer at all: <strong>what they read.</strong> This is a record of mutations. A sign-in is deliberately not audited — it is the act that establishes the principal, so there is no principal to attribute it to — so “what did they look at” has no row here and no filter will find one. Said out loud because it is the question an operator asks second.</p>` +
+        '<div class="mk-actions"><a class="mk-btn" href="#engagement">The engagement this principal holds</a><a class="mk-btn" href="#roles">The binding, and the auditor authority</a></div>',
+    ),
+    '1fr 1fr',
+  )
   );
+};
 
 const supersession = () =>
   head('Supersession', 'What a re-issued certificate changed, and everything that followed it.', {
@@ -4469,27 +4567,390 @@ const dictionary = () =>
   notice('warning', 'NOx-N is flagged rather than accepted as a synonym for nitrate.',
     'Nitrate plus nitrite is not nitrate. A laboratory reporting NOx-N against a nitrate criterion is the kind of quiet substitution that survives three reporting cycles and then fails a peer review. It routes to the exception queue with the difference stated.');
 
-const roles = () =>
-  head('Access', 'Who can see and do what, resolved from the customer’s directory.', {
-    route: '/instance/access',
-  }) +
-  table({
-    caption: 'Role bindings say “members of this directory group hold this role in this project”. There is no user table.',
-    head: ['Directory group', 'Role', 'Project', 'Members', 'Can'],
-    rows: [
-      ['<code>WDL-Env-Leads</code>', 'Approver', 'MOCK-WDL', '<span class="mk-num">2</span>', '<span class="mk-muted">Approve, sign off, issue reports</span>'],
-      ['<code>WDL-Env-Team</code>', 'Contributor', 'MOCK-WDL', '<span class="mk-num">6</span>', '<span class="mk-muted">Import, review, validate, produce figures</span>'],
-      ['<code>WDL-Geotech</code>', 'Contributor', 'MOCK-WDL', '<span class="mk-num">3</span>', '<span class="mk-muted">TARP acknowledgement, instrumentation</span>'],
-      ['<code>WDL-Exec</code>', 'Reader', 'all projects', '<span class="mk-num">4</span>', '<span class="mk-muted">Read registers and issued reports</span>'],
-    ],
-  }) +
-  cols(
-    notice('default', 'Membership is resolved on every request, not copied at sign-in.',
-      'Somebody removed from a directory group loses access on their next request rather than at their next sign-in. Deprovisioning that waits for a session to expire is deprovisioning in name only.'),
-    notice('default', 'Authorisation in the application; row-level security beneath it.',
-      'The repository layer throws when a query is not scoped. The policy beneath it returns zero rows, because a policy cannot safely raise. Two mechanisms doing two jobs, not one wearing two hats.'),
-    '1fr 1fr',
+/**
+ * Access — the instance's whole authorisation configuration, as one list.
+ *
+ * Wave 11 makes this table read `BINDINGS` instead of four rows typed into
+ * it. The seed comment above that list carries the two corrections in full;
+ * in short, the typed rows named four directory groups that appear nowhere
+ * else in this seed while `#project-settings` resolved the same people
+ * through three differently-named ones, one of them was a shape the schema
+ * refuses (`Reader` over "all projects" — instance-wide iff auditor), and the
+ * `Members` column counted a group roster this product never reads.
+ */
+const roles = () => {
+  const seen = (b) => MEMBERS.filter((m) => m.group === b.group && m.state === 'active').length;
+  const E = ENGAGEMENT;
+  return (
+    head('Access', 'Who can see and do what, resolved from the customer’s directory.', {
+      route: '/instance/access',
+    }) +
+    table({
+      caption:
+        'Role bindings say “members of this directory group hold this role, here”, and this list is the whole of the instance’s authorisation configuration. There is no user table.',
+      head: ['Directory group', 'Role', 'Project', 'Party', 'Principals seen', 'Can', 'Until'],
+      kind: 'matrix',
+      label: 'Every role binding on this instance',
+      rows: BINDINGS.map((b) => [
+        `<code>${esc(b.group)}</code>`,
+        `<span class="mk-tag mk-tag--${b.role === 'Approver' ? 'new' : b.role === 'Reader' ? 'neutral' : b.role === 'Auditor' ? 'warn' : 'good'}">${esc(b.role)}</span>`,
+        b.project ? `<code>${esc(b.project)}</code>` : '<span class="mk-muted">— instance-wide</span>',
+        b.engagement
+          ? `<a class="mk-ref" href="#engagement">${esc(b.party)}</a><small>engagement ${esc(b.engagement)}</small>`
+          : `<span class="mk-muted">${esc(b.party)}</span>`,
+        seen(b) ? `<span class="mk-num">${seen(b)}</span>` : '<span class="mk-num mk-num--nil">0</span>',
+        `<span class="mk-muted">${esc(b.can)}</span>`,
+        b.until
+          ? `<span class="sf-instant">${esc(b.until)}</span><small>${E.daysLeft} days · sponsored by ${esc(b.sponsor)}</small>`
+          : '<span class="mk-muted">— no end date</span>',
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted"><strong>“Principals seen” is not a membership count, and the distinction is the design.</strong> Strataflow asks the directory <em>which groups is this principal in</em> and never <em>who is in this group</em> — it reads group ids and never their membership — so a roster is a number no request here can produce. What is counted is principals this instance has actually seen, whose membership resolved to the binding at that moment; the auditor binding reads <span class="mk-num mk-num--nil">0</span> because nobody has used it, not because nobody holds it.</p>` +
+    cols(
+      panel(
+        `One binding is external, and it is the only row with an end date`,
+        `<p class="mk-tight"><a class="mk-ref" href="#engagement">${esc(E.party.name)}</a> holds a <strong>${esc(E.binding.role)}</strong> binding on <code>${esc(E.binding.project)}</code> through a group of its own — never the operator’s Contributors group, so ending the engagement is one act on one group and touches no internal binding.</p>` +
+          facts([
+            ['Sponsor', `${esc(E.binding.sponsor)}<small>${esc(E.binding.sponsorTitle)}</small>`],
+            ['Granted', `<span class="sf-instant">${esc(E.granted)}</span>`],
+            ['Ends', `<span class="sf-instant">${esc(E.ends)}</span><small>${E.daysLeft} days left as at ${esc(E.asAt)}</small>`],
+            ['State', C.status(E.state, E.state === 'expiring' ? 'warn' : 'good')],
+          ]) +
+          `<p class="mk-tight mk-muted">The row above is the only one carrying a party and the only one carrying an end date, and both columns are <em>read from the engagement record</em> rather than stored on the binding — because a role binding in this product is five columns and none of them is either of those. <a class="mk-ref" href="#engagement">The engagement record says so on its face.</a></p>` +
+          '<div class="mk-actions"><a class="mk-btn" href="#engagement">The engagement, and the boundary it rests on</a></div>',
+      ),
+      panel(
+        'One role is instance-wide, and exactly one can be',
+        '<p class="mk-tight">Three of the four roles are held <em>within a project</em>: nobody is a contributor in general. <strong>Auditor is the exception and the only one</strong> — the question it exists to answer, “what did this principal do across the instance”, spans projects by construction, so it is not a scope and cannot be made into one.</p>' +
+          '<p class="mk-tight">The schema is what keeps that honest rather than a convention: a binding is instance-wide <strong>if and only if</strong> its role is auditor. A project-less Contributor is refused, and so is an auditor pinned to one project. An unscoped grant cannot be arrived at by leaving a field blank and looking like a data-entry slip.</p>' +
+          `<p class="mk-tight mk-muted">A <code>Reader</code> over “all projects” — which this table used to carry — is therefore not a configuration to be careful with. It is a row the database will not accept, and it is drawn here as the two things it was conflating: a Reader binding on the project, and the auditor authority.</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+    cols(
+      notice('default', 'Membership is resolved on every request, not copied at sign-in.',
+        'Somebody removed from a directory group loses access on their next request rather than at their next sign-in. Deprovisioning that waits for a session to expire is deprovisioning in name only.'),
+      notice('default', 'Authorisation in the application; row-level security beneath it.',
+        'The repository layer throws when a query is not scoped. The policy beneath it returns zero rows, because a policy cannot safely raise. Two mechanisms doing two jobs, not one wearing two hats.'),
+      '1fr 1fr',
+    )
   );
+};
+
+/* ================================================================== *
+ * Wave 11 — the external-party engagement (OD-2)
+ *
+ * The one dimension the PRD deliberately did not build and deliberately did
+ * not close off: consultants execute much of this work at these operators,
+ * they are "not first-class users in v1", and the resolution is that
+ * project-scoped row-level security is **kept as the seam** so the dimension
+ * is added at S8 rather than retrofitted. This screen is that seam drawn — a
+ * consultancy reaching one project through the scoping every internal
+ * principal already goes through, with nothing bespoke underneath it, and an
+ * explicit list of what v1 does not have and why each absence is a decision.
+ *
+ * Everything renders from `ENGAGEMENT`, `MEMBERS`, `BINDINGS` and `AUDIT`. No
+ * count and no date is typed on this screen.
+ * ================================================================== */
+
+const externalEngagement = () => {
+  const E = ENGAGEMENT;
+  const external = MEMBERS.filter((m) => m.party === E.party.name);
+  const theirRows = AUDIT.filter((a) => a.who.endsWith(`@${E.party.domain}`));
+  const stateTone = E.state === 'ended' ? 'neutral' : E.state === 'expiring' ? 'warn' : 'good';
+
+  /** One principal, drawn in the shape the top bar reads. Same shape, both times. */
+  const principalCard = (heading, p, party, note) =>
+    panel(
+      heading,
+      facts([
+        ['Display name', esc(p.name)],
+        ['Subject', `<span class="mk-file">${esc(p.subject)}</span>`],
+        ['Party', esc(party)],
+        [
+          `Role bindings <span class="mk-num">${p.bindings.length}</span>`,
+          p.bindings
+            .map((b) => `<span class="mk-tag mk-tag--${b.role === 'Approver' ? 'new' : b.role === 'Reader' ? 'neutral' : 'good'}">${esc(b.role)}</span> <code>${esc(b.project)}</code>`)
+            .join('<br>'),
+        ],
+      ]) + `<p class="mk-tight mk-muted">${note}</p>`,
+    );
+
+  return (
+    head('External-party engagement', 'A consultancy engaged on one project — what it reaches, what it cannot, and what this product does not have.', {
+      route: 'a proposal — it would be a child of /instance/access',
+      toolbar: C.exportMenu() + btn('Extend the engagement') + btn('End it now', 'danger'),
+    }) +
+
+    notice(
+      'warning',
+      'Proposed, and it draws a seam rather than a feature. External-party access is out of v1.',
+      'The product’s own resolution of this question is that it is <strong>out of v1</strong> — single operator, single organisation — and that <strong>project-scoped row-level security is kept as the seam</strong>, so the external-party dimension is added at S8 when a consultancy customer is real. Consultants are named there as people who execute much of this work and as <em>not first-class users in v1</em>. Nothing here reschedules that. What is drawn is the seam holding: a party, an engagement, one binding, and — the part that is the whole point — <strong>no new mechanism anywhere beneath it</strong>.',
+    ) +
+
+    stats([
+      stat(String(E.counts.principals), 'external principals'),
+      stat(`${E.counts.projectsReachable} of ${PROJECTS.length}`, 'projects reachable', 'good'),
+      stat(String(E.daysLeft), 'days of access left', stateTone),
+      stat(String(E.counts.cannotSee), 'refusals stated, not implied'),
+      stat(String(E.counts.notInV1), 'things v1 does not have'),
+    ]) +
+
+    /* ---------------------------------------------------------------- *
+     * The party, and the engagement
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2">The party, and the engagement</h2>' +
+    cols(
+      panel(
+        esc(E.party.name),
+        facts([
+          ['Kind', esc(E.party.kind)],
+          ['Based', esc(E.party.based)],
+          ['Engaged for', esc(E.party.engagedFor)],
+          ['Identity domain', `<span class="mk-file">${esc(E.party.domain)}</span>`],
+          ['Engagements here', `<span class="mk-num">${E.counts.bindings}</span> — this one`],
+        ]) +
+          '<p class="mk-tight mk-muted">A party is a record of who the operator contracted with, held so an engagement has something to hang off. It is <strong>not</strong> an account, an organisation in a directory, or anything this product authenticates against — the identities below are in the <em>operator’s</em> directory, and this row is the operator’s note of whose people they are.</p>' +
+          `<p class="mk-tight mk-muted">Fictional twice over, on the convention this seed has kept since wave 9: the name is obviously invented, as <span class="mk-file">Pilbara Analytical Services</span> and <span class="mk-file">Tallering Metals Pty Ltd</span> are, and every identity sits on <code class="mk-file">${esc(E.party.domain)}</code> — a reserved domain that can never resolve, exactly as the operator’s own <code class="mk-file">wandalup.example</code> cannot. <code class="mk-file">MOCK-</code> marks this instance’s own artefacts: the project codes, the purchase order and the engagement identifier.</p>`,
+      ),
+      panel(
+        `${esc(E.id)}`,
+        facts([
+          ['State', `${C.status(E.state, stateTone)}<small>computed from the dates below, never stored</small>`],
+          ['Scope of work', esc(E.scope)],
+          ['Owed under', `<code class="mk-file">${esc(E.order)}</code>`],
+          ['Sponsor', `${esc(E.binding.sponsor)}<small>${esc(E.binding.sponsorTitle)}</small>`],
+          ['Access', `<span class="mk-tag mk-tag--good">${esc(E.binding.role)}</span> on <code>${esc(E.binding.project)}</code><small>through <code>${esc(E.binding.group)}</code></small>`],
+          ['Granted', `<span class="sf-instant">${esc(E.granted)}</span>`],
+          ['Ends', `<span class="sf-instant">${esc(E.ends)}</span>`],
+        ]) +
+          `<p class="mk-tight"><strong>Its own group, never the operator’s.</strong> ${esc(E.binding.whyOwnGroup)}</p>` +
+          `<p class="mk-tight"><strong>Contributor, not Reader, and the reason is worth stating.</strong> ${esc(E.binding.whyContributor)}</p>` +
+          `<p class="mk-tight mk-muted">One binding, one project, one role from the closed set of four. There is no “external” role and there must not be one: a role says what may be <em>done</em>, and a consultant validating a result is doing the same thing an employee validating a result is doing.</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The lifecycle and the countdown
+     * ---------------------------------------------------------------- */
+    cols(
+      panel(
+        'The lifecycle, and where this one is',
+        C.pipeline(E.lifecycle.map((s) => ({ name: `${s.name} — ${s.on}`, detail: s.detail, state: s.state }))) +
+          `<p class="mk-tight mk-muted">Four states and only two dates. <code>Expiring</code> is not a fifth thing that happens to an engagement — it is <code>active</code> inside the notice window — so it is computed from ${esc(E.granted)}, ${esc(E.ends)} and today rather than stored on a row somebody has to remember to update. A stored state is a state that goes stale on the day it matters.</p>`,
+      ),
+      panel(
+        'The countdown, and the date that has already passed',
+        facts([
+          ['As at', `<span class="sf-instant">${esc(E.asAt)}</span><small>every number here is measured from this date</small>`],
+          ['Term', `<span class="mk-num">${E.termDays}</span> days<small>${esc(E.granted)} → ${esc(E.ends)}</small>`],
+          ['Elapsed', `<span class="mk-num">${E.elapsedDays}</span> days`],
+          ['Access left', `<span class="mk-num mk-num--warn">${E.daysLeft}</span> days`],
+          ['Extension owed by', `<span class="sf-instant">${esc(E.noticeFrom)}</span><small>${E.noticeDays} days before the end date, by the agreement’s own term</small>`],
+          ['That date', `<span class="mk-num mk-num--bad">passed ${E.noticePassedBy} days ago</span>`],
+        ]) +
+          `<p class="mk-tight"><strong>This is what an engagement screen is for.</strong> The access does not run out today — it runs out in ${E.daysLeft} days — and the decision that would extend it was owed ${E.noticePassedBy} days ago. An engagement nobody looks at until it expires ends in the middle of a reporting cycle, with a half-drafted section and a hydrogeologist who can no longer open the data they wrote it from.</p>` +
+          `<p class="mk-tight mk-muted">Truncated, never rounded, and derived from ${esc(E.asAt)} — the same discipline every other countdown in this catalogue keeps. A countdown that invents a number is worse than no countdown.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The principals
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Who is in here under it</h2>` +
+    table({
+      caption: `The engagement’s ${E.counts.principals} principals, on the same membership register as the operator’s own — the columns are the register’s, and the two the internal rows leave empty are the party and the end date.`,
+      head: ['Person', 'Identity', 'Party', 'Project', 'Role', 'From group', 'Granted', 'Sponsored by', 'Until', 'Last seen'],
+      kind: 'matrix',
+      label: 'The engagement’s principals',
+      rows: external.map((m) => [
+        `${esc(m.name)}<small>${esc(E.people.find((p) => p.identity === m.identity).title)}</small>`,
+        `<span class="mk-file">${esc(m.identity)}</span>`,
+        `<span class="mk-muted">${esc(m.party)}</span>`,
+        `<code>${esc(m.project)}</code>`,
+        `<span class="mk-tag mk-tag--good">${esc(m.role)}</span>`,
+        `<span class="mk-muted">${esc(m.group)}</span>`,
+        `<span class="sf-instant">${esc(m.granted)}</span>`,
+        esc(m.by),
+        `<span class="sf-instant">${esc(m.until)}</span>`,
+        `<span class="sf-instant">${esc(m.lastSeen)}</span>`,
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted">A job title is not a role. <em>Senior hydrogeologist</em> is what ${esc(E.people[0].name)} does for a living; <strong>Contributor</strong> is what the binding permits, and the same person could be a Reader on another project without changing careers. The register keeps the two in different columns because collapsing them makes the useful sentence unsayable.</p>` +
+    cols(
+      principalCard(
+        'The signed-in principal',
+        PRINCIPAL,
+        PROJECT.operator,
+        'Two bindings, because this person holds two — Contributor here and Approver at the other site. The header shows the one in the current scope.',
+      ),
+      principalCard(
+        'The engaged principal',
+        E.asPrincipal,
+        E.party.name,
+        'One binding. That is the <strong>only</strong> structural difference between the two cards: same fields, same shape, same everything. There is no external principal type, no guest object and no second code path — an external principal is a principal whose binding list is shorter.',
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The boundary
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The boundary — and it is the boundary that was already there</h2>` +
+    `<p class="mk-tight">The claim this screen is making is a negative one, which is the hardest kind to draw: <strong>nothing was built for this</strong>. A read by ${esc(E.people[0].name)} goes through the same repository layer, narrows through the same single predicate, and lands on the same row-level policy as a read by anybody in the operator’s own team. There is no external branch to get wrong, because there is no external branch.</p>` +
+    cols(
+      panel(
+        'What it reaches, and by what mechanism',
+        /*
+         * A list, not a three-column table. Two of the three columns are
+         * prose and the third is a status word; inside a 3fr panel that is
+         * the ~90 px column wave 10 split its inventory table to avoid, and
+         * a paragraph rendered two words to a line is a paragraph nobody
+         * reads.
+         */
+        `<ul class="mk-list">${E.sees
+          .map((s) => `<li><strong>${esc(s.what)}</strong> — ${esc(s.how)} ${C.status(s.same, 'good')}</li>`)
+          .join('')}</ul>` +
+          '<p class="mk-tight mk-muted">Three rows and the third column is the same on all three, which is the finding rather than a repetition: there is nothing on this list an internal Contributor reaches differently.</p>',
+      ),
+      panel(
+        'Two mechanisms, and they fail differently on purpose',
+        '<p class="mk-tight">The primary control is in the application: a read arrives with a scope, narrows through <strong>one predicate every repository shares</strong>, and a read that arrives with no grant admitting it <strong>throws</strong>. Underneath, the database policy returns <strong>zero rows</strong> — because a policy cannot safely raise, and one that did would take the instance down on a missing setting.</p>' +
+          '<p class="mk-tight">The difference is not redundancy. “You do not have access” and “this project has no data” are different sentences and a reader has to be given the right one, so the layer that <em>can</em> raise does, and the layer that cannot fails closed and silent beneath it.</p>' +
+          `<p class="mk-tight mk-muted">The proof that the seam holds is older than this screen: the catalogue has held <a class="mk-ref" href="#projects">two projects</a> since wave 5, and the isolation was measured screen by screen rather than asserted. An engagement adds a shorter binding list to that, not a new axis.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    table({
+      caption: `${E.counts.cannotSee} things this engagement cannot reach — each with the mechanism that refuses it, because “they cannot see the other project” is a claim and the mechanism is the evidence for it.`,
+      head: ['What it cannot see', 'What refuses it', 'Where that surface is'],
+      kind: 'records',
+      scroll: true,
+      label: 'What the engagement cannot reach',
+      rows: E.cannotSee.map((c) => [
+        cell(`<strong>${esc(c.what)}</strong>`),
+        cell(`<span class="mk-muted">${esc(c.refused)}</span>`),
+        cell(`<a class="mk-ref" href="#${esc(c.where)}">${esc(c.whereLabel)}</a>`),
+      ]),
+    }) +
+    notice(
+      'default',
+      'And one thing the trail cannot answer, said here rather than discovered later.',
+      'The audit record is a record of <strong>mutations</strong> — every write, with its before and after state and the principal who made it. A sign-in is deliberately not audited at all: it is the act that <em>establishes</em> the principal, so there is no principal to attribute it to. So <a class="mk-ref" href="#audit">“what did the consultants touch”</a> is answerable and <em>“what did the consultants look at”</em> is not, and no amount of care with this engagement changes that. An operator who needs the second needs something this product does not have.',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * What v1 does not have
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">What v1 does not have, as decisions</h2>` +
+    `<p class="mk-tight">Each of these is a thing this screen could have drawn and does not, with the reason it does not. A mockup that draws a form over a table the product has no column for is the most expensive kind of drawing: it looks like specification and it is fiction.</p>` +
+    E.notInV1
+      .map((n) =>
+        C.card({
+          tone: 'neutral',
+          head: `<span class="mk-queue__kind">${esc(n.what)}</span><span class="mk-queue__age">a decision, not a gap</span>`,
+          body:
+            `<p class="mk-tight"><strong>What the product actually holds:</strong> ${esc(n.says)}</p>` +
+            `<p class="mk-tight"><strong>So:</strong> ${esc(n.means)}</p>`,
+          foot: `<span class="mk-muted">Checked against ${esc(n.cite)}.</span>`,
+        }),
+      )
+      .join('') +
+    cols(
+      panel(
+        'A consultant on three operators’ sites signs in three times',
+        '<p class="mk-tight">That is not an oversight in the drawing and it is not a roadmap item. One deployment per customer, in the customer’s own cloud, pinned to one directory tenant — and the pinning is checked three times over, because the failure mode is silent: point the instance at a multi-tenant authority and every standard check still passes while it quietly accepts sign-ins from every tenant there is.</p>' +
+          '<p class="mk-tight">So the consultancy has three identities in three directories and three sets of bookmarks, and there is no surface anywhere that shows them one list of their work. <strong>Building that surface would mean joining data across customers, which is the one thing this architecture exists to make impossible.</strong> The inconvenience is the guarantee, seen from the other side.</p>' +
+          '<p class="mk-tight mk-muted">The operator gets the other half of the same trade: nothing about this engagement is visible to, routed through, or dependent on the vendor. There is no external-party directory Strataflow keeps, because there is no Strataflow-operated anything.</p>',
+      ),
+      panel(
+        'Where it would live, which is the whole test',
+        `<p class="mk-tight">The requirement on this dimension has never been “build it”. It has been that the information architecture must <strong>accommodate it later without route restructuring</strong> — a test on the architecture, run now, rather than a licence to draw the feature.</p>` +
+          table({
+            head: ['This record', 'Would be'],
+            scroll: true,
+            label: 'Where the engagement would sit',
+            rows: [
+              ['The engagement', `<code class="mk-file">${esc(E.route)}</code>`],
+              ['Its parent', `<code class="mk-file">${esc(E.routeParent)}</code> — <a class="mk-ref" href="#roles">a route that already exists</a>`],
+              ['The project-side view', `<a class="mk-ref" href="#project-home">the project home</a> — a panel on a page that already exists`],
+              ['Routes that would move', '<span class="mk-num mk-num--nil">0</span>'],
+              ['New top-level sections', '<span class="mk-num mk-num--nil">0</span>'],
+            ],
+          }) +
+          '<p class="mk-tight">A binding is already an instance-level record and access is already a section. An engagement is a record <em>about</em> a binding, so it is a child of the screen that lists them — and the project manager’s view of it is a panel where they already look for who else is in here. Nothing above either one moves.</p>' +
+          '<p class="mk-tight"><strong>And this catalogue’s own brief says that test is not a licence to draw the feature</strong>, which is why what is drawn is the seam and the decisions rather than the thing itself. There is no form here that creates an engagement, no directory these controls reach, and no screen anywhere that lists a party the operator has not contracted with. The one thing a drawing can settle — <em>does the architecture have room for this</em> — is settled above.</p>' +
+          '<p class="mk-tight mk-muted">The authorisation model passes the same test on its own terms: a scope is a set of grants rather than a list of project ids, precisely so this dimension is <strong>a field on a grant and a clause in one predicate</strong> rather than a rewrite of every query. The anchors already carry a facility column that nothing reads yet, kept so the site-subset half has somewhere to land.</p>',
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * How it ends
+     * ---------------------------------------------------------------- */
+    `<h2 class="mk-h2" style="margin-top:1.4rem">How the access ends, and what outlives it</h2>` +
+    cols(
+      panel(
+        'Four things happen when it ends, and three of them are “nothing”',
+        C.pipeline(E.ending.map((s) => ({ name: s.step, detail: s.detail, state: s.state }))) +
+          `<p class="mk-tight mk-muted">None of it has happened — the four stages are drawn waiting, because the engagement has ${E.daysLeft} days left. It ends the way the contract ends, and what the operator keeps is what the contract said they keep: the work products stay with them, which is the requirement this dimension has carried since it was written down.</p>`,
+      ),
+      panel(
+        'And the honest part: nothing enforces the date',
+        `<p class="mk-tight">The countdown above is a <strong>record with a clock beside it</strong>. What actually ends the access is somebody emptying <code>${esc(E.binding.group)}</code> in the directory — and if nobody does, ${esc(E.people[0].name)} keeps a working Contributor binding on ${esc(E.ends)} and on every day after it.</p>` +
+          `<p class="mk-tight">That is exactly the failure the S8 dimension is written to remove: the engagement window belongs on the grant, so access ends with the contract rather than with somebody remembering to revoke it. It is named in the code as one of two extension points and deliberately left undeclared, on the stated ground that an unread field rots.</p>` +
+          C.blastRadius({
+            lede: 'Ending it now, from this screen — what that would write:',
+            rows: [
+              { what: 'Directory groups emptied', n: '1' },
+              { what: 'Principals refused at their next request', n: String(E.counts.principals) },
+              { what: 'Rows deleted', n: '0' },
+              { what: 'Results, qualifiers and draft sections withdrawn', n: '0' },
+              { what: 'Audit rows re-attributed or removed', n: '0' },
+            ],
+            action: 'End the engagement',
+            danger: true,
+            reversible:
+              'Reversible in the only sense that matters: re-adding the group restores the reach, and nothing was destroyed to remove it. What cannot be undone is that the engagement ended on a date, which is a fact and stays on the record.',
+          }) +
+          `<p class="mk-tight mk-muted">The control is drawn against a directory this catalogue does not have. It is here because a screen that shows an expiry and offers no way to act on it teaches the reader to go and do the real work somewhere else — which is how an expiry date becomes decoration.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The trail
+     * ---------------------------------------------------------------- */
+    cols(
+      panel(
+        `What they have touched — ${theirRows.length} recorded ${theirRows.length === 1 ? 'act' : 'acts'}`,
+        table({
+          caption: 'The same six columns as every other row on the trail, because it is the same trail.',
+          head: ['At', 'Principal', 'Action', 'Table', 'What'],
+          scroll: true,
+          label: 'What the engagement has written',
+          rows: theirRows.map((a) => [
+            `<span class="sf-instant">${esc(a.at)}</span>`,
+            `<span class="mk-file">${esc(a.who)}</span>`,
+            tag(a.action, a.action === 'insert' ? 'good' : 'warn'),
+            `<code>${esc(a.table)}</code>`,
+            esc(a.what),
+          ]),
+        }) +
+          `<p class="mk-tight">A bore filed under the wrong area is a real defensibility problem — every area summary in the report counts it in the wrong place — and it is exactly the kind of thing a hydrogeologist reading a network for the first time finds. It is recorded here as ${esc(E.people[0].name)}’s act, by the database, with no application code deciding to record it.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#audit">The whole trail, and how to ask this question of it</a></div>`,
+      ),
+      notice(
+        'default',
+        'There is no “external” column on an audit row, and adding one would be a mistake.',
+        'What makes this act findable is the subject it already carries. The party owns that domain, the operator’s directory issued the identity, and the trail records what the request arrived as — so the answer to “what did the consultants touch” comes out of the data rather than out of a flag somebody has to remember to set. A flag would be a second copy of a fact the directory owns, and a second copy is a thing that drifts.',
+      ),
+      '3fr 2fr',
+    )
+  );
+};
 
 /* ================================================================== *
  * J9 — Keep the instance alive
@@ -6644,11 +7105,11 @@ const projectList = () => {
     notice(
       'default',
       'The role is on the row because “as what” is the first thing scope decides.',
-      `You are a <strong>Contributor</strong> at ${esc(PROJECT.code)} and an <strong>Approver</strong> at ${esc(KURRAJONG.code)} — the same person, two sites, two sets of controls. As Approver you may sign a submission off and may not answer a review question; as Contributor the reverse. The controls that a binding does not carry are absent on that project rather than present and refusing, which is why the role has to be legible before you switch. A third role is on the register at <a class="mk-ref" href="#roles">Access</a>: S. Petrelli holds Reader here and can read and export everything and write nothing.`,
+      `You are a <strong>Contributor</strong> at ${esc(PROJECT.code)} and an <strong>Approver</strong> at ${esc(KURRAJONG.code)} — the same person, two sites, two sets of controls. As Approver you may sign a submission off and may not answer a review question; as Contributor the reverse. The controls that a binding does not carry are absent on that project rather than present and refusing, which is why the role has to be legible before you switch. A third role is bound on this project and sits on the <a class="mk-ref" href="#roles">Access</a> register beside the others: Reader, held by <a class="mk-ref" href="#project-settings">S. Petrelli</a>, who can read and export everything and write nothing.`,
     ) +
     table({
       caption:
-        'Bindings resolve from Entra group membership and are re-read at sign-in. Every count below is taken from this project’s own records at build time — locations from the register, exceedances from the evaluation, overdue rounds from the programme.',
+        'Bindings resolve from Entra group membership, and membership is resolved from the directory on every request rather than read from the token — a snapshot taken at sign-in would leave somebody removed from a group working for the rest of the day. Every count below is taken from this project’s own records at build time — locations from the register, exceedances from the evaluation, overdue rounds from the programme.',
       head: ['Code', 'Project<small>facility</small>', 'Your role', 'Locations', 'Exceedances', 'Unacknowledged', 'Rounds overdue', 'Next round due', ''],
       rows,
       kind: 'matrix',
@@ -6684,7 +7145,7 @@ const projectList = () => {
           C.stateBlock('empty', {
             headline: 'You are signed in, and you hold no project bindings.',
             detail:
-              'Strataflow reads your access from your organisation’s directory groups, not from a list kept here — so nobody at Strataflow can grant it, and neither can this screen. Your administrator adds you to a group like SG-Strataflow-&lt;project&gt;-Contributors; access appears the next time you sign in. You are signed in as anakamura@wandalup.example on tenant wandalup.example.',
+              'Strataflow reads your access from your organisation’s directory groups, not from a list kept here — so nobody at Strataflow can grant it, and neither can this screen. Your administrator adds you to a group like SG-Strataflow-&lt;project&gt;-Contributors; access appears on your next request, without signing in again. You are signed in as anakamura@wandalup.example on tenant wandalup.example.',
             action: 'Copy the request for your administrator',
             secondary: 'Check my identity',
           }),
@@ -6794,7 +7255,58 @@ const projectHome = () => {
         `<p class="mk-tight mk-muted">The tile that would be a dashboard here is a portfolio one — <em>how are my other sites</em> — and it is deliberately absent. This page cannot answer it without counting rows it does not own, so the question goes to <a class="mk-ref" href="#projects">Projects</a> and <a class="mk-ref" href="#obligations">Reporting obligations</a>, which do.</p>`,
     ),
     '3fr 2fr',
-  )
+  ) +
+  /*
+   * Wave 11 — who else is in here, until when, and sponsored by whom.
+   *
+   * A project manager asks this on the project, not on an instance-wide
+   * access register, and until now the only answer was a membership tab one
+   * screen away that said nothing about time. Both counts narrow on
+   * `m.project === PROJECT.code` in the same way every other count on this
+   * page does, so the panel cannot start counting the other project's people.
+   */
+  ((here) => {
+    const externals = here.filter((m) => m.party);
+    const internals = here.filter((m) => !m.party);
+    const E = ENGAGEMENT;
+    return (
+      `<h2 class="mk-h2" style="margin-top:1.4rem">Who else is in here</h2>` +
+      cols(
+        table({
+          caption: `${here.length} principals hold an active binding on ${esc(PROJECT.code)} — ${internals.length} of the operator’s own and ${externals.length} under one external engagement. Counted on this project’s rows, like every other number on this page.`,
+          head: ['Person', 'Role', 'Party', 'From group', 'Until', 'Last seen'],
+          kind: 'matrix',
+          label: 'Who holds a binding on this project',
+          rows: here.map((m) => [
+            `${esc(m.name)}<small>${esc(m.identity)}</small>`,
+            `<span class="mk-tag mk-tag--${m.role === 'Approver' ? 'new' : m.role === 'Reader' ? 'neutral' : 'good'}">${esc(m.role)}</span>`,
+            m.party
+              ? `<a class="mk-ref" href="#engagement">${esc(m.party)}</a>`
+              : `<span class="mk-muted">${esc(PROJECT.operator)}</span>`,
+            `<span class="mk-muted">${esc(m.group)}</span>`,
+            m.until
+              ? `<span class="sf-instant">${esc(m.until)}</span><small>${E.daysLeft} days</small>`
+              : '<span class="mk-muted">— no end date</span>',
+            `<span class="sf-instant">${esc(m.lastSeen)}</span>`,
+          ]),
+        }),
+        panel(
+          `One engagement, ${E.daysLeft} days left`,
+          facts([
+            ['Party', `<a class="mk-ref" href="#engagement">${esc(E.party.name)}</a>`],
+            ['Doing', esc(E.scope)],
+            ['As', `<span class="mk-tag mk-tag--good">${esc(E.binding.role)}</span> on <code>${esc(E.binding.project)}</code>`],
+            ['Sponsored by', `${esc(E.binding.sponsor)}<small>${esc(E.binding.sponsorTitle)}</small>`],
+            ['Ends', `<span class="sf-instant">${esc(E.ends)}</span><small>${C.status(E.state, E.state === 'expiring' ? 'warn' : 'good')} as at ${esc(E.asAt)}</small>`],
+          ]) +
+            `<p class="mk-tight"><strong>The extension was owed ${E.noticePassedBy} days ago.</strong> The agreement asks for it ${E.noticeDays} days before the end date; that was ${esc(E.noticeFrom)}. Nothing here has lapsed yet — and the person who would notice is the one reading this page, not whoever last opened the instance-wide access register.</p>` +
+            `<p class="mk-tight mk-muted">The other ${internals.length} rows carry no end date because an internal binding ends when the group membership does, and there is nothing else to say about it. Only the engagement has a term, which is why only its rows have that column filled.</p>` +
+            '<div class="mk-actions"><a class="mk-btn" href="#engagement">The engagement</a><a class="mk-btn" href="#roles">Every binding on this instance</a></div>',
+        ),
+        '3fr 2fr',
+      )
+    );
+  })(MEMBERS.filter((m) => m.project === PROJECT.code && m.state === 'active'))
   );
 };
 
@@ -8407,16 +8919,28 @@ const projectSettings = () => (
     '3fr 2fr',
   ) +
   '<h2 class="mk-h2" style="margin-top:1.4rem">Membership</h2>' +
+  /*
+   * Wave 11 adds no column and no row of its own here. `MEMBERS` gained two
+   * rows under an external engagement, and this table already renders that
+   * register — so the only change is that a row carrying a party says so, and
+   * a row carrying an end date prints it beside the date it was granted. A
+   * time-bounded binding drawn without its end date would read as permanent,
+   * which is the one thing it is not.
+   */
   table({
     caption: 'Role bindings resolve from directory groups. Nothing here grants access directly — the group does, and this shows what that produced.',
     head: ['Person', 'Identity', 'Project', 'Role', 'From group', 'Granted', 'By', 'Last seen', 'State'],
     rows: MEMBERS.map((m) => [
-      esc(m.name),
+      m.party
+        ? `${esc(m.name)}<small><a class="mk-ref" href="#engagement">${esc(m.party)}</a> — external</small>`
+        : esc(m.name),
       `<span class="mk-file">${esc(m.identity)}</span>`,
       `<code>${esc(m.project)}</code>`,
       `<span class="mk-tag mk-tag--${m.role === 'Approver' ? 'new' : m.role === 'Reader' ? 'neutral' : 'good'}">${esc(m.role)}</span>`,
       `<span class="mk-muted">${esc(m.group)}</span>`,
-      `<span class="sf-instant">${esc(m.granted)}</span>`,
+      m.until
+        ? `<span class="sf-instant">${esc(m.granted)}</span><small>until ${esc(m.until)}</small>`
+        : `<span class="sf-instant">${esc(m.granted)}</span>`,
       esc(m.by),
       `<span class="sf-instant">${esc(m.lastSeen)}</span>`,
       C.status(m.state, m.state === 'active' ? 'good' : 'neutral'),
@@ -9273,6 +9797,24 @@ const coverage = () => {
      */
     ['DR-3', 'No integration routes customer data through vendor infrastructure', 'covered', 'exchange · alerts', 'P1',
       'Stated on the export record, where a reader would look for a send button: an export is a file and a manifest, this instance holds no destination for one, and the two controls that exist are named beside the one that does not. The alerting precedent — every destination a configured row, no relay behind it — is cited rather than restated'],
+    /*
+     * Wave 11 — 2 September 2026, and this row is *new* rather than moved.
+     *
+     * The list above was built on 1 September from the PRD's requirement
+     * register — the FR, QB, OM and DR families — and OD-2 is in none of
+     * them: it is a resolved **open decision** in the PRD's §14, not a
+     * requirement. So there was no row to flip, and the honest thing is a new
+     * row that says which list it came from and that the list grew, rather
+     * than a silently wider denominator. The enumeration note below names
+     * §14 now, and the section heading dates the addition.
+     *
+     * `proposed`, on the same rule waves 8, 9 and 10 used: a claim about this
+     * catalogue and not about the product. The PRD's resolution — out of v1,
+     * added at S8 when a consultancy customer is real — is untouched, and the
+     * screen that owns the row is `proposed` in the register.
+     */
+    ['OD-2', 'External-party and consultancy access (S8)', 'proposed', 'engagement · roles · project-home · audit', 'P4',
+      `Drawn 2 Sep 2026 as a proposal — one party, one engagement, one time-bounded Contributor binding through its own directory group, with ${ENGAGEMENT.daysLeft} days left as at ${ENGAGEMENT.asAt} and the extension owed ${ENGAGEMENT.noticePassedBy} days ago, both derived. The boundary is stated in both directions with the refusing mechanism on each of the ${ENGAGEMENT.counts.cannotSee} rows it cannot reach, and ${ENGAGEMENT.counts.notInV1} things v1 does not have are drawn as decisions with what was checked beside each. Nothing is scoped by a new mechanism: the engagement would be a child of a route that exists, and the PRD's out-of-v1 resolution and S8 marking stand`],
   ];
 
   const BASELINE = [
@@ -9385,7 +9927,7 @@ const coverage = () => {
       stat('14 / 14', 'global expectations drawn', 'good'),
       stat(`${answered} / 27`, 'audit findings answered', 'warn'),
       stat(String(DOMAIN.length), 'domain gaps closed', 'good'),
-      stat(`${prdCovered} / ${PRD.length}`, 'PRD rows drawn (1 Sep)', 'warn'),
+      stat(`${prdCovered} / ${PRD.length}`, 'PRD rows drawn', 'warn'),
       stat(String(BASELINE.length), 'incumbent rows answered', 'good'),
       stat(`${journeysOwned} / ${JOURNEYS_WALK.length}`, 'journeys fully owned', 'warn'),
     ]) +
@@ -9393,7 +9935,7 @@ const coverage = () => {
     notice(
       'warning',
       'Exhaustive relative to six closed lists, and no further.',
-      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. <strong>It grew on 2 September 2026</strong>: the brief’s deferred telemetry journey is walked below as a tenth row, so the journeys table is now measured against ten rather than nine. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
+      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. <strong>It grew twice on 2 September 2026</strong>: the brief’s deferred telemetry journey is walked below as a tenth row, so the journeys table is now measured against ten rather than nine — and the PRD register gained <code class="mk-file">OD-2</code>, which is not a requirement but a resolved open decision from that document’s §14, so its denominator moved by one as well. A list that grows is the honest outcome; a denominator that moves without saying so is not. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
     ) +
     '<h2 class="mk-h2">Global expectations — every screen, no exceptions</h2>' +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Ref</th><th>Expectation</th><th>Drawn on</th><th>How</th></tr></thead><tbody>${GLOBAL.map(
@@ -9433,7 +9975,7 @@ const coverage = () => {
           .map((w) => (w.includes(' ') || w.startsWith('n/a') ? `<span class="mk-muted">${esc(w)}</span>` : `<a class="mk-ref" href="#${w}">${esc(w)}</a>`))
           .join(' · ')}</td><td>${how}</td></tr>`,
     ).join('')}</tbody></table></div>` +
-    '<h2 class="mk-h2">The PRD register — every requirement row, and what owns it here (added 1 Sep 2026)</h2>' +
+    '<h2 class="mk-h2">The PRD register — every requirement row, and what owns it here (added 1 Sep 2026; OD-2 joined 2 Sep 2026)</h2>' +
     notice(
       'default',
       'Statuses speak about what is drawn, not what is built.',
@@ -9494,7 +10036,7 @@ const coverage = () => {
               ['Surfaces', 'The register’s §15 matrix', 'Every glossary entity has an owning screen'],
               ['Findings', 'The August audit report', 'Every F-number appears once above'],
               ['Entities', 'The glossary and the schema', 'A new table is a new row here'],
-              ['PRD register', 'docs/PRD.md §7–§9, §12 (app repo)', 'Every FR, QB, OM and DR id appears exactly once above'],
+              ['PRD register', 'docs/PRD.md §7–§9, §12, §14 (app repo)', 'Every FR, QB, OM and DR id appears exactly once above — and OD-2, the one open decision this catalogue has drawn'],
               ['Incumbent baseline', 'docs/reference/incumbent-baseline.md', 'Every §2–§5 capability row appears once above'],
               ['Journeys', 'EXPANSION_BRIEF.md §8', 'Every step renders as a link, or is flagged unowned'],
             ],
@@ -9721,6 +10263,36 @@ export const JOBS = [
       { id: 'dictionary', label: 'Analyte dictionary', body: dictionary, state: 'engine-only', now: 'shipped' },
       { id: 'units', label: 'Units and conversions', body: unitsScreen, state: 'engine-only', isNew: true, now: 'shipped' },
       { id: 'roles', label: 'Access', body: roles, state: 'engine-only', now: 'shipped' },
+      /*
+       * Wave 11, and the `state`-less rule a fifth time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) An
+       * engagement is a durable record with a lifecycle of its own —
+       * proposed → active → expiring → ended — and the decision it exists for
+       * is one somebody takes on a date: *this engagement ends in 26 days and
+       * the extension was owed 4 days ago; extend it, end it, or let it
+       * lapse.* (2) No existing screen owns it. `roles` owns **bindings** —
+       * "members of this group hold this role, here" — and a binding is not a
+       * party, not a contract, not a sponsor and not a window; in this product
+       * it is five columns and none of them is any of those.
+       * `project-settings` owns one project's membership, and an engagement
+       * is neither one project's nor one person's. `audit` owns what was
+       * done, after the fact. (3) It needs its own state: the party, the term
+       * and its countdown, the boundary stated in both directions with the
+       * mechanism on every row, the four things v1 does not have, and the
+       * ending with its blast radius are a record, not a panel on something
+       * else. (4) It improves the graph rather than the count — it is the
+       * only screen that reaches a party or an engagement at all, and it
+       * gives `roles`, `project-home` and `audit` a target they would
+       * otherwise have to describe instead of link.
+       *
+       * `proposed`, and it stays that way: OD-2 is resolved **out of v1** in
+       * the PRD's own words, with the external-party dimension added at S8
+       * when a consultancy customer is real. Drawing a deferred decision does
+       * not reschedule it.
+       */
+      { id: 'engagement', label: 'External-party engagement', body: externalEngagement, now: 'proposed', added: '2026-09-02' },
     ] },
   { id: 'j9', n: 'J9', title: 'Keep the instance alive', who: 'U6',
     note: 'CLI, and this is the one job where that is the right answer rather than a shortfall — except that none of it is self-servable.',
@@ -9760,7 +10332,10 @@ export const RELATED = {
   home: ['exceedances', 'import-review', 'programme', 'projects', 'search'],
   search: ['location', 'crosstab', 'certificate', 'licence'],
   projects: ['project-home', 'project-settings', 'roles', 'home'],
-  'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings'],
+  // Wave 11: the project manager's 'who else is in here' has a record to
+  // open, so the declared architecture says so rather than the panel linking
+  // out of a graph that never admitted the edge.
+  'project-home': ['locations', 'imports', 'exceedances', 'obligations', 'project-settings', 'engagement'],
 
   locations: ['location', 'facility', 'events', 'crosstab', 'map', 'water', 'instruments', 'composite'],
   // Wave 8: the bore reaches what is hanging in it, and the series that
@@ -9862,7 +10437,7 @@ export const RELATED = {
   // only the composite record can answer, so it links there rather than
   // describing it.
   lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite'],
-  audit: ['lineage', 'supersession', 'roles'],
+  audit: ['lineage', 'supersession', 'roles', 'engagement'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],
 
@@ -9876,7 +10451,13 @@ export const RELATED = {
   'mapping-profiles': ['formats', 'dictionary', 'import-review', 'supersession', 'exchange'],
   dictionary: ['formats', 'criteria', 'import-review', 'units'],
   units: ['dictionary', 'result-detail', 'lineage'],
-  roles: ['audit', 'signoff', 'project-settings'],
+  roles: ['audit', 'signoff', 'project-settings', 'engagement'],
+  // Wave 11 — the engagement. Its exits are the register that holds its
+  // binding, the project it reaches, the two surfaces it is measured against
+  // (the project list, whose two rows are one for this principal, and the
+  // approval screen, which is the control the binding does not carry), the
+  // trail its one act is on, and the project's own membership tab.
+  engagement: ['roles', 'audit', 'project-home', 'projects', 'signoff', 'project-settings'],
 
   instance: ['diagnostics', 'upgrade', 'audit'],
   upgrade: ['instance', 'diagnostics', 'entitlement'],

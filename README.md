@@ -759,6 +759,107 @@ it is recorded — dated, in the seed and on the screen — rather than guessed 
 Guessing the vocabulary of a code is the same mistake as guessing a field mapping, and the
 whole of that screen is about not doing that.
 
+**Wave 11 (2 September 2026) draws the one dimension the PRD deliberately kept as a seam.**
+External-party access is resolved **out of v1** — single operator, single organisation — with
+project-scoped row-level security kept as the seam so the dimension is added at S8 when a
+consultancy customer is real, and consultants named as people who execute much of this work
+while being *not first-class users in v1*. The §7 test on the information architecture is that
+it must accommodate that later **without route restructuring**, and this wave is that test run.
+`#engagement` is `proposed`, and drawing a deferred decision does not reschedule it.
+
+**One party, one engagement, one binding, and the arithmetic is the screen.** Coolibah
+Environmental Pty Ltd — fictional twice over: an obviously invented name, and every identity on
+`coolibah.example`, a reserved domain that can never resolve, as the operator's own
+`wandalup.example` cannot — holds a **Contributor** binding on `MOCK-WDL` through a group of its
+own, sponsored by the operator's Approver, from 2026-03-02 to 2026-06-19. Two dates are
+literals and everything else is derived from them and from `AS_AT`: a **109-day** term, **83**
+elapsed, **26 days of access left**, and the extension the agreement asks for 30 days out
+**owed 4 days ago**. `Expiring` is not a stored state — it is `active` inside the notice
+window, computed, because a stored state goes stale on the day it matters.
+
+**Contributor rather than Reader, and the reason is drawn.** Validating a result is a write
+with a principal on it. Reader would have been the smaller grant and would also have left the
+trail with nothing to answer *what did the consultants touch* with, because the audit record is
+a record of mutations and a principal who writes nothing appears in it not at all.
+
+**The claim the screen makes is a negative one: nothing was built for this.** A read by the
+engaged hydrogeologist goes through the same repository layer, narrows through the same single
+predicate, and lands on the same row-level policy as a read by anyone in the operator's own
+team — and the two mechanisms fail differently on purpose, one throwing and one returning zero
+rows, because *you do not have access* and *this project has no data* are different sentences.
+The two principal records are drawn side by side to make it structural: same fields, same
+shape, **one binding instead of two**. There is no external principal type and no second code
+path.
+
+**Six refusals, each with the mechanism that refuses it**, because "they cannot see the other
+project" is a claim and the mechanism is the evidence for it: the second project (one grant in
+the list), the cross-project registers (which render what the bindings admit — two rows for
+this principal, one for the engagement), sign-off (Approver is not in the binding, and a
+control a binding does not carry is absent rather than refusing), *what any other principal did
+across the instance* (an auditor binding, which is instance-wide by nature and cannot be
+reached from a project), the audit table read directly (denied to the application role
+outright), and the deployment surfaces (not a project binding at all).
+
+**And one thing the trail cannot answer, said rather than discovered.** A sign-in is
+deliberately not audited — it is the act that *establishes* the principal, so there is no
+principal to attribute it to. *What did the consultants touch* is answerable; *what did the
+consultants look at* is not, and no care with an engagement changes that.
+
+**Four things v1 does not have, drawn as decisions with what was checked beside each.** A role
+binding is **five columns** — `created_at`, `directory_group_id`, `id`, `project_id`, `role` —
+and a test asserts none of them names a person, so there is nowhere on a binding to put a
+party, a sponsor or an end date and the engagement record is what the S8 dimension would add.
+Every token's tenant claim must equal the one pinned tenant, checked at configuration, at
+discovery and on every token, so **a consultant working for three operators signs in to three
+instances** and building the surface that joined them would be the opposite of what
+single-tenancy is for. The **engagement window is named in the code as one of two extension
+points and deliberately left undeclared**, on the stated ground that an unread field rots — so
+the end date on this screen is a record with a clock beside it, and what actually ends the
+access is the directory group emptying. And there is no user table: an external person needs an
+identity in the *customer's* directory and membership of the group, and whether that is a guest
+invitation, a contractor account or a federation the customer already runs is the customer's
+process, which Strataflow neither performs nor records.
+
+**Where it would live is the whole test, and the answer is nowhere new.** The engagement is a
+child of `/instance/access`, a route the product already serves; the project manager's view of
+it is a panel on a project home that already exists. **Routes that would move: 0. New
+top-level sections: 0.** The authorisation model passes the same test on its own terms — a
+scope is a set of grants rather than a list of project ids precisely so this dimension is a
+field on a grant and a clause in one predicate, and the scope anchors already carry a facility
+column that nothing reads yet, kept so the site-subset half has somewhere to land.
+
+**And it found three things wrong in the register it was extending.** `#roles` carried four
+hand-typed directory groups (`WDL-Env-Leads`, `WDL-Env-Team`, `WDL-Geotech`, `WDL-Exec`) that
+appear nowhere else in this seed, while `#project-settings` resolved the same people through
+three differently-named ones — **two registers of the instance's authorisation configuration,
+disagreeing**, with a third screen pointing at `#roles` for a Reader binding that was on
+neither. There is one list now and the membership register names its groups from it. One of
+those rows, `WDL-Exec → Reader → all projects`, is a shape the **database refuses**: a binding
+is instance-wide if and only if its role is `auditor`, as a check constraint, so a Reader over
+"all projects" is not a configuration to be careful with — it is a row that will not insert.
+It is drawn as the two things it was conflating, a Reader binding on the project and the
+**Auditor** authority, which is the glossary's fourth role and the one behind the instance-wide
+audit read. And the `Members: 2 · 6 · 3 · 4` column counted a **group roster this product never
+reads** — Strataflow asks the directory which groups a principal is in, never who is in a
+group — so the column now counts principals this instance has *seen*, from the membership
+register, and the auditor binding correctly reads 0. Two sentences on `#projects` were
+corrected the same way: bindings are re-read **on every request**, not at sign-in, and access
+appears on the next request rather than the next sign-in — a snapshot taken at sign-in is
+exactly what the product refuses, because it would leave somebody removed from a group working
+for the rest of the day.
+
+**And one thing it recorded rather than fixed.** This catalogue runs on **two clocks**. `AS_AT`
+is 2026-05-24 and every countdown measures from it, but the membership register carries six
+last-seen values in July and August 2026 — up to **91 days after** the as-at date — and the
+entitlement's "130 days" is 2026-08-23 → 2026-12-31 rather than anything `AS_AT` produces. The
+project and monitoring surfaces are dated 24 May; the instance and administration surfaces are
+dated 23 August, the day they were first drawn. The engagement is on the `AS_AT` clock as this
+wave requires, and states its own as-at date on its face so no reader has to infer which one it
+is on. Closing it means either moving `AS_AT` — which re-derives every countdown on the
+obligations board, the programme and the notification — or moving August literals on four
+screens outside this wave. Dated, in the seed, beside the dates it affects.
+
+
 **What was verified, and how.** All 66 screens were driven in a real browser at 1000 px and
 375 px and checked for horizontal overflow against the canvas edge, duplicate ids, controls
 with no accessible name, heading order, empty panels and degenerate SVG geometry — all

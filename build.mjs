@@ -120,7 +120,12 @@ const SECTION_VIEW = [
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
   { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
   { label: 'Configuration', lede: '/config — reference data the whole instance shares', ids: ['formats', 'dictionary', 'units'] },
-  { label: 'Instance', lede: '/instance — the deployment itself, and who may enter it', ids: ['instance', 'roles', 'upgrade', 'diagnostics', 'entitlement'] },
+  // Wave 11 files the engagement here and the lede needs no clause for it:
+  // "who may enter it" is already the question this group answers, and an
+  // engagement is a record about one of the bindings `roles` lists. It would
+  // be a child of `/instance/access` if it were built, which is the same
+  // relationship `upgrade` and `diagnostics` have to `/instance`.
+  { label: 'Instance', lede: '/instance — the deployment itself, and who may enter it', ids: ['instance', 'roles', 'engagement', 'upgrade', 'diagnostics', 'entitlement'] },
   { label: 'Conventions', lede: '/help, and the viewer’s own audit of this catalogue', ids: ['data-states', 'assistance', 'coverage'] },
 ];
 
@@ -377,6 +382,19 @@ const ROOTS = {
   // crumb names it without linking — an unlinked crumb is honest about a
   // parent that exists in the URL space and not as a page.
   obligations: [{ label: 'Across projects' }],
+  /*
+   * Wave 11. `INSTANCE_SPACE` below would have put this under `/instance`
+   * alone, and the project trail would have put it under MOCK-WDL — which is
+   * what it did until this entry existed, and it contradicted the screen's
+   * own route line one heading away. An engagement is a record about a
+   * binding, so its parent is the access register rather than the instance
+   * root: two crumbs, matching `/instance/access/engagements/:engagementId`
+   * exactly.
+   */
+  engagement: [
+    { label: 'Instance', target: 'instance' },
+    { label: 'Access', target: 'roles' },
+  ],
 };
 const INSTANCE_SPACE = new Set(['instance', 'roles', 'upgrade', 'diagnostics', 'entitlement']);
 const CONFIG_SPACE = new Set(['formats', 'dictionary', 'units']);

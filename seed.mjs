@@ -315,6 +315,340 @@ export const PRINCIPAL = (() => {
   };
 })();
 
+/**
+ * The external-party engagement — wave 11, and the seam the PRD kept.
+ *
+ * OD-2 is **out of v1**: the app repo's PRD §14 resolves it "Single operator,
+ * single organisation. Project-scoped RLS is kept as the seam; the
+ * external-party dimension is added at S8 when a consultancy customer is
+ * real", and §4.3 says consultants "are **not first-class users in v1**".
+ * Nothing below reschedules that. What is drawn is the *seam* — a consultancy
+ * reaching one project through the same scoping every internal principal
+ * already goes through, and an explicit list of what v1 does not have.
+ *
+ * ## "Engagement" is borrowed, not minted (§5.9, QB-9)
+ *
+ * It is **not** a `docs/GLOSSARY.md` entry, and this record does not claim it
+ * is. It is the app repo's own word for this thing, in two places that are not
+ * prose about the future but comments beside the code the S8 change lands in:
+ *
+ *   - `apps/web/lib/authz/scope.ts`, on `Grant` — "`from`/`until`  the
+ *     **engagement window**, so access ends with the contract rather than with
+ *     someone remembering to revoke it (G-62)";
+ *   - the same file, in `scopePredicate` — "the grants are OR-ed together,
+ *     because a principal may hold several **engagements** at once";
+ *   - `packages/db/src/rls.ts`, on `ProjectScope` — "When G-62 adds the
+ *     facility subset and the engagement window…".
+ *
+ * `docs/GOALS.md` G-62 is the goal itself — *External-party and consultancy
+ * access* — and its outcome names "scoped sharing by site and period,
+ * contract-transition revocation with work products retained by the operator".
+ * So the catalogue spends no new word here: the nouns are *external party*,
+ * *engagement*, *engagement window*, and every role word below is the
+ * glossary's own closed set of four — reader, contributor, approver, auditor.
+ *
+ * Two more words, and neither is an abstraction over an established concept
+ * (QB-9). **Party** is G-62's own noun — its title is *External-party and
+ * consultancy access* — and the glossary's only use of the bare word is the
+ * generic one in *custody transfer* ("from one party to another"), so nothing
+ * is being overloaded. **Sponsor** is not in the glossary at all and is not
+ * proposed for it: it is the plain word for the person inside the operator
+ * who owns the engagement, it names no schema column and no role, and the
+ * closed set of four roles is untouched by it. The `by` column the membership
+ * register already has is what it renders into.
+ *
+ * The words this record deliberately does **not** use: *tenant* for the
+ * consultancy (a tenant is the deployment's own Entra tenant, and this
+ * instance is pinned to exactly one), *client* (the operator is the customer;
+ * the consultancy's clients are nobody's business here), *viewer* (wave 5
+ * settled Reader), and *estate*, which wave 10 recorded as already spent on
+ * the deployment portfolio.
+ *
+ * ## The party is fictional by construction
+ *
+ * Wave 9's recorded convention: `MOCK-` marks *this instance's own artefacts*
+ * — project codes, the purchase-order reference, the engagement identifier —
+ * while a fictional *party* is marked by being obviously fictional, as
+ * `Pilbara Analytical Services` and `Tallering Metals Pty Ltd` are. This one
+ * carries a second, structural marker as well: every identity sits on
+ * `coolibah.example`, and `.example` is a reserved TLD that can never resolve
+ * (RFC 2606), exactly as the operator's own `wandalup.example` does.
+ *
+ * ## Every date below is derived from AS_AT, and one is not
+ *
+ * `granted` and `ends` are the contract's two dates and are literals, like
+ * every other instrument date in this seed. Everything else — the term, the
+ * time elapsed, the time left, the notice date, the lifecycle state — is
+ * arithmetic on those two and `AS_AT`, so no screen types a countdown.
+ */
+export const ENGAGEMENT = (() => {
+  /** ISO date arithmetic at UTC midnight. No clock is read; a rebuild is identical. */
+  const addDays = (iso, n) =>
+    new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+  const party = {
+    name: 'Coolibah Environmental Pty Ltd',
+    kind: 'Environmental consultancy',
+    domain: 'coolibah.example',
+    based: 'Perth, Western Australia',
+    engagedFor: 'Groundwater validation, interpretation and quarterly reporting',
+  };
+
+  /* The contract's two dates. Everything else is arithmetic on them. */
+  const granted = '2026-03-02';
+  const ends = '2026-06-19';
+  /** The agreement's own term: an extension is agreed this many days out, or it ends. */
+  const noticeDays = 30;
+
+  const termDays = daysBetween(granted, ends);
+  const elapsedDays = daysBetween(granted, AS_AT);
+  const daysLeft = daysBetween(AS_AT, ends);
+  const noticeFrom = addDays(ends, -noticeDays);
+  const noticePassedBy = daysBetween(noticeFrom, AS_AT);
+
+  /*
+   * The lifecycle, and the state is computed rather than stored. `expiring`
+   * is not a fifth thing that happens to an engagement — it is `active`
+   * inside the notice window, which is the only definition that cannot drift
+   * from the dates beside it.
+   */
+  const state = daysLeft < 0 ? 'ended' : daysLeft <= noticeDays ? 'expiring' : 'active';
+
+  /*
+   * ## FOUND AND DEFERRED — 2 September 2026 (wave 11), owner unassigned
+   *
+   * **This catalogue runs on two clocks, and the membership register is on
+   * the other one from every countdown.** `AS_AT` is 2026-05-24 and every
+   * countdown in this seed measures from it. But `MEMBERS` carries six
+   * `lastSeen` values in July and August 2026 — up to 91 days *after* the
+   * as-at date — and `ENTITLEMENT.remaining` is a typed `130 days`, which is
+   * 2026-08-23 → 2026-12-31 rather than anything `AS_AT` produces. The
+   * project and monitoring surfaces are dated 24 May 2026; the instance and
+   * administration surfaces are dated 23 August 2026, the day they were first
+   * drawn.
+   *
+   * **Where it bites here.** This engagement is on the `AS_AT` clock, as the
+   * wave requires — 26 days left as at 2026-05-24, every number derived. So
+   * its two principals were last seen in May while the operator's four were
+   * last seen in August, and a reader comparing the two halves of one
+   * membership table is reading two different days.
+   *
+   * **Why it is not fixed here.** Closing it means either moving `AS_AT` —
+   * which re-derives every countdown on the obligations board, the programme,
+   * the notification and the holding-time clocks, and would change numbers on
+   * screens no wave has opened — or moving the August literals on
+   * `#project-settings`, `#entitlement`, `#instance` and `#narrative`, which
+   * are four screens outside this wave. It is the same shape as wave 6's
+   * rider 3, which recorded a *one-day* disagreement rather than editing prose
+   * on six screens outside its wave; this one is 91 days and the same rule
+   * applies. Recorded rather than guessed at, and the engagement states its
+   * own as-at date on its face so no reader has to infer which clock it is on.
+   */
+
+  const binding = {
+    group: 'SG-Strataflow-WDL-Ext-Coolibah',
+    role: 'Contributor',
+    project: PROJECT.code,
+    sponsor: 'R. Whitmore',
+    sponsorTitle: 'Environmental Lead — Approver at MOCK-WDL',
+    /*
+     * Its own group, and that is the load-bearing part rather than a
+     * tidiness preference. Adding the consultancy to the operator's own
+     * `SG-Strataflow-WDL-Contributors` would make ending the engagement a
+     * matter of finding two people inside a group of six; a group of its own
+     * means the whole engagement is emptied in one act that touches no
+     * internal binding at all.
+     */
+    whyOwnGroup:
+      'A group of its own, never the operator’s Contributors group: ending the engagement is then one act on one group, and no internal binding is touched by it.',
+    /*
+     * Contributor rather than Reader, and the reason is drawn rather than
+     * asserted. The scope of work is to *validate* the round — which is a
+     * write, a transition with a principal on it — and to draft the section.
+     * A Reader binding would have been the smaller grant and would also have
+     * drawn an empty answer to the question this wave asks of the trail: the
+     * audit record is a record of mutations (ADR-0014), and a principal who
+     * writes nothing appears in it not at all.
+     */
+    whyContributor:
+      'Validating a result is a write with a principal on it, and drafting a section is a write too. Reader would have been the smaller grant and would have left the trail with nothing to answer “what did the consultants touch” with — the trail records mutations.',
+  };
+
+  const people = [
+    { name: 'L. Broadbent', title: 'Senior hydrogeologist', local: 'lbroadbent', lastSeen: '2026-05-22 11:31 AWST' },
+    { name: 'P. Sotiriou', title: 'Environmental scientist', local: 'psotiriou', lastSeen: '2026-05-19 14:07 AWST' },
+  ].map((p) => ({ ...p, identity: `${p.local}@${party.domain}` }));
+
+  /*
+   * The consultant's principal, built in the same shape as `PRINCIPAL` and
+   * from the same fields — because *that is the claim*. Nothing about an
+   * external principal is a different kind of object: it is a subject, a
+   * display name and a list of role bindings, and the only difference is that
+   * the list has one entry instead of two.
+   */
+  const asPrincipal = {
+    name: people[0].name,
+    role: people[0].title,
+    subject: people[0].identity,
+    bindings: [{ project: binding.project, role: binding.role }],
+  };
+
+  const lifecycle = [
+    { name: 'Proposed', detail: `Scope of work agreed under ${'MOCK-WDL-PO-2214'}; the group does not exist yet and nothing is reachable.`, on: '2026-02-18', state: 'done' },
+    { name: 'Active', detail: `The group is created and the binding written. ${elapsedDays} days ago.`, on: granted, state: 'done' },
+    { name: 'Expiring', detail: `Inside the ${noticeDays}-day notice window — an extension is agreed by now or the engagement ends on its date.`, on: noticeFrom, state: 'run' },
+    { name: 'Ended', detail: `The group is emptied. Access stops at the next request; every row already written keeps its principal.`, on: ends, state: 'wait' },
+  ];
+
+  /**
+   * What the party sees — and every row is the mechanism an internal
+   * principal already goes through, named, with nothing bespoke in it.
+   */
+  const sees = [
+    {
+      what: 'The project’s records — locations, samples, results, criteria, exceedances, figures, the draft report',
+      how: 'The same repository layer every screen reads through. A read narrows through one predicate and no repository writes a project filter of its own.',
+      same: 'Identical to an internal Contributor',
+    },
+    {
+      what: 'The trail of any row it can read',
+      how: 'A trail is readable exactly when its subject row is — the read walks back to the row and applies that row’s own scope, so there is no second rule to get wrong.',
+      same: 'Identical to an internal Contributor',
+    },
+    {
+      what: 'Every control a Contributor binding carries — import, review, validate, qualify, produce figures',
+      how: 'The role decides, not the party. Contributor is one of the closed set of four, and this binding is one of them like any other.',
+      same: 'Identical to an internal Contributor',
+    },
+  ];
+
+  /**
+   * What it cannot see. Each row names the mechanism that refuses it, because
+   * "they cannot see the other project" is a claim and the mechanism is the
+   * evidence for it.
+   */
+  const cannotSee = [
+    {
+      what: `${KURRAJONG.code} — its bores, its rounds, its one unacknowledged exceedance`,
+      refused: 'The grant list holds one project. The repository layer throws when a read arrives with no grant that admits it; the policy beneath returns zero rows, because a policy cannot safely raise.',
+      where: 'projects',
+      whereLabel: 'The project list',
+    },
+    {
+      what: 'The cross-project registers — the obligations board and the project list, as a portfolio',
+      refused: 'Neither is a special surface. They render what the bindings admit: two rows for the signed-in principal, who holds two; one row for this engagement, which holds one. There is nothing to switch to.',
+      where: 'obligations',
+      whereLabel: 'The obligations board',
+    },
+    {
+      what: 'Sign-off, issue, and lodging a submission',
+      refused: 'Approver is not in this binding. A control a binding does not carry is absent rather than present and refusing — which is the rule the project list already states about roles.',
+      where: 'signoff',
+      whereLabel: 'Approval and sign-off',
+    },
+    {
+      what: 'What any other principal did, across the instance',
+      refused: 'That read is not a project scope at all. It needs an auditor binding — the one role that is instance-wide by nature, and the one that cannot be arrived at from a project however many projects a scope holds.',
+      where: 'audit',
+      whereLabel: 'The audit trail',
+    },
+    {
+      what: 'The audit table itself, read directly',
+      refused: 'Denied to the application role outright. The trail is read through a role of its own that holds no project scope, so it cannot be used to read around the walk back to the subject row.',
+      where: 'audit',
+      whereLabel: 'The audit trail',
+    },
+    {
+      what: 'The deployment — version, upgrade window, backup drill, entitlement, diagnostics',
+      refused: 'Not a project binding at all. These surfaces belong to whoever operates the instance, and no role in the closed set of four reaches them by holding a project.',
+      where: 'instance',
+      whereLabel: 'Instance health',
+    },
+  ];
+
+  /**
+   * What v1 does not have, as decisions rather than gaps — each with the thing
+   * in the app repo that makes it checkable rather than asserted.
+   */
+  const notInV1 = [
+    {
+      what: 'No consultancy identity model',
+      says: 'A role binding is five columns — created_at, directory_group_id, id, project_id, role — and a test asserts that none of them names a person, a user, a member, a subject or an email. There is nowhere on a binding to put a party, a sponsor or an end date.',
+      means: 'The engagement record on this screen is what the S8 dimension would add. It is not a description of a table that exists, and this screen says so rather than drawing a form over nothing.',
+      cite: 'the role-binding column assertion in the app repo’s provisioning suite',
+    },
+    {
+      what: 'No cross-client view for the consultant',
+      says: 'Every token’s tenant claim must equal the one tenant this deployment is pinned to, and a multi-tenant authority is refused at configuration, again at discovery, and again on every token.',
+      means: 'A consultant engaged by three operators signs in to three instances. There is no surface that joins them and building one would be the opposite of what single-tenancy is for — it is the decision, not a missing feature.',
+      cite: 'the three tenant-pinning checks in the app repo’s auth layer',
+    },
+    {
+      what: 'The end date is a record, not yet a policy',
+      says: 'A grant carries one field today: the project. A facility subset and the engagement window are named in the code as the two extension points and are deliberately not declared as fields yet, on the stated ground that an unread field rots.',
+      means: 'So the countdown on this screen is something the sponsor acts on, and what actually ends the access is the directory group emptying. Drawing an enforced expiry would be drawing a policy the product does not have.',
+      cite: 'the two named extension points on the grant type',
+    },
+    {
+      what: 'No user table, and no path to one',
+      says: 'The customer’s directory is the source of truth. Strataflow holds a principal — the subject claim and the claims that came with it — and holds it because an audit record must stay answerable after the person has left.',
+      means: 'An external person needs an identity in the customer’s directory and membership of the group above. Whether that is a guest invitation, a contractor account or a federation the customer already runs is the customer’s process; Strataflow neither performs it nor records it, and does not create, name or manage the group either.',
+      cite: 'the glossary’s principal and directory-group entries',
+    },
+  ];
+
+  /** How the access ends, and what survives it. */
+  const ending = [
+    { step: 'The group is emptied, or deleted', detail: 'In the customer’s directory, by the administrators who already run joiners and leavers. Nothing is done in Strataflow, and there is nothing in Strataflow to forget to do.', state: 'wait' },
+    { step: 'The next request refuses', detail: 'Membership is resolved from the directory on every request rather than read from the token, so nothing waits for a session to expire and nobody keeps working for the rest of the day.', state: 'wait' },
+    { step: 'The work stays with the operator', detail: 'Every result validated, every qualifier applied, every figure and every draft section stays. Withdrawing access and erasing history are different acts, and only one of them was asked for.', state: 'wait' },
+    { step: 'The trail stays answerable, permanently', detail: 'Every row they wrote still carries their principal. “Who validated this” is answerable in five years by someone who has never heard of the consultancy, which is the whole reason attribution is at the database rather than in the application.', state: 'wait' },
+  ];
+
+  return {
+    id: 'MOCK-WDL-ENG-2026-01',
+    order: 'MOCK-WDL-PO-2214',
+    party,
+    binding,
+    people,
+    asPrincipal,
+    scope:
+      'Validate the 2026 Q2 groundwater round, interpret it against the criteria in force, and draft the interpretation section of the quarterly report. The operator issues it.',
+    granted,
+    ends,
+    noticeDays,
+    noticeFrom,
+    noticePassedBy,
+    termDays,
+    elapsedDays,
+    daysLeft,
+    asAt: AS_AT,
+    state,
+    lifecycle,
+    sees,
+    cannotSee,
+    notInV1,
+    ending,
+    /**
+     * Where it would live if it were built, and the point of saying so: the
+     * PRD's §7 test for OD-2 is that the information architecture accommodates
+     * it *without route restructuring*. `/instance/access` is a route the
+     * product already serves; this record is a child of it, and the
+     * project-side view of it is a panel on a project home that already
+     * exists. Nothing above either of them moves.
+     */
+    route: '/instance/access/engagements/:engagementId',
+    routeParent: '/instance/access',
+    counts: {
+      principals: people.length,
+      bindings: 1,
+      projectsReachable: 1,
+      cannotSee: cannotSee.length,
+      notInV1: notInV1.length,
+    },
+  };
+})();
+
 export const ROUND = {
   code: '2026-Q2-GW',
   label: '2026 Q2 groundwater',
@@ -1940,9 +2274,20 @@ export const LINEAGE = {
   ],
 };
 
-/** The audit trail readback. */
+/**
+ * The audit trail readback.
+ *
+ * Wave 11 adds one row and adds no column. The external principal's act is
+ * recorded by the same trigger, in the same shape, with the same fields as the
+ * seven beside it — there is no `external` flag and there must not be one.
+ * "What did the consultants touch" is answered by the *subject* the row
+ * already carries, and a flag would be a second copy of a fact the customer's
+ * directory owns. The subject is read from `ENGAGEMENT` rather than typed, so
+ * the row cannot drift from the engagement it belongs to.
+ */
 export const AUDIT = [
   { at: '2026-05-22 14:30:07', who: 'rwhitmore@wandalup.example', action: 'insert', table: 'notification_event', what: 'Notification lodged · DWER-N-2026-11842', tx: '3d91…7c02' },
+  { at: '2026-05-22 11:31:06', who: ENGAGEMENT.people[0].identity, action: 'update', table: 'location', what: 'MW07 · area corrected from Borefield to TSF', tx: 'e40a…15c7' },
   { at: '2026-05-22 09:14:22', who: 'system', action: 'insert', table: 'notification_event', what: 'Became aware recorded · immutable', tx: 'a114…9f30' },
   { at: '2026-05-19 10:22:41', who: 'dokafor@wandalup.example', action: 'insert', table: 'result', what: '42 results committed · IMP-0239', tx: '8f2c…41ab' },
   { at: '2026-05-19 10:22:41', who: 'dokafor@wandalup.example', action: 'insert', table: 'lineage', what: '42 lineage records · 1 derivation', tx: '8f2c…41ab' },
@@ -2538,7 +2883,84 @@ export const SUBMISSIONS = [
   { ref: 'WDL-AER-2025', what: 'Annual Environmental Report — 2025', to: 'DWER', submitted: '2025-09-26 16:20 AWST', by: 'R. Whitmore', snapshot: 'SNAP-0088', evidence: 'DWER portal receipt · 2025-09-26', state: 'accepted' },
 ];
 
-/** Role bindings against Entra identities (§2.3, §13.1, G-70d). */
+/**
+ * The instance's authorisation configuration — every role binding it holds.
+ *
+ * The glossary's own definition of a role binding is *"one statement of the
+ * form 'members of this directory group hold this role, here'"*, and its next
+ * sentence is that **the instance's entire authorisation configuration is a
+ * list of these**. So it is a list, here, once — and `#roles` renders it
+ * rather than restating it.
+ *
+ * ## Why this list exists at all (wave 11, and it is a fix)
+ *
+ * `#roles` carried its own four hand-typed rows naming groups
+ * (`WDL-Env-Leads`, `WDL-Env-Team`, `WDL-Geotech`, `WDL-Exec`) that appear
+ * nowhere else in this seed, while `MEMBERS` — rendered on
+ * `#project-settings` — resolved the same people through
+ * `SG-Strataflow-WDL-Contributors`, `-Approvers` and `-Readers`. Two registers
+ * of the same thing, disagreeing about what the instance's authorisation
+ * configuration *is*, and a third screen (`#projects`) pointing at `#roles`
+ * for a Reader binding that was on neither of its four rows. One register now,
+ * and `MEMBERS` names its groups from it so the two cannot drift again.
+ *
+ * ## Two things the old rows claimed that the product refuses
+ *
+ * **`WDL-Exec → Reader → all projects` cannot exist.** A binding is
+ * instance-wide **if and only if** its role is `auditor` — a check constraint,
+ * `role_binding_instance_wide_iff_auditor`, and the app repo's provisioning
+ * suite asserts both halves of it (a project-less `contributor` is refused,
+ * and so is an `auditor` pinned to one project). A Reader over "all projects"
+ * is not a configuration somebody has to be careful not to write; it is a row
+ * the database will not accept. It is replaced here by the two things it was
+ * conflating: a Reader binding on the project (S. Petrelli holds one), and an
+ * **Auditor** binding, which is instance-wide by nature and is the glossary's
+ * fourth role — *"answers for the instance rather than for a project"*.
+ *
+ * **A member count is not a fact this product has.** The old table carried
+ * `Members: 2 · 6 · 3 · 4`. Strataflow asks the directory *which groups is
+ * this principal in* and never *who is in this group* — the glossary is
+ * explicit that it "reads group ids and never their membership" — so a roster
+ * count would be a number no request can produce. What it can honestly count
+ * is **principals it has seen**: people who signed in, whose membership
+ * resolved to this binding at that moment. That is what the column says now,
+ * it is counted from `MEMBERS`, and the auditor binding correctly reads 0.
+ */
+export const BINDINGS = [
+  { group: 'SG-Strataflow-WDL-Approvers', role: 'Approver', project: PROJECT.code, party: PROJECT.operator, can: 'Approve, sign off, issue reports and lodge submissions' },
+  { group: 'SG-Strataflow-WDL-Contributors', role: 'Contributor', project: PROJECT.code, party: PROJECT.operator, can: 'Import, review, validate, qualify, produce figures' },
+  { group: 'SG-Strataflow-WDL-Readers', role: 'Reader', project: PROJECT.code, party: PROJECT.operator, can: 'Read and export every register and issued report; write nothing' },
+  { group: 'SG-Strataflow-KRJ-Approvers', role: 'Approver', project: KURRAJONG.code, party: PROJECT.operator, can: 'Approve, sign off, issue reports and lodge submissions' },
+  /*
+   * The one binding with no project, and the schema is what makes that safe:
+   * instance-wide iff auditor, so an unscoped grant cannot be arrived at by
+   * leaving a field blank. It is also the authority behind the one read in
+   * this product that does not narrow to a project — "what did this principal
+   * do, across every project, in a bounded window".
+   */
+  { group: 'SG-Strataflow-Audit', role: 'Auditor', project: null, party: PROJECT.operator, can: 'Read what one principal did across every project, in a bounded window. No project data.' },
+  {
+    group: ENGAGEMENT.binding.group,
+    role: ENGAGEMENT.binding.role,
+    project: ENGAGEMENT.binding.project,
+    party: ENGAGEMENT.party.name,
+    can: 'Import, review, validate, qualify, produce figures — the Contributor set, unchanged',
+    engagement: ENGAGEMENT.id,
+    sponsor: ENGAGEMENT.binding.sponsor,
+    until: ENGAGEMENT.ends,
+  },
+];
+
+/**
+ * Role bindings against Entra identities (§2.3, §13.1, G-70d).
+ *
+ * Not a user table and not a roster: these are the principals this instance
+ * has actually seen, with the binding their group membership resolved to at
+ * the time. Wave 11 extends the same structure with the engagement's two
+ * external principals rather than opening a second register beside it — they
+ * are generated from `ENGAGEMENT` so the party, the group, the sponsor and the
+ * end date cannot drift from the engagement record they belong to.
+ */
 export const MEMBERS = [
   { name: 'A. Nakamura', identity: 'anakamura@wandalup.example', project: 'MOCK-WDL', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Contributors', lastSeen: '2026-08-23 07:41 AWST', state: 'active' },
   // W5-A-1: the binding two screens and the top bar rest on must be on the
@@ -2548,6 +2970,32 @@ export const MEMBERS = [
   { name: 'R. Whitmore', identity: 'rwhitmore@wandalup.example', project: 'MOCK-WDL', role: 'Approver', granted: '2024-02-19', by: 'System administrator', group: 'SG-Strataflow-WDL-Approvers', lastSeen: '2026-08-23 06:55 AWST', state: 'active' },
   { name: 'S. Petrelli', identity: 'spetrelli@wandalup.example', project: 'MOCK-WDL', role: 'Reader', granted: '2025-03-11', by: 'R. Whitmore', group: 'SG-Strataflow-WDL-Readers', lastSeen: '2026-08-19 09:12 AWST', state: 'active' },
   { name: 'J. Halloran', identity: 'jhalloran@wandalup.example', project: 'MOCK-WDL', role: 'Contributor', granted: '2024-02-19', by: 'R. Whitmore', group: '— removed from group 2026-07-31', lastSeen: '2026-07-30 15:44 AWST', state: 'deprovisioned' },
+  /*
+   * Wave 11 — the engagement's principals, on the same register and in the
+   * same shape. Every field but the name and the last-seen moment is read off
+   * `ENGAGEMENT`, so there is one statement of who sponsored the engagement,
+   * which group carries it and when it ends.
+   *
+   * `party` and `until` are the two fields the internal rows do not carry, and
+   * they are `undefined` there rather than filled in with the operator's own
+   * name and a blank: a row with no party is an operator row, and a row with
+   * no end date is a binding that ends when the group membership does. Both
+   * screens that render this register read them that way.
+   */
+  ...ENGAGEMENT.people.map((p) => ({
+    name: p.name,
+    identity: p.identity,
+    project: ENGAGEMENT.binding.project,
+    role: ENGAGEMENT.binding.role,
+    granted: ENGAGEMENT.granted,
+    by: ENGAGEMENT.binding.sponsor,
+    group: ENGAGEMENT.binding.group,
+    lastSeen: p.lastSeen,
+    state: 'active',
+    party: ENGAGEMENT.party.name,
+    until: ENGAGEMENT.ends,
+    engagement: ENGAGEMENT.id,
+  })),
 ];
 
 /** Instance administration the operating model implies but no persona owns (§13.3). */
