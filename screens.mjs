@@ -4802,7 +4802,7 @@ const compositeSample = () => {
   /** One composite's increments, with everything the record holds about each. */
   const incrementTable = (c) =>
     table({
-      caption: `${c.increments.length} constituent increments · ${c.schemeShort} · ${c.increments[0].mass} g from each`,
+      caption: `${c.increments.length} constituent increments · ${c.schemeShort} · ${c.increments[0].mass.toLocaleString('en-AU')} g from each`,
       head: ['Increment', 'Position', 'On the register', 'Depth interval<small>m below ground</small>', 'Mass<small>g</small>', 'Field screen<small>µS/cm</small>', 'Submitted as', 'Where it is now'],
       kind: 'matrix',
       label: `Constituent increments of ${c.id}`,
@@ -4919,7 +4919,7 @@ const compositeSample = () => {
           [c.where === 'field' ? 'Performed by' : 'Instructed by', c.where === 'field' ? `${esc(c.performedBy)} · ${esc(c.performedAt)}` : `${esc(c.instructedBy)} · ${esc(c.instructedAt)}<small>written on the chain of custody at dispatch</small>`],
           [c.where === 'field' ? 'Where' : 'Performed by', c.where === 'field' ? 'At the pit, in a stainless bowl' : `${esc(c.performedBy)} · ${esc(c.performedAt)}`],
           ['Equipment', esc(c.equipment)],
-          ['Mass in', `<span class="mk-num">${c.collectedMass.toLocaleString('en-AU')}</span> g<small>${c.increments.length} × ${c.increments[0].mass} g</small>`],
+          ['Mass in', `<span class="mk-num">${c.collectedMass.toLocaleString('en-AU')}</span> g<small>${c.increments.length} × ${c.increments[0].mass.toLocaleString('en-AU')} g</small>`],
           ['Mass composited', `<span class="mk-num">${c.submittedMass.toLocaleString('en-AU')}</span> g`],
           ['Depth interval', `<span class="mk-num">${esc(S.sampleOf(c.id).interval)}</span><small>${c.depth.exact ? 'exact — every increment from the same horizon' : 'an envelope over intervals that differ'}</small>`],
         ]) +

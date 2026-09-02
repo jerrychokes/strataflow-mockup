@@ -5741,9 +5741,13 @@ export const LOGGER_SERIES = (() => {
  * - **location codes** — `TP01`…`TP05` follow the site's own convention like
  *   every other row on the register (MW, SW, PB, TSF-VWP). `fixtures/partner/`
  *   and G-71 put the `MOCK-` prefix on the project code and on the
- *   identifiers that imitate an outside party's record — the custody form and
- *   the laboratory's work order below both carry it — because those are what
- *   a screenshot could be mistaken for.
+ *   identifiers that imitate an outside party's record — the custody form
+ *   below carries it. The laboratory's work order and certificate follow the
+ *   fictional laboratory's own numbering (`PAS-WO-…`, `PAS2026-…`, matching
+ *   `PAS-WO-268841` from the groundwater round), where the fictional name is
+ *   the marking — a real Pilbara Analytical Services does not exist to be
+ *   imitated. Recorded this way after W9-A-1: the first draft of this comment
+ *   claimed the work order carried the prefix, and it never did.
  *
  * ## Vapour is not drawn, and that is a decision
  *
@@ -5932,7 +5936,7 @@ export const SOIL = (() => {
       where: 'field',
       whereLabel: 'Composited in the field',
       increments: c01Increments,
-      scheme: 'Equal mass — 500 g from each of five increments, homogenised in a stainless bowl, then coned and quartered to a 1 000 g submission',
+      scheme: 'Equal mass — 500 g from each of five increments, homogenised in a stainless bowl, then coned and quartered to a 1,000 g submission',
       schemeShort: 'equal mass, five increments',
       decidedBy: approver, decidedAt: planApproved,
       performedBy: crew, performedAt: '2026-05-06 11:20 AWST',
@@ -5952,7 +5956,7 @@ export const SOIL = (() => {
       where: 'laboratory',
       whereLabel: 'Composited at the laboratory',
       increments: c02Increments,
-      scheme: 'Equal mass — 250 g taken from each of four submitted increments and combined into a 1 000 g composite; the balance of each increment retained',
+      scheme: 'Equal mass — 250 g taken from each of four submitted increments and combined into a 1,000 g composite; the balance of each increment retained',
       schemeShort: 'equal mass, four increments',
       decidedBy: approver, decidedAt: planApproved,
       instructedBy: crew, instructedAt: '2026-05-07 16:30 AWST',
@@ -6477,9 +6481,9 @@ export const SOIL = (() => {
       },
       {
         step: 'Increments collected',
-        what: `${c.increments.length} constituent increments · ${c.increments[0].mass} g each · submitted as ${c.increments.length} samples`,
+        what: `${c.increments.length} constituent increments · ${c.increments[0].mass.toLocaleString('en-AU')} g each · submitted as ${c.increments.length} samples`,
         detail: `Collected 6 and 7 May by ${crew}, each one bagged and jarred in its own right and each one given a sample identifier. That is what makes the laboratory route different from the field one: these four exist as material with numbers on the outside of them, and after a field composite they would not exist at all.`,
-        kind: 'field', at: 'events', node: `${c.increments.length} increments`, nodeSub: `${c.increments[0].mass} g each`,
+        kind: 'field', at: 'events', node: `${c.increments.length} increments`, nodeSub: `${c.increments[0].mass.toLocaleString('en-AU')} g each`,
       },
       {
         step: 'Custody transfer',
@@ -6502,7 +6506,7 @@ export const SOIL = (() => {
       {
         step: 'Analysis',
         what: `${analytes[ai].method} · extracted ${holding[0].extracted} · certificate ${certificate}`,
-        detail: `Held ${holding[0].used} of ${holding[0].days} days on the extract suite. The number reported is a number about 1 000 g of combined material, and the laboratory reported it as such — there is no derivation and no rule version on it, because nothing was calculated from anything.`,
+        detail: `Held ${holding[0].used} of ${holding[0].days} days on the extract suite. The number reported is a number about 1,000 g of combined material, and the laboratory reported it as such — there is no derivation and no rule version on it, because nothing was calculated from anything.`,
         kind: 'lab', at: 'batches', node: certificate, nodeSub: `${holding[0].used} of ${holding[0].days} days`,
       },
     ];
