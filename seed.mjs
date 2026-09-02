@@ -573,7 +573,7 @@ export const ENGAGEMENT = (() => {
   const notInV1 = [
     {
       what: 'No consultancy identity model',
-      says: 'A role binding is five columns — created_at, directory_group_id, id, project_id, role — and a test asserts that none of them names a person, a user, a member, a subject or an email. There is nowhere on a binding to put a party, a sponsor or an end date.',
+      says: 'A role binding is five columns — created_at, directory_group_id, id, project_id, role — and a test asserts that none of them names a principal, a user, a member, a subject or an email. There is nowhere on a binding to put a party, a sponsor or an end date.',
       means: 'The engagement record on this screen is what the S8 dimension would add. It is not a description of a table that exists, and this screen says so rather than drawing a form over nothing.',
       cite: 'the role-binding column assertion in the app repo’s provisioning suite',
     },

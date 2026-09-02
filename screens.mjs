@@ -4579,7 +4579,10 @@ const dictionary = () =>
  * `Members` column counted a group roster this product never reads.
  */
 const roles = () => {
-  const seen = (b) => MEMBERS.filter((m) => m.group === b.group && m.state === 'active').length;
+  // Ever seen, not still-active (W11-A-1): the printed definition is "has
+  // actually seen", and a deprovisioned principal was seen — that the count
+  // keeps them is the register's own theme, history surviving removal.
+  const seen = (b) => MEMBERS.filter((m) => m.group === b.group).length;
   const E = ENGAGEMENT;
   return (
     head('Access', 'Who can see and do what, resolved from the customer’s directory.', {
