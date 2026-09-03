@@ -998,7 +998,7 @@ uses and exactly what this screen draws.
 **Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
 them is the same move: a disagreement described in a comment becomes one source read N
 times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
-records; it stands at **five** — four after wave 14, four after wave 15, which settled one and opened one, and three after wave 16 — and the ones that closed are kept as
+records; it stands at **five** — four after wave 14, four after wave 15, which settled one and opened one, three after wave 16, and two after wave 17 — and the ones that closed are kept as
 dated settled-notes rather than deleted, because a debt that vanishes when it is paid leaves
 nobody able to tell it from one that was never noticed.
 
@@ -1277,6 +1277,55 @@ third — the tables converted to panning matrices since then were verified at 1
 is the harder case, but 1280 was not re-measured. And **nobody has looked at the pixels of
 all 66**; the last visual check covered a handful of screens before the browser pane stopped
 compositing.
+
+**Wave 17 (3 September 2026) gives every qualifier a scheme and an origin, and adds no
+screen.** Wave 10 found, while drawing the export, that the QA/QC register recorded each
+qualifier's *basis* and not its *scheme*, and deferred it as "a seed change with four screens
+on the other end of it and a judgement in the middle". The register is one record now —
+`QUALIFIERS`, **six** assertions on **five** letters — and `#qc`, `#qualifiers`, `#lineage`,
+`#result-detail` and `#exchange` all read it. The ledger goes **three → two**; the record that
+closed keeps its finding verbatim under a dated settled-note, and the two that stand are
+byte-identical.
+
+**The measurement moved the wave, three times.** The gap is **two** fields and the deferral
+named one: `docs/GLOSSARY.md` carries *qualifier scheme* and *qualifier origin* as separate
+first-class terms, and the export rule the deferral quoted — a reason code of ours "must not
+be exported as though a laboratory had said it" — turns on **origin**, which the record never
+named. Origin then turns out to answer the export question completely and the scheme question
+not at all: **four** of the six were raised by checks of this instance and are refused before
+their letter is read, **two** were asserted by a laboratory, and one of those laboratory codes
+is the same **J** a rule of ours puts on the field duplicate. Same character, two assertions,
+two fates, and nothing on any screen told them apart.
+
+**Scheme is settled where the record settles it, which is once.** The cadmium `U` is USEPA on
+the glossary's own sentence about the format it arrived in. The other five are undecided in
+two different ways and both are drawn as decisions with their two readings, the consequence
+each way and a count — the four raised here have no vocabulary on the record at all, and the
+laboratory `J` arrived on a deliverable that declares none. No vocabulary is picked silently,
+and no letter's meaning is invented: nothing in this instance states what **T** means, so the
+register prints the absence.
+
+**Three corrections, each with its before on the face that changed.** Wave 10 expected `J` and
+`B` to read as USEPA; the ESdat specification names **six** codes for `Lab_Qualifier` and `B`
+is not among them. `PFAS_LIMITS` asserted `scheme: 'USEPA'` on a qualifier that came in on a
+laboratory's own single-CSV dialect, where the glossary's warrant names one format and it is
+not that one — the nearest thing to a citation was the *method*, USEPA 1633, which is not a
+vocabulary. And `RESULT_DETAIL` said `source` where the glossary says **origin**.
+
+**Found while doing it.** `#qualifiers` carried **four** typed rows since 23 August and
+**three** of them asserted a code this instance has never applied: `H` is half of a held row's
+way out that nobody took, `*` contradicts the disposition it came from — which says in as many
+words that no qualifier reached the result — and `D` is a derivation flag drawn as a
+qualifier, on a total that actually carries `J`. The fourth attributed an automatic qualifier
+to a person. All four are kept on the screen with the record that refutes each, and every
+verdict recomputes off that record.
+
+**What was refused.** A third origin word for the two rule-raised codes, which the glossary's
+two-valued field does not offer — so the register says the words do not reach them and counts
+it, rather than minting one. A meaning for `T`, which nothing in this instance states. And the sentence
+*forbidden by the schema*: the specification says `Lab_Qualifier` **may carry** six codes and
+does not say it rejects a seventh, so what is drawn is "not among the codes the specification
+names".
 
 ## Files
 

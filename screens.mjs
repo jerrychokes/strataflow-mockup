@@ -69,6 +69,11 @@ import {
   // the set. The limits themselves live on `DQO` now; `QC_LIMITS.rules` is
   // that same array.
   DQO_APPLICABILITY,
+  // Wave 17 — every qualifier in the instance as one record: which vocabulary
+  // each letter is drawn from where the record says, who asserted it, and
+  // whether the export may write it. Read by `#qc`, `#qualifiers`, `#lineage`,
+  // `#result-detail` and the exchange screen.
+  QUALIFIERS,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -826,6 +831,51 @@ const migration = () =>
  * Everything renders from `EXCHANGE`. No count is typed on this screen.
  * ================================================================== */
 
+/**
+ * What the export may write into the laboratory qualifier field — wave 17.
+ *
+ * The card this replaces said the register did not carry a scheme and stopped.
+ * The statement is per code now, in the order the decision is actually taken:
+ * **origin first**, because it refuses four of the six before any letter is
+ * looked at, then whether the specification names the letter, then whether the
+ * vocabulary is settled. Every count is a filter over `QUALIFIERS.rows`.
+ *
+ * The sentence about the specification is deliberately narrow. It names six
+ * codes for this field; it does not say the field rejects a seventh, and this
+ * screen refuses to say so on its behalf — the same refusal as every other row
+ * on this page, where "no source states the equivalence" is written out rather
+ * than rounded to "the format forbids it".
+ */
+const qualifierExportPanel = (X) => {
+  const Q = QUALIFIERS;
+  const c = Q.counts;
+  return (
+    `<h2 class="mk-h2" style="margin-top:1.4rem">Which qualifiers may be written, code by code</h2>` +
+    `<p class="mk-tight">${c.assertions} assertions on ${c.codes} letters, and the field they would be written into is <code class="mk-file">${esc(Q.specField)}</code>. ` +
+    `<strong>Origin decides ${c.refused} of them before the letter is read</strong> — a code raised by a check of this instance’s own is ours, and writing it into a laboratory field would export it as though a laboratory had said it. ` +
+    `Of the ${c.laboratory} a laboratory did assert, ${c.writable} crosses unchanged and ${c.conditional} crosses only with its assumption stated.</p>` +
+    table({
+      caption: `Every qualifier against the one field that could carry it. The population is the register, not this round’s applied codes: a proposal that has written nothing is still a row, because “nothing to write” is an answer.`,
+      head: ['Code', 'Origin', 'Scheme', `Named by the specification for ${Q.specField}`, 'What the export writes', 'Why'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'Qualifiers against the laboratory qualifier field',
+      rows: Q.rows.map((r) => [
+        `<strong class="mk-file">${esc(r.code)}</strong><small>${esc(r.raisedBy)}</small>`,
+        qualifierGlyph(r),
+        schemeCell(r),
+        r.specNames
+          ? `<span class="mk-tag mk-tag--good">named</span>`
+          : `<span class="mk-tag mk-tag--neutral">not named</span>`,
+        writeCell(r),
+        cell(esc(r.writeSays)),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>${esc(Q.specNames.join(', '))} are the ${Q.specNames.length} codes the specification names for this field</strong>, semicolon-separated where a row carries several. ${c.notSpecNamed} of the ${c.assertions} assertions here wear a letter that is not among them. That is what was measured and it is all that was measured: the specification says the field <em>may carry</em> those six, and it does not say it rejects a seventh — so “not among the codes the specification names” is the sentence, and <em>forbidden by the schema</em> would be this screen inventing an authority it does not have.</p>` +
+    `<p class="mk-tight mk-muted">${esc(X.schemeGap.residue)}</p>`
+  );
+};
+
 const exchangeFormats = () => {
   const X = EXCHANGE;
   const E = X.edd;
@@ -1110,18 +1160,19 @@ const exchangeFormats = () => {
     ) +
 
     /* ---------------------------------------------------------------- *
-     * The gap this wave found, recorded where it bites
+     * The gap wave 10 found here, settled by wave 17 — 3 September 2026
      * ---------------------------------------------------------------- */
-    '<h2 class="mk-h2" style="margin-top:1.4rem">One thing the export needs that this record does not hold</h2>' +
+    qualifierExportPanel(X) +
     cols(
       C.card({
-        tone: 'warn',
-        head: '<span class="mk-queue__kind">Found while drawing this — 2 September 2026</span><span class="mk-queue__age">deferred, owner unassigned</span>',
+        tone: 'good',
+        head: `<span class="mk-queue__kind">Found while drawing this — ${esc(X.schemeGap.raised)}</span><span class="mk-queue__age">settled ${esc(X.schemeGap.settled)}</span>`,
         body:
-          `<p class="mk-tight"><strong>The <em>${esc(X.schemeGap.term)}</em> — the vocabulary a code belongs to — decides whether that code may be written into the file at all, and the QA/QC register does not carry one.</strong> ${esc(X.schemeGap.rule)}</p>` +
-          `<p class="mk-tight">Four codes are affected on this round: <strong>${X.schemeGap.applied.map((q) => esc(q)).join(' and ')}</strong> are applied to ${X.qualifiedResults} results between them, and <strong>${X.schemeGap.proposed.map((q) => esc(q)).join(' and ')}</strong> are proposed and unapplied. Which of the four belongs to a laboratory’s vocabulary and which to this instance’s is exactly the question the export has to answer, and the register answers a different one — it records the <a class="mk-ref" href="#qualifiers">basis each qualifier travelled on</a>, which is what an auditor asks and not what a file writer needs.</p>` +
-          `<p class="mk-tight mk-muted">${esc(X.schemeGap.why)} It is recorded here rather than closed in passing, because guessing the vocabulary of a code is the same mistake as guessing a field mapping — and the whole of this screen is about not doing that.</p>`,
-        foot: '<a class="mk-btn mk-btn--sm" href="#qualifiers">Where every qualifier states its basis</a><a class="mk-btn mk-btn--sm" href="#qc">The decision layer</a>',
+          `<p class="mk-tight">This card read: <span class="mk-was">${esc(X.schemeGap.was.headline)}</span> ${esc(X.schemeGap.rule)}</p>` +
+          `<p class="mk-tight"><strong>${esc(X.schemeGap.now)}</strong></p>` +
+          `<p class="mk-tight">It was also one field short of the question. The rule it quoted is about <em>who said it</em>, and the record named only the vocabulary — so a register carrying scheme alone would still not have answered it. The table above reads left to right in the order the decision is taken — origin, then whether the specification names the letter, then the vocabulary — and ${esc(String(QUALIFIERS.counts.refused))} of the ${esc(String(QUALIFIERS.counts.assertions))} rows are settled at the first of the three.</p>` +
+          `<p class="mk-tight mk-muted">And one guess is corrected with it. The record expected <span class="mk-was">${esc(X.schemeGap.was.guess)}</span> — ${esc(QUALIFIERS.wave10.now)} ${esc(QUALIFIERS.wave10.andAlso)}</p>`,
+        foot: '<a class="mk-btn mk-btn--sm" href="#qualifiers">The register, and the decision it draws</a><a class="mk-btn mk-btn--sm" href="#qc">The decision layer</a>',
       }),
       panel(
         'What this screen deliberately does not do',
@@ -1744,8 +1795,6 @@ const qcWorkspace = () => {
   const D = QC_DECISIONS;
   const R = D.rerunUnderCurrent;
   const spike = QAQC.find((q) => q.id === 'MS-1');
-  const settled = QAQC.filter((q) => q.qualifier && !q.proposed);
-
   return (
     head(`QA/QC — ${esc(ROUND.code)}`, 'What the round was held to, what followed automatically, and what is still yours to decide.', {
       route: '/projects/:projectId/qaqc',
@@ -1826,33 +1875,44 @@ const qcWorkspace = () => {
     `<h2 class="mk-h2" style="margin-top:1.4rem">Where every qualifier came from</h2>` +
     notice(
       'warning',
-      'A propagated qualifier states its basis, on every result it reached.',
-      '“Why did this qualifier propagate to these results?” is exactly the type of thing an auditor may ask five years later, and the answer is one of four: the laboratory said it in the deliverable · a project data quality objective rule applies · a named person dispositioned it · it is specific to the sample it was raised on. A qualifier with no basis on it cannot be told from an inference, and only one of those survives a challenge.',
+      'A propagated qualifier states its basis, on every result it reached — and, since 3 September 2026, its scheme and its origin too.',
+      '“Why did this qualifier propagate to these results?” is exactly the type of thing an auditor may ask five years later, and the answer is one of four: the laboratory said it in the deliverable · a project data quality objective rule applies · a named person dispositioned it · it is specific to the sample it was raised on. That is the <strong>propagation basis</strong>, and it answers <em>how far does it reach</em>. Two further questions were never on these rows and an export needs both: <strong>which vocabulary</strong> the letter is drawn from, and <strong>who asserted it</strong>. A qualifier with no basis on it cannot be told from an inference; one with no origin on it cannot be told from a laboratory’s.',
     ) +
     table({
-      caption: 'Every qualifier that reached a result on this round, with the basis it travelled on.',
-      head: ['Qualifier', 'Means', 'Raised by', 'Propagation basis', 'Results', 'Reaches'],
+      caption: `Every qualifier this round’s checks raised, with the basis it travelled on and the two fields the register gained on 3 September 2026. All ${QUALIFIERS.raisedHere.length} were raised here — <a class="mk-ref" href="#qualifiers">the laboratories’ ${QUALIFIERS.counts.laboratory} are on the register with them</a>.`,
+      head: ['Qualifier', 'Raised by', 'Origin', 'Scheme', 'Propagation basis', 'Results', 'Reaches'],
       scroll: true,
-      label: 'Qualifier propagation basis',
-      rows: [
-        ...settled.map((q) => [
-          `<span class="mk-tag mk-tag--warn">${esc(q.qualifier)}</span>`,
-          `<span class="mk-muted">${esc(q.action)}</span>`,
-          `${esc(q.check)}<small>${esc(q.scope)}</small>`,
-          basisChip(q.basis.kind),
-          `<span class="mk-num">${q.results}</span>`,
-          `<span class="mk-muted">${esc(q.reaches ?? q.basis.says)}</span>`,
-        ]),
-        ...QAQC.filter((q) => q.proposed).map((q) => [
-          `<span class="mk-tag mk-tag--bad">${esc(q.qualifier)}</span><small>proposed</small>`,
-          `<span class="mk-muted">${esc(q.action)}</span>`,
-          `${esc(q.check)}<small>${esc(q.scope)}</small>`,
-          `<span class="mk-tag mk-tag--bad">not chosen</span>`,
-          `<span class="mk-num mk-num--warn">${q.results}</span><small>if applied</small>`,
-          `<span class="mk-muted">Nothing has been written. The basis is the decision, and the decision has not been made.</span>`,
-        ]),
-      ],
+      label: 'Qualifier propagation basis, scheme and origin',
+      rows: QUALIFIERS.raisedHere.map((r) => {
+        const q = r.finding;
+        return [
+          `<span class="mk-tag mk-tag--${r.applied ? 'warn' : 'bad'}">${esc(r.code)}</span>` +
+            (r.applied ? '' : '<small>proposed</small>') +
+            (r.means ? `<small>${esc(r.means)}</small>` : '<small>no meaning on the record</small>'),
+          `${esc(q.check)}<small>${esc(q.scope)}</small><small>${esc(q.action)}</small>`,
+          qualifierGlyph(r) + (r.wouldBe ? `<small>would be ${esc(r.wouldBe)}</small>` : ''),
+          schemeCell(r),
+          r.applied ? basisChip(q.basis.kind) : '<span class="mk-tag mk-tag--bad">not chosen</span>',
+          r.applied
+            ? `<span class="mk-num">${r.results}</span>`
+            : `<span class="mk-num mk-num--warn">${r.results}</span><small>if applied</small>`,
+          `<span class="mk-muted">${esc(r.applied ? q.reaches ?? q.basis.says : 'Nothing has been written. The basis is the decision, and the decision has not been made.')}</span>`,
+        ];
+      }),
     }) +
+    /*
+     * Wave 17. The two applied codes were drawn beside a laboratory's on
+     * `#qualifiers` with no field telling them apart, and one of them was
+     * attributed to a person outright. Both were raised by a rule of this
+     * project's own, and the register now says so on every surface.
+     */
+    ((byRule) =>
+      `<p class="mk-tight"><strong>${byRule.map((r) => esc(r.finding.id)).join(' and ')} were assigned by this instance’s own rule, not reported by anybody.</strong> ` +
+      `${byRule.map((r) => `${esc(r.code)} on ${r.results} results — ${esc(r.finding.rule.name)}, ${esc(r.finding.rule.version)}`).join('; ')}. ` +
+      `That matters at the boundary rather than here: ${esc(QUALIFIERS.counts.refused === 1 ? 'the one code' : `all ${QUALIFIERS.counts.refused} codes`)} raised in this instance ` +
+      `<a class="mk-ref" href="#exchange">cannot be written into a laboratory qualifier field</a>, whatever letter they wear — and one of them wears the same <strong class="mk-file">${esc(QUALIFIERS.collisions[0].code)}</strong> a laboratory put on the PFAS result, which can.</p>`)(
+      QUALIFIERS.raisedHere.filter((r) => r.applied),
+    ) +
     cols(
       panel(
         `The one the review named — ${esc(spike.scope)}`,
@@ -2109,31 +2169,199 @@ const validationBoard = () =>
     ],
   });
 
-const qualifiers = () =>
-  head('Qualifiers and data lock', 'Reason codes on individual results, and periods closed to change.', {
-    route: '/projects/:projectId/validation (qualifiers and lock)',
-  }) +
-  cols(
+/**
+ * The qualifier register — wave 17, and the screen's subject has changed.
+ *
+ * It carried four typed rows, three of which asserted a qualifier the record
+ * says was never applied and the fourth of which attributed an automatic one
+ * to a person. Every row is read off `QUALIFIERS` now, and the four it used to
+ * draw are kept below with what the record says about each — a catalogue whose
+ * method is derived should be able to show what a typed one cost.
+ *
+ * The subject is the pair of fields the glossary makes first-class and the
+ * register carried neither: **which vocabulary** a letter is drawn from, and
+ * **who asserted it**. The second is what decides whether the code may leave
+ * this instance at all.
+ */
+const qualifierGlyph = (r) =>
+  r.origin === 'laboratory'
+    ? `<span class="mk-dispo mk-dispo--neutral"><span class="mk-dispo__glyph" aria-hidden="true">⌂</span>laboratory</span>`
+    : r.originState === 'unwritten'
+      ? `<span class="mk-dispo mk-dispo--warn"><span class="mk-dispo__glyph" aria-hidden="true">◌</span>nothing written</span>`
+      : `<span class="mk-dispo mk-dispo--warn"><span class="mk-dispo__glyph" aria-hidden="true">⚙</span>a rule of ours</span>`;
+
+const schemeCell = (r) =>
+  r.scheme
+    ? `<strong>${esc(r.scheme)}</strong><small>${esc(r.schemeState)}</small>`
+    : `<span class="mk-tag mk-tag--warn">not settled</span><small>${esc(r.schemeState)}</small>`;
+
+const writeCell = (r) =>
+  r.mayWrite === 'yes'
+    ? C.status('writes it', 'good')
+    : r.mayWrite === 'no'
+      ? C.status('writes nothing', 'bad')
+      : C.status('only with the assumption stated', 'warn');
+
+const qualifiers = () => {
+  const Q = QUALIFIERS;
+  const c = Q.counts;
+  const collision = Q.collisions[0];
+  return (
+    head('Qualifiers and data lock', 'Which vocabulary each code belongs to, who asserted it, and periods closed to change.', {
+      route: '/projects/:projectId/validation (qualifiers and lock)',
+      toolbar: C.exportMenu(),
+    }) +
+    stats([
+      stat(String(c.assertions), `assertions on ${c.codes} letters`),
+      stat(String(c.laboratory), 'a laboratory said it', 'good'),
+      stat(String(c.raisedHere), 'raised by a check of ours', 'warn'),
+      stat(String(c.declared), `scheme${c.declared === 1 ? '' : 's'} the record settles`, c.declared ? 'good' : 'bad'),
+      stat(String(c.unrecorded + c.undeclared), `scheme${c.unrecorded + c.undeclared === 1 ? '' : 's'} it does not`, 'bad'),
+    ]) +
+    notice(
+      'default',
+      'Three terms, not one — and the register carried only the first until 3 September 2026.',
+      `The glossary makes <strong>qualifier</strong>, <strong>qualifier scheme</strong> and <strong>qualifier origin</strong> three first-class terms. A code says what is asserted; a <em>scheme</em> says which vocabulary the letter is drawn from; an <em>origin</em> says who asserted it — ${esc(Q.originWords.join(' or '))}, and those two words are the whole of it. The QA/QC register recorded each qualifier's propagation <em>basis</em>, which answers <em>how far does it reach</em> and neither of the other two. <a class="mk-ref" href="#exchange">The export</a> is where that bites, because writing one of our own reason codes into a laboratory field would export it as though a laboratory had said it.`,
+    ) +
     table({
-      caption: 'Qualifiers assigned from a controlled list. Free text is not offered.',
-      head: ['Result', 'Qualifier', 'Meaning', 'Assigned by', 'Reason'],
-      rows: [
-        [`Zinc · ${loc('MW05')}`, '<code>J</code>', 'Estimated value', 'A. Nakamura', `Field duplicate RPD 38.2% against the ${esc(DQO.limitFor('Field duplicate RPD').limit)} limit`],
-        [`Nitrate · ${loc('MW09')}`, '<code>H</code>', 'Holding time exceeded', 'system', 'Analysed at 6 days against a 2-day window'],
-        [`Arsenic · ${loc('MW05')}`, '<code>*</code>', 'Confirmed against certificate', 'A. Nakamura', 'Spike against location history — checked, real'],
-        [`PFOS+PFHxS · ${loc('MW05')}`, '<code>D</code>', 'Derived value', 'system', 'Sum parameter · rule sum-pfas-anzg v2.1'],
-      ],
-    }),
-    panel('Locked periods',
-      table({
-        head: ['Period', 'Locked', 'Because'],
-        rows: [
-          ['2025 Q1 – 2026 Q1', tag('locked', 'good'), '<span class="mk-muted">Reported to DWER in the 2025 Annual Environmental Report</span>'],
-          ['2026 Q2', tag('open', 'neutral'), '<span class="mk-muted">Not yet reported</span>'],
-        ],
-      }) +
-      '<p class="mk-tight mk-muted">A locked period refuses a write rather than warning about one. Changing a number that has been submitted to a regulator is a supersession with a reason, not an edit.</p>'),
+      caption: `Every qualifier this instance holds — ${c.assertions} assertions on ${c.codes} letters, from the QA/QC register, the result page and the PFAS chain. One record, drawn here and on four other screens.`,
+      head: ['Code', 'Means', 'Who asserted it', 'Origin', 'Scheme', 'Results', 'May the export write it'],
+      kind: 'matrix',
+      label: 'Qualifier register — scheme, origin and export disposition',
+      rows: Q.rows.map((r) => [
+        `<strong class="mk-file">${esc(r.code)}</strong>` + (r.applied ? '' : '<small>proposed</small>'),
+        r.means
+          ? `<span class="mk-muted">${esc(r.means)}</span>`
+          : '<span class="mk-tag mk-tag--warn">no meaning on the record</span>',
+        `${esc(r.raisedBy)}<small>${esc(r.on)}</small>`,
+        qualifierGlyph(r) + (r.wouldBe ? `<small>would be ${esc(r.wouldBe)}</small>` : ''),
+        schemeCell(r),
+        r.results === null
+          ? `<span class="mk-muted">named, not counted</span>`
+          : `<span class="mk-num${r.applied ? '' : ' mk-num--warn'}">${r.results}</span>${r.applied ? '' : '<small>if applied</small>'}`,
+        writeCell(r),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>${c.appliedResults} results carry a qualifier this instance applied</strong> — ${esc(Q.applied.filter((r) => r.results !== null).map((r) => `${r.code} on ${r.results}`).join(' and '))} — and ${c.proposedResults} more would if the ${c.proposed} open decision${c.proposed === 1 ? '' : 's'} ${c.proposed === 1 ? 'were' : 'were'} taken. The ${c.assertions - Q.rows.filter((r) => r.results !== null).length} rows with no count name the record they sit on instead: a laboratory's code on one result is that result's, and counting it would be inventing a population.</p>` +
+    cols(
+      panel(
+        `The same letter, ${collision.on.length} assertions, ${new Set(collision.on.map((r) => r.mayWrite)).size} different fates`,
+        `<p class="mk-tight">Derived rather than pointed at: ${Q.collisions.length === 1 ? 'exactly one letter' : `${Q.collisions.length} letters`} in this instance ${Q.collisions.length === 1 ? 'is' : 'are'} carried by more than one assertion, and it is <strong class="mk-file">${esc(collision.code)}</strong>.</p>` +
+          table({
+            caption: 'One character, two things said with it.',
+            head: ['Asserted by', 'Origin', 'Scheme', 'The export'],
+            rows: collision.on.map((r) => [
+              `${esc(r.raisedBy)}<small>${esc(r.on)}</small>`,
+              qualifierGlyph(r),
+              schemeCell(r),
+              writeCell(r),
+            ]),
+          }) +
+          `<p class="mk-tight">Both mean <em>${esc(collision.on[0].means)}</em>, and they are not the same assertion. ${esc(collision.on.find((r) => r.origin === 'laboratory').raisedBy)} put one on a certificate; the other was raised by a rule of this project's own against its data quality objectives. A register keyed on the letter would merge them, and the file writer would then export ours as though a laboratory had said it — which is the thing the glossary forbids by name.</p>` +
+          '<p class="mk-tight mk-muted">This is the case the origin field exists for, and it was already in the seed before anybody looked for it.</p>',
+      ),
+      panel(
+        'Locked periods',
+        table({
+          head: ['Period', 'Locked', 'Because'],
+          rows: [
+            ['2025 Q1 – 2026 Q1', tag('locked', 'good'), '<span class="mk-muted">Reported to DWER in the 2025 Annual Environmental Report</span>'],
+            ['2026 Q2', tag('open', 'neutral'), '<span class="mk-muted">Not yet reported</span>'],
+          ],
+        }) +
+          '<p class="mk-tight mk-muted">A locked period refuses a write rather than warning about one. Changing a number that has been submitted to a regulator is a supersession with a reason, not an edit.</p>',
+      ),
+      '3fr 2fr',
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Where each answer comes from, and where there is none</h2>' +
+    `<p class="mk-tight">One row per assertion. <strong>Origin is a measurement</strong> — the record already shows whether a deliverable carried the code or a check here raised it — and <strong>scheme is a decision</strong>, taken only where the record takes it.</p>` +
+    Q.rows
+      .map((r) =>
+        C.card({
+          tone: r.origin === 'laboratory' ? (r.scheme ? 'good' : 'warn') : 'warn',
+          head:
+            `<span class="mk-queue__kind">${esc(r.code)} — ${esc(r.raisedBy)}</span>` +
+            `<span class="mk-queue__age">${esc(r.applied ? 'applied' : 'proposed, not applied')}</span>`,
+          body:
+            `<p class="mk-tight"><strong>Origin — ${r.origin ? esc(r.origin) : r.originState === 'unwritten' ? 'nothing written yet' : 'neither of the glossary’s two words'}.</strong> ${esc(r.originSays)}</p>` +
+            (r.alsoUnder ? `<p class="mk-tight mk-muted">${esc(r.alsoUnder)}</p>` : '') +
+            `<p class="mk-tight"><strong>Scheme — ${r.scheme ? esc(r.scheme) : 'not settled by the record'}.</strong> ${esc(r.schemeSays)}</p>` +
+            (r.schemeWas
+              ? `<p class="mk-tight">This object said <span class="mk-was">${esc(r.schemeWas)}</span> until 3 September 2026. ${esc(r.schemeWasWhy)}</p>` +
+                `<p class="mk-tight mk-muted">What would settle it: ${esc(r.settledBy)}</p>`
+              : '') +
+            `<p class="mk-tight mk-muted">${esc(r.specSays)} ${esc(r.writeSays)}</p>`,
+          foot: `<a class="mk-btn mk-btn--sm" href="#${esc(r.at)}">${esc(r.atLabel)}</a><a class="mk-btn mk-btn--sm" href="#exchange">What the export writes</a>`,
+        }),
+      )
+      .join('') +
+    schemeDecisionPanel() +
+    beforeQualifiersPanel()
   );
+};
+
+/**
+ * The decision this wave draws rather than takes.
+ *
+ * One question over four codes — the reviewer's vocabulary is a property of
+ * this instance, so answering it for one letter answers it for all four. Both
+ * readings are consistent with the record and they have different consequences,
+ * which is the definition of a thing to be decided rather than derived. The
+ * precedents are cited because each of them was the same shape: wave 14's
+ * licence trigger, wave 15's five censored cells, wave 16's absent soil limit.
+ */
+const schemeDecisionPanel = () => {
+  const D = QUALIFIERS.decision;
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The one thing here that is a decision, not a measurement</h2>' +
+    '<article class="mk-decide">' +
+    '<header class="mk-decide__head">' +
+    '<span class="mk-decide__flag">Need decision</span>' +
+    `<h3 class="mk-decide__title">${esc(D.question)}</h3>` +
+    `${tag(`${D.covers.length} codes`, 'warn')}<span class="mk-muted">${D.resultsApplied} results carry one today; ${D.resultsProposed} more would</span>` +
+    '</header>' +
+    `<p class="mk-decide__why">${esc(D.matters)}</p>` +
+    table({
+      caption: 'Two readings, both consistent with the record, with what each one costs.',
+      head: ['Reading', 'What it says', 'What follows from it'],
+      scroll: true,
+      label: 'The two readings of a borrowed qualifier letter',
+      rows: D.readings.map((r) => [`<strong>${esc(r.label)}</strong>`, cell(esc(r.says)), cell(esc(r.consequence))]),
+    }) +
+    `<p class="mk-tight"><strong>Refused:</strong> ${esc(D.refused)}</p>` +
+    `<p class="mk-tight mk-muted">What would settle it: ${esc(D.wouldSettle)}</p>` +
+    '</article>'
+  );
+};
+
+/**
+ * What this screen drew until 3 September 2026, and what the record says.
+ *
+ * Every verdict here recomputes off the record it is about, so a finding that
+ * changed would change the sentence rather than leave it lying.
+ */
+const beforeQualifiersPanel = () => {
+  const B = QUALIFIERS.drawnBefore;
+  const phantom = B.filter((r) => !QUALIFIERS.rows.some((q) => q.code === r.was.code));
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">What this screen drew until 3 September 2026</h2>' +
+    `<p class="mk-tight"><strong>${B.length} typed rows, and ${phantom.length} of them asserted a code this instance has never applied.</strong> ${esc(phantom.map((r) => r.was.code).join(', '))} appear nowhere in the register above, and the fourth attributed an automatic qualifier to a person. Recorded rather than quietly repaired: the rows were plausible, they had been on the page since 23 August, and nothing but a recount was ever going to catch them.</p>` +
+    table({
+      caption: 'The row as drawn, and the record that owns the claim.',
+      head: ['Drawn until 3 Sep', 'Code', 'Assigned by', 'Verdict', 'What the record says'],
+      kind: 'matrix',
+      label: 'The four typed qualifier rows, against the records that own them',
+      rows: B.map((r) => [
+        `<span class="mk-was">${esc(r.was.result)} — ${esc(r.was.means)}</span>`,
+        `<span class="mk-was">${esc(r.was.code)}</span>`,
+        `<span class="mk-was">${esc(r.was.by)}</span>`,
+        r.stands ? C.status(r.verdict, 'bad') : C.status('the record moved — recheck', 'warn'),
+        cell(`${esc(r.now)} <a class="mk-ref" href="#${esc(r.at)}">The record</a>`),
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted">Every verdict above is computed from the finding, the held row or the chain it is about — ${esc(String(B.filter((r) => r.stands).length))} of ${B.length} stand as written. A record that changed would change the sentence rather than leave it standing.</p>`
+  );
+};
 
 /* ================================================================== *
  * J3 — Know what's wrong
@@ -4216,8 +4444,37 @@ const lineage = () => {
     notice(
       'warning',
       `The component that made the wave-6 representation fix necessary: PFHxS at ${esc(PFAS_LIMITS.mdl.toFixed(1))} &lt; 1.7 &lt; ${esc(PFAS_LIMITS.lor.toFixed(1))} ${esc(PFAS_LIMITS.unit)}.`,
-      `The component step read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)} (${esc(PFAS_LIMITS.scheme)}), origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
+      `The component step read <em>“PFHxS = 1.7 ng/L · detected · LOR 2.0 ng/L”</em>, which is an unqualified detect below the reporting limit — not something a laboratory reports, and a practitioner reading the chain stops there. The three limits are distinct and stay distinct: the <strong>MDL</strong> is the lowest concentration the method detects with confidence that the analyte is present, the <strong>LOR</strong> is the lowest it will report as a quantified number, and a value between them is real and imprecise. So the assertion moves to where the glossary puts it — a <strong>qualifier</strong>, ${esc(PFAS_LIMITS.qualifier)}, origin ${esc(PFAS_LIMITS.origin)}, meaning ${esc(PFAS_LIMITS.qualifierMeans)} — and the detect status stays two-valued. ${esc(PFAS_LIMITS.says)} The qualifier carries onto the derived total, and <a class="mk-ref" href="#criteria">the non-detect rule</a> shows the same total under all three readings of that component: the number and the confidence move, the outcome does not. What this catalogue does not yet draw is a qualifier channel on the <a class="mk-ref" href="#crosstab">results grid</a> itself, where the total renders with its value and its outcome marks and no qualifier beside them — recorded here rather than left to be noticed.`,
     ) +
+
+    /*
+     * Wave 17 — the laboratory half of the collision, on the chain that
+     * carries it. The letter on this chain and the letter on `#qc`'s field
+     * duplicate are the same character and are not the same assertion, and
+     * until 3 September 2026 the chain also asserted a vocabulary for it that
+     * the deliverable never declared.
+     */
+    ((r, other) =>
+      cols(
+        C.card({
+          tone: 'warn',
+          head: `<span class="mk-queue__kind">The qualifier on this chain — ${esc(r.code)}, and what is and is not settled about it</span><span class="mk-queue__age">measured 3 September 2026</span>`,
+          body:
+            `<p class="mk-tight"><strong>Origin — ${esc(r.origin)}.</strong> ${esc(r.originSays)} That is the strongest origin evidence in the instance: a named laboratory, a named certificate, and no inference in between.</p>` +
+            `<p class="mk-tight"><strong>Scheme — not settled.</strong> ${esc(r.schemeSays)}</p>` +
+            `<p class="mk-tight">This step read <span class="mk-was">${esc(r.schemeWas)} scheme</span> until 3 September 2026. ${esc(r.schemeWasWhy)}</p>` +
+            `<p class="mk-tight mk-muted">What would settle it: ${esc(r.settledBy)}</p>` +
+            `<p class="mk-tight mk-muted">And until then, what the export does with it: ${esc(r.writeSays)}</p>`,
+          foot: `<a class="mk-btn mk-btn--sm" href="#qualifiers">The register, all ${QUALIFIERS.counts.assertions} of them</a><a class="mk-btn mk-btn--sm" href="#exchange">What the export writes</a>`,
+        }),
+        panel(
+          `The same letter, one screen away`,
+          `<p class="mk-tight"><strong class="mk-file">${esc(r.code)}</strong> on this chain is ${esc(r.raisedBy)}. <strong class="mk-file">${esc(other.code)}</strong> on <a class="mk-ref" href="#qc">the QA/QC workspace</a> is ${esc(other.raisedBy)} — ${esc(other.finding.rule.name)}, ${esc(other.finding.rule.version)} — reaching ${other.results} results.</p>` +
+            `<p class="mk-tight">Both mean <em>${esc(r.means)}</em>. Neither is wrong. They are two different assertions wearing one character, and the field that tells them apart is <strong>origin</strong> — which is exactly what decides that one may cross into a laboratory qualifier field and the other may not.</p>` +
+            `<p class="mk-tight mk-muted">A lineage that showed the letter and not who said it would hand a reviewer the caveat without the accountability, which is the failure this chain exists to make impossible.</p>`,
+        ),
+        '3fr 2fr',
+      ))(QUALIFIERS.byId('lab-J'), QUALIFIERS.byId('FD-2')) +
 
     /* ================================================================ *
      * Wave 9 — the second chain, and the one place the honest limit does
@@ -7983,7 +8240,7 @@ const labBatches = () => (
           ['Zinc (filtered)', loc('MW09'), tag('L', 'warn'), 'Batch matrix spike below limit — biased low'],
         ],
       }) +
-        `<p class="mk-tight">Nine results <strong>would</strong> carry it, applied by the batch rather than by a person deciding case by case — which is how five of them get missed. None of them carries it yet: the propagation basis is <a class="mk-ref" href="#qc">an open decision</a>, because the certificate states no result-level qualifier and DQO ${esc(DQO.used.version)} names no consequence for a failed spike. The table above is what the decision would write, not what the record says.</p>`,
+        `<p class="mk-tight">${QUALIFIERS.byId('MS-1').results} results <strong>would</strong> carry it, applied by the batch rather than by a person deciding case by case — which is how five of them get missed. None of them carries it yet: the propagation basis is <a class="mk-ref" href="#qc">an open decision</a>, because the certificate states no result-level qualifier and DQO ${esc(DQO.used.version)} names no consequence for a failed spike. The table above is what the decision would write, not what the record says.</p>`,
     ),
   )
 );
@@ -8125,7 +8382,14 @@ const dataQuality = () => {
         head: ['Not met', 'Consequence for the assessment'],
         rows: [
           ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits above the criterion and the comparison is arithmetic.')],
-          ['Accuracy — zinc', cell(`Nine zinc results would be qualified biased low — <strong>and none of them is yet</strong>. The propagation basis is the open decision on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a>: the certificate carries no result-level qualifier and DQO ${esc(DQO.used.version)} states no consequence for the failed spike, so a hydrogeologist has to say how far it reaches. The MW05 exceedance stands and is understated either way; no result is corrected.`)],
+          /*
+           * Wave 17: the count and the meaning are read from the qualifier
+           * register rather than typed in words beside it, and the sentence
+           * gains the field that decides where the qualifier could ever go.
+           */
+          ...((r) => [
+            ['Accuracy — zinc', cell(`${r.results} zinc results would be qualified ${esc(r.means)} — <strong>and none of them is yet</strong>. The propagation basis is the open decision on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a>: the certificate carries no result-level qualifier and DQO ${esc(DQO.used.version)} states no consequence for the failed spike, so a hydrogeologist has to say how far it reaches. Its origin would be <strong>${esc(r.wouldBe)}</strong> whichever way out is taken — <a class="mk-ref" href="#qualifiers">the register says why</a> — so the code could never cross into a laboratory field, and the assessment would carry it rather than the file. The MW05 exceedance stands and is understated either way; no result is corrected.`)],
+          ])(QUALIFIERS.byId('MS-1')),
           [`Completeness — ${usablePct}%`, cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is a result short on a cracked container. The round is reported as incomplete rather than as a clean ${COMPLETENESS.planned}, and the dry bore is reported as attempted rather than missed.`)],
         ],
       }),
@@ -9535,10 +9799,31 @@ const resultDetail = () => {
     cols(
       panel(
         'Annotations — a practitioner’s words, kept apart from the laboratory’s',
+        /*
+         * Wave 17. This table had a **Source** column, which was a fourth
+         * spelling of the glossary's `origin` and carried nothing else. It
+         * reads the qualifier register now: origin is who said it, scheme is
+         * which vocabulary the letter is drawn from, and this code is the one
+         * assertion in the instance where the record settles both.
+         */
         table({
-          head: ['Code', 'Source', 'Meaning'],
-          rows: R.qualifiers.map((q) => [`<strong class="mk-file">${esc(q.code)}</strong>`, tag(q.source, 'neutral'), esc(q.meaning)]),
+          caption: `The laboratory’s codes on this result, with the two fields the register gained on 3 September 2026. <a class="mk-ref" href="#qualifiers">All ${QUALIFIERS.counts.assertions} qualifier assertions this instance holds</a>.`,
+          head: ['Code', 'Meaning', 'Origin', 'Scheme'],
+          rows: R.qualifiers.map((q) => {
+            const reg = QUALIFIERS.rows.find((r) => r.code === q.code && r.origin === q.origin);
+            return [
+              `<strong class="mk-file">${esc(q.code)}</strong>`,
+              esc(q.meaning),
+              tag(q.origin, 'neutral') + '<small>was labelled <span class="mk-was">source</span> until 3 Sep 2026</small>',
+              reg ? `<strong>${esc(reg.scheme)}</strong><small>${esc(reg.schemeState)} by the deliverable</small>` : '<span class="mk-tag mk-tag--warn">not settled</span>',
+            ];
+          }),
         }) +
+        ((reg) =>
+          reg
+            ? `<p class="mk-tight"><strong>The one code in this instance whose vocabulary the record settles.</strong> ${esc(reg.schemeSays)} ${esc(reg.writeSays)}</p>` +
+              `<p class="mk-tight mk-muted">${esc(QUALIFIERS.renamed[0].why)} <a class="mk-ref" href="#qualifiers">The register, and the ${QUALIFIERS.counts.unrecorded + QUALIFIERS.counts.undeclared} whose scheme it does not settle</a>.</p>`
+            : '')(QUALIFIERS.byId('lab-U')) +
           R.annotations
             .map(
               (a) =>
@@ -11911,11 +12196,18 @@ export const RELATED = {
   dqa: ['qc', 'qc-limits', 'indeterminate', 'report'],
   consistency: ['qc', 'crosstab', 'hydrochem'],
   validation: ['qualifiers', 'signoff', 'audit'],
-  qualifiers: ['qc', 'validation', 'lineage', 'result-detail'],
+  // Wave 17: the register carries scheme and origin now, and the screen that
+  // needed the second is a declared exit rather than an inline href — the edge
+  // already ran the other way, and a register whose subject is what may leave
+  // the instance should reach the boundary that decides it.
+  qualifiers: ['qc', 'validation', 'lineage', 'result-detail', 'exchange'],
 
   exceedances: ['result-detail', 'hardness', 'indeterminate', 'lineage', 'tarp', 'map'],
   crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report', 'exchange'],
-  'result-detail': ['hardness', 'lineage', 'crosstab', 'qc', 'batches', 'field-capture', 'ecoc'],
+  // Wave 17: this page draws one of the six qualifier assertions and is the
+  // only one whose scheme the record settles, so the register it belongs to is
+  // declared rather than reached by an href written inside a panel.
+  'result-detail': ['hardness', 'lineage', 'crosstab', 'qc', 'batches', 'field-capture', 'ecoc', 'qualifiers'],
   hardness: ['result-detail', 'criteria', 'indeterminate', 'lineage', 'consistency'],
   indeterminate: ['hardness', 'exceedances', 'crosstab', 'dqa', 'report'],
   tarp: ['exceedances', 'alerts', 'notification'],
@@ -11958,7 +12250,10 @@ export const RELATED = {
   // Wave 9 adds one more: the second chain on this screen ends at a question
   // only the composite record can answer, so it links there rather than
   // describing it.
-  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite'],
+  // Wave 17: the laboratory half of the J collision is drawn on this chain and
+  // the other half is one screen away, so both the register and the boundary
+  // that tells them apart are declared exits.
+  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite', 'qualifiers', 'exchange'],
   audit: ['lineage', 'supersession', 'roles', 'engagement'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],

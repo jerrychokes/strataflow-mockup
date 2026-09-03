@@ -2162,17 +2162,55 @@ const QAQC_ROWS = [
   },
 ];
 
-export const QAQC = QAQC_ROWS.map((r) =>
-  r.id === 'SH-2'
-    ? {
-        ...r,
-        // The same check, on the series `EC_MW05` holds. Its numbers are computed
-        // in EC_MW05_OUTLIER rather than written here, so the row and the working
-        // on the screen cannot come apart.
-        detail: `${EC_MW05_OUTLIER.value} against a prior-round median of ${EC_MW05_OUTLIER.median} at this bore — a modified z-score of ${EC_MW05_OUTLIER.score} on ${EC_MW05_OUTLIER.n} rounds of its own record, against a ${EC_MW05_OUTLIER.threshold} threshold.`,
-      }
-    : r,
-);
+export const QAQC = QAQC_ROWS.map((r) => {
+  if (r.id === 'SH-2') {
+    return {
+      ...r,
+      // The same check, on the series `EC_MW05` holds. Its numbers are computed
+      // in EC_MW05_OUTLIER rather than written here, so the row and the working
+      // on the screen cannot come apart.
+      detail: `${EC_MW05_OUTLIER.value} against a prior-round median of ${EC_MW05_OUTLIER.median} at this bore — a modified z-score of ${EC_MW05_OUTLIER.score} on ${EC_MW05_OUTLIER.n} rounds of its own record, against a ${EC_MW05_OUTLIER.threshold} threshold.`,
+    };
+  }
+  /*
+   * Wave 17's adversarial sweep, in the one place it found the wave-15 shape.
+   *
+   * MS-1's card typed its own result count five times beside a facts row that
+   * already computed it from `results`: *"Nine results are in the batch"*, an
+   * action line reading *"on all 9 zinc results"*, two options writing *"on 9
+   * results"*, and two sentences calling the unspiked remainder *"eight"*.
+   * That is exactly what the rollback card was caught doing in wave 15 — one
+   * number, derived on one panel and typed on the next — and the fix is the
+   * same one: the row's own `results` is the only place it is written, and the
+   * unspiked count is that number less the one aliquot the spike was made in.
+   * Nothing here says anything new; every figure is the figure it already was.
+   */
+  if (r.id === 'MS-1') {
+    const n = r.results;
+    const unspiked = n - 1;
+    return {
+      ...r,
+      action: `Proposed: qualifier ${r.qualifier} — biased low — on all ${n} zinc results in the batch. Not applied; the basis has not been chosen.`,
+      decision: {
+        ...r.decision,
+        matters: `${n} results are in the batch and one of them is the MW05 exceedance at 31.6 µg/L. A recovery below 100% biases low, so a qualified exceedance is understated rather than doubtful — but the qualifier is an assertion about ${unspiked} samples nobody spiked, and an auditor five years from now will ask who made it.`,
+        options: r.decision.options.map((o) => {
+          if (o.basis === 'laboratory') {
+            return { ...o, writes: `Qualifier ${r.qualifier} on ${n} results, origin laboratory, attributed to ${METALS_BATCH.laboratory}.` };
+          }
+          if (o.basis === 'disposition') {
+            return { ...o, writes: `Qualifier ${r.qualifier} on ${n} results, origin manual, naming you, the date, and the reason you give. Every result carries “dispositioned by” rather than a rule reference.` };
+          }
+          if (o.basis === 'sample') {
+            return { ...o, writes: `Qualifier ${r.qualifier} on 1 result — zinc in ${METALS_BATCH.spiked}, the sample the spike was made from. The other ${unspiked} carry nothing.` };
+          }
+          return o;
+        }),
+      },
+    };
+  }
+  return r;
+});
 
 /**
  * The decision layer — the screen's headline, counted rather than typed.
@@ -2712,16 +2750,50 @@ export const REPORT = {
   ],
 };
 
-/** The three limits on the two PFAS components, kept apart (QB-9, ADR-0009). */
+/**
+ * The three limits on the two PFAS components, kept apart (QB-9, ADR-0009).
+ *
+ * ## Wave 17 — the one field on this object the record does not support
+ *
+ * This carried `scheme: 'USEPA'` from wave 6, beside `origin: 'laboratory'`
+ * and the sentence *"The laboratory said it; nobody here inferred it."* The
+ * origin holds and is the strongest evidence of its kind in the seed — a named
+ * laboratory, a named certificate. **The scheme does not**, and wave 17
+ * measured it rather than inheriting it:
+ *
+ *   - The glossary's warrant for reading a laboratory's letter as USEPA's is
+ *     one sentence and it names one format: *"An **ESdat deliverable's** `U`
+ *     is USEPA's `U`."* This qualifier did not arrive on one. `IMP-0239`'s
+ *     format is **Yarra Regional v2** — `FORMATS` calls it *"the laboratory's
+ *     own dialect"*, a single flat CSV whose `preserves` line names analyte,
+ *     value, unit and sample code and no qualifier vocabulary at all.
+ *   - The mechanism by which an ESdat vocabulary travels — the header file's
+ *     `Lab_Qualifiers` block mapping each `Code` to a `Description` — belongs
+ *     to a format this deliverable is not in. Nothing declaring a vocabulary
+ *     came with the file.
+ *   - `method: 'USEPA 1633'` is the nearest thing to a citation on this
+ *     object and it is **an analytical method, not a qualifier vocabulary**.
+ *     A method named after an agency does not put that agency's reason codes
+ *     on the certificate, and the resemblance is exactly how this kind of
+ *     assertion gets made without anybody deciding it.
+ *
+ * So `scheme` is null and `schemeWas` records what it said. The whole state —
+ * the two readings, the export consequence of each, and the one question that
+ * would settle it — is on `QUALIFIERS`, which is the one record every surface
+ * that draws a qualifier now reads. This object keeps what its own source
+ * states: the letter, what it means, and who said it.
+ */
 export const PFAS_LIMITS = {
   lor: 2.0,
   mdl: 0.5,
   unit: 'ng/L',
   method: 'USEPA 1633',
-  scheme: 'USEPA',
+  scheme: null,
+  schemeWas: 'USEPA',
   qualifier: 'J',
   qualifierMeans: 'estimated',
   origin: 'laboratory',
+  certificate: 'YAR-26-0881',
   says: 'Reported by Yarra Regional on YAR-26-0881 with the J qualifier against the result. The laboratory said it; nobody here inferred it.',
 };
 
@@ -2743,7 +2815,17 @@ export const LINEAGE = {
      * limits stay distinct (QB-9) and the assertion moves to where the
      * glossary puts it: a **qualifier**, not a detect status.
      */
-    { step: 'Component 2', what: `PFHxS = 1.7 ${PFAS_LIMITS.unit} · detected · ${PFAS_LIMITS.qualifier} — ${PFAS_LIMITS.qualifierMeans}`, detail: `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · the value sits between the two, so it is real and not reliably quantified · qualifier ${PFAS_LIMITS.qualifier} (${PFAS_LIMITS.scheme} scheme, ${PFAS_LIMITS.origin} origin) · method ${PFAS_LIMITS.method} · analysed 2026-05-17`, kind: 'input', at: 'certificate' },
+    /*
+     * Wave 17. `detail` is a getter now, and for the reason `IMPORTS[0].rows`
+     * is one: the qualifier's scheme is settled on `QUALIFIERS`, which is
+     * declared further down this file because it reads the QA/QC register, the
+     * result page and this object. A literal here would be a second copy of a
+     * decision taken 600 lines below, and the copy is the thing that drifts.
+     * It read "qualifier J (USEPA scheme, laboratory origin)" until 3 September
+     * 2026 — see the note on `PFAS_LIMITS` for what the record does and does
+     * not support there.
+     */
+    { step: 'Component 2', what: `PFHxS = 1.7 ${PFAS_LIMITS.unit} · detected · ${PFAS_LIMITS.qualifier} — ${PFAS_LIMITS.qualifierMeans}`, get detail() { return `MDL ${PFAS_LIMITS.mdl.toFixed(1)} · LOR ${PFAS_LIMITS.lor.toFixed(1)} ${PFAS_LIMITS.unit} · the value sits between the two, so it is real and not reliably quantified · qualifier ${PFAS_LIMITS.qualifier} · origin ${PFAS_LIMITS.origin}, ${QUALIFIERS.byId('lab-J').schemeShort} · method ${PFAS_LIMITS.method} · analysed 2026-05-17`; }, kind: 'input', at: 'certificate' },
     { step: 'Derivation', what: 'Sum of components · rule sum-pfas-anzg v2.1', detail: 'Non-detect treatment: exclude — and it does not reach either component here. Both were detected, and an estimated detect is still a detect, so 1.7 enters the sum at its reported value rather than at a substituted one. Bound to ANZG 2018, not to a global setting (FR-2.2).', kind: 'rule', at: 'criteria' },
     { step: 'Derived result', what: `4.8 ${PFAS_LIMITS.unit} ${PFAS_LIMITS.qualifier} · ${PFAS_LIMITS.qualifierMeans} · flagged derived, not reported by the laboratory`, detail: 'Stored additively. Neither component was overwritten (FR-2.4), and the J carries from the component onto the total — a sum is no more certain than the least certain thing in it.', kind: 'derived', at: 'crosstab' },
     { step: 'Evaluation', what: 'ANZG 2018 95% species protection · 0.13 ng/L · exceedance at 37×', detail: 'Evaluated synchronously on commit, 2026-05-19 10:22. Criteria version 2018.1. The estimate does not decide it: PFOS alone is 24× the guideline value, so the outcome holds under every reading of the component.', kind: 'evaluation', at: 'exceedances' },
@@ -3328,8 +3410,18 @@ export const RESULT_DETAIL = {
   pql: '1.0 µg/L',
   method: 'USEPA 200.8 · ICP-MS',
   certificate: 'PAS2026-04417',
+  /*
+   * Wave 17. This entry read `source: 'laboratory'`. The glossary's word is
+   * **origin** — `QualifierOrigin`, "who said it: the laboratory, in the
+   * deliverable, or a practitioner manually" — and `source` was a fourth
+   * spelling of a first-class term (QB-9, ADR-0009): `PFAS_LIMITS` already
+   * said `origin`, the QA/QC decision options already wrote *origin
+   * laboratory* and *origin manual*, and this one said something else again.
+   * The field is renamed; the before is on `QUALIFIERS.renamed`, so the screen
+   * prints what it used to say rather than the rename being silent.
+   */
   qualifiers: [
-    { code: 'U', source: 'laboratory', meaning: 'Not detected above the reporting limit' },
+    { code: 'U', origin: 'laboratory', meaning: 'Not detected above the reporting limit' },
   ],
   annotations: [
     { by: 'A. Nakamura', at: '2026-05-21 15:02 AWST', text: 'LOR sits above the ANZG 2018 criterion for this analyte at this hardness. Raised with the laboratory on 21 May — they can reach 0.1 µg/L by ICP-MS/MS at additional cost. Recommend we fund it from Q3; until then cadmium at this site cannot be assessed and the report must say so rather than showing a pass.', flowsTo: 'Report §3 Data quality' },
@@ -3363,6 +3455,389 @@ export const QUARANTINE = [
   { row: 31, subject: 'Validation state "QA-Hold" · rows 31–36', reason: '"QA-Hold" is not a validation state this format maps. Defaulting it would erase or invent a review judgement (PP4).', rule: 'Validation_Status · ESdat export vocabulary', wayOut: 'Add the mapping to the Yarra Regional profile, or hold these rows', state: 'held' },
   { row: 12, subject: 'Zinc (filtered) · MW05-DUP · 2026-05-13', reason: 'Field duplicate RPD of 38.2% against a 30% acceptance limit. Both results are above the reporting limit, so this is a real disagreement rather than noise near the limit.', rule: 'field-duplicate-rpd · 30%', wayOut: 'Accepted with qualifier J — estimated', state: 'resolved' },
 ];
+
+/**
+ * # Every qualifier in this instance — one record, read on five screens
+ *
+ * Wave 17, 3 September 2026. Wave 10 found, while drawing the export, that
+ * *"the QA/QC register records each qualifier's basis and not its scheme, and
+ * an export is the first surface that needs the second"*, and deferred it as
+ * *"a seed change with four screens on the other end of it and a judgement in
+ * the middle"*. This is that record. The settled note closing the deferral is
+ * further down, beside `schemeGap` in `EXCHANGE`, where the debt was raised.
+ *
+ * ## The gap is two fields, not one
+ *
+ * `docs/GLOSSARY.md` carries **three** separate first-class terms, not two:
+ * *qualifier* (`QualifierCode`), *qualifier scheme* (`QualifierScheme` — USEPA,
+ * ESdat or Strataflow, *"which vocabulary a code belongs to"*) and *qualifier
+ * origin* (`QualifierOrigin` — *"who said it: the laboratory, in the
+ * deliverable, or a practitioner manually"*). The export rule wave 10 quoted
+ * lives in the **scheme** entry and turns on **origin**: a Strataflow reason
+ * code *"must not be exported as though a laboratory had said it"* is a
+ * sentence about who asserted a code, not about which list it came from. The
+ * deferral named the scheme and not the origin, and a register carrying only
+ * the scheme would still not answer the question the rule asks.
+ *
+ * ## What is derived and what is drawn as a decision
+ *
+ * **Origin is a measurement.** For every code the record already shows whether
+ * a deliverable carried it or a check in this instance raised it, and that is
+ * read off the record rather than assigned here. What the measurement returns
+ * is not two clean buckets, and the register says so rather than rounding:
+ * two codes are `laboratory` in the glossary's own word, two were raised by a
+ * deterministic rule in this instance — which is **neither** of the glossary's
+ * two words — and two are proposed and have written nothing at all, though
+ * every available way out of both would write a person's judgement, which is
+ * the glossary's second word exactly. The export does not need the missing
+ * word: its rule turns on *laboratory or not*, and that is answered for all
+ * six.
+ *
+ * **Scheme is decided only where the record decides it.** One code is settled
+ * by the glossary's own sentence and the format it names. Five are not, in two
+ * different ways, and the register keeps them apart because the ways out
+ * differ: for the laboratory's `J` the question belongs to the laboratory, and
+ * for the four raised here it belongs to this instance. Both readings of a
+ * borrowed letter are real, they have different export consequences, and this
+ * wave draws the decision rather than taking it — the same move waves 14, 15
+ * and 16 made on the licence trigger, the withdrawn censored cells and the
+ * absent soil limit.
+ *
+ * ## What is refused
+ *
+ * A meaning for `T`. Nothing in this instance states one, and the letter is
+ * the whole point of the undecided scheme, so `means` is null and the screens
+ * print the absence. And any claim that `Lab_Qualifier` **forbids** a code
+ * outside the six the specification names: `docs/reference/esdat-edd-spec.md`
+ * says the field *"may carry USEPA codes `U, J, J+, J-, R, UJ`"*. That names
+ * six; it does not reject a seventh, and *"not among the codes the
+ * specification names"* is the sentence this register uses.
+ */
+export const QUALIFIERS = (() => {
+  /** The six the ESdat specification names for `Lab_Qualifier` (§3, tier ✅). */
+  const specNames = ['U', 'J', 'J+', 'J-', 'R', 'UJ'];
+  const specField = 'Lab_Qualifier';
+  /** The glossary's two origin words, closed. Nothing here invents a third. */
+  const originWords = ['laboratory', 'manually'];
+
+  const esdatRun = IMPORTS.find((i) => i.id === 'IMP-0241');
+  const yarraRun = IMPORTS.find((i) => i.id === 'IMP-0239');
+  const esdatFormat = FORMATS.find((f) => f.name === esdatRun.format);
+  const yarraFormat = FORMATS.find((f) => f.name === yarraRun.format);
+
+  /**
+   * A meaning word, **found in the record** rather than restated beside it.
+   *
+   * The candidate is checked against the finding's own action line and the
+   * labels of its ways out. If the record stops saying it, this returns null
+   * and every surface prints the absence instead of a stale word.
+   */
+  const meaningIn = (q, word) => {
+    if (!word) return null;
+    const said = [q.action, ...(q.decision?.options ?? []).map((o) => o.label)].join(' · ');
+    return said.includes(word) ? word : null;
+  };
+  const MEANING = { 'FD-2': 'estimated', 'MS-1': 'biased low', 'EB-1': 'blank-affected', 'ST-1': null };
+
+  /* ---------------------------------------------------------------- *
+   * The two the laboratories asserted
+   * ---------------------------------------------------------------- */
+
+  const labU = {
+    id: 'lab-U',
+    code: RESULT_DETAIL.qualifiers[0].code,
+    means: RESULT_DETAIL.qualifiers[0].meaning.toLowerCase(),
+    raisedBy: `${esdatRun.lab} — certificate ${RESULT_DETAIL.certificate}`,
+    on: `${RESULT_DETAIL.analyte} · ${RESULT_DETAIL.location} · sample ${RESULT_DETAIL.sample}`,
+    at: 'result-detail',
+    atLabel: 'the result',
+    applied: true,
+    results: null,
+    origin: RESULT_DETAIL.qualifiers[0].origin,
+    originState: 'stated',
+    originSays:
+      `It arrived on ${esdatRun.file} — ${esdatRun.format}, from ${esdatRun.lab} — and committed as ${esdatRun.id}. ` +
+      'The laboratory said it in the deliverable, which is the glossary’s first origin word without any inference in between.',
+    scheme: 'USEPA',
+    schemeState: 'declared',
+    schemeShort: 'USEPA scheme, declared by the deliverable’s format',
+    schemeSays:
+      `The glossary settles this one by name: “An ESdat deliverable’s U is USEPA’s U and means what USEPA says it means.” ${esdatRun.file} is that format — ${esdatRun.format}, ${esdatFormat.files.toLowerCase()}, ${esdatFormat.fields} published fields — and the specification gives that format a way to carry its own vocabulary: a header block mapping each code to a description. The letter is read against a named list rather than against a habit.`,
+  };
+
+  const labJ = {
+    id: 'lab-J',
+    code: PFAS_LIMITS.qualifier,
+    means: PFAS_LIMITS.qualifierMeans,
+    raisedBy: `${yarraRun.lab} — certificate ${PFAS_LIMITS.certificate}`,
+    on: 'PFHxS on the PFOS + PFHxS pair, and carried onto the derived total',
+    at: 'lineage',
+    atLabel: 'the lineage of the derived total',
+    applied: true,
+    results: null,
+    origin: PFAS_LIMITS.origin,
+    originState: 'stated',
+    originSays: PFAS_LIMITS.says,
+    scheme: null,
+    schemeWas: PFAS_LIMITS.schemeWas,
+    schemeState: 'undeclared',
+    schemeShort: 'scheme not declared by the deliverable that carried it',
+    schemeSays:
+      `A laboratory said it, and no vocabulary came with it. ${yarraRun.id} arrived in ${yarraRun.format} — ${yarraFormat.files.replace('Single', 'a single')}, ${yarraFormat.fields} fields, this laboratory’s own dialect and nobody else’s. A single file has no header, so it has no block declaring a code list, and the glossary’s warrant for reading a laboratory’s letter as USEPA’s names one format and it is not this one.`,
+    schemeWasWhy:
+      `The nearest thing to a citation on the record is ${PFAS_LIMITS.method}, and that is an analytical method rather than a qualifier vocabulary — a method named after an agency does not put that agency’s reason codes on a certificate, and the resemblance is how this kind of assertion gets made without anybody deciding it.`,
+    settledBy: `Ask ${yarraRun.lab} which list its J is drawn from, or take the next PFAS suite on a deliverable whose header declares one. It is the laboratory’s answer to give, and it costs an email rather than a decision.`,
+  };
+
+  /* ---------------------------------------------------------------- *
+   * The four this instance raised
+   * ---------------------------------------------------------------- */
+
+  const fromFinding = (q) => {
+    const applied = !q.proposed;
+    const byRule = q.concept === 'automatic';
+    /** The ways out that are open and would actually write this letter. */
+    const writes = (q.decision?.options ?? []).filter(
+      (o) => o.available && o.writes.startsWith(`Qualifier ${q.qualifier}`),
+    );
+    /**
+     * The origin an unapplied code would take, derived from the ways out.
+     *
+     * Not from the propagation basis, which is a different question — *how far
+     * does it reach* rather than *who said it*. What decides origin is whether
+     * a way out that writes the letter attributes it to the laboratory or to a
+     * rule; where none does, the person taking the decision is the asserter,
+     * and `manually` is the glossary's own word for that. On both unapplied
+     * findings the laboratory and rule options are on the card and **refused
+     * by the record** — the certificate qualifies no result, the objective set
+     * states no consequence — which is why what is left is a person.
+     */
+    const ruledOut = (q.decision?.options ?? []).filter(
+      (o) => !o.available && (o.basis === 'laboratory' || o.basis === 'dqo'),
+    );
+    const wouldBe = writes.length && !writes.some((o) => o.basis === 'laboratory' || o.basis === 'dqo') ? 'manually' : null;
+    return {
+      id: q.id,
+      code: q.qualifier,
+      means: meaningIn(q, MEANING[q.id]),
+      raisedBy: `${q.check} — ${q.scope}`,
+      on: q.action,
+      at: 'qc',
+      atLabel: 'the QA/QC finding',
+      applied,
+      results: q.results,
+      basis: q.basis?.kind ?? null,
+      finding: q,
+      origin: applied ? (byRule ? null : 'manually') : null,
+      originState: applied ? (byRule ? 'uncovered' : 'stated') : 'unwritten',
+      wouldBe,
+      ruledOut,
+      originSays: applied
+        ? byRule
+          ? `Raised by a rule in this instance, not by anybody: ${q.rule.name}, ${q.rule.version}. The glossary’s origin is two-valued — the laboratory in the deliverable, or a practitioner manually — and a deterministic rule of this project’s own is neither. The register records what raised it and does not invent a third word for it.`
+          : `${q.disposition.by} applied it on ${q.disposition.at}, which is the glossary’s second origin word exactly.`
+        : `Nothing has been written, and an export writes the record rather than the proposal. ${q.results} result${q.results === 1 ? ' is' : 's are'} at stake and the decision has not been made. ${writes.length === 1 ? 'The one way out that would write this letter is a person’s' : writes.length === 2 ? 'Both ways out that would write this letter are a person’s' : `All ${writes.length} ways out that would write this letter are a person’s`}` +
+          (ruledOut.length
+            ? `, and the ${ruledOut.length} that would have attributed it to ${ruledOut.map((o) => (o.basis === 'laboratory' ? 'the laboratory' : 'a rule')).join(' or ')} are refused by the record`
+            : ', and no option on the card offers to attribute it to a laboratory or a rule') +
+          `. So the origin it would take is ${wouldBe ?? 'not settled by the options either'} — the person the decision belongs to.`,
+      alsoUnder:
+        q.rerun?.conceptMoves === 'automatic'
+          ? `${q.rerun.says} So this code’s origin depends on which version judges it, which is the sharpest thing on the round about origin being a fact about an act rather than a property of a letter.`
+          : null,
+      scheme: null,
+      schemeState: 'unrecorded',
+      schemeShort: 'scheme not recorded — raised here, vocabulary unstated',
+      schemeSays:
+        'The record says what raised it and never which list the letter came from. A reviewer reaching for a familiar letter and this instance minting its own reason code produce the same character, and only one of them may cross into a laboratory field.',
+    };
+  };
+
+  const rows = [labU, labJ, ...QAQC.filter((q) => q.qualifier).map(fromFinding)].map((r) => {
+    const named = specNames.includes(r.code);
+    const mayWrite =
+      r.origin !== 'laboratory'
+        ? 'no'
+        : r.schemeState === 'declared' && named
+          ? 'yes'
+          : 'only with the assumption stated';
+    return {
+      ...r,
+      specNames: named,
+      specSays: named
+        ? `${specField} may carry ${r.code} — it is among the ${specNames.length} codes the specification names for that field.`
+        : `${r.code} is not among the ${specNames.length} codes the specification names for ${specField}. That is what was measured; the specification does not say the field rejects a seventh, and this register does not say so either.`,
+      mayWrite,
+      writeSays:
+        r.origin !== 'laboratory'
+          ? r.originState === 'unwritten'
+            ? `Nothing to write. The qualifier is proposed and unapplied, and an export writes the record rather than the proposal.${named ? '' : ` Were it applied, ${r.code} would still not be among the codes the specification names for ${specField}.`}`
+            : `Refused on origin, before the letter is even looked at. ${specField} is a laboratory qualifier field, and this code was raised by a check of this instance’s own — writing it there would export it as though a laboratory had said it, which the glossary forbids by name.${named ? ` The letter ${r.code} happens to be one the specification names, and that changes nothing: origin decides this, not the character.` : ''}`
+          : mayWrite === 'yes'
+            ? `Written unchanged. A laboratory asserted it, the deliverable declared the vocabulary, and ${specField} is the field that vocabulary belongs to — the code crosses without translation.`
+            : `Writable, but not silently. Putting ${r.code} in a field the specification describes as carrying USEPA codes asserts that this laboratory’s ${r.code} is USEPA’s ${r.code}, and nothing declared that. Either the assumption is stated in the transmittal or the code is held — the same two ways out this screen offers for every other loss.`,
+    };
+  });
+
+  const byId = (id) => rows.find((r) => r.id === id);
+  const applied = rows.filter((r) => r.applied);
+  const proposed = rows.filter((r) => !r.applied);
+  const laboratory = rows.filter((r) => r.origin === 'laboratory');
+  const raisedHere = rows.filter((r) => r.origin !== 'laboratory');
+  const undecided = rows.filter((r) => r.schemeState === 'unrecorded');
+  const sum = (list) => list.reduce((n, r) => n + (r.results ?? 0), 0);
+
+  /**
+   * The letters carried by more than one assertion.
+   *
+   * Derived rather than pointed at: today it returns one group and it is `J`,
+   * the same character on a laboratory's certificate and on a rule this
+   * project wrote. A register keyed on the letter alone would merge them.
+   */
+  const collisions = [...new Set(rows.map((r) => r.code))]
+    .map((code) => ({ code, on: rows.filter((r) => r.code === code) }))
+    .filter((g) => g.on.length > 1);
+
+  return {
+    rows,
+    byId,
+    byCode: (code) => rows.filter((r) => r.code === code),
+    specNames,
+    specField,
+    originWords,
+    applied,
+    proposed,
+    laboratory,
+    raisedHere,
+    undecided,
+    collisions,
+    counts: {
+      assertions: rows.length,
+      codes: new Set(rows.map((r) => r.code)).size,
+      applied: applied.length,
+      proposed: proposed.length,
+      laboratory: laboratory.length,
+      raisedHere: raisedHere.length,
+      /** The 10 results wave 10 counted, recounted off the same register. */
+      appliedResults: sum(applied),
+      proposedResults: sum(proposed),
+      declared: rows.filter((r) => r.schemeState === 'declared').length,
+      undeclared: rows.filter((r) => r.schemeState === 'undeclared').length,
+      unrecorded: undecided.length,
+      originStated: rows.filter((r) => r.originState === 'stated').length,
+      originUncovered: rows.filter((r) => r.originState === 'uncovered').length,
+      originUnwritten: rows.filter((r) => r.originState === 'unwritten').length,
+      writable: rows.filter((r) => r.mayWrite === 'yes').length,
+      conditional: rows.filter((r) => r.mayWrite === 'only with the assumption stated').length,
+      refused: rows.filter((r) => r.mayWrite === 'no').length,
+      specNamed: rows.filter((r) => r.specNames).length,
+      notSpecNamed: rows.filter((r) => !r.specNames).length,
+    },
+
+    /**
+     * The decision this wave draws rather than takes.
+     *
+     * One question over four codes, not four questions — the reviewer's
+     * vocabulary is a property of this instance, and answering it for `J`
+     * answers it for `T`, `L` and `B` at the same time.
+     */
+    decision: {
+      question: 'When a check of ours raises a letter, which list is that letter drawn from?',
+      covers: undecided.map((r) => r.code),
+      results: sum(undecided),
+      resultsApplied: sum(undecided.filter((r) => r.applied)),
+      resultsProposed: sum(undecided.filter((r) => !r.applied)),
+      matters:
+        'Scheme is what makes a migration mappable in both directions, and it is the field that tells one assertion from another when two of them wear the same character. It does not change the export answer — origin already refuses all four — so nothing is blocked on it, which is exactly why it could sit unrecorded for a wave without anybody noticing.',
+      readings: [
+        {
+          label: 'Borrowed from USEPA, carrying the meaning it has there',
+          says: 'The reviewer reached for a letter practitioners already read, and meant by it what USEPA means. It is the ordinary reading and the record is consistent with it.',
+          consequence:
+            'A migration out of this instance can map these codes to a receiving system’s USEPA list, because they are the same codes. It does not make them writable into a laboratory field — a borrowed word in our mouth is still ours — and one of the four would map cleanly while three are not among the codes the specification names for that field at all.',
+        },
+        {
+          label: 'This instance’s own reason code, wearing a familiar letter',
+          says: 'The check raised its own code and the letter is a convenience. It is equally consistent with the record, and it is what the glossary’s Strataflow scheme describes.',
+          consequence:
+            'A migration must carry the code with this instance’s own vocabulary attached, or it lands somewhere else meaning something else. The same character in the receiving system is a different code, and mapping on the letter would silently merge two assertions.',
+        },
+      ],
+      refused:
+        'Choose one because it is likelier. Wave 10 did that once already — it read B as USEPA on familiarity — and the specification did not agree. A vocabulary guessed is the same defect as a field mapping guessed, and the export screen exists to not do that.',
+      wouldSettle:
+        'A controlled reason-code list for this instance, versioned like the criteria library and the objective set, stating for each code the vocabulary it belongs to. The glossary already names the three schemes; what is missing is the list itself, and writing one is a configuration decision with an approver rather than a column to fill in.',
+    },
+
+    /** The wave-10 expectation, corrected against the specification. */
+    wave10: {
+      /* The deferral's own sentence, with its code fences dropped so it reads
+       * as prose on a screen. The byte-exact original is quoted in the settled
+       * note beside `schemeGap`. */
+      was: 'J and B read as USEPA, T and L are the ones a real decision would have to be taken about',
+      now: `The specification names ${specNames.length} codes for ${specField} — ${specNames.join(', ')}. J is among them and B is not, and neither are T and L. So the guess was right about J and wrong about B, measured against the specification rather than against familiarity.`,
+      andAlso:
+        'It also read the question as one about four codes. It is about six assertions on five letters, because the same J is on a laboratory’s certificate as well as on a rule of ours, and because origin — which the deferral never named — is what the export rule actually turns on.',
+    },
+
+    /** The field this wave renamed, with what it used to say. */
+    renamed: [
+      {
+        where: 'RESULT_DETAIL.qualifiers[]',
+        was: 'source',
+        now: 'origin',
+        why: 'The glossary’s term is qualifier origin (QualifierOrigin). One concept was modelled under three words across this seed — origin on the PFAS limits, source here, and neither on the QA/QC register — which is the drift QB-9 and ADR-0009 exist to stop.',
+      },
+    ],
+
+    /**
+     * ## What `#qualifiers` drew until 3 September 2026
+     *
+     * The screen carried four typed rows and **three of them assert a
+     * qualifier the record says was never applied**, while the fourth
+     * attributes an automatic one to a person. Measured against the records
+     * that own each claim, not against a reading of the screen: every verdict
+     * below recomputes, so a record that changed would change the sentence.
+     */
+    drawnBefore: (() => {
+      const ht = QAQC.find((q) => q.id === 'HT-1');
+      const heldRow = QUARANTINE.find((r) => r.row === 18);
+      const spike = QAQC.find((q) => q.id === 'SH-1');
+      const fd2 = QAQC.find((q) => q.id === 'FD-2');
+      const derived = LINEAGE.chain.find((s) => s.kind === 'derived');
+      return [
+        {
+          was: { result: 'Zinc · MW05', code: fd2.qualifier, means: 'Estimated value', by: 'A. Nakamura', reason: `Field duplicate RPD 38.2% against the ${DQO.limitFor('Field duplicate RPD').limit} limit` },
+          verdict: 'the code is right and the asserter is not',
+          stands: fd2.concept === 'automatic',
+          now: `${fd2.id} is concept ${fd2.concept}: ${fd2.rule.says.charAt(0).toLowerCase()}${fd2.rule.says.slice(1)} Nobody applied it, and it reached ${fd2.results} results — the parent and its duplicate — rather than the one row the screen drew.`,
+          at: 'qc',
+        },
+        {
+          was: { result: 'Nitrate · MW09', code: 'H', means: 'Holding time exceeded', by: 'system', reason: 'Analysed at 6 days against a 2-day window' },
+          verdict: 'a way out that was never taken',
+          stands: ht.qualifier === null && heldRow.state === 'held',
+          now: `${ht.id} carries no qualifier at all — its action is “${ht.action}” — and row ${heldRow.row} is still ${heldRow.state}. H appears in one place on this round, as half of that row’s way out: “${heldRow.wayOut}”. Nobody accepted it, so nothing was written.`,
+          at: 'quarantine',
+        },
+        {
+          was: { result: 'Arsenic · MW05', code: '*', means: 'Confirmed against certificate', by: 'A. Nakamura', reason: 'Spike against location history — checked, real' },
+          verdict: 'contradicted by the disposition it came from',
+          stands: spike.qualifier === null,
+          now: `${spike.id} says the opposite in as many words: “${spike.disposition.wrote}” A finding closed without a qualifier was being drawn as a qualifier, which turns the record’s most careful distinction inside out.`,
+          at: 'qc',
+        },
+        {
+          was: { result: 'PFOS+PFHxS · MW05', code: 'D', means: 'Derived value', by: 'system', reason: 'Sum parameter · rule sum-pfas-anzg v2.1' },
+          verdict: 'not a qualifier — a property of the result',
+          stands: !rows.some((r) => r.code === 'D'),
+          now: `The glossary’s qualifier is “a coded assertion attached to a result by the laboratory or by a reviewer”. Derived is neither: it is what FR-2.3 makes first-class on the result itself, and the chain says so — “${derived.what}”. The qualifier that total does carry is ${labJ.code}, from ${labJ.raisedBy}.`,
+          at: 'lineage',
+        },
+      ];
+    })(),
+  };
+})();
 
 /**
  * # The import screen's four stat tiles, derived — settled 2 September 2026,
@@ -9212,13 +9687,13 @@ export const EXCHANGE = (() => {
     { domain: 'Sample type — matrix spike duplicate', writes: 'MS_D', tier: 'established', basis: 'ELDF §5.' },
     { domain: 'Validation state', writes: 'nothing', tier: 'refused',
       basis: 'No published field carries it — the Chemistry file’s thirty columns and the Sample file’s twelve include no validation state, and writing this instance’s own column name into somebody else’s file would invent a field. The state stays on the record; the transmittal can say it, the file cannot. The first draft of this row claimed the column existed (W10-A-1).' },
-    { domain: 'Qualifier — laboratory scheme', writes: 'the code, unchanged', tier: 'established',
-      basis: 'A U in an ESdat deliverable is USEPA’s U and means what USEPA says it means. The code belongs to its scheme, so it crosses without translation.' },
+    { domain: 'Qualifier — laboratory origin', writes: 'the code, unchanged', tier: 'established',
+      basis: `A U in an ESdat deliverable is USEPA’s U and means what USEPA says it means. The code belongs to its scheme, so it crosses without translation. Wave 17 counted them: ${QUALIFIERS.counts.laboratory} of the ${QUALIFIERS.counts.assertions} assertions this instance holds were made by a laboratory, and only ${QUALIFIERS.counts.declared} arrived in a format that declares its own code list — so ${QUALIFIERS.counts.undeclared} of the two crosses only with that assumption written down. The row’s domain used to say “scheme”, which named the field that does not decide this.` },
 
     { domain: 'Practical quantitation limit (PQL)', writes: 'nothing', tier: 'refused',
       basis: 'RDL is the candidate field and no source states the equivalence. The importer refuses to fill PQL from RDL on the strength of the names; the export refuses the same trade in the other direction.' },
-    { domain: 'Qualifier — Strataflow scheme', writes: 'nothing', tier: 'refused',
-      basis: 'A reason code raised by one of this instance’s own checks is ours. Writing it into a laboratory qualifier field would export it as though a laboratory had said it, which the glossary forbids by name.' },
+    { domain: 'Qualifier — raised in this instance', writes: 'nothing', tier: 'refused',
+      basis: `A reason code raised by one of this instance’s own checks is ours. Writing it into a laboratory qualifier field would export it as though a laboratory had said it, which the glossary forbids by name. ${QUALIFIERS.counts.refused} of ${QUALIFIERS.counts.assertions} fall here, and one of them wears the same letter ${QUALIFIERS.collisions[0].code} a laboratory put on the PFAS result — which is why the field that decides this is origin rather than the character.` },
     { domain: '— (no domain term for the format’s ODL)', writes: 'left empty', tier: 'refused',
       basis: 'The format carries a fourth limit no practitioner says. On the way in it must not be dropped; on the way out there is nothing to put in it, and the column is written empty rather than filled from a neighbour.' },
 
@@ -9283,41 +9758,119 @@ export const EXCHANGE = (() => {
   /**
    * Qualifiers this round actually wrote, and the ones nothing wrote.
    *
-   * ## FOUND AND DEFERRED — 2 September 2026 (wave 10), owner unassigned
+   * ## SETTLED (wave 17) — 3 September 2026, on a record made 2 September 2026
+   * (wave 10)
    *
-   * **The QA/QC register records each qualifier's *basis* and not its
-   * *scheme*, and an export is the first surface that needs the second.**
-   * `docs/GLOSSARY.md` makes *qualifier scheme* — USEPA, ESdat or Strataflow —
-   * a first-class term, and it states the export rule directly: a Strataflow
-   * reason code "must not be exported as though a laboratory had said it". So
-   * whether a given letter may be written into a laboratory qualifier field at
-   * all is decided by a field these rows do not carry. Four letters are
-   * affected: `J` and `T` are applied (10 results between them) and `L` and
-   * `B` are proposed and unapplied.
+   * The record is kept whole and the settled-note is at the end of it, because
+   * a debt that vanishes when it is paid leaves nobody able to tell a settled
+   * one from one that was never noticed.
    *
-   * Not fixed here, deliberately. Adding a `scheme` to every row means
-   * deciding, for each of the four, which vocabulary it belongs to — `J` and
-   * `B` read as USEPA, `T` and `L` are the ones a real decision would have to
-   * be taken about — and `#qc` draws all four today, `#qualifiers` and
-   * `#lineage` draw some of them, and `#result-detail` draws a fifth code
-   * (`U`) the same field would have to classify. That is a seed change with four
-   * screens on the other end of it and a judgement in the middle, not a
-   * column to add in passing. The export states the gap where it bites
-   * instead: the propagation basis is a named loss below, and the scheme is
-   * recorded as the thing that would decide *which* codes are written at all.
+   * Its ledger tag — the found-and-deferred marker, dated 2 September 2026
+   * (wave 10), owner unassigned — is **closed rather than quoted**, and it is
+   * the only line of this record that moved. That marker is what a grep counts
+   * as the ledger, so reproducing it inside the quotation would keep the
+   * ledger reading three while two records stand; the heading above is what it
+   * became. Everything the record *found* is below it, unedited:
+   *
+   * > **The QA/QC register records each qualifier's *basis* and not its
+   * > *scheme*, and an export is the first surface that needs the second.**
+   * > `docs/GLOSSARY.md` makes *qualifier scheme* — USEPA, ESdat or Strataflow —
+   * > a first-class term, and it states the export rule directly: a Strataflow
+   * > reason code "must not be exported as though a laboratory had said it". So
+   * > whether a given letter may be written into a laboratory qualifier field at
+   * > all is decided by a field these rows do not carry. Four letters are
+   * > affected: `J` and `T` are applied (10 results between them) and `L` and
+   * > `B` are proposed and unapplied.
+   * >
+   * > Not fixed here, deliberately. Adding a `scheme` to every row means
+   * > deciding, for each of the four, which vocabulary it belongs to — `J` and
+   * > `B` read as USEPA, `T` and `L` are the ones a real decision would have to
+   * > be taken about — and `#qc` draws all four today, `#qualifiers` and
+   * > `#lineage` draw some of them, and `#result-detail` draws a fifth code
+   * > (`U`) the same field would have to classify. That is a seed change with four
+   * > screens on the other end of it and a judgement in the middle, not a
+   * > column to add in passing. The export states the gap where it bites
+   * > instead: the propagation basis is a named loss below, and the scheme is
+   * > recorded as the thing that would decide *which* codes are written at all.
+   *
+   * ## What closed it
+   *
+   * `QUALIFIERS` — one record, six assertions on five letters, read by `#qc`,
+   * `#qualifiers`, `#lineage`, `#result-detail` and this screen. The four
+   * screens the deferral counted are all on the other end of it, exactly as it
+   * said; what it costs them is a lookup rather than a description.
+   *
+   * **The deferral named one field and the gap is two.** The glossary carries
+   * *qualifier scheme* and *qualifier origin* as separate first-class terms,
+   * and the export rule it quoted — "must not be exported as though a
+   * laboratory had said it" — turns on **origin**, which the record never
+   * named. Scheme says which vocabulary a letter is drawn from; origin says
+   * who asserted it. The export needed both and the register carried neither.
+   *
+   * **Origin is measured and it answers the export question completely.** Two
+   * of the six assertions are `laboratory` in the glossary's own word; four
+   * were raised by checks of this instance. So four are refused before the
+   * letter is looked at, and one of those four is a `J` — the same character a
+   * laboratory put on the PFAS result, which crosses. Same letter, two
+   * assertions, two fates, and nothing on any screen told them apart before.
+   *
+   * **Scheme is settled only where the record settles it, and that is once.**
+   * `U` is USEPA on the glossary's own sentence about the format it arrived
+   * in. The other five are undecided in two different ways, kept apart because
+   * the ways out differ, and both are drawn as decisions with their readings,
+   * their consequence each way and their counts — the wave-14, -15 and -16
+   * move, applied here.
+   *
+   * **Two corrections, each with its before on the face that changed.** Wave
+   * 10 expected `J` and `B` to read as USEPA; the specification names six
+   * codes for `Lab_Qualifier` and `B` is not among them (`QUALIFIERS.wave10`).
+   * And `PFAS_LIMITS` asserted `scheme: 'USEPA'` on a qualifier that arrived
+   * on a laboratory's own single-CSV dialect, where the glossary's warrant
+   * names one format and it is not that one.
+   *
+   * **What was refused.** A meaning for `T`, which nothing states. A third
+   * origin word for the two rule-raised codes, which the glossary does not
+   * offer. And the sentence *"forbidden by the schema"* — the specification
+   * says `Lab_Qualifier` **may carry** six codes and does not say it rejects a
+   * seventh, so the register says "not among the codes the specification
+   * names" and stops there.
    */
   const qualifiersWritten = QAQC.filter((q) => q.qualifier && !q.proposed);
   const qualifiersProposed = QAQC.filter((q) => q.qualifier && q.proposed);
   const qualifiedResults = qualifiersWritten.reduce((n, q) => n + q.results, 0);
   const proposedResults = qualifiersProposed.reduce((n, q) => n + q.results, 0);
-  /** The gap above, as a record the screen can draw rather than a comment. */
+  /**
+   * The gap above, settled — and what the export may now write, per code.
+   *
+   * Everything here reads `QUALIFIERS`. `was` is the prose this replaced, kept
+   * so the screen can print what it used to say beside what it says now.
+   */
   const schemeGap = {
     term: 'qualifier scheme',
+    raised: '2 September 2026 (wave 10)',
+    settled: '3 September 2026 (wave 17)',
     applied: qualifiersWritten.map((q) => q.qualifier),
     proposed: qualifiersProposed.map((q) => q.qualifier),
     decides: 'Whether a code may be written into a laboratory qualifier field at all.',
     rule: 'A Strataflow reason code is this instance’s own. Exporting it as though a laboratory had said it is forbidden by name, so the scheme is what the export would filter on.',
-    why: 'The QA/QC register carries each qualifier’s propagation basis and not its scheme. Adding one means deciding the vocabulary of four codes, on screens that already draw them — which is a decision rather than a column.',
+    /** The two sentences this replaces, verbatim. */
+    was: {
+      headline: 'The qualifier scheme — the vocabulary a code belongs to — decides whether that code may be written into the file at all, and the QA/QC register does not carry one.',
+      why: 'The QA/QC register carries each qualifier’s propagation basis and not its scheme. Adding one means deciding the vocabulary of four codes, on screens that already draw them — which is a decision rather than a column.',
+      guess: QUALIFIERS.wave10.was,
+    },
+    now:
+      'The register carries both fields, and the one the deferral never named is the one the rule turns on: ' +
+      `origin — ${QUALIFIERS.originWords.join(' or ')}, the glossary’s own two words. ` +
+      `${QUALIFIERS.counts.assertions} assertions on ${QUALIFIERS.counts.codes} letters: ` +
+      `${QUALIFIERS.counts.writable} crosses unchanged, ${QUALIFIERS.counts.conditional} crosses only with its assumption stated, ` +
+      `and ${QUALIFIERS.counts.refused} are refused on origin before the letter is looked at.`,
+    /** The residue: what is still undecided, counted rather than described. */
+    residue:
+      `${QUALIFIERS.counts.unrecorded + QUALIFIERS.counts.undeclared} of the ${QUALIFIERS.counts.assertions} have no scheme the record settles — ` +
+      `${QUALIFIERS.counts.unrecorded} raised here with the vocabulary unstated, ${QUALIFIERS.counts.undeclared} that arrived on a deliverable declaring none. ` +
+      'None of it changes what the export writes, because origin already decides every row — so the undecided vocabulary is a migration question rather than a blocked file, and it is drawn as the decision it is.',
+    register: QUALIFIERS,
   };
 
   /**
@@ -9370,7 +9923,7 @@ export const EXCHANGE = (() => {
     { check: 'QC samples carrying a type code', over: 'the round’s manifest', record: qcSamples.length, file: qcCoded.length, verdict: 'no code exists',
       says: `The ${qcPhrase(qcCoded)} has a published code. The ${qcPhrase(qcUncoded)} do not — and those are the controls that answer whether the sampling itself introduced anything.` },
     { check: 'Qualified results carrying their basis', over: 'the round’s QA/QC register', record: qualifiedResults, file: 0, verdict: 'no column',
-      says: `${qualifiersWritten.map((q) => q.qualifier).join(' and ')} on ${qualifiedResults} results, each with the rule or the judgement it travelled on. The letter can cross; the basis cannot — and which of the letters may cross turns on a scheme these rows do not record.` },
+      says: `${qualifiersWritten.map((q) => q.qualifier).join(' and ')} on ${qualifiedResults} results, each with the rule or the judgement it travelled on. The letter can cross; the basis cannot — and neither of these two letters crosses at all, because the register now records what raised them and a rule of ours raised both.` },
   ];
 
   const agreed = reconciliation.filter((r) => r.verdict === 'agrees');
