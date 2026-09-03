@@ -61,7 +61,7 @@ else in this brief is as load-bearing (§9).
 **"NG4. Full GIS. Map display and spatial export only."** `#coverage` already
 answers the incumbent baseline accordingly — ESdat's ArcGIS/MapInfo/QGIS export is
 recorded *defer*, and EQuIS's embedded ArcGIS *concede*, both citing NG4 by name.
-§5 asks P0 for thirteen layers including geology, hydrostratigraphy, plume contours
+§5 asks P0 for **fourteen** layers including geology, hydrostratigraphy, plume contours
 and aerial imagery, symbology across seven dimensions, a temporal control and
 spatial selection handed to the explorer.
 *Proposed resolution:* accept the workspace and hold the line at NG4 by making the
@@ -104,13 +104,21 @@ approval from you, not a wave. FP-1 (depth profile) is separately blocking two s
 screens and the §14 soil work. Both inherit G-76b in full: the grammar these extend
 has still never been printed.
 
+**Two counts corrected 3 September 2026, in wave 18 (W18-A-2).** This document
+first said §4.2 held "~35" dimensions and §5 "thirteen" layers. Hand counts give
+**43** and **14**, and wave 18's build now reads the brief on every run and fails if
+the enumeration drifts from those figures — so the repository enforces one pair of
+numbers, and it would have been publishing another. Both are corrected above. The
+approximation was the tell: a requirement count that has to be estimated has not
+been counted.
+
 ---
 
 ## 2. Assessment summary
 
 | # | Brief area | Priority | Shape of the result |
 |---:|---|---|---|
-| 1 | §4 Data Explorer | P0 | **Absent as a capability.** No screen composes filters across entities; the nearest surfaces carry 3–6 fixed facets each and hand nothing to one another. Of §4.2's ~35 dimensions, roughly a third are partial (a facet exists somewhere, screen-local) and the rest absent. §4.3's worked scenario cannot be expressed — six of its eight terms have no facet, and neither manganese nor a "Unit C" exists in the seed. |
+| 1 | §4 Data Explorer | P0 | **Absent as a capability.** No screen composes filters across entities; the nearest surfaces carry 3–6 fixed facets each and hand nothing to one another. Of §4.2's **43** dimensions, roughly a third are partial (a facet exists somewhere, screen-local) and the rest absent. §4.3's worked scenario cannot be expressed — six of its eight terms have no facet, and neither manganese nor a "Unit C" exists in the seed. |
 | 2 | §5 GIS workspace | P0 | **Absent as a workspace.** `#map` is two static SVG plates with no layer list, no toggle, no symbology control, no time control and **no selection**. One layer meets §2 outright: the potentiometric surface, which states its method, control set, largest residual (0.55 m), exclusion (MW03B, confined) and the dry bore. |
 | 3 | §6 Sampling and Analysis Planning | P0 | **Recording is strong; planning is absent.** `#programme` is read-only — nothing anywhere shows a programme being defined, versioned or amended. §6.4's six-stage reconciliation exists as six sound hand-offs on six different screens and **nowhere as a reconciliation**. Unsampled locations and late-holding-time results are fully satisfied, including MW11's dry disposition with two visits kept as two records. |
 | 4 | §7 EDD configuration | P1 | **Exception resolution satisfied; onboarding absent.** `#import-review`/`#quarantine` are the catalogue's strongest pair. But there is **no laboratory object at all**, no format authoring, no test run, no preview, no review. Four of §7.4's nine problem types are demonstrated; five are not. Mapping profiles have no name, no description, no profile version, no approver — and no import run names the profile version it used. |

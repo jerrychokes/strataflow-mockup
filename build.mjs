@@ -890,14 +890,16 @@ ${palette()}
     let cur = null;
     for (const line of lines) {
       const h = line.match(/^### (.+)$/);
-      if (h) { cur = { heading: h[1].trim(), bullets: 0 }; subsections.push(cur); continue; }
+      if (h) { cur = { heading: h[1].trim(), bullets: 0, lines: [] }; subsections.push(cur); continue; }
       if (/^## /.test(line)) cur = null;
       if (cur && /^- /.test(line)) cur.bullets += 1;
+      if (cur) cur.lines.push(line);
     }
     const numbered = subsections.filter((x) => /^\d+\.\d+ /.test(x.heading)).map((x) => ({
       id: x.heading.slice(0, x.heading.indexOf(' ')),
       title: x.heading.slice(x.heading.indexOf(' ') + 1),
       bullets: x.bullets,
+      text: norm(x.lines.join(' ')),
     }));
     const scenarios = subsections.filter((x) => x.heading.startsWith('Scenario '));
 
@@ -941,8 +943,28 @@ ${palette()}
       });
     }
 
+    /*
+     * W18-A-1. This asked whether the quoted words were anywhere in the brief,
+     * which catches a paraphrase and misses a misattribution: a row could quote
+     * a different section's sentence verbatim and pass, which is a matrix row
+     * that has stopped tracing. The slice each row belongs to is already taken
+     * above for the bullet counts, so the check narrows to it rather than
+     * gaining a second mechanism. The §15/§17/§20 rows are matched word for
+     * word against their own lists further up and fall back to the whole file.
+     */
+    const sliceFor = (r) =>
+      r.group === 'requirement' ? numbered.find((x) => x.id === r.id)?.text
+      : r.group === 'scenario' ? subsections.find((x) => x.heading === r.title)?.lines.join(' ') && norm(subsections.find((x) => x.heading === r.title).lines.join(' '))
+      : null;
+
     for (const r of rows) {
-      if (!flat.includes(norm(r.asks))) offences.push(`row ${r.id}: its quoted words are not in the brief — “${norm(r.asks)}”`);
+      const slice = sliceFor(r);
+      const where = slice ?? flat;
+      if (!where.includes(norm(r.asks))) {
+        offences.push(slice
+          ? `row ${r.id}: its quoted words are not in §${r.id} of the brief — “${norm(r.asks)}”`
+          : `row ${r.id}: its quoted words are not in the brief — “${norm(r.asks)}”`);
+      }
       /* A note that kept its placeholder is a denominator that never arrived. */
       if (r.note.includes('{items}')) offences.push(`row ${r.id}: its note still carries an unfilled {items} placeholder`);
     }
