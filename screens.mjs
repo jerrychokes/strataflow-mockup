@@ -82,6 +82,11 @@ import {
   // scenario walked as far as it goes, and the drawn sequence whose every
   // readout counts through `SAVED_VIEWS.accounting`.
   EXPLORER,
+  // Wave 21 — the analysis object: what read which records, under which
+  // method, with each member's QA/QC state as at computation, and what
+  // depends on the answer. Read by `#analysis`, `#hydrochem`, `#statistics`,
+  // `#background`, `#report-figures` and the lineage chain.
+  ANALYSES,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, OUTCOME_LABEL, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -2424,6 +2429,19 @@ const exceedances = () =>
     ),
   ]) +
   stagedNote(`${AMENDMENT.counts.outcomesChanged} of ${AMENDMENT.counts.resultsPreviewed} previewed outcomes on this register would change`) +
+  /*
+   * Wave 21, D10 — every surface that draws this population says which of its
+   * members carry a qualifier that is proposed and has not been applied.
+   *
+   * This register is the output of `ANALYSES.of('evaluation-2-sets')`, and one
+   * of the nine rows below is the MW05 zinc the matrix-spike failure is
+   * proposed over. Excluding those results would be the product taking a
+   * decision the practitioner has not; including them silently would be hiding
+   * one. The count is the register's — results in an analytical batch — and
+   * never the grid's, and the two are not reconcilable because no cell carries
+   * a qualifier channel.
+   */
+  ((D, A) => `<p class="mk-tight mk-muted"><strong>${esc(String(D.assertions))} of the findings this evaluation ran under propose a qualifier nobody has applied, over ${esc(String(D.results))} results — and those results are inside the population rather than excluded from it.</strong> ${esc(D.codes.join(' · '))}. That count is ${esc(D.counted)} — <a class="mk-ref" href="#qualifiers">the qualifier register’s</a>, not <a class="mk-ref" href="#crosstab">the grid’s</a> ${esc(String(D.grid.n))} zinc cells — and the two cannot be reconciled, which is stated rather than smoothed. <a class="mk-ref" href="#analysis">The analysis behind this register</a> froze ${esc(String(A.qa.entries.length))} findings, ${esc(String(A.qa.open.length))} of them still open (D10, 3 September 2026).</p>`)(ANALYSES.d10, ANALYSES.of('evaluation-2-sets')) +
   C.filterBar({
     onView: 'All open exceedances',
     saved: true,
@@ -3261,35 +3279,236 @@ const hydrographWorkspace = () =>
     ),
   );
 
-const hydrochem = () =>
-  head('Hydrogeochemistry', 'Piper, Stiff and Schoeller — what kind of water this is.', {
-    route: '/projects/:projectId/hydrochem',
-    toolbar: btn('Export SVG') + btn('Add all to report', 'primary'),
-  }) +
-  cols(
-    figure('4.3', 'Piper trilinear diagram — 2026 Q2', F.piper(),
-      'MW05 separates from the background cluster on the sulfate limb.'),
-    panel('What the plate says',
-      '<p class="mk-tight">Every bore except MW05 is a calcium-bicarbonate water, tightly clustered — the natural signature of the Superficial aquifer here. MW05 is sulfate-dominated and four times the ionic strength.</p>' +
-      '<p class="mk-tight">That is the difference between <em>a bore with a high arsenic result</em> and <em>a bore receiving TSF seepage</em>, and it is the argument a hydrogeologist has to make in the report. The chemistry makes it; the exceedance register alone cannot.</p>' +
-      /*
-       * Wave 8's rider reaches this sentence too. It read "Ionic balance at
-       * MW05 is −7.8%, outside the ±5% acceptance limit" — a number typed on
-       * two screens and supported by neither, since the ions this plate is
-       * drawn from balance to 0.04%. The claim it was making is worth
-       * keeping, so it is made from the check that actually fails and read
-       * from the same computation the consistency screen prints.
-       */
-      ((r) =>
-        `<p class="mk-tight mk-muted">The ions this plate is drawn from balance at ${loc(r.code)} to <strong>${r.balance > 0 ? '+' : '−'}${Math.abs(r.balance).toFixed(2)}%</strong> — inside the ${esc(CONSISTENCY.limits.balanceText)} limit, so the shape of the polygon is not an artefact. What does fail is the reconciliation: they sum to ${r.tdsCalc.toLocaleString('en-AU')} mg/L against ${r.tds.toLocaleString('en-AU')} mg/L reported, a ratio of ${r.ratio.toFixed(2)}, and <a class="mk-ref" href="#consistency">a review is raised on it</a>. A plate drawn from data that failed a consistency check should say so on its own face.</p>`)(
-        CONSISTENCY.rows.find((r) => r.code === 'MW05'),
-      )),
-    '3fr 2fr',
-  ) +
-  figure('4.4', 'Stiff diagrams by location', F.stiff(),
-    'One scale across every panel. Per-panel scaling would make each polygon fill its box and destroy the only comparison the plate is for.') +
-  figure('4.5', 'Schoeller diagram', F.schoeller(),
-    'Semi-logarithmic; only the decades carry a gridline.');
+/**
+ * Hydrogeochemistry — wave 21.
+ *
+ * The assessment measured this as **the weakest analysis screen in the
+ * catalogue**: roughly a tenth of `#hydrograph`'s body, with no configuration
+ * block, no table view, no exclusion list, no population count, no per-sample
+ * conversion and no grouping control. The charge-balance result reached it as
+ * a caption. §9.3's second sentence is the standard — *"The user must be able
+ * to inspect the input population, excluded records, unit conversions,
+ * charge-balance result and grouping or symbolisation logic"* — and the
+ * brief's own line is the reason: a graph without an inspectable underlying
+ * population is inconsistent with the defensibility proposition.
+ *
+ * **It gains no plate.** FP-1, FP-2 and FP-3 are approved (D2) and every one of
+ * them is gated behind the print test (D13); `figures.mjs` is untouched. This
+ * wave makes the three existing plates inspectable.
+ *
+ * **And it loses a sentence.** The panel beside the Piper plate has said since
+ * the first pass that every bore except MW05 is a calcium-bicarbonate water.
+ * Measured against the ion table those plates are drawn from, no bore holds a
+ * majority cation and at four of the six the largest cation is not calcium. A
+ * facies **name** needs a classification scheme and this instance holds none,
+ * so the composition is drawn and no water type is assigned.
+ */
+const hydrochem = () => {
+  const A = ANALYSES.of('major-ions');
+  const I = ANALYSES.ions;
+  const f = I.facies;
+  const m = f.measured;
+  const st = I.strengthClaim;
+  const mw05 = CONSISTENCY.rows.find((r) => r.code === 'MW05');
+  const pct = (x) => `${(x * 100).toFixed(1)}%`;
+
+  return (
+    head('Hydrogeochemistry', 'Piper, Stiff and Schoeller — the population under them, and what the ions do and do not settle.', {
+      route: '/projects/:projectId/hydrochem',
+      toolbar: btn('Export SVG') + btn('Save configuration') + btn('Add all to report', 'primary'),
+    }) +
+    `<p class="mk-tight mk-muted"><strong>Population — ${esc(A.population.what)}.</strong> ` +
+      `${esc(A.population.excluded)} ` +
+      `It is <a class="mk-ref" href="#analysis">an analysis with a method and settings</a>, and the two plates that cite it in the report name the <em>population</em> rather than the analysis — so a reader of the report can reach the ions and not the balance, the conversion or the classification. ` +
+      `<a class="mk-ref" href="#explorer">Where a population is constructed</a>.</p>` +
+    stats([
+      stat(`${I.rows.length} / ${I.onGrid.length}`, 'bores with a chemistry'),
+      stat(String(I.results), 'ion results'),
+      stat(String(I.excluded.length), 'excluded and named', 'warn'),
+      stat(`${CONSISTENCY.counts.consistent} / ${CONSISTENCY.counts.bores}`, 'consistent', 'good'),
+      stat(String(CONSISTENCY.counts.raised), 'review raised', 'bad'),
+      stat(String(ANALYSES.counts.faciesAssigned), 'water types assigned', 'warn'),
+    ]) +
+    cols(
+      figure('4.3', 'Piper trilinear diagram — 2026 Q2', F.piper(),
+        'MW05 separates from the rest of the network on the sulfate limb.'),
+      panel('What the plate says, and what it does not',
+        `<p class="mk-tight">MW05 is the one bore in this population where an ion holds a majority of its own side: sulfate at <strong>${esc(pct(I.of('MW05').topAnion.share))}</strong> of the anions and sodium with potassium at <strong>${esc(pct(I.of('MW05').topCation.share))}</strong> of the cations. Nowhere else does any ion pass ${esc(String(I.majority * 100))}%.</p>` +
+          `<p class="mk-tight">That is the difference between <em>a bore with a high arsenic result</em> and <em>a bore receiving TSF seepage</em>, and it is the argument a hydrogeologist has to make in the report. The chemistry makes it; the exceedance register alone cannot.</p>` +
+          ((r) =>
+            `<p class="mk-tight mk-muted">The ions this plate is drawn from balance at ${loc(r.code)} to <strong>${r.balance > 0 ? '+' : '−'}${Math.abs(r.balance).toFixed(2)}%</strong> — inside the ${esc(CONSISTENCY.limits.balanceText)} limit, so the shape of the polygon is not an artefact. What does fail is the reconciliation: they sum to ${r.tdsCalc.toLocaleString('en-AU')} mg/L against ${r.tds.toLocaleString('en-AU')} mg/L reported, a ratio of ${r.ratio.toFixed(2)}, and <a class="mk-ref" href="#consistency">a review is raised on it</a>. A plate drawn from data that failed a consistency check should say so on its own face.</p>`)(mw05) +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">Two sentences withdrawn, 3 September 2026</span>',
+            body:
+              `<p class="mk-tight">This panel read <span class="sf-result__superseded">${esc(ANALYSES.was.faciesClaim)}</span> and <span class="sf-result__superseded">${esc(ANALYSES.was.faciesTail)}</span>. Both are measured below and neither survives: ${esc(String(m.cationMajority))} of the ${esc(String(m.bores))} bores holds a majority cation and at ${esc(String(m.notCalcium.length))} of them the largest cation is not calcium at all, and MW05 is ${esc(String(st.meanRatio))}× the mean ionic strength of the other ${esc(String(st.ratios.length))} rather than four times each of them.</p>`,
+          })),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * §9.3's five inspectables
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Read it as a table — the population, per sample and per ion</h2>' +
+    C.segmented({ options: ['Figure', 'Table', 'Both'], value: 'Both', label: 'View' }) +
+    table({
+      caption: `Every ion in the population, in the unit the record holds it in and in the unit the laboratory reports. mg/L is meq/L × the equivalent weight — one multiplication, made once, and the same one the TDS reconciliation sums.`,
+      head: ['Bore', 'Ion', 'Side', 'meq/L', 'Equivalent weight<small>mg per meq</small>', 'mg/L', 'Share of its side'],
+      kind: 'matrix',
+      label: 'Major ions per sample, in meq/L and mg/L',
+      rows: I.rows.flatMap((r) => r.conversions.map((k) => {
+        const share = (k.side === 'cation' ? r.cationShare : r.anionShare)
+          .find((x) => x.key === k.key || (x.key === 'NaK' && (k.key === 'Na' || k.key === 'K')));
+        return [
+          loc(r.code),
+          esc(k.label),
+          esc(k.side),
+          `<span class="mk-num">${k.meq.toFixed(2)}</span>`,
+          `<span class="mk-num mk-num--nil">${k.weight.toFixed(2)}</span>`,
+          `<span class="mk-num">${k.mg.toFixed(1)}</span>`,
+          k.key === 'Na' || k.key === 'K'
+            ? `<span class="mk-muted">${esc(pct(share.share))} with ${k.key === 'Na' ? 'K' : 'Na'}</span>`
+            : `<span class="mk-num">${esc(pct(share.share))}</span>`,
+        ];
+      })),
+    }) +
+    ((X) => cols(
+      panel(
+        `The conversion, checked against the one ion both records report`,
+        `<p class="mk-tight">${esc(X.says)}</p>` +
+          table({
+            caption: `${esc(X.analyte)} is on <a class="mk-ref" href="#crosstab">the results grid</a> in ${esc(X.unit)} and in the ion table in meq/L, so converting the second gives a number the first can be compared with. Agreement is within ${esc(String(X.tolerance))}%.`,
+            head: ['Bore', 'Derived from the ions', 'Reported on the grid', 'Difference', 'Agrees'],
+            kind: 'matrix',
+            label: 'Derived sulfate against the reported result, per bore',
+            rows: X.rows.map((r) => [
+              loc(r.code),
+              `<span class="mk-num">${r.derived.toFixed(1)}</span>`,
+              r.reported === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${r.reported.toFixed(1)}</span>`,
+              r.off === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num${r.agrees ? '' : ' mk-num--bad'}">${r.off > 0 ? '+' : '−'}${Math.abs(r.off).toFixed(2)}%</span>`,
+              r.agrees ? C.status('yes', 'good') : C.status('no', 'bad'),
+            ]),
+          }) +
+          `<p class="mk-tight"><strong>${esc(String(X.agreeing))} of the ${esc(String(X.rows.length))} agree to within a percent and a half, and ${esc(X.disagreeing.map((r) => r.code).join(', '))} disagrees by a fifth.</strong> ${esc(X.refuses)}</p>` +
+          `<p class="mk-tight mk-muted"><strong>What would settle it.</strong> ${esc(X.settledBy)}</p>`,
+      ),
+      panel(
+        'Excluded records',
+        `<p class="mk-tight">${esc(String(I.excluded.length))} of the ${esc(String(I.onGrid.length))} bores on <a class="mk-ref" href="#crosstab">the round’s grid</a> is not in this population, and it is named rather than dropped.</p>` +
+          table({
+            head: ['Bore', 'Why it is out'],
+            scroll: true,
+            label: 'Records excluded from the major-ion population',
+            rows: I.excluded.map((x) => [loc(x.code), cell(esc(x.why))]),
+          }) +
+          `<p class="mk-tight mk-muted">This is the first of <a class="mk-ref" href="#saved-views">the four absences</a> the grid keeps apart, arriving on a plate: <em>dry</em> is an absence of material, and a network diagram drawn over six bores with the seventh silently missing would read as a six-bore network.</p>`,
+      ),
+      '3fr 2fr',
+    ))(ANALYSES.ions.crossCheck) +
+    panel(
+      'Configuration — saved with the figure, not with the session',
+        '<div class="mk-config">' +
+        [`Locations · ${I.bores.join(', ')}`,
+         `Excluded · ${I.excluded.map((x) => x.code).join(', ')} — no chemistry`,
+         `Unit · meq/L, converted to mg/L by equivalent weight`,
+         `Cation axis · Ca, Mg, Na + K`,
+         `Anion axis · ${I.anions.map((k) => (k === 'HCO3' ? 'HCO₃' : k === 'SO4' ? 'SO₄' : k)).join(', ')}`,
+         `Scale · one shared scale across every Stiff panel`,
+         `Balance limit · ${CONSISTENCY.limits.balanceText}`]
+          .map((x) => `<div class="mk-config__row">${esc(x)}</div>`).join('') +
+        '</div>' +
+        `<p class="mk-tight mk-muted">QB-3 is that next quarter’s figure is identical except for the new data, which means the configuration is a stored object rather than something rebuilt by hand — the same rule <a class="mk-ref" href="#hydrograph">the hydrograph</a> already states beside Figure 4.1. Until this wave this screen had no configuration block at all, so nothing here could be seen, saved or disagreed with.</p>` +
+        C.card({
+          tone: 'bad',
+          head: `<span class="mk-queue__kind">The one §9.3 asks for that this cannot show</span>`,
+          body:
+            `<p class="mk-tight"><strong>Grouping and symbolisation.</strong> ${esc(I.symbolisation.rule)}</p>` +
+            `<p class="mk-tight">${md(I.symbolisation.says)}</p>` +
+            `<p class="mk-tight mk-muted">${md(I.symbolisation.sameAs)}</p>`,
+        }),
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Facies
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Water type — composed, and not named</h2>' +
+    cols(
+      panel(
+        'What the ion table settles',
+        `<p class="mk-tight">${md(f.composition)}</p>` +
+          table({
+            caption: `The proportion each ion holds of its own side, and whether any of them passes ${(I.majority * 100).toFixed(0)}%. Both columns are arithmetic on the table above.`,
+            head: ['Bore', 'Largest cation', 'Majority?', 'Largest anion', 'Majority?', 'Ionic strength<small>½ Σ mᵢzᵢ²</small>'],
+            kind: 'matrix',
+            label: 'Dominance by proportion, per bore',
+            rows: I.rows.map((r) => [
+              loc(r.code),
+              cell(`${esc(r.topCation.label)} <span class="mk-num">${esc(pct(r.topCation.share))}</span>`),
+              r.cationMajority ? C.status('yes', 'good') : C.status('no', 'warn'),
+              cell(`${esc(r.topAnion.label)} <span class="mk-num">${esc(pct(r.topAnion.share))}</span>`),
+              r.anionMajority ? C.status('yes', 'good') : C.status('no', 'warn'),
+              `<span class="mk-num">${r.strength.toFixed(4)}</span>`,
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">${md(st.says)}</p>`,
+      ),
+      panel(
+        `${esc(String(ANALYSES.counts.faciesAssigned))} water types assigned, and that is the answer rather than a gap`,
+        `<p class="mk-tight">${md(f.holds)}</p>` +
+          `<p class="mk-tight">${md(f.stated)}</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">What the measurement found</span>',
+            body:
+              `<p class="mk-tight"><strong>${esc(String(m.cationMajority))} of ${esc(String(m.bores))}</strong> bores holds a majority cation — ${esc(m.noMajority.join(', '))} do not. At <strong>${esc(String(m.notCalcium.length))}</strong> of the ${esc(String(m.bores))} the largest cation is not calcium: ${esc(m.notCalcium.join(', '))}. <strong>${esc(String(m.anionMajority))}</strong> hold a majority anion.</p>` +
+              `<p class="mk-tight">So <em>${esc(ANALYSES.was.faciesClaim.toLowerCase())}</em> is not supported in either half by the table the plates are drawn from, and it has been on this screen since the first pass.</p>`,
+          }) +
+          `<p class="mk-tight"><strong>Refused.</strong> ${esc(f.refuses)}</p>` +
+          `<p class="mk-tight mk-muted"><strong>What would settle it.</strong> ${esc(f.settledBy)}</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    figure('4.4', 'Stiff diagrams by location', F.stiff(),
+      'One scale across every panel. Per-panel scaling would make each polygon fill its box and destroy the only comparison the plate is for.') +
+    figure('4.5', 'Schoeller diagram', F.schoeller(),
+      'Semi-logarithmic; only the decades carry a gridline.') +
+    cols(
+      panel(
+        `The charge-balance result, per sample`,
+        table({
+          caption: 'The three checks this analysis runs, computed from the ions rather than stated beside them.',
+          head: ['Bore', 'Σ cations<small>meq/L</small>', 'Σ anions<small>meq/L</small>', 'Balance', 'TDS ratio', 'EC : TDS', 'Verdict'],
+          kind: 'matrix',
+          label: 'Charge balance and reconciliation, per sample',
+          rows: CONSISTENCY.rows.map((r) => [
+            loc(r.code),
+            `<span class="mk-num">${r.cations.toFixed(2)}</span>`,
+            `<span class="mk-num">${r.anions.toFixed(2)}</span>`,
+            `<span class="mk-num${r.failed.includes('balance') ? ' mk-num--bad' : ''}">${r.balance > 0 ? '+' : '−'}${Math.abs(r.balance).toFixed(2)}%</span>`,
+            `<span class="mk-num${r.failed.includes('ratio') ? ' mk-num--bad' : ''}">${r.ratio.toFixed(2)}</span>`,
+            `<span class="mk-num${r.failed.includes('ecTds') ? ' mk-num--bad' : ''}">${r.ecTds.toFixed(2)}</span>`,
+            r.failed.length ? C.status(r.verdict, 'bad') : C.status(r.verdict, 'good'),
+          ]),
+        }) +
+          `<p class="mk-tight mk-muted">Limits — balance ${esc(CONSISTENCY.limits.balanceText)}, TDS ratio ${esc(CONSISTENCY.limits.ratioText)}, EC : TDS ${esc(CONSISTENCY.limits.ecTdsText)}. <a class="mk-ref" href="#consistency">The review raised on ${esc(CONSISTENCY.subject.code)}</a> is the reconciliation rather than the balance, and it was a typed −7.8% on two screens until 2 September 2026.</p>`,
+      ),
+      panel(
+        'The two families this screen does not draw',
+        `<p class="mk-tight">§9.3 lists ${esc(String(ANALYSES.counts.forms))} representations and this screen draws ${esc(String(ANALYSES.counts.forms - 3))} of them — Piper, Stiff, Schoeller, the ionic balance and the major-ion composition. <strong>Durov is approved and is not drawn</strong>, and neither is a facies plot.</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">D2 approved it · D13 gates it</span>',
+            body:
+              '<p class="mk-tight">FP-3, the Durov diagram, is approved to the grammar banked for it. It is not drawn here because <strong>both design oracles were self-approved and neither has ever been placed in a Word template and printed</strong> (G-76b, GOALS §7.4). Three families drawn to a grammar that has never survived paper would fail three times over rather than once.</p>' +
+              '<p class="mk-tight mk-muted">That caveat is inherited by every plate on this screen too, not only by the ones not yet drawn. Making a population inspectable does not close it, and neither does drawing more of the grammar.</p>',
+          }) +
+          `<div class="mk-actions"><a class="mk-btn" href="#analysis">The analysis behind these plates</a><a class="mk-btn" href="#consistency">The consistency review</a></div>`,
+      ),
+      '3fr 2fr',
+    )
+  );
+};
 
 const statistics = () =>
   head('Statistics and trend', 'Censored-data methods and non-parametric trend tests.', {
@@ -3336,7 +3555,118 @@ const statistics = () =>
     figure('4.8', 'Normal probability plot, censored', F.probabilityPlot(),
       'Two non-detects fitted by robust ROS. Never substitution of half the limit.'),
     '1fr 1fr',
+  ) +
+  /* ================================================================ *
+   * Wave 21 — the summary table this screen's own inbound link promises
+   * ================================================================ */
+  summaryStatistics();
+
+/**
+ * Summary statistics — §9.4's five measures with no surface, supplied.
+ *
+ * `#result-detail` has carried a row reading *"Summary statistics —
+ * Kaplan–Meier, carried as censored, never substituted"* linked to this
+ * screen, and this screen held trend tests and no summary statistics: a link
+ * pointing at nothing. It is kept rather than withdrawn, because every measure
+ * it needs is an order statistic or a count over a population the record
+ * already holds.
+ *
+ * The last column is the one that earns the screen. §9.4's own sentence is
+ * that a graph without an inspectable population is inconsistent with the
+ * defensibility proposition — and the first thing that happens when this
+ * population is made inspectable is that it turns out to be **five
+ * populations**, three of which disagree about how many of its values are
+ * non-detects. Which statistics survive that disagreement is a structural fact
+ * about ranks rather than a second calculation, so it is computed rather than
+ * argued.
+ */
+const summaryStatistics = () => {
+  const A = ANALYSES;
+  const S = A.summary;
+  const R = A.recount;
+  const a = A.of('summary-as-mw05');
+  return (
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Summary statistics — the population under the trend</h2>' +
+    `<p class="sf-lede mk-tight"><a class="mk-ref" href="#result-detail">The result page</a> has linked here for “summary statistics, carried as censored, never substituted” since the third pass, and there were none. There are ${esc(String(S.rows.length))} now, over <strong>${esc(a.population.what)}</strong> — <a class="mk-ref" href="#analysis">the same population the trend test runs on</a>, and the same one Figure 4.6 draws.</p>` +
+    cols(
+      panel(
+        `${esc(String(S.rows.length))} statistics, and what each survives`,
+        table({
+          caption: `Every measure is an order statistic or a count, so each is exact arithmetic on the population and none needs a distributional assumption. The last column asks the question the record forces: <strong>if two of these ${S.n} are non-detects, which of these numbers still means what it says?</strong>`,
+          head: ['§9.4 measure', 'Statistic', 'Value', 'If 2 of the 14 are non-detects', 'How it is computed'],
+          kind: 'matrix',
+          label: 'Summary statistics over the arsenic population at MW05',
+          rows: S.rows.map((r) => [
+            cell(esc(r.measure)),
+            cell(`<strong>${esc(r.stat)}</strong>`),
+            `<span class="mk-num${r.survives ? '' : ' mk-num--warn'}">${esc(r.value)}</span>`,
+            r.survives ? C.status(r.under, 'good') : C.status(r.under, 'warn'),
+            cell(md(r.how)),
+          ]),
+        }) +
+        `<p class="mk-tight"><strong>Detection frequency appeared nowhere in this repository before 3 September 2026</strong>, and it is the measure that makes the disagreement impossible to read past: over the exported series it is ${esc(S.rows.find((r) => r.measure === 'Detection frequency').value)}, and the trend record beside it says two of the fourteen are non-detects.</p>` +
+        `<p class="mk-tight mk-muted"><strong>Exceedance frequency is not the exceedance count.</strong> ${esc(S.rows.find((r) => r.measure === 'Exceedance frequency').value)} of this series is above the ${esc(String(S.criterion))} ${esc(S.unit)} guideline value, which is a rate over a period; <a class="mk-ref" href="#exceedances">the register</a> counts a <em>consecutive run</em>, and it is the run the licence condition turns on. Two measures, two questions, and only one of them was drawn.</p>`,
+      ),
+      panel(
+        'Percentiles, and the convention they are computed under',
+        table({
+          head: ['Percentile', 'Rank', 'Value', 'If 2 of the 14 are non-detects'],
+          kind: 'matrix',
+          label: 'Percentiles over the same population',
+          rows: S.percentiles.map((p) => [
+            cell(`<strong>${esc(p.label)}</strong>`),
+            `<span class="mk-num mk-num--nil">${p.rank.toFixed(2)}</span>`,
+            `<span class="mk-num${p.survives ? '' : ' mk-num--warn'}">${p.value.toFixed(2)}</span>`,
+            p.survives ? C.status('unchanged', 'good') : C.status('undetermined', 'warn'),
+          ]),
+        }) +
+        `<p class="mk-tight mk-muted"><strong>The convention is a parameter and it is stated.</strong> ${esc(S.convention)}</p>` +
+        `<p class="mk-tight">The ${esc(S.percentiles[0].label)} is the one that fails, and the reason is arithmetic rather than editorial: its rank falls between the ${esc(String(S.censoredIf))}nd and 3rd values of the ordered sample, and the ${esc(String(S.censoredIf))}nd is one of the two in question. Every percentile whose lower order statistic sits above the censoring is unaffected. <a class="mk-ref" href="#background">The 80th percentile the site-specific trigger values are derived at</a> is a different population and is not computed anywhere.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">${esc(String(A.counts.readings))} readings of one population, and ${esc(String(A.counts.censoredAnswers))} answers</h2>` +
+    `<p class="sf-lede mk-tight">Nothing was wrong on any single screen. What was missing was anybody asking all ${esc(String(A.counts.readings))} of them the same question at once — which is what an inspectable population is <em>for</em>.</p>` +
+    table({
+      caption: `Every place this catalogue describes “arsenic at MW05”, with what each one says about the population and where it is written. ${esc(String(A.readings.filter((r) => r.censored).length))} of the ${esc(String(A.counts.readings))} carry censoring at all, and across all ${esc(String(A.counts.readings))} there are ${esc(String(A.counts.censoredAnswers))} different answers.`,
+      head: ['Reading', 'n', 'Censored', 'Span', 'Range', 'What it is', 'Where'],
+      kind: 'matrix',
+      label: 'Five readings of the arsenic population at MW05',
+      rows: A.readings.map((r) => [
+        cell(`<strong>${esc(r.reading)}</strong><small>${esc(r.says)}</small>`),
+        `<span class="mk-num">${esc(String(r.n))}</span>`,
+        `<span class="mk-num${r.censored ? ' mk-num--warn' : ''}">${esc(String(r.censored))}</span>`,
+        `<span class="mk-muted">${esc(r.span)}</span>`,
+        `<span class="mk-muted">${esc(r.range)}</span>`,
+        r.is === 'the record' ? C.status(r.is, 'good') : C.status(r.is, 'warn'),
+        `<code class="mk-file">${esc(r.where)}</code>`,
+      ]),
+    }) +
+    cols(
+      panel(
+        `Why the statistics run over the first of them`,
+        `<p class="mk-tight">Not because it is likelier. <strong>§10 of the expansion brief is the rule</strong>: the seed is the single source, and a count drawn by hand anywhere is a defect. Two of the five readings are literals inside the module that draws a plate and one is a table typed under a caption calling it “the plotted values”; the first is the record everything else is supposed to be drawn from.</p>` +
+          `<p class="mk-tight"><strong>The other four are named and left alone.</strong> Two of them are in <code class="mk-file">figures.mjs</code>, which this wave does not touch: D13 gates every figure family behind a print test that has not happened, and an approved plate is not a wave’s to redraw. The disagreement is recorded here, where it can be seen, rather than resolved by a wave that may not open the file it lives in.</p>` +
+          `<p class="mk-tight mk-muted">The build checks each row: every reading names a marker in the file it points at, and a marker that has gone stops the build rather than leaving a table describing a plate that changed underneath it.</p>`,
+      ),
+      panel(
+        'The two tests, recomputed off the array',
+        table({
+          head: ['Statistic', 'Drawn above', 'Recomputed here', 'Agrees'],
+          scroll: true,
+          label: 'The trend statistics, recomputed from the exported series',
+          rows: [
+            ['Sen’s slope', `<span class="mk-num">${esc(String(R.senDrawn))}</span>`, `<span class="mk-num">${esc(String(R.sen))}</span>`, R.senAgrees ? C.status('exactly', 'good') : C.status('no', 'bad')],
+            ['Mann-Kendall S', `<span class="mk-num">${esc(String(R.sDrawn))}</span>`, `<span class="mk-num mk-num--warn">${esc(String(R.s))}</span>`, R.sAgrees ? C.status('exactly', 'good') : C.status('no', 'bad')],
+          ],
+        }) +
+          `<p class="mk-tight">${md(R.says)}</p>` +
+          `<p class="mk-tight mk-muted">So this is recorded as a difference and neither number is changed. Sen’s slope agreeing to the digit is the strongest evidence available that the drawn pair was computed from this array; S differing by ${esc(String(Math.abs(R.s - R.sDrawn)))} over ${esc(String(R.pairs))} pairs is the strongest evidence that something about the population it ran on is not what this file holds.</p>`,
+      ),
+      '1fr 1fr',
+    )
   );
+};
 
 const mapScreen = () =>
   head('Map', 'The monitoring network, symbolised by this round’s outcome.', {
@@ -3628,7 +3958,8 @@ const explorer = () => {
         cell(md(r.says)),
       ]),
     }) +
-    `<p class="mk-tight"><strong>${esc(String(c.drawable))} of the ${esc(String(E.representations.length))} are drawable over this population, ${esc(String(c.withoutScreen))} has no screen anywhere in this catalogue, and the ${esc(String(E.representations.length))} land on ${esc(String(c.screens))} screens</strong> — because a flat result table and a crosstab are two representations of one grid here. The one that cannot be drawn is the interesting one: a time series over a population that is a single round has nothing to plot, and saying so is the requirement being met rather than dodged.</p>` +
+    `<p class="mk-tight"><strong>${esc(String(c.drawable))} of the ${esc(String(E.representations.length))} are drawable over this population, ${esc(String(c.withoutScreen))} now have no screen anywhere in this catalogue, and the ${esc(String(E.representations.length))} land on ${esc(String(c.screens))} screens</strong> — because a flat result table and a crosstab are two representations of one grid here. The one that cannot be drawn is the interesting one: a time series over a population that is a single round has nothing to plot, and saying so is the requirement being met rather than dodged.</p>` +
+    ((r) => `<p class="mk-tight mk-muted"><strong>That count moved on 3 September 2026, and it is the one number on this screen that has.</strong> Summary statistics had <span class="sf-result__superseded">${esc(r.was)}</span>; wave 21 gave it one, so the six representations now land on ${esc(String(c.screens))} screens rather than four and none of them is homeless. <a class="mk-ref" href="#analysis">The analysis that produces it</a> is the middle term §9.5 asks for, and it did not exist either.</p>`)(E.representations.find((x) => x.was)) +
 
     '<h2 class="mk-h2" style="margin-top:1.4rem">Naming a population is not sharing one</h2>' +
     `<p class="mk-tight">This is the measurement §4.4 actually turns on, and it is the half that is still open. Before this wave <strong>${esc(E.was.namedPopulation)}</strong> representation screens that have a screen at all said what population it had run over. ${esc(E.was.namedEvidence)} Each now states its own — and states that it <em>is</em> its own, because five screens naming five different populations is a catalogue that can be checked, not a query that composes.</p>` +
@@ -3718,6 +4049,264 @@ const explorer = () => {
       `The starting population holds <strong>${esc(String(E.start.total))}</strong> cells across ${esc(String(E.start.grids.length))} grids, of which ${esc(String(E.start.results))} are results and ${esc(String(E.start.excluded.length))} are absences of ${esc(String(E.start.byKind.length))} different kinds. ` +
       `And a fourth absence is not an empty cell at all: <strong>${esc(String(E.start.nothingAsserted.length))}</strong> results carry no verdict from either set and ${esc(String(E.start.partlyAsserted.length))} carry one from one of the ${esc(String(CRITERIA.length))} and not the other. Those stay <em>inside</em> the population, because a result exists and nothing was asserted about it. ` +
       '<strong>Not evaluated is not compliant</strong>, a dry bore is not a clean one, and a suite that was never run is not a non-detect. Every step above counts them apart.')
+  );
+};
+
+/**
+ * The analysis register — wave 21.
+ *
+ * §9.5 asks for every analysis to be traceable through *query → included
+ * observations/results → QA/QC state → analytical settings → output*, and the
+ * measurement that opened this wave is that **the chain had no first link**:
+ * `#lineage` traces one result through twenty-two hops, which is a different
+ * shape from *n results through one method to one output*.
+ *
+ * Nothing on this screen is a new analysis. Every row is one the catalogue
+ * already performs, found by classifying what each report item names as its
+ * source — and the ones that cannot be composed say which of the fields they
+ * cannot fill and why, which is the honest half and the sharper finding.
+ */
+const analysisRegister = () => {
+  const A = ANALYSES;
+  const c = A.counts;
+  const src = A.sources;
+  const d10 = A.d10;
+  const realised = A.drift.realised;
+  const prospective = A.drift.prospective;
+  const kindTone = { 'a method': 'good', 'a dataset': 'good', 'a population': 'warn' };
+
+  const paramTable = (a) => table({
+    head: ['Setting', 'Value', 'Why it is a setting'],
+    scroll: true,
+    label: `Analytical settings — ${a.name}`,
+    rows: a.parameters.map((p) => [
+      cell(`<strong>${esc(p.p)}</strong>`),
+      cell(md(p.v)),
+      cell(md(p.why)),
+    ]),
+  });
+
+  const qaTable = (a) => table({
+    head: ['Finding', 'Check', 'Outcome', 'State', 'Qualifier position', 'Results'],
+    kind: 'matrix',
+    label: `QA/QC state as at computation — ${a.name}`,
+    rows: a.qa.entries.map((e) => [
+      `<code class="mk-file mk-file--id">${esc(e.id)}</code>`,
+      cell(esc(e.check)),
+      C.status(e.outcome, e.outcome === 'fail' ? 'bad' : e.outcome === 'warn' ? 'warn' : 'good'),
+      C.status(e.state, e.settled ? 'good' : 'warn'),
+      cell(e.proposed ? `<strong>${esc(e.position)}</strong>` : esc(e.position)),
+      e.results ? `<span class="mk-num">${e.results}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+    ]),
+  });
+
+  return (
+    head('Analysis', 'What read which records, under which method, and what depends on the answer.', {
+      route: '/projects/:projectId/analysis — a proposal',
+      toolbar: C.exportMenu() + btn('New analysis', 'primary'),
+    }) +
+    stats([
+      stat(String(c.composed), `analyses composed of ${c.analyses}`),
+      stat(String(A.composed.filter((a) => a.computedAt).length), 'record when they ran', 'warn'),
+      stat(`${src.resolves} / ${src.total}`, 'report items whose source resolves'),
+      stat(String(src.method), 'sources that name a method', 'warn'),
+      stat(String(d10.results), 'results carrying a proposed, unapplied qualifier — inside', 'warn'),
+      stat(String(realised.members), `member${realised.members === 1 ? '' : 's'} superseded since an analysis read them`, 'bad'),
+    ]) +
+    `<p class="sf-lede mk-tight">§9.5 requires <strong>query → included observations/results → QA/QC state → analytical settings → output</strong>, traversable in both directions. <a class="mk-ref" href="#saved-views">The dataset</a> is the first link and <a class="mk-ref" href="#explorer">the explorer</a> constructs the population under it; this is the middle term, and until this wave an output could name a method and resolve to nothing.</p>` +
+
+    /* ---------------------------------------------------------------- *
+     * How the analyses were found
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The analyses are found, not chosen</h2>' +
+    cols(
+      panel(
+        `Every report item names a source — and ${src.method} of the ${src.total} name a method`,
+        `<p class="mk-tight">A source string on <a class="mk-ref" href="#report-figures">a figure or a table</a> names one of five things, and which one is read off the string rather than assigned: <strong>a method</strong> (an analysis, which until this wave had nothing to resolve to), <strong>a dataset</strong> (resolved in wave 19), <strong>a population</strong>, a register, or a log. That classification is the §9.5 measurement.</p>` +
+          table({
+            caption: 'One row per item in the report, in document order. “Resolves” means the source opens a record rather than describing one.',
+            head: ['№', 'Source', 'What it names', 'Resolves to'],
+            kind: 'matrix',
+            label: 'Every report item’s source, classified',
+            rows: src.rows.map((r) => [
+              `<code class="mk-file mk-file--id">${esc(r.item.n)}</code>`,
+              cell(`<span class="mk-muted">${esc(r.source)}</span>`),
+              C.status(r.kind, kindTone[r.kind] ?? 'neutral'),
+              r.dataset
+                ? `<a class="mk-ref" href="#saved-views">${esc(r.dataset.name)}</a>`
+                : r.analysis && r.analysis.composed
+                  ? `<a class="mk-ref" href="#analysis">${esc(r.analysis.name)}</a>`
+                  : r.analysis
+                    ? `<span class="mk-num mk-num--nil">— named, not composed</span>`
+                    : '<span class="mk-num mk-num--nil">— nothing to open</span>',
+            ]),
+          }) +
+          `<p class="mk-tight"><strong>${esc(String(src.resolves))} of the ${esc(String(src.total))} resolve.</strong> Until 3 September 2026 it read <span class="sf-result__superseded">${esc(A.was.sourceResolves)}</span>. ${esc(String(src.population))} name a <em>population</em> and not the analysis over it, which is the §9.5 gap in one cell: an output that names its ions says nothing about the balance, the conversion or the classification that turned them into a picture.</p>`,
+      ),
+      panel(
+        `${esc(String(c.uncomposed))} name a method and are still not composed here`,
+        `<p class="mk-tight">Each says which of the fields it cannot fill and why. A register that quietly dropped them would be reporting ${esc(String(c.composed))} analyses in an instance that performs ${esc(String(c.analyses))}.</p>` +
+          A.analyses.filter((a) => !a.composed).map((a) =>
+            C.card({
+              tone: a.id === 'planar-fit' ? 'bad' : 'warn',
+              head: `<span class="mk-queue__kind">${esc(a.name)}</span>`,
+              body: `<p class="mk-tight">${md(a.why)}</p>`,
+            })).join('') +
+          `<p class="mk-tight mk-muted">The first is the one this wave would most like to fix and may not: <strong>${esc(A.of('planar-fit').name)}</strong> is a real analysis with a method, a control set, named exclusions and a printed residual, and all of it lives in the module that draws the plate. <a class="mk-ref" href="#map">The surface it produces</a> is the strongest layer on the map by the coverage screen’s own measure, and it cannot be cited, versioned or run over a second round. <code class="mk-file">figures.mjs</code> is untouched by this wave because D13 gates every figure family behind a print test that has not happened.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The register
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The register</h2>' +
+    table({
+      caption: 'One row per analysis. Every cell is composed from the record the analysis reads — nothing here is typed beside the thing it describes.',
+      head: ['Analysis', 'Method and version', 'Population', 'QA/QC state as at computation', 'Output', 'Depends on it'],
+      kind: 'matrix',
+      label: 'The analysis register',
+      rows: A.composed.map((a) => [
+        cell(`<a class="mk-ref" href="#${esc(a.at)}"><strong>${esc(a.name)}</strong></a><small>${a.computedAt ? `ran ${esc(a.computedAt)}` : 'no computation moment recorded'}</small>`),
+        cell(`${esc(a.method)}<small>${esc(a.version)}</small>`),
+        cell(esc(a.population.what)),
+        cell(`${a.qa.entries.length} finding${a.qa.entries.length === 1 ? '' : 's'} · ${a.qa.open.length} open${a.qa.proposed.length ? ` · <strong>${a.qa.proposed.length} propose a qualifier nobody has applied</strong><small>over ${a.qa.proposedResults} results in an analytical batch, which is not this population’s own count (D10)</small>` : ''}`),
+        cell(esc(a.output)),
+        cell(a.downstream.map((d) => `<a class="mk-ref" href="#${esc(d)}">${esc(d)}</a>`).join(' · ')),
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted"><strong>One of the ${esc(String(c.composed))} records when it ran.</strong> The consecutive-round condition carries <code class="mk-file">${esc(A.of('window-12c').computedAt)}</code> because a statutory clock runs from it, which is the reason a moment gets written down at all — and the reason the others have none. That is the field the whole of this screen’s third column would be frozen against, and it is drawn as what it is rather than filled in.</p>` +
+
+    /* ---------------------------------------------------------------- *
+     * The QA/QC state — the hard part
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">QA/QC state, as at computation</h2>' +
+    `<p class="sf-lede mk-tight">An analysis records what its members’ quality state <em>was</em> when it ran — not what it reads now. A figure whose caption changed because a reviewer dispositioned a finding last week has stopped being evidence of anything.</p>` +
+    cols(
+      panel(
+        `The evaluation’s frozen state — ${esc(String(A.of('evaluation-2-sets').qa.entries.length))} findings over ${esc(String(A.of('evaluation-2-sets').population.accounting.included.length))} results`,
+        `<p class="mk-tight">Matched by <strong>${esc(A.of('evaluation-2-sets').qa.matched)}</strong>, and that is the limit rather than the mechanism: a finding’s scope names analytes and bores in prose, and <strong>no result carries a qualifier channel at all</strong> — wave 19 measured 0 of the 77 grid cells. So an analysis can say which findings governed its population and cannot say which of its members each one reached.</p>` +
+          qaTable(A.of('evaluation-2-sets')) +
+          `<p class="mk-tight mk-muted">${md(A.of('evaluation-lor').note)}</p>`,
+      ),
+      panel(
+        'The two ways an analysis is overtaken',
+        C.card({
+          tone: 'bad',
+          head: `<span class="mk-queue__kind">Realised — ${esc(realised.kind)}</span>`,
+          body:
+            `<p class="mk-tight"><strong>${esc(realised.member)}</strong> read <span class="sf-result__superseded">${esc(realised.asAt.value)}</span> on certificate ${esc(realised.asAt.certificate)} — <em>${esc(realised.asAt.outcome)}</em>. It reads <span class="mk-num">${esc(realised.now.value)}</span> now, on ${esc(realised.now.certificate)}, <em>${esc(realised.now.outcome)}</em>.</p>` +
+            `<p class="mk-tight">${md(realised.says)}</p>` +
+            `<p class="mk-tight mk-muted"><strong>The analysis carries no timestamp and the record bounds one anyway.</strong> ${md(realised.bound.how)} It ran after <span class="sf-instant">${esc(realised.bound.after)}</span> and before <span class="sf-instant">${esc(realised.bound.before)}</span>, and <code class="mk-file mk-file--id">${esc(realised.item)}</code> reads <em>${esc(realised.itemState)}</em>.</p>`,
+        }) +
+        C.card({
+          tone: 'warn',
+          head: `<span class="mk-queue__kind">Prospective — ${esc(prospective.kind)}</span>`,
+          body:
+            `<p class="mk-tight"><code class="mk-file mk-file--id">${esc(prospective.finding)}</code> is <strong>${esc(prospective.state)}</strong>: “${esc(prospective.question)}”</p>` +
+            `<p class="mk-tight">${md(prospective.says)}</p>` +
+            table({
+              head: ['If somebody takes this way out', 'What it writes'],
+              scroll: true,
+              label: 'What a later disposition would write',
+              rows: prospective.options.map((o) => [cell(esc(o.label)), cell(esc(o.writes))]),
+            }),
+        }),
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * D10
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">D10 — a proposed and unapplied qualifier is inside, and the plate says so</h2>' +
+    cols(
+      panel(
+        'The decision, implemented rather than revisited',
+        `<p class="mk-tight"><strong>${esc(d10.verdict)}</strong> — decided 3 September 2026.</p>` +
+          `<p class="mk-tight">${esc(d10.says)}</p>` +
+          `<ul class="mk-list">${d10.codes.map((code) => `<li>${esc(code)}</li>`).join('')}</ul>` +
+          C.blastRadius({
+            lede: 'What excluding them would have cost, before anybody does it:',
+            rows: [
+              { what: 'Results the register holds a proposal on', n: `${d10.results} — one of them the MW05 zinc exceedance` },
+              { what: 'Decisions taken on the practitioner’s behalf', n: `${d10.assertions} — one per proposed assertion` },
+              { what: 'Ways out closed on the findings', n: `${prospective.options.length} still open on the spike alone` },
+              { what: 'Anything written to the record', n: '0 — a proposal is not an assertion, either way' },
+            ],
+            action: 'Inside, and named on every surface that draws the population',
+            cancel: 'Excluding them stays available and would be a decision with an author',
+            reversible:
+              'Reversible in the only sense that matters: nothing has been written. The moment the finding is dispositioned the population’s members carry an applied qualifier or they do not, and this statement is replaced by a fact rather than corrected.',
+          }),
+      ),
+      panel(
+        'Two counts, and they are not reconcilable',
+        table({
+          head: ['Count', 'What it counts', 'Where'],
+          scroll: true,
+          label: 'The register’s count and the grid’s',
+          rows: [
+            [`<span class="mk-num mk-num--warn">${esc(String(d10.register.n))}</span>`, cell(esc(d10.register.of)), `<a class="mk-ref" href="#${esc(d10.register.from)}">the qualifier register</a>`],
+            [`<span class="mk-num">${esc(String(d10.grid.n))}</span>`, cell(esc(d10.grid.of)), `<a class="mk-ref" href="#${esc(d10.grid.from)}">the results grid</a>`],
+          ],
+        }) +
+          `<p class="mk-tight"><strong>${esc(d10.counted)}.</strong> ${esc(d10.whyNot)}</p>` +
+          `<p class="mk-tight">${esc(d10.onThePlate)}</p>`,
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * The chain
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The chain, end to end</h2>' +
+    table({
+      caption: '§9.5’s five links, each answered by the record it resolves through rather than by a description of one.',
+      head: ['Link', 'What answers it', 'Where'],
+      kind: 'matrix',
+      label: '§9.5’s chain, link by link',
+      rows: [
+        [cell('<strong>Query</strong>'), cell(`The dataset and the version of it that was read — ${esc(String(SAVED_VIEWS.views.length))} datasets, each at v${esc(String(SAVED_VIEWS.versionOf(SAVED_VIEWS.views[0])))}, with the four dimensions each resolves through. <strong>And this is the link that is weakest, not strongest: not one of the ${esc(String(A.composed.length))} analyses reads a dataset</strong>, and each says why. The sharpest case is the trend — the figure it produces cites <em>${esc(SAVED_VIEWS.of('tsf-metals').name)}</em>, which selects two bores, while the analysis runs at one of them.`), `<a class="mk-ref" href="#saved-views">Datasets</a> · <a class="mk-ref" href="#explorer">Explorer</a>`],
+        [cell('<strong>Included observations and results</strong>'), cell('The population, counted through the one expression the dataset register and the explorer already count with — so three surfaces cannot report different exclusions for the same cells, and the four absences stay four.'), `<a class="mk-ref" href="#crosstab">Results</a>`],
+        [cell('<strong>QA/QC state</strong>'), cell('The findings that governed the population, at the state each was in, with a proposed and unapplied qualifier named as one. Frozen in the model and matched by prose in this record, which is stated above.'), `<a class="mk-ref" href="#qc">QA/QC</a> · <a class="mk-ref" href="#qualifiers">Qualifiers</a>`],
+        [cell('<strong>Analytical settings</strong>'), cell(`Method, version and parameters, one row per setting, with the reason each is a setting rather than a constant. ${esc(String(A.composed.reduce((n, a) => n + a.parameters.length, 0)))} settings across the ${esc(String(A.composed.length))} composed analyses.`), '<span class="mk-muted">this screen</span>'],
+        [cell('<strong>Output</strong>'), cell(`What the analysis produced and what depends on it — and, in the other direction, what a report item’s source resolves to. ${esc(String(src.resolves))} of ${esc(String(src.total))}.`), `<a class="mk-ref" href="#report-figures">Figures and tables</a> · <a class="mk-ref" href="#lineage">Lineage</a>`],
+      ],
+    }) +
+    cols(
+      panel(
+        'Settings, for the analysis a report cites and a licence turns on',
+        `<p class="mk-tight"><strong>${esc(A.of('window-12c').name)}</strong> — ${esc(A.of('window-12c').version)}, run <span class="sf-instant">${esc(A.of('window-12c').computedAt)}</span>.</p>` +
+          paramTable(A.of('window-12c')) +
+          `<p class="mk-tight mk-muted">${esc(A.of('window-12c').population.excluded)}</p>`,
+      ),
+      panel(
+        'And for the one this wave added',
+        `<p class="mk-tight"><strong>${esc(A.of('summary-as-mw05').name)}</strong>. ${esc(A.of('summary-as-mw05').sourceWhy)}</p>` +
+          paramTable(A.of('summary-as-mw05')) +
+          `<div class="mk-actions"><a class="mk-btn" href="#statistics">The statistics it produces</a></div>`,
+      ),
+      '1fr 1fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * Every value this wave moved
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Every value this wave moved, with what it was</h2>' +
+    table({
+      caption: 'A before is a historical fact and is written down once; every “now” beside it is counted off the record as it stands.',
+      head: ['What', 'Was', 'Now', 'Where', 'Why'],
+      kind: 'matrix',
+      label: 'Values moved by wave 21',
+      rows: A.moved.map((m) => [
+        cell(md(m.what)),
+        cell(`<span class="sf-result__superseded">${esc(m.was)}</span>`),
+        cell(md(m.now)),
+        `<a class="mk-ref" href="#${esc(m.at)}">${esc(m.at)}</a>`,
+        cell(md(m.why)),
+      ]),
+    })
   );
 };
 
@@ -4318,11 +4907,30 @@ const reportFigures = () => {
    */
   const CITES = SAVED_VIEWS.citations;
   const citationFor = (item) => CITES.find((c) => c.item === item);
+  /*
+   * Wave 21 — a source that names a *method* resolves to the analysis.
+   *
+   * The sentence under this table said the remaining rows "name a run, a fit
+   * or a worker, and stay text because there is nothing to open". Three of
+   * them have something to open now, and the ones that still do not say which
+   * of §9.5's fields they cannot fill rather than staying anonymous text.
+   */
+  const ANALYSIS_OF = Object.fromEntries(
+    ANALYSES.sources.rows.filter((r) => r.analysis).map((r) => [r.item.n, r.analysis]),
+  );
   const sourceCell = (item) => {
     const c = citationFor(item);
-    return c
-      ? `<a class="mk-ref" href="#saved-views">${esc(item.source)}</a><small>dataset · bound at v${esc(String(c.bound))}${c.staleByDefinition ? ` — now v${esc(String(c.current))}` : ''}</small>`
-      : `<span class="mk-muted">${esc(item.source)}</span>`;
+    if (c) {
+      return `<a class="mk-ref" href="#saved-views">${esc(item.source)}</a><small>dataset · bound at v${esc(String(c.bound))}${c.staleByDefinition ? ` — now v${esc(String(c.current))}` : ''}</small>`;
+    }
+    const a = ANALYSIS_OF[item.n];
+    if (a && a.composed) {
+      return `<a class="mk-ref" href="#analysis">${esc(item.source)}</a><small>analysis · ${esc(a.method.length > 64 ? `${a.method.slice(0, 61)}…` : a.method)}</small>`;
+    }
+    if (a) {
+      return `<span class="mk-muted">${esc(item.source)}</span><small>names a method, composed nowhere</small>`;
+    }
+    return `<span class="mk-muted">${esc(item.source)}</span>`;
   };
   /*
    * Two channels, not one. A figure goes stale because the data under it moved
@@ -4368,7 +4976,8 @@ const reportFigures = () => {
         stateCell(x),
       ]),
     }) +
-    `<p class="mk-tight"><strong>${esc(String(resolved.length))} of the ${esc(String(I.items.length))} sources resolve to a record</strong> — both of them to <a class="mk-ref" href="#saved-views">a dataset</a>, the object the source string still calls a saved view, and both to the same one. The rest name a run, a fit or a worker, and stay text because there is nothing to open — and <strong>${SAVED_VIEWS.orphanCitations.length === 0 ? 'none' : esc(String(SAVED_VIEWS.orphanCitations.length))}</strong> of them ${SAVED_VIEWS.orphanCitations.length === 1 ? 'cites' : 'cite'} a view no record holds, which is the failure this resolution makes visible rather than the one it assumes away. A citation that resolves is what stops a figure list being asserted from two directions at once: the dataset now states which items it feeds, computed from these rows, and until 3 September 2026 it stated ${esc(String(SAVED_VIEWS.phantom.claimed.length))}, ${esc(String(SAVED_VIEWS.phantom.absent.length))} of which was a figure number this document does not carry.</p>` +
+    ((S) => `<p class="mk-tight"><strong>${esc(String(S.resolves))} of the ${esc(String(S.total))} sources resolve to a record</strong> — ${esc(String(S.dataset))} to <a class="mk-ref" href="#saved-views">a dataset</a>, the object the source string still calls a saved view, and ${esc(String(S.resolves - S.dataset))} to <a class="mk-ref" href="#analysis">an analysis</a>. It read <span class="sf-result__superseded">${esc(ANALYSES.was.sourceResolves)}</span> until 3 September 2026, when the analysis object gave the method half of these strings something to open. ${esc(String(S.unresolved.length))} still name a method and are composed nowhere, and each says which of §9.5’s fields it cannot fill — the potentiometric fit is the sharpest, because its method, its control set and its residual live inside the module that draws the plate. ${esc(String(S.population))} name a <em>population</em> rather than the analysis over it, which is the same gap arriving from the other side.</p>`)(ANALYSES.sources) +
+    `<p class="mk-tight">And <strong>${SAVED_VIEWS.orphanCitations.length === 0 ? 'none' : esc(String(SAVED_VIEWS.orphanCitations.length))}</strong> of them ${SAVED_VIEWS.orphanCitations.length === 1 ? 'cites' : 'cite'} a view no record holds, which is the failure this resolution makes visible rather than the one it assumes away. A citation that resolves is what stops a figure list being asserted from two directions at once: the dataset now states which items it feeds, computed from these rows, and until 3 September 2026 it stated ${esc(String(SAVED_VIEWS.phantom.claimed.length))}, ${esc(String(SAVED_VIEWS.phantom.absent.length))} of which was a figure number this document does not carry.</p>` +
     /* ================================================================ *
      * Wave 19 — the citation, bound and checked.
      * ================================================================ */
@@ -5302,11 +5911,39 @@ const lineage = () => {
         'Three answers, and the third is the one worth having',
         `<p class="mk-tight">A dataset that selects the bore and names the analyte <strong>contains</strong> it. One that does not select the bore does <strong>not</strong>. And one that selects the bore and names an analyte <em>suite</em> <strong>cannot be resolved at all</strong> — the record holds a suite’s size and never its membership, so guessing which of the ${esc(String(ANALYTE_SUITES.find((x) => x.code === H.unresolved[0].view.suite).n))} they are would be inventing a population.</p>` +
           `<p class="mk-tight">§15 requires this chain to be traversable <strong>in both directions</strong>. Forward — which results are in a dataset — is what <a class="mk-ref" href="#saved-views">the population readout</a> answers. This is the way back, and it is where the citation check found its disagreement.</p>` +
-          `<p class="mk-tight mk-muted">${esc(H.cited.length === 0 ? 'Nothing cites the one dataset that does contain this value, so the chain runs Result → Query here and stops: the next link in §15 is a figure, and no figure is drawn on this population. That is the state of the record rather than a gap in the drawing.' : `${H.cited.length} report items cite it.`)}</p>` +
+          `<p class="mk-tight mk-muted">${esc(H.cited.length === 0 ? 'Nothing cites the one dataset that does contain this value, so no figure is drawn on this population.' : `${H.cited.length} report items cite it.`)} This sentence ended “so the chain runs Result → Query here and stops” until 3 September 2026, and the hop below is why it no longer does.</p>` +
           `<div class="mk-actions"><a class="mk-btn" href="#saved-views">The dataset register</a><a class="mk-btn" href="#crosstab">The grid it selects from</a></div>`,
       ),
       '3fr 2fr',
     ))(P.datasetHop) +
+    /* ================================================================ *
+     * Wave 21 — the hop after that one, and §9.5's middle term.
+     * ================================================================ */
+    ((H) => cols(
+      panel(
+        `And the hop after it — ${esc(H.step.toLowerCase())}`,
+        `<p class="mk-tight">A population is what was selected; an <a class="mk-ref" href="#analysis">analysis</a> is what somebody did with it. §9.5’s chain runs <em>query → included results → QA/QC state → analytical settings → output</em>, and until this hop the middle three links had nowhere to be read.</p>` +
+          table({
+            caption: `Every composed analysis on the project, against this one value. ${esc(String(H.membership.length))} answers, computed from each analysis’s own population rather than listed.`,
+            head: ['Analysis', 'Reads it', 'Why'],
+            scroll: true,
+            label: 'Which analyses read this value',
+            rows: H.membership.map((m) => [
+              `<a class="mk-ref" href="#analysis">${esc(m.analysis.name)}</a>`,
+              tag(m.in ? 'in' : 'out', m.in ? 'good' : 'neutral'),
+              cell(esc(m.why)),
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">${esc(H.detail)}</p>`,
+      ),
+      panel(
+        'What the analysis adds that the population does not',
+        `<p class="mk-tight">The dataset hop answers <em>which question was this value part of</em>. This one answers <strong>what was computed from it, under which settings, with what quality state at the time, and what now depends on the answer</strong> — the four things an auditor asks and the four §9.5 makes mandatory.</p>` +
+          `<p class="mk-tight"><strong>It is appended, not spliced, for the same reason as the hop above.</strong> Membership and analysis are both things this value went on to be, and the causal chain from bore to notification is unchanged: all ${esc(String(P.chain.length - 2))} hops before these two are byte-for-byte what they were.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#analysis">The analysis register</a><a class="mk-btn" href="#exceedances">What it produced</a></div>`,
+      ),
+      '3fr 2fr',
+    ))(P.analysisHop) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">Trace it</h2>' +
     `<p class="mk-tight">The same hops, compact, with the focused result at the centre. ${esc(P.trace.upstream.length)} upstream, the fork at the bench, ${esc(P.trace.downstream.length)} downstream.</p>` +
     traceGraph(P.trace) +
@@ -9199,8 +9836,27 @@ const backgroundComparison = () => (
         }),
     ),
     panel(
-      'Deriving the trigger honestly',
+      'Deriving the trigger honestly — and where these percentiles come from',
       `<p class="mk-tight">${esc(BACKGROUND.caution)}</p>` +
+        /* ------------------------------------------------------------ *
+         * Wave 21 — the percentile's provenance, counted.
+         *
+         * §9.4 lists percentiles among the ten measures it asks for, and
+         * before this wave they existed **once in the whole repository**:
+         * the four 80th percentiles in the table above. Measured, there is
+         * no facility behind them — the reference distribution the caution
+         * describes is not in this record, so nothing recomputes them and
+         * nothing can. Counted as an absence with what would close it,
+         * rather than either left implied or manufactured.
+         * ------------------------------------------------------------ */
+        C.card({
+          tone: 'warn',
+          head: '<span class="mk-queue__kind">Where these four numbers come from</span>',
+          body:
+            `<p class="mk-tight"><strong>They are typed, and nothing in this catalogue recomputes them.</strong> The caution above names ${esc((BACKGROUND.caution.match(/(\d+) reference results/) ?? [])[1] ?? 'the')} reference results with two censored across three bores and fourteen rounds; <strong>that distribution is not in the record</strong>. The one concentration series this catalogue holds is <a class="mk-ref" href="#statistics">${esc(String(ANALYSES.summary.n))} quarterly values at MW05</a>, which is the downgradient bore rather than a reference one — so the ${esc(String(BACKGROUND.rows.length))} percentiles here have no population behind them and the ${esc(String(ANALYSES.summary.percentiles.length))} on the statistics screen do.</p>` +
+            `<p class="mk-tight">This is counted rather than filled. Manufacturing a reference distribution to make an 80th percentile recomputable would put a distribution in this record that nothing in it supports — the trade this catalogue has refused every time it has come up — over the licence trigger line, the PFAS reach, the custody chain, the soil limit, the dataset’s period, its creator and owner, and the manganese and Unit C the brief’s own scenario asks for.</p>` +
+            `<p class="mk-tight mk-muted"><strong>What would close it.</strong> The reference results themselves, as a series per analyte per bore, which is what the criteria set adopted below would have to carry anyway — a regulator asking “which fourteen rounds of which three bores” is asking for the array, not for the percentile.</p>`,
+        }) +
         C.blastRadius({
           lede: 'Adopting the sulfate trigger at 148 mg/L as a criteria set:',
           rows: [
@@ -10760,7 +11416,17 @@ const resultDetail = () => {
             rows: [
               [`<a class="mk-ref" href="#crosstab">Results crosstab</a>`, '2026 Q2 · MW05 column'],
               [`<a class="mk-ref" href="#qc">QA/QC workspace</a>`, 'Reporting-limit-above-criterion check'],
-              [`<a class="mk-ref" href="#statistics">Summary statistics</a>`, 'Kaplan–Meier — carried as censored, never substituted'],
+              /*
+               * Wave 21. This cell read `Kaplan–Meier — carried as censored,
+               * never substituted` and `#statistics` held no summary
+               * statistics at all: a link pointing at nothing, for three
+               * passes. The table exists now, and the method half of the
+               * promise is the half the record blocks — a Kaplan–Meier mean
+               * needs the population's censoring settled and five readings of
+               * it give three answers. So the cell says what is there and what
+               * is not, and keeps what it said.
+               */
+              [`<a class="mk-ref" href="#statistics">Summary statistics</a>`, cell(`${esc(String(ANALYSES.summary.rows.length))} statistics over ${esc(String(ANALYSES.summary.n))} values, censoring carried and never substituted — <span class="sf-result__superseded">Kaplan–Meier</span> until 3 September 2026, and <a class="mk-ref" href="#analysis">the estimator waits on the population disagreement</a> rather than on the arithmetic`)],
               [`<a class="mk-ref" href="#hydrochem">Box plot, Figure 6</a>`, 'Drawn below the axis break with the censored symbol'],
               [`<a class="mk-ref" href="#report">Report §3, §4</a>`, 'Data-quality paragraph and the Q2 crosstab table'],
             ],
@@ -12664,7 +13330,15 @@ const coverage = () => {
             `${r.decision ? `<small>${esc(r.decision)}</small>` : ''}</td>` +
             `<td>${briefScreens(x)}</td>` +
             `<td>${registerCell(x)}</td>` +
-            `<td>${esc(r.note)}</td></tr>`;
+            /*
+             * Wave 21. The notes have written emphasis the way prose writes it
+             * since wave 18 — `**this**` and `*that*` — and this cell escaped
+             * them, so seven rows printed their own asterisks. `md` is the
+             * converter the explorer's measured notes already use: it escapes
+             * first and converts after, and escaping never emits an asterisk,
+             * so nothing a note contains can reach the page as markup.
+             */
+            `<td>${md(r.note)}</td></tr>`;
         })
         .join('')}</tbody></table></div>`
     );
@@ -13069,6 +13743,34 @@ export const JOBS = [
       { id: 'stygofauna', label: 'Subterranean fauna', body: stygofaunaScreen, state: 'not built', isNew: true, now: 'shipped' },
       { id: 'map', label: 'Map and spatial', body: mapScreen, state: 'engine-only', now: 'shipped' },
       /*
+       * Wave 21, and the `state`-less rule an eighth time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A distinct
+       * user decision: *what read these records, under which method, with what
+       * quality state, and what now depends on the answer* — the question an
+       * auditor asks about a number in a report five years after it was
+       * issued, and the one §9.5 makes mandatory. (2) No existing screen owns
+       * it. `saved-views` is the population and stops at the query;
+       * `report-figures` is the output end and holds no method;
+       * `#lineage` traces **one result through twenty-three hops**, which is a
+       * different shape from *n results through one method to one output*, and
+       * it now links here for exactly that reason. (3) It needs its own state:
+       * the register of analyses with their settings, the frozen QA/QC state
+       * per analysis and the drift against it, and the classification of every
+       * report item's source are a workspace and not a panel on something
+       * else. (4) It improves the graph rather than the count — it is the
+       * middle term `#statistics`, `#hydrochem`, `#background` and
+       * `#report-figures` had to describe instead of link, and it is what
+       * closes §9.5's chain between the dataset and the output.
+       *
+       * `proposed`, and for the same reason as the explorer: no FR covers an
+       * analysis object. D1 accepted the capability and the PRD amendment that
+       * carries it, and this repository cannot amend the PRD — so the screen
+       * argues for itself until the amendment lands.
+       */
+      { id: 'analysis', label: 'Analysis', body: analysisRegister, now: 'proposed', added: '2026-09-03' },
+      /*
        * Wave 20, and the `state`-less rule a seventh time: this screen did not
        * exist on 23 August, so it carries `added` and no fabricated state.
        *
@@ -13363,9 +14065,9 @@ export const RELATED = {
   alerts: ['tarp', 'obligations', 'notification'],
 
   hydrograph: ['location', 'statistics', 'saved-views', 'report-figures', 'logger-series', 'explorer'],
-  hydrochem: ['consistency', 'crosstab', 'report-figures'],
-  statistics: ['background', 'hydrograph', 'crosstab', 'report-figures', 'explorer'],
-  background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances'],
+  hydrochem: ['consistency', 'crosstab', 'report-figures', 'analysis', 'explorer'],
+  statistics: ['background', 'hydrograph', 'crosstab', 'report-figures', 'explorer', 'analysis'],
+  background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances', 'analysis'],
   stygofauna: ['background', 'map', 'locations', 'obligations'],
   map: ['location', 'stygofauna', 'exceedances', 'report-figures', 'explorer'],
   // Wave 19: the chain gained a dataset hop, so the register and the lineage
@@ -13380,10 +14082,14 @@ export const RELATED = {
    * `search` covers identifiers and names and not result values, and this
    * screen is the other half of that sentence rather than an exception to it.
    */
-  explorer: ['crosstab', 'saved-views', 'exceedances', 'statistics', 'hydrograph', 'map', 'search', 'criteria'],
+  explorer: ['crosstab', 'saved-views', 'exceedances', 'statistics', 'hydrograph', 'map', 'search', 'criteria', 'analysis'],
+  // Wave 21: the analysis reads a population and produces an output, so the
+  // declared graph carries both ends of §9.5's chain rather than leaving the
+  // middle term reachable only by an inline href.
+  analysis: ['saved-views', 'statistics', 'hydrochem', 'exceedances', 'indeterminate', 'report-figures', 'lineage', 'qc', 'map'],
 
   report: ['report-figures', 'dqa', 'narrative', 'snapshot', 'signoff'],
-  'report-figures': ['report', 'narrative', 'supersession', 'certificate', 'saved-views'],
+  'report-figures': ['report', 'narrative', 'supersession', 'certificate', 'saved-views', 'analysis'],
   // And the interpretation workspace reaches the evidence it pins, which is
   // what makes the set a set rather than a list of names.
   narrative: ['report', 'lineage', 'statistics', 'hydrograph', 'hydrochem', 'background', 'map', 'qc', 'location', 'supersession'],
@@ -13414,7 +14120,7 @@ export const RELATED = {
   // Wave 17: the laboratory half of the J collision is drawn on this chain and
   // the other half is one screen away, so both the register and the boundary
   // that tells them apart are declared exits.
-  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite', 'qualifiers', 'exchange', 'saved-views'],
+  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite', 'qualifiers', 'exchange', 'saved-views', 'analysis'],
   audit: ['lineage', 'supersession', 'roles', 'engagement'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],

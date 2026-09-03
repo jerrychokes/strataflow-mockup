@@ -7408,7 +7408,49 @@ export const PROVENANCE = (() => {
     };
   })();
 
-  const chain = [...upstream, ...LINEAGE.chain, datasetHop];
+  /**
+   * Wave 21 — the analysis hop, appended after the dataset hop.
+   *
+   * §9.5's chain is *query → included results → QA/QC state → analytical
+   * settings → output*, and §15 requires it traversable in **both**
+   * directions. Wave 19 gave this value the populations it is a member of;
+   * this is the next link — the analyses that read those populations, and what
+   * each one did with it. It sits after the dataset hop for the same reason
+   * that one sits after the consequence: it is what the value *went on to be
+   * read by*, not what produced it, and a hop spliced earlier would draw a
+   * causal link the record does not hold.
+   *
+   * Everything here resolves through `ANALYSES`, which is declared below this
+   * object, so every field a reader sees is a getter — the same arrangement
+   * the dataset hop already uses for `feeds`.
+   */
+  const analysisHop = {
+    step: 'Analyses that read it',
+    get subject() { return { location: LINEAGE.location, analyte: LINEAGE.analyte }; },
+    get membership() { return ANALYSES.membershipOf(this.subject); },
+    get inside() { return this.membership.filter((m) => m.in); },
+    get what() {
+      const m = this.membership;
+      const inside = this.inside;
+      return `Read by ${inside.length} of ${m.length} analyses · ${inside.map((x) => x.analysis.name).join(', ')}`;
+    },
+    get detail() {
+      const inside = this.inside;
+      if (inside.length === 0) return 'No analysis on the register reads this value.';
+      const a = inside[0].analysis;
+      const qa = a.qa;
+      return `${a.name} reads it as one of ${a.population.what}, and its output is ${a.output}. ` +
+        `The analysis froze the quality state of its population as ${qa.entries.length} findings, ${qa.open.length} of them still open and ` +
+        `${qa.proposed.length} carrying a qualifier that is proposed and unapplied over ${qa.proposedResults} results — which are inside the population and said to be, because a proposal is not an assertion in either direction (D10). ` +
+        `${a.computedAt ? `It records when it ran: ${a.computedAt}.` : 'It records no computation moment, so the state above is what the register reads today under a field that would be frozen — and one member of this population has already been superseded since.'}`;
+    },
+    kind: 'analysis',
+    at: 'analysis',
+    get node() { return `${this.inside.length} of ${this.membership.length} analyses`; },
+    get nodeSub() { return this.inside.length ? this.inside[0].analysis.name : 'none read it'; },
+  };
+
+  const chain = [...upstream, ...LINEAGE.chain, datasetHop, analysisHop];
 
   /**
    * The review's own question list, each answered from the chain by link.
@@ -7460,6 +7502,8 @@ export const PROVENANCE = (() => {
        * object rather than described a second time, so it cannot appear in
        * one reading of the chain and not the other. */
       { get label() { return datasetHop.node; }, get sub() { return datasetHop.nodeSub; }, at: datasetHop.at, kind: datasetHop.kind, step: datasetHop.step },
+      /* Wave 21 — the same hop again, composed from the same object. */
+      { get label() { return analysisHop.node; }, get sub() { return analysisHop.nodeSub; }, at: analysisHop.at, kind: analysisHop.kind, step: analysisHop.step },
     ],
   };
 
@@ -7472,8 +7516,9 @@ export const PROVENANCE = (() => {
     certificate: sub.certificate,
     chain,
     upstream,
-    downstream: [...LINEAGE.chain, datasetHop],
+    downstream: [...LINEAGE.chain, datasetHop, analysisHop],
     datasetHop,
+    analysisHop,
     questions,
     trace,
     /*
@@ -13042,9 +13087,16 @@ export const EXPLORER = (() => {
       { name: 'Time series', screen: 'hydrograph', drawable: false,
         over: '—',
         says: `Not drawable over this population, and the reason is the walk’s own step 7: the population is one round, and a series needs the period dimension this grid does not carry. The series that exists for this analyte at this bore holds ${ARSENIC_MW05.length} quarterly values and is a different population from the one above.` },
-      { name: 'Summary statistics', screen: null, drawable: true,
+      /* Wave 21. `screen` was `null` and the sentence said this was the one of
+       * the six with no surface anywhere. `#statistics` gained a summary table
+       * on 3 September 2026 — n, mean, standard deviation, minimum, maximum,
+       * median, percentiles, detection frequency and exceedance frequency —
+       * so the representation resolves to a screen and the before is kept
+       * beside it rather than overwritten. */
+      { name: 'Summary statistics', screen: 'statistics', drawable: true,
         over: `n = ${f.results}, ${f.included.filter((x) => x.cell.censored).length} censored`,
-        says: 'Computable over this population and drawn on no screen in this catalogue. The statistics screen holds trend tests — Mann–Kendall, Sen’s slope, the seasonal pair — and no summary statistics at all, which is the one of the six with no surface rather than the wrong surface.' },
+        was: 'no screen at all — the statistics screen held trend tests and no summary statistics',
+        says: 'Computable over this population, and it gained a surface on 3 September 2026. It had none until then: the statistics screen held Mann–Kendall, Sen’s slope and the seasonal pair, while `#result-detail` carried a link promising summary statistics by Kaplan–Meier and pointed at a screen with none on it.' },
       { name: 'Map', screen: 'map', drawable: true,
         over: `${f.locations.length} locations`,
         says: `Every location in the population carries coordinates and an outcome, so the map is the population symbolised. The bore that returned nothing carries an open mark and the word, not an absence — a compliance-boundary bore that vanishes from a network map because it held no water that week is the reading a map can least afford.` },
@@ -13078,12 +13130,22 @@ export const EXPLORER = (() => {
           `${INDETERMINATE.length} results could not be assessed and are not on this register`;
       },
       says: 'One row per result per criterion, so a result above two sets appears twice. The register’s population and the grid’s are the same cells read a different way.' },
+    /*
+     * Wave 21. This line read `${TREND.n} quarterly values … ${TREND.censored}
+     * censored, entering as tied values and never substituted`, and the array
+     * it describes carries **no censored value at all**. Making the population
+     * inspectable was the first time anybody counted: five readings of
+     * *arsenic at MW05* exist in this catalogue and they give three different
+     * answers about the censoring. The line states the disagreement rather
+     * than either number, and the before is on the screen that moved it.
+     */
     { screen: 'statistics', what: 'one analyte at one bore, across rounds',
       get line() {
-        return `${TREND.n} quarterly values of ${TREND.analyte} · ${TREND.censored} censored, entering as tied values and never substituted · ` +
-          `${ARSENIC_MW05[0].month} to ${ARSENIC_MW05.at(-1).month}`;
+        const counted = ARSENIC_MW05.filter((p) => p.censored).length;
+        return `${ARSENIC_MW05.length} quarterly values of ${TREND.analyte} · ${ARSENIC_MW05[0].month} to ${ARSENIC_MW05.at(-1).month} · ` +
+          `the exported series carries ${counted} censored and the trend record beside it says ${TREND.censored}`;
       },
-      says: 'A different population from the grid’s in every dimension: one analyte, one bore, fourteen rounds. Nothing on the screen said so until this wave.' },
+      says: 'A different population from the grid’s in every dimension: one analyte, one bore, fourteen rounds. Nothing on the screen said so until wave 20, and nothing had counted it until wave 21.' },
     { screen: 'hydrograph', what: 'the water-level record this screen reads',
       get line() {
         const codes = Object.keys(WATER_LEVELS.series);
@@ -13223,6 +13285,967 @@ export const EXPLORER = (() => {
   };
 })();
 
+/**
+ * # The analysis — wave 21
+ *
+ * §9.5 requires every analysis to be traceable through *query → included
+ * observations/results → QA/QC state → analytical settings → output*, and the
+ * assessment measured that **no analysis object exists**, so the chain has
+ * nothing to start at. Wave 19 built the population and wave 20 built the
+ * explorer over it; this is the thing that reads a population, applies a
+ * method, and produces an output that can be cited.
+ *
+ * **Nothing new is invented next to this record.** Every analysis here is one
+ * the catalogue already performs — the register just gives it an object. The
+ * analyses are found rather than chosen: `REPORT_ITEMS` names a source on
+ * every item, and the sources that name a *method* are exactly the outputs
+ * that are missing an analysis to resolve to. That classification is the
+ * measurement §9.5 turns on, and it is computed rather than asserted.
+ *
+ * **The hard part is the QA/QC state, and it is the third link in the chain.**
+ * An analysis records what its members' quality state *was* when it ran, not
+ * what it reads now. This instance holds a computation moment for **one** of
+ * its analyses, so the frozen field is drawn and the honest half is said out
+ * loud: what a later act does to an analysis is demonstrated where the record
+ * settles it (a superseded member, both values on the record) and argued where
+ * it does not (a disposition nobody has taken, with the four ways out already
+ * drawn on the finding).
+ *
+ * **D10 rides here, decided on 3 September 2026 and not revisited.** A
+ * proposed-but-unapplied qualifier is *inside* the population and the plate
+ * says so. The count is the register's — results in an analytical batch — and
+ * never the grid's, which counts cells in a round: a distinction wave 19
+ * established because no grid cell carries a qualifier channel at all.
+ */
+export const ANALYSES = (() => {
+  const V = SAVED_VIEWS;
+  const analyteOf = (name) => ANALYTES.find((a) => a.name === name);
+  const firstWord = (name) => name.split(/[\s(]/)[0];
+
+  /* ================================================================ *
+   * Every value this wave moved, typed exactly once
+   * ================================================================ */
+  const was = {
+    /** What §9.5's chain had at its analytical-settings link. */
+    settings: 'nowhere to live',
+    /** What a report item's source resolved to before this wave. */
+    sourceResolves: 'a dataset, on 2 of the 15 items, and text on the rest',
+    /** What `#hydrochem` stated about the population its three plates draw. */
+    hydrochemPopulation: 'nothing — no count, no exclusion, no table, no conversion',
+    /** The sentence that assigned a water type to six bores. */
+    faciesClaim: 'Every bore except MW05 is a calcium-bicarbonate water, tightly clustered',
+    faciesTail: 'MW05 is sulfate-dominated and four times the ionic strength',
+    /** What `#statistics` offered against the link `#result-detail` points at it. */
+    summaryTable: 'a link from #result-detail pointing at a screen with no summary statistics on it',
+    /** How the statistics screen described its own population. */
+    statisticsPopulation: '14 quarterly values … 2 censored, entering as tied values and never substituted',
+    /** Where §9.4's five absent measures stood. */
+    absentMeasures: 'no surface at all',
+    /** What `#background` said about where its percentiles come from. */
+    percentileProvenance: 'a method sentence and a caution, and no reference distribution in the record',
+  };
+
+  /* ================================================================ *
+   * §9.3's seven forms and §9.4's ten measures — the brief's own words
+   *
+   * `build.mjs` closes both lists against `VENDOR_REQUIREMENTS.md` in both
+   * directions and in order, the same way §4.2's dimensions and §4.4's
+   * representations are closed. A screen that measured seven things against a
+   * list of seven things it typed itself would be checking its own homework,
+   * and wave 20's audit made exactly that finding about the one list that was
+   * left unclosed.
+   * ================================================================ */
+
+  /** §9.4's ten, each supplied from the record or counted absent with its reason. */
+  const MEASURES = [
+    'Summary statistics', 'Percentiles', 'Minimum and maximum', 'Detection frequency',
+    'Exceedance frequency', 'Mann-Kendall trend', "Sen's slope", 'Seasonal comparison',
+    'Censored or non-detect data treatment', 'Background or reference-population comparison',
+  ];
+
+  /** §9.3's seven. */
+  const FORMS = [
+    'Piper diagram', 'Schoeller diagram', 'Stiff diagram', 'Durov diagram',
+    'Ionic balance', 'Major-ion composition', 'Water type or facies',
+  ];
+
+  /* ================================================================ *
+   * The population every statistic on `#statistics` runs over — and the
+   * five readings of it this catalogue holds
+   *
+   * §9.4's own sentence is the standard: *"A graph without an inspectable
+   * underlying population is inconsistent with Strataflow's defensibility
+   * proposition."* The first thing that happens when this one is made
+   * inspectable is that it turns out to be five populations.
+   *
+   * The exported array is the record and the rest are figure-local literals,
+   * which is the repository's own rule rather than a preference: §10 of the
+   * expansion brief says the seed is the single source and a count drawn by
+   * hand anywhere is a defect. So the statistics run over `ARSENIC_MW05` and
+   * every other reading is named, located and left alone — `figures.mjs` is
+   * fenced by D13 and an approved plate is not a wave's to redraw.
+   *
+   * Each reading carries the marker `build.mjs` looks for in the file it names.
+   * A reading whose marker has gone stops the build rather than sitting on a
+   * screen describing a plate that has changed underneath it.
+   * ================================================================ */
+  const SERIES = ARSENIC_MW05;
+  const arsenic = analyteOf('Arsenic (filtered)');
+
+  const readings = [
+    {
+      reading: 'The exported series',
+      where: 'seed.mjs', marker: 'export const ARSENIC_MW05',
+      n: SERIES.length,
+      get censored() { return SERIES.filter((p) => p.censored).length; },
+      get span() { return `${SERIES[0].month} to ${SERIES.at(-1).month}`; },
+      get range() { return `${Math.min(...SERIES.map((p) => p.value))} – ${Math.max(...SERIES.map((p) => p.value))} ${arsenic.unit}`; },
+      is: 'the record',
+      says: 'Fourteen quarterly values, every one of them a detect. It is what Figure 4.6 draws and what the trend record describes.',
+    },
+    {
+      reading: 'The trend record',
+      where: 'seed.mjs', marker: 'export const TREND',
+      n: TREND.n, censored: TREND.censored, span: '—', range: '—',
+      is: 'the record',
+      says: 'Says the same fourteen values hold two non-detects. The array it describes holds none, and the two sit four thousand lines apart in one file.',
+    },
+    {
+      reading: 'Figure 4.2, as the plate draws it',
+      where: 'figures.mjs', marker: 'i < 2 ? { ...p, value: 5, censored: true, lor: 5 }',
+      n: SERIES.length, censored: 2, span: '—', range: '—',
+      is: 'a figure-local literal',
+      says: 'The plate takes the exported series and rewrites its first two points as non-detects at a 5 µg/L limit, inside the figure module. The substitution is a line of code in a drawing, so nothing else in the catalogue can see it.',
+    },
+    {
+      reading: 'The table drawn under Figure 4.2',
+      where: 'screens.mjs', marker: "['2024-08-12', '<span class=\"mk-num\">&lt;5.0</span>', 'non-detect', '5.0 µg/L'",
+      n: 6, censored: 3, span: '2024-08 to 2026-05', range: '<1.0 – 28.4 µg/L',
+      is: 'a typed table',
+      says: 'Six rows, on months the series does not hold and at values it does not carry, under a caption that calls them the plotted values. Two of its six are non-detects at 5.0 and one at 1.0.',
+    },
+    {
+      reading: 'Figure 4.8, the probability plot',
+      where: 'figures.mjs', marker: 'const censored = [1.0, 1.0];',
+      n: 14, censored: 2, span: '—', range: '1.0 – 28.4 µg/L',
+      is: 'a figure-local literal',
+      says: 'Fourteen values of its own — twelve detects and two non-detects at 1.0 — none of which is a value in the exported series. Its legend reads “Robust ROS · 2 of 14 censored”.',
+    },
+  ];
+
+  /**
+   * What re-running the two tests over the exported array gives.
+   *
+   * Not an accusation: Sen's slope recomputes to the number on the screen
+   * exactly, which is strong evidence the trend record was derived from this
+   * array. `S` does not, and the difference is stated as a difference rather
+   * than corrected, because a Mann-Kendall statistic recomputed here would be
+   * this catalogue asserting a test result nothing in the record ran.
+   */
+  const recount = (() => {
+    const v = SERIES.map((p) => p.value);
+    let s = 0;
+    for (let i = 0; i < v.length; i += 1) for (let j = i + 1; j < v.length; j += 1) s += Math.sign(v[j] - v[i]);
+    const slopes = [];
+    for (let i = 0; i < v.length; i += 1) for (let j = i + 1; j < v.length; j += 1) slopes.push((v[j] - v[i]) / (j - i));
+    slopes.sort((a, b) => a - b);
+    const sen = slopes[Math.floor(slopes.length / 2)];
+    return {
+      s, pairs: slopes.length, sen: Number(sen.toFixed(2)),
+      senDrawn: Number(TREND.plain.slope.split(' ')[0]),
+      sDrawn: TREND.plain.s,
+      get senAgrees() { return this.sen === this.senDrawn; },
+      get sAgrees() { return this.s === this.sDrawn; },
+      says:
+        'Sen’s slope is the median of all pairwise slopes and it is arithmetic on the array, so it can be recomputed here without asserting anything. The Mann-Kendall statistic can be recomputed the same way and the two answers differ; **which of them is right is not settled by this record**, because the test that produced the drawn one was run somewhere this catalogue cannot see — `services/stats`, which is what the figure’s own source line names.',
+    };
+  })();
+
+  /* ================================================================ *
+   * §9.4 — the five measures that had no surface, supplied
+   *
+   * Every one of them is an order statistic or a count over the population
+   * above, so each is exact arithmetic and none needs a distributional
+   * assumption. **The percentile convention is a parameter and it is stated**,
+   * because percentile definitions differ and a percentile without its
+   * convention is a number a reader cannot check.
+   *
+   * The column that matters most is the last one. The record disagrees about
+   * whether two of these fourteen are non-detects (above), and *which
+   * statistics survive that disagreement* is a structural fact about ranks
+   * rather than a second calculation: a maximum is unaffected, a median seven
+   * ranks above the censoring is unaffected, a minimum becomes a limit rather
+   * than a value, and a mean stops being computable by ordinary arithmetic at
+   * all. That is the whole of why §9.4 asks for the population and not only
+   * the graph.
+   * ================================================================ */
+  const summary = (() => {
+    const values = SERIES.map((p) => p.value);
+    const n = values.length;
+    const sorted = [...values].sort((a, b) => a - b);
+    const detects = SERIES.filter((p) => !p.censored).length;
+    const criterion = Number(arsenic.a);
+    const above = values.filter((x) => x > criterion).length;
+    const mean = values.reduce((t, x) => t + x, 0) / n;
+    const sd = Math.sqrt(values.reduce((t, x) => t + (x - mean) ** 2, 0) / (n - 1));
+
+    /** Rank of the p-quantile under the stated convention, 1-based. */
+    const rankOf = (p) => 1 + p * (n - 1);
+    const at = (p) => {
+      const r = rankOf(p);
+      const lo = Math.floor(r);
+      const hi = Math.ceil(r);
+      return sorted[lo - 1] + (r - lo) * (sorted[hi - 1] - sorted[lo - 1]);
+    };
+    /*
+     * Two of the fourteen censored is the other reading of the population; the
+     * two lowest are the ones every reading that carries censoring censors. So
+     * a quantile whose rank sits above 2 is unaffected by that disagreement and
+     * one whose rank does not is undetermined by it. Computed from the rank,
+     * never from a substituted value.
+     */
+    const CENSORED_IF = 2;
+    /* A quantile is unaffected when **both** order statistics it interpolates
+     * between sit above the censoring, so the test is on the lower of the two
+     * and not on the fractional rank: rank 2.3 reads order statistic 2, which
+     * is one of the two in question. */
+    const survives = (p) => Math.floor(rankOf(p)) > CENSORED_IF;
+
+    const pc = [0.1, 0.25, 0.5, 0.75, 0.9, 0.95];
+    return {
+      n, detects, criterion, unit: arsenic.unit, lor: arsenic.lor,
+      censoredIf: CENSORED_IF,
+      convention:
+        'The value at rank 1 + p(n − 1) in the ordered sample, interpolated linearly between the two order statistics either side of it. Stated because percentile conventions differ by a rank or two at this sample size, and a percentile without its convention is a number nobody can check.',
+      percentiles: pc.map((p) => ({
+        p, label: `${(p * 100).toFixed(0)}th`, rank: Number(rankOf(p).toFixed(2)),
+        value: Number(at(p).toFixed(2)), survives: survives(p),
+      })),
+      rows: [
+        { measure: 'Summary statistics', stat: 'n', value: String(n), survives: true, under: 'unchanged',
+          how: 'The count of values in the population. Every other row is over this n.' },
+        { measure: 'Summary statistics', stat: 'Mean', value: mean.toFixed(2), survives: false, under: 'not computable by arithmetic',
+          how: 'Arithmetic on the array as it stands. **It is the first thing to go** if the other reading is right: a mean over a sample holding non-detects needs Kaplan–Meier or robust ROS, which is what `#result-detail` promises and what `services/stats` is for.' },
+        { measure: 'Summary statistics', stat: 'Standard deviation', value: sd.toFixed(2), survives: false, under: 'not computable by arithmetic',
+          how: 'Sample standard deviation, n − 1. Goes the same way and for the same reason.' },
+        { measure: 'Minimum and maximum', stat: 'Minimum', value: sorted[0].toFixed(1), survives: false, under: 'a limit, not a value',
+          how: 'The smallest value. Under the other reading it is not a value at all — it is *below the limit of reporting*, and reporting it as a number would be the substitution this screen exists to refuse.' },
+        { measure: 'Minimum and maximum', stat: 'Maximum', value: sorted.at(-1).toFixed(1), survives: true, under: 'unchanged',
+          how: 'The largest value, and the one statistic no censoring at the bottom of the sample can reach.' },
+        { measure: 'Percentiles', stat: 'Median (50th)', value: at(0.5).toFixed(2), survives: true, under: 'unchanged',
+          how: `Rank ${rankOf(0.5).toFixed(1)} of ${n}, which is above the two lowest either way, so the disagreement about censoring does not reach it.` },
+        { measure: 'Detection frequency', stat: 'Detected', value: `${detects} of ${n} · ${((detects / n) * 100).toFixed(1)}%`, survives: false, under: 'a different number — 12 of 14',
+          how: 'The proportion of the population the laboratory reported as a value rather than as a limit. **It appeared nowhere in this repository before this wave**, and it is the measure that makes the disagreement above impossible to ignore: on the array it is 100%, and the trend record says it is 12 of 14.' },
+        { measure: 'Exceedance frequency', stat: `Above ${arsenic.a} ${arsenic.unit}`, value: `${above} of ${n} · ${((above / n) * 100).toFixed(1)}%`, survives: true, under: 'unchanged',
+          how: 'The proportion of the population above the criterion in force. **Not the same measure as the consecutive-run count** on the exceedance register, which asks how many rounds in a row are above it — one is a rate over a period, the other is a streak, and the licence condition turns on the second.' },
+      ],
+      mean: Number(mean.toFixed(2)),
+      sd: Number(sd.toFixed(2)),
+      min: sorted[0], max: sorted.at(-1),
+      median: Number(at(0.5).toFixed(2)),
+      above,
+      get supplied() { return ['Summary statistics', 'Percentiles', 'Minimum and maximum', 'Detection frequency', 'Exceedance frequency']; },
+    };
+  })();
+
+  /* ================================================================ *
+   * §9.3 — the major-ion analysis, and the facies this record does not hold
+   *
+   * The ion table is in meq/L and every screen that reads it has said so; what
+   * no screen has done is show the conversion, count the population, name what
+   * is excluded, or say where the plates' symbols come from. All four are
+   * arithmetic or inventory over records this file already holds.
+   *
+   * **Facies is measured and not assigned.** The composition resolves — the
+   * proportion each ion holds of its own side is arithmetic on the table — and
+   * the *name* does not, because a water type is a classification and this
+   * instance holds no classification scheme: no threshold, no naming
+   * convention, no version, no approver. So the dominance is reported as what
+   * it is (a proportion, and whether it reaches a majority) and no bore is
+   * given a type. That refusal is load-bearing rather than cautious: applying
+   * the commonest convention — a majority of the meq on a side — **contradicts
+   * the sentence this screen has carried since the first pass**, which calls
+   * five bores calcium-bicarbonate waters. Not one of the five holds a
+   * majority cation, and at three of them the largest cation is not calcium.
+   * ================================================================ */
+  const ions = (() => {
+    const EQ = CONSISTENCY.equivalent;
+    const CATIONS = CONSISTENCY.cations;
+    const ANIONS = CONSISTENCY.anions;
+    /* Charge per ion, for ionic strength. Constants of chemistry like the
+     * equivalent weights beside them, and the only numbers here that are
+     * neither measured nor derived. */
+    const CHARGE = { Ca: 2, Mg: 2, Na: 1, K: 1, HCO3: 1, SO4: 2, Cl: 1 };
+    const NAME = { Ca: 'Calcium', Mg: 'Magnesium', Na: 'Sodium', K: 'Potassium', HCO3: 'Bicarbonate', SO4: 'Sulfate', Cl: 'Chloride' };
+    const MAJORITY = 0.5;
+
+    const bores = Object.keys(MAJOR_IONS);
+    const rows_ = bores.map((code) => {
+      const ion = MAJOR_IONS[code];
+      const cations = CATIONS.reduce((t, k) => t + ion[k], 0);
+      const anions = ANIONS.reduce((t, k) => t + ion[k], 0);
+      /* Sodium and potassium are read together on the cation side, which is
+       * what the Piper plate already does and is not a choice made here. */
+      const cationShare = [
+        { key: 'Ca', label: NAME.Ca, meq: ion.Ca, share: ion.Ca / cations },
+        { key: 'Mg', label: NAME.Mg, meq: ion.Mg, share: ion.Mg / cations },
+        { key: 'NaK', label: 'Sodium + potassium', meq: ion.Na + ion.K, share: (ion.Na + ion.K) / cations },
+      ].sort((a, b) => b.share - a.share);
+      const anionShare = ANIONS.map((k) => ({ key: k, label: NAME[k], meq: ion[k], share: ion[k] / anions }))
+        .sort((a, b) => b.share - a.share);
+      const strength = Object.entries(ion).reduce((t, [k, v]) => t + v * CHARGE[k], 0) / 2000;
+      return {
+        code, ion, cations: Number(cations.toFixed(2)), anions: Number(anions.toFixed(2)),
+        conversions: Object.entries(ion).map(([k, v]) => ({
+          key: k, label: NAME[k], meq: v, weight: EQ[k], mg: Number((v * EQ[k]).toFixed(1)),
+          side: CATIONS.includes(k) ? 'cation' : 'anion',
+        })),
+        cationShare, anionShare,
+        topCation: cationShare[0], topAnion: anionShare[0],
+        cationMajority: cationShare[0].share > MAJORITY,
+        anionMajority: anionShare[0].share > MAJORITY,
+        strength: Number(strength.toFixed(5)),
+        consistency: CONSISTENCY.rows.find((r) => r.code === code),
+      };
+    });
+    const rows = rows_;
+    const of = (code) => rows.find((r) => r.code === code);
+
+    /* The bore the plates draw filled and red, and the ratio the record was
+     * asked for. Both are read off the table rather than off the sentence. */
+    const impacted = of('MW05');
+    const others = rows.filter((r) => r.code !== impacted.code);
+    const ratios = others.map((r) => ({ code: r.code, times: impacted.strength / r.strength }));
+    const meanOther = others.reduce((t, r) => t + r.strength, 0) / others.length;
+
+    return {
+      rows, of, bores,
+      equivalent: EQ, cations: CATIONS, anions: ANIONS, charge: CHARGE, majority: MAJORITY,
+      /** Every bore on the round's grid, and which of them has a chemistry. */
+      onGrid: CROSSTAB_COLUMNS,
+      excluded: CROSSTAB_COLUMNS.filter((c) => !bores.includes(c)).map((code) => ({
+        code,
+        why: CROSSTAB_SHAPE.isEmpty(code)
+          ? 'Dipped twice and found dry, so there is no water to have a chemistry. Excluded from the population and named rather than dropped — a bore that vanishes reads as one that was never on the programme.'
+          : 'On the round’s grid and not in the major-ion table.',
+      })),
+      results: rows.length * (CATIONS.length + ANIONS.length),
+      perSample: CATIONS.length + ANIONS.length,
+      /**
+       * The one ion both records report — and the check nothing else runs.
+       *
+       * Sulfate is on the results grid in mg/L and in the ion table in meq/L,
+       * so converting the second gives a number the first can be compared
+       * with. Nothing in this catalogue had ever done that, because until this
+       * wave the conversion happened inside a plate.
+       *
+       * It agrees at five of the six bores to within a percent and a half, and
+       * **disagrees at one by a fifth**. Neither value is changed: two records
+       * report the same quantity and the record does not say which is right,
+       * and the consistency checks cannot arbitrate — they are computed from
+       * the ion table alone, so the reconciliation at that bore passes either
+       * way and would pass on the grid's figure too.
+       */
+      get crossCheck() {
+        const grid = CROSSTAB.find((r) => r.analyte === 'Sulfate as SO₄');
+        const unit = ANALYTES.find((a) => a.name === 'Sulfate as SO₄').unit;
+        const TOLERANCE = 5;
+        const rows = rows_.map((r) => {
+          const i = CROSSTAB_COLUMNS.indexOf(r.code);
+          const cell = grid.cells[i];
+          const reported = cell.empty ? null : Number(cell.v);
+          const derived = r.conversions.find((c) => c.key === 'SO4').mg;
+          const off = reported === null ? null : ((derived - reported) / reported) * 100;
+          return { code: r.code, derived, reported, off: off === null ? null : Number(off.toFixed(2)), agrees: off !== null && Math.abs(off) <= TOLERANCE };
+        });
+        return {
+          analyte: grid.analyte, unit, tolerance: TOLERANCE, rows,
+          agreeing: rows.filter((x) => x.agrees).length,
+          disagreeing: rows.filter((x) => !x.agrees),
+          says:
+            'Two records report the same quantity at the same bore in the same round, and one of them is a conversion of the other’s unit. That is the check a per-sample conversion makes possible and nothing in this catalogue could run while the conversion lived inside a plate.',
+          refuses:
+            'Changing either number. The record does not say which is right, and the consistency checks cannot arbitrate — they are computed from the ion table alone, so the reconciliation at that bore passes on this figure and would pass on the other one too.',
+          settledBy:
+            'The certificate. One of the two numbers came off a laboratory report and the other is this project’s major-ion table for the same sample; the deliverable that carried them says which, and it is one file rather than a decision.',
+        };
+      },
+      /* ---- the facies question, measured ---- */
+      facies: {
+        question: 'What kind of water is this?',
+        resolves: false,
+        composition:
+          'The proportion each ion holds of its own side is arithmetic on the table and it resolves for every bore in the population. That is the part §9.3’s *major-ion composition* asks for, and it is drawn.',
+        holds:
+          'No classification. There is no facies scheme in this instance — no threshold, no naming convention, no version and no approver — so there is nothing to apply and nothing to cite. A water type is a **rule that produces a finding**, which is exactly the object D9 generalised a criterion into, and a rule that is not on the record cannot be run.',
+        stated:
+          'A majority of the meq on a side is the commonest way a dominance is read, and it is stated here as arithmetic — *does any ion hold more than half* — rather than cited as a scheme, because citing one this catalogue does not hold would be inventing a source.',
+        get measured() {
+          const noMajority = rows.filter((r) => !r.cationMajority);
+          const notCalcium = rows.filter((r) => r.topCation.key !== 'Ca');
+          return {
+            bores: rows.length,
+            cationMajority: rows.filter((r) => r.cationMajority).length,
+            anionMajority: rows.filter((r) => r.anionMajority).length,
+            noMajority: noMajority.map((r) => r.code),
+            notCalcium: notCalcium.map((r) => r.code),
+          };
+        },
+        refuses:
+          'Assigning a type to six bores because the words are already in the prose. The sentence beside these plates has named five of them calcium-bicarbonate waters since the first pass, and the table underneath it does not support that in either half.',
+        settledBy:
+          'A classification scheme as a governed object — the thresholds, the names they produce and the version they are in force under — held the way the criteria library holds a criteria set, so a water type on a report is a finding with a rule behind it rather than a word in a paragraph.',
+      },
+      /* ---- the ionic-strength claim, recomputed ---- */
+      strengthClaim: {
+        subject: impacted.code,
+        get I() { return impacted.strength; },
+        ratios,
+        meanRatio: Number((impacted.strength / meanOther).toFixed(2)),
+        get lowest() { return ratios.reduce((w, r) => (r.times > w.times ? r : w)); },
+        get highest() { return ratios.reduce((w, r) => (r.times < w.times ? r : w)); },
+        get says() {
+          return `Ionic strength is ½ Σ mᵢzᵢ², computed from the meq and the charge on each ion. Against the mean of the other ${this.ratios.length} bores ${this.subject} is **${this.meanRatio}×**; the widest single ratio is **${this.lowest.times.toFixed(2)}×** at ${this.lowest.code} and the narrowest is **${this.highest.times.toFixed(2)}×** at ${this.highest.code}. *Four times every other bore* is true of none of them.`;
+        },
+      },
+      /* ---- §9.3's last inspectable: grouping and symbolisation ---- */
+      symbolisation: {
+        resolves: false,
+        drawnBy: 'figures.mjs',
+        rule: 'One mark shape per bore, in the order the ion table holds them, cycling through four; one bore drawn filled and in the exceedance colour.',
+        which: impacted.code,
+        says:
+          'The rule is real and it is legible on the plate. What it is not is **configuration**: it is written inside the module that draws the figure, so nothing selects it, nothing records it, and a reader cannot ask why one bore is red without reading the drawing’s source. §9.3 asks for the grouping or symbolisation logic to be inspectable, and *inspectable* is the word this fails on rather than *present*.',
+        sameAs:
+          'The potentiometric fit fails in the same place and it is the sharper case, because that one is an analysis rather than a palette — its method, its control set and its residual live in the figure module too, which is why it is the one analysis on this register that cannot be composed here.',
+      },
+    };
+  })();
+
+  /* ================================================================ *
+   * The QA/QC state, as at computation
+   *
+   * §9.5's third link, and the one an analysis is easiest to draw without.
+   * Three things have to be true of it and each is drawn rather than claimed:
+   *
+   *   1. It is **frozen**. An analysis says what its members' quality state
+   *      was when it ran; it does not re-read the register every time somebody
+   *      opens it. A figure whose caption changed because a reviewer
+   *      dispositioned a finding last week is a figure that has stopped being
+   *      evidence of anything.
+   *   2. It is **attached to the population**, not to the analysis as a whole.
+   *   3. It **drifts**, and the drift is the finding.
+   *
+   * What this instance holds decides how far each can be honestly drawn. A
+   * finding's scope names analytes and locations in prose, and **no result
+   * carries a qualifier channel at all** — wave 19 measured 0 of 77 grid cells
+   * — so a finding is matched to a population by reading its own text. That is
+   * a string match rather than a link and the register says so: it is the
+   * limit, not the mechanism.
+   * ================================================================ */
+  const findingsFor = (analytes, checkWords = []) => {
+    const words = analytes.map((a) => firstWord(a).toLowerCase());
+    return QAQC.filter((q) => {
+      const text = [q.scope, q.detail, q.action].filter(Boolean).join(' ').toLowerCase();
+      const byAnalyte = words.some((w) => new RegExp(`\\b${w}\\b`).test(text));
+      /* The second limb, for a check scoped by bore rather than by analyte.
+       * The words are the keys `CONSISTENCY` computes its own limits under, so
+       * a check this catalogue stopped computing stops matching. */
+      const byCheck = checkWords.some((w) => q.check.toLowerCase().includes(w.toLowerCase()));
+      return byAnalyte || byCheck;
+    });
+  };
+
+  /** The checks the consistency record itself computes, from its own limits. */
+  const CONSISTENCY_CHECKS = Object.keys(CONSISTENCY.limits).filter((k) => !/Text$/.test(k));
+
+  /** One member of an analysis's frozen QA/QC state. */
+  const qaEntry = (q) => ({
+    id: q.id, check: q.check, scope: q.scope, outcome: q.outcome, state: q.state,
+    qualifier: q.qualifier,
+    position: q.qualifier === null ? 'no qualifier'
+      : q.proposed ? 'proposed, unapplied — the basis has not been chosen'
+        : 'applied',
+    results: q.results,
+    proposed: Boolean(q.proposed),
+    settled: q.state === 'dispositioned' || q.state === 'clear',
+    /** What would move it, from the record rather than from a guess. */
+    moves: q.decision ? q.decision.options.filter((o) => o.available).length : 0,
+  });
+
+  /* ================================================================ *
+   * The analyses
+   *
+   * Found rather than chosen: `REPORT_ITEMS` names a source on every item, and
+   * a source either names a **method** (an analysis, which until this wave had
+   * nothing to resolve to), a **dataset** (resolved in wave 19), a
+   * **population**, a **register** or a **log**. The classification is the
+   * §9.5 measurement, and the analyses below are the methods it finds plus the
+   * two this catalogue performs and no report item cites.
+   * ================================================================ */
+  const SOURCE_KIND = [
+    { kind: 'a method', test: (s) => /^services\/stats|^Evaluation ·|^Water levels ·|^DQA ·|^Validation run/.test(s) },
+    { kind: 'a dataset', test: (s) => Boolean(V.viewFor(s)) },
+    { kind: 'a population', test: (s) => /^2026-Q2-GW/.test(s) },
+    { kind: 'a register', test: (s) => /register$/.test(s) },
+    { kind: 'a log', test: (s) => /log$/.test(s) },
+  ];
+  const kindOf = (source) => SOURCE_KIND.find((k) => k.test(source))?.kind ?? 'unclassified';
+
+  /**
+   * The one computation moment on the record.
+   *
+   * Counted rather than assumed: every analysis below is asked for a timestamp
+   * and one has it. The consecutive-window condition records `evaluated`
+   * because a statutory clock runs from it — which is the reason a moment gets
+   * written down at all, and the reason the others have none.
+   */
+  const analyses = [
+    {
+      id: 'window-12c',
+      name: 'Consecutive-round condition — licence 12(c)',
+      composed: true,
+      method: WINDOW_CONDITION.rule,
+      version: WINDOW_CONDITION.ruleVersion,
+      computedAt: WINDOW_CONDITION.evaluated,
+      source: 'Evaluation · consecutive-window v2',
+      dataset: null,
+      datasetWhy: 'A licence condition names its own schedule — three parameters at four bores — so the population is the condition’s rather than a dataset’s. That is a real difference and not a gap: nobody may edit what a licence condition selects.',
+      parameters: [
+        { p: 'Window', v: `${WINDOW_CONDITION.rounds.length} rounds`, why: 'Three to see the run and one more to show that the fourth did not start a new one.' },
+        { p: 'Rule', v: WINDOW_CONDITION.rule, why: 'Same location, same parameter, consecutive.' },
+        { p: 'Criterion in force at each round', v: 'frozen onto the outcome', why: WINDOW_CONDITION.frozen },
+      ],
+      get population() {
+        return {
+          what: `${WINDOW_CONDITION.series.length} series drawn · ${WINDOW_CONDITION.rounds.length} rounds each · ${WINDOW_CONDITION.series.length * WINDOW_CONDITION.rounds.length} values`,
+          members: WINDOW_CONDITION.series.map((s) => `${s.analyte} · ${s.location}`),
+          excluded: WINDOW_CONDITION.notDrawn,
+        };
+      },
+      get analytes() { return [...new Set(WINDOW_CONDITION.series.map((s) => s.analyte))]; },
+      get locations() { return [...new Set(WINDOW_CONDITION.series.map((s) => s.location))]; },
+      get output() {
+        const trip = WINDOW_CONDITION.series.filter((s) => s.outcome === 'triggered');
+        return `${trip.length} of ${WINDOW_CONDITION.series.length} series triggered · ${trip.map((s) => `${s.analyte} at ${s.location}`).join(', ')}`;
+      },
+      downstream: ['obligations', 'tarp', 'notification', 'report-figures'],
+      at: 'exceedances',
+    },
+    {
+      id: 'evaluation-2-sets',
+      name: 'Criteria evaluation — the round against both sets in force',
+      composed: true,
+      method: 'Each result compared with the criterion its criteria set publishes for that analyte, matrix and location class, one outcome per set',
+      version: CRITERIA.map((c) => `${c.short} ${c.version}`).join(' · '),
+      computedAt: null,
+      source: 'Evaluation · 2 criteria sets',
+      dataset: null,
+      datasetWhy: 'The population is the round, which is what the grid draws. No dataset selects it — the three that select locations select two or seven of them, and the one that selects all groundwater names a suite by size.',
+      parameters: [
+        { p: 'Criteria sets', v: `${CRITERIA.length} in force`, why: 'Two marks per value, always in the same order, because a result above one set and below another is two answers rather than one.' },
+        { p: 'Non-detect handling', v: 'the reported limit, never a substituted value', why: 'A limit above the criterion is recorded as indeterminate rather than as a pass.' },
+      ],
+      get population() {
+        const cells = CROSSTAB.flatMap((r) => r.cells.map((c, i) => ({ analyte: r.analyte, location: CROSSTAB_COLUMNS[i], cell: c })));
+        const acc = V.accounting(cells);
+        return {
+          what: `${cells.length} cells · ${acc.included.length} results · ${acc.byKind.map((k) => `${k.list.length} ${k.word}`).join(' · ')}`,
+          accounting: acc,
+          members: [`${CROSSTAB.length} analytes × ${CROSSTAB_COLUMNS.length} locations`],
+          excluded: `${acc.excluded.length} cells hold no result, in ${acc.byKind.length} kinds, each counted separately and none of them a pass.`,
+        };
+      },
+      get analytes() { return CROSSTAB.map((r) => r.analyte); },
+      locations: CROSSTAB_COLUMNS,
+      get output() { return `${EXCEEDANCES.length} exceedances at ${new Set(EXCEEDANCES.map((e) => e.location)).size} locations · ${INDETERMINATE.length} results that could not be assessed`; },
+      downstream: ['exceedances', 'indeterminate', 'tarp', 'report-figures'],
+      at: 'exceedances',
+    },
+    {
+      id: 'trend-as-mw05',
+      name: 'Trend — Mann-Kendall and Sen’s slope',
+      composed: true,
+      method: `${TREND.plain.name} and ${TREND.seasonal.name}, with Sen’s slope`,
+      version: 'services/stats — the worker the figure’s own source line names',
+      computedAt: null,
+      source: 'services/stats · Mann–Kendall, Sen’s slope',
+      dataset: null,
+      datasetWhy:
+        'The figure that carries this analysis cites a dataset — *TSF downgradient — metals*, at v1 — and the dataset selects MW05 and MW07 while the analysis runs at MW05 alone. So the citation is the dataset’s and the population is narrower than it, which is the second half of the disagreement wave 19 drew on the other figure of the same pair.',
+      parameters: [
+        { p: 'Test', v: 'Both reported', why: TREND.why },
+        { p: 'Seasonal blocking', v: 'quarterly', why: 'What the test does with time. It is not a field a population can select on, which is why *season* is one of the two dimensions the explorer measures as held by nothing.' },
+        { p: 'Non-detect treatment', v: 'tied values below every detect, never substituted', why: TREND.censoredTreatment },
+        { p: 'Sample-size floor', v: 'n = 8', why: 'Below it the test is reported with a warning and no p-value, rather than a number that looks like evidence.' },
+      ],
+      get population() {
+        return {
+          what: `${SERIES.length} quarterly values · ${SERIES[0].month} to ${SERIES.at(-1).month} · ${TREND.analyte}`,
+          members: [TREND.analyte],
+          excluded: 'Nothing. Every value in the series is in the test — which is what a rank test over a complete series looks like, and it is worth saying rather than leaving a reader to assume it.',
+        };
+      },
+      analytes: ['Arsenic (filtered)'],
+      locations: ['MW05'],
+      get output() { return `${TREND.plain.name} S ${TREND.plain.s}, p ${TREND.plain.p}, ${TREND.plain.slope} · ${TREND.seasonal.verdict}`; },
+      downstream: ['report-figures', 'narrative', 'tarp'],
+      at: 'statistics',
+    },
+    {
+      id: 'summary-as-mw05',
+      name: 'Summary statistics — the population behind the trend',
+      composed: true,
+      method: 'Order statistics and counts over the population, with the percentile convention stated',
+      version: 'new — 3 September 2026',
+      computedAt: null,
+      source: null,
+      sourceWhy: 'No report item cites it, because it did not exist until this wave. An analysis nothing cites is a normal state and the register says so rather than inventing a citation for it.',
+      dataset: null,
+      datasetWhy: 'The same population the trend runs over, and it names no dataset for the same reason.',
+      parameters: [
+        { p: 'Percentile convention', v: 'rank 1 + p(n − 1), interpolated', why: summary.convention },
+        { p: 'Criterion for exceedance frequency', v: `${arsenic.a} ${arsenic.unit}`, why: 'The value the criteria set in force publishes for this analyte. A frequency against an unnamed criterion is a number without a question.' },
+        { p: 'Non-detect treatment', v: 'none applied — the array holds no censored value', why: 'And that is the disagreement, not the answer: the trend record beside it says two of the fourteen are non-detects.' },
+      ],
+      get population() {
+        return {
+          what: `${SERIES.length} quarterly values · ${SERIES[0].month} to ${SERIES.at(-1).month} · ${TREND.analyte}`,
+          members: [TREND.analyte],
+          excluded: 'Nothing — and **five readings of this population exist in the catalogue and no two agree**, which is what happened the first time it was made inspectable.',
+        };
+      },
+      analytes: ['Arsenic (filtered)'],
+      locations: ['MW05'],
+      get output() { return `n ${summary.n} · median ${summary.median} · max ${summary.max} · detected ${summary.detects} of ${summary.n} · above the criterion ${summary.above} of ${summary.n}`; },
+      downstream: ['result-detail', 'statistics'],
+      at: 'statistics',
+    },
+    {
+      id: 'evaluation-lor',
+      name: 'Reporting limit against the applicable criterion',
+      composed: true,
+      method: 'The laboratory’s limit of reporting compared with the criterion in force for the same analyte, matrix and location class',
+      version: `Deterministic — ${CRITERIA[0].short} ${CRITERIA[0].version}`,
+      computedAt: null,
+      source: 'Evaluation · LOR above criterion',
+      dataset: null,
+      datasetWhy: 'The same population as the evaluation above — it is a second reading of the round rather than a second query.',
+      parameters: [
+        { p: 'Comparison', v: 'limit of reporting against the guideline value', why: 'Arithmetic on two numbers both on the record, which is why the outcome is written rather than proposed.' },
+        { p: 'Outcome when the limit is higher', v: 'indeterminate', why: 'Nothing was measured either way, and **indeterminate is not a pass** — the single substitution this catalogue exists to refuse.' },
+      ],
+      get population() {
+        const row = CROSSTAB.find((r) => r.analyte === INDETERMINATE[0].analyte);
+        const cells = row.cells.map((c, i) => ({ analyte: row.analyte, location: CROSSTAB_COLUMNS[i], cell: c }));
+        const acc = V.accounting(cells);
+        return {
+          what: `${cells.length} cells on one analyte row · ${acc.included.length} results`,
+          accounting: acc,
+          members: [INDETERMINATE[0].analyte],
+          excluded: `${acc.excluded.length} — the dry column, which had no sample to have a limit of reporting on.`,
+        };
+      },
+      get analytes() { return [...new Set(INDETERMINATE.map((r) => r.analyte))]; },
+      locations: CROSSTAB_COLUMNS,
+      note:
+        'The finding behind it reports **7** results and this population holds **6**. Both are right about different things: the check was written against all seven planned bores and one of them was dry, so it produced six outcomes. Recorded rather than reconciled — a register that quietly took the smaller number would be describing the check by its result instead of by its scope.',
+      get output() { return `${INDETERMINATE.length} results recorded indeterminate · limit ${INDETERMINATE[0].gap} the criterion`; },
+      downstream: ['indeterminate', 'exceedances', 'report-figures'],
+      at: 'indeterminate',
+    },
+    {
+      id: 'major-ions',
+      name: 'Major-ion composition and charge balance',
+      composed: true,
+      method: 'Cation and anion sums in meq/L, charge balance, TDS reconciliation and EC : TDS ratio, per sample',
+      version: `Acceptance limits — balance ${CONSISTENCY.limits.balanceText}, ratio ${CONSISTENCY.limits.ratioText}, EC : TDS ${CONSISTENCY.limits.ecTdsText}`,
+      computedAt: null,
+      source: null,
+      sourceWhy:
+        'The two plates that draw it name `2026-Q2-GW major ions`, which is the **population** and not the analysis. That is the §9.5 gap in one cell: an output naming its ions says nothing about the balance, the conversion or the classification that turned them into a picture.',
+      checkWords: CONSISTENCY_CHECKS,
+      dataset: null,
+      datasetWhy: 'No dataset selects the ion suite. The analyte dimension of every dataset here names a suite by size, and the record holds a suite’s size and never its membership.',
+      parameters: [
+        { p: 'Unit', v: 'meq/L', why: 'The table is held in milliequivalents, which is what a proportion on a trilinear plate needs. The conversion to mg/L is the equivalent weight of each ion and it is shown per sample.' },
+        { p: 'Sodium and potassium', v: 'read together on the cation side', why: 'What the plate already does, and it is stated here rather than left inside the drawing.' },
+        { p: 'Dominance', v: `a share above ${(ions.majority * 100).toFixed(0)}% of its own side`, why: 'Stated as arithmetic rather than cited as a classification scheme, because this instance holds none.' },
+      ],
+      get population() {
+        return {
+          what: `${ions.rows.length} of the ${ions.onGrid.length} bores on the round’s grid · ${ions.results} ion results · ${ions.perSample} ions per sample`,
+          members: ions.bores,
+          excluded: ions.excluded.map((x) => `${x.code} — ${x.why}`).join(' '),
+        };
+      },
+      analytes: ['Sulfate as SO₄', 'Total hardness as CaCO₃', 'Electrical conductivity'],
+      get locations() { return ions.bores; },
+      get output() {
+        return `${CONSISTENCY.counts.consistent} of ${CONSISTENCY.counts.bores} bores consistent · ${CONSISTENCY.counts.raised} review raised · worst balance ${CONSISTENCY.counts.worstBalance > 0 ? '+' : '−'}${Math.abs(CONSISTENCY.counts.worstBalance).toFixed(2)}%`;
+      },
+      downstream: ['consistency', 'report-figures', 'narrative'],
+      at: 'hydrochem',
+    },
+    {
+      id: 'planar-fit',
+      name: 'Potentiometric surface — planar least-squares fit',
+      composed: false,
+      method: 'A plane fitted through the control heads by least squares, with the residual at each control printed',
+      version: null,
+      computedAt: null,
+      source: 'Water levels · planar fit',
+      dataset: null,
+      datasetWhy: 'The population is the round’s own dips, reduced through the survey in force at each measurement date.',
+      parameters: [],
+      population: null,
+      analytes: [],
+      output: null,
+      downstream: ['map', 'report-figures'],
+      at: 'map',
+      why:
+        'This is a real analysis with a method, a control set, named exclusions and a printed residual — **and every one of those lives inside the module that draws the figure**. So it cannot be composed on this register, cited by anything but the plate, or run over any other round. It is the sharpest case for what an analysis object is for, and it is the one this wave cannot fix: `figures.mjs` is fenced until the print test D13 requires has happened.',
+    },
+    {
+      id: 'dqa-six',
+      name: 'Data quality assessment against the objectives',
+      composed: false,
+      method: 'Six dimensions, each resting on the QA/QC findings under it',
+      version: DQO.used.version,
+      computedAt: null,
+      source: 'DQA · six dimensions',
+      dataset: null, datasetWhy: null, parameters: [], population: null, analytes: [], output: null,
+      downstream: ['dqa', 'validation'],
+      at: 'dqa',
+      why:
+        'Its population is **findings rather than results**, which is why it is not composed here: every field on this register describes a set of results, and forcing an assessment over checks into that shape would be the conflation the grid refuses one requirement over.',
+    },
+    {
+      id: 'validation-run',
+      name: 'Validation run',
+      composed: false,
+      method: null,
+      version: null,
+      computedAt: '2026-05-21',
+      source: 'Validation run 2026-05-21',
+      dataset: null, datasetWhy: null, parameters: [], population: null, analytes: [], output: null,
+      downstream: ['validation', 'qc'],
+      at: 'validation',
+      why:
+        'A run over a round rather than a method over a population — it names **no method at all**, which is why it is on this register as a source that looked like an analysis and is not one. It carries the second date on the register, and the only one in a source string.',
+    },
+  ];
+
+  const of = (id) => analyses.find((a) => a.id === id);
+  const composed = analyses.filter((a) => a.composed);
+
+  /**
+   * Every report item's source, classified — the §9.5 measurement.
+   *
+   * A source either names a **method** (an analysis, which until this wave had
+   * nothing to resolve to), a **dataset** (resolved in wave 19), a
+   * **population**, a **register** or a **log**. Nothing here is assigned: the
+   * kind is read off the string and the analysis is found by matching it, so
+   * an item whose source stops naming a method stops being counted as one.
+   */
+  const analysesSources = () => {
+    const rows = REPORT_ITEMS.items.map((it) => {
+      const kind = kindOf(it.source);
+      const analysis = analyses.find((a) => a.source === it.source) ?? null;
+      return { item: it, source: it.source, kind, analysis, dataset: V.viewFor(it.source) };
+    });
+    return {
+      rows,
+      total: rows.length,
+      method: rows.filter((r) => r.kind === 'a method').length,
+      dataset: rows.filter((r) => r.kind === 'a dataset').length,
+      population: rows.filter((r) => r.kind === 'a population').length,
+      other: rows.filter((r) => !['a method', 'a dataset', 'a population'].includes(r.kind)).length,
+      resolves: rows.filter((r) => r.dataset || (r.analysis && r.analysis.composed)).length,
+      unresolved: rows.filter((r) => r.analysis && !r.analysis.composed),
+    };
+  };
+
+  /* ---- The QA/QC state each composed analysis froze ---- */
+  for (const a of composed) {
+    Object.defineProperty(a, 'qa', {
+      enumerable: true,
+      get() {
+        const found = findingsFor(this.analytes, this.checkWords ?? []);
+        const entries = found.map(qaEntry);
+        return {
+          matched: 'the finding’s own text, read for the analytes in the population',
+          entries,
+          open: entries.filter((e) => !e.settled),
+          proposed: entries.filter((e) => e.proposed),
+          proposedResults: entries.filter((e) => e.proposed).reduce((n, e) => n + (e.results ?? 0), 0),
+          applied: entries.filter((e) => e.position === 'applied'),
+        };
+      },
+    });
+  }
+
+  /**
+   * The drift, and the two ways an analysis is overtaken.
+   *
+   * One is **realised and on the record**: a member of the evaluation was
+   * superseded, and the register the evaluation produced says so in as many
+   * words. The other is **prospective and drawn from the ways out the finding
+   * already offers**: nobody has dispositioned the matrix-spike failure, and
+   * each of the two available options writes a different qualifier on a
+   * different number of results.
+   *
+   * The realised one bounds a computation moment the record does not state. A
+   * register that is stale *because* a member was superseded was computed
+   * before the supersession, and both certificates carry an issue date — so
+   * the evaluation ran between them. That is derived from the staleness mark
+   * and two dates rather than assumed, and it is the only reason the frozen
+   * population below can hold a value the grid no longer shows.
+   */
+  const drift = (() => {
+    const item = REPORT_ITEMS.items.find((it) => it.state.includes('superseded'));
+    const row = CROSSTAB.find((r) => r.analyte === 'Arsenic (filtered)');
+    const at = CROSSTAB_COLUMNS.indexOf('MW03B');
+    const cell = row.cells[at];
+    const ms = QAQC.find((q) => q.id === 'MS-1');
+    return {
+      realised: {
+        kind: 'a member was superseded',
+        analysis: 'evaluation-2-sets',
+        /* Counted off the grid the evaluation ran over, not off this record:
+         * a second superseded cell would appear here without anybody adding
+         * it, and a supersession withdrawn would leave. */
+        members: CROSSTAB.flatMap((r) => r.cells).filter((c) => c.superseded).length,
+        item: item ? item.n : null,
+        itemState: item ? item.state : null,
+        member: `${row.analyte} · MW03B`,
+        asAt: { value: `${cell.superseded} ${arsenic.unit}`, certificate: SUPERSESSION.original.certificate, outcome: SUPERSESSION.original.outcome },
+        now: { value: `${cell.v} ${arsenic.unit}`, certificate: SUPERSESSION.superseding.certificate, outcome: SUPERSESSION.superseding.outcome },
+        bound: {
+          after: SUPERSESSION.original.issued,
+          before: SUPERSESSION.superseding.issued,
+          how: 'The exceedance register is stale **because** this member was superseded, so the evaluation that produced it ran before the supersession and after the certificate it read. Neither date is the analysis’s own; between them is as close as this record gets, and it is derived rather than chosen.',
+        },
+        cascade: SUPERSESSION.cascade,
+        says:
+          'The analysis does not move. It goes on saying what it computed, over the population as it stood, which is why the register beside it can say *stale* at all — an analysis that silently re-read its inputs would have nothing to be stale against. What changes is the mark on the output and the reason under it.',
+      },
+      prospective: {
+        kind: 'a finding is dispositioned',
+        analysis: 'evaluation-2-sets',
+        finding: ms.id,
+        state: ms.state,
+        results: ms.results,
+        qualifier: ms.qualifier,
+        question: ms.decision.question,
+        options: ms.decision.options.filter((o) => o.available).map((o) => ({ label: o.label, writes: o.writes })),
+        ruledOut: ms.decision.options.filter((o) => !o.available).length,
+        says:
+          `Nothing has moved yet, so this limb is **argued and not demonstrated** — and it cannot be demonstrated without a disposition nobody has taken. What it would do is on the finding already: ${ms.decision.options.filter((o) => o.available).length} ways out are open, they write the letter on ${ms.results} results or on one, and neither of them reaches back into an analysis that has already run. The analysis would go on reporting *proposed, unapplied, basis not chosen*, and the output would carry the mark that says its quality state has moved since.`,
+      },
+    };
+  })();
+
+  /* ================================================================ *
+   * D10 — decided 3 September 2026, implemented here
+   * ================================================================ */
+  const d10 = () => {
+    const inside = V.insideAnyway;
+    const spike = QAQC.find((q) => q.id === 'MS-1');
+    const zincRow = CROSSTAB.find((r) => r.analyte === 'Zinc (filtered)');
+    const zincCells = zincRow.cells.map((c, i) => ({ analyte: zincRow.analyte, location: CROSSTAB_COLUMNS[i], cell: c }));
+    const acc = V.accounting(zincCells);
+    return {
+      ...inside,
+      /* The two counts, and the reason they are two rather than one. */
+      register: { n: spike.results, of: 'results in analytical batch ' + spike.scope.split(' · ')[0], from: 'qualifiers' },
+      grid: { n: acc.included.length, of: `zinc cells in ${ROUND.code} that hold a result`, from: 'crosstab' },
+      reconcilable: false,
+      whyNot:
+        'No grid cell carries a qualifier channel — wave 19 measured 0 of 77 — so the nine cannot be located as cells and the six cannot be looked up as batch results. Saying “nine of the sixty-one” would be the fabrication, not the harder truth.',
+      onThePlate:
+        'Every surface that draws this population states that some of its members carry a qualifier that is proposed and has not been applied, names the count the register holds, and names the count it does not have. A population that dropped them would be asserting the decision; one that included them silently would be hiding it.',
+    };
+  };
+
+  /* ================================================================ *
+   * What this wave moved
+   * ================================================================ */
+  const moved = () => {
+    const src = analysesSources();
+    const f = ions.facies.measured;
+    const st = ions.strengthClaim;
+    return [
+      { what: '§9.5’s analytical-settings link', was: was.settings, now: `${composed.length} analyses composed of the ${analyses.length} the record names`, at: 'analysis',
+        why: 'Wave 19 built the dataset the chain starts at and wave 20 the explorer over it. The chain’s middle term was the one with no object, so an output could name a method and resolve to nothing.' },
+      { what: 'What a report item’s source resolves to', was: was.sourceResolves, now: `${src.resolves} of the ${src.total} — ${src.dataset} to a dataset and ${src.resolves - src.dataset} to an analysis`, at: 'report-figures',
+        why: `The wave-18 sentence said the rest “name a run, a fit or a worker, and stay text because there is nothing to open”. ${src.resolves - src.dataset} of them have something to open now, and the ${src.unresolved.length} that still do not say which of the fields they cannot fill and why.` },
+      { what: 'What `#hydrochem` says about the population its plates draw', was: was.hydrochemPopulation, now: `${ions.rows.length} of ${ions.onGrid.length} bores · ${ions.results} ion results · ${ions.excluded.length} excluded and named · ${ions.perSample} conversions per sample`, at: 'hydrochem',
+        why: '§9.3’s second sentence asks for the input population, the excluded records, the unit conversions, the charge-balance result and the symbolisation logic. Four of the five are arithmetic or inventory over records this file already holds.' },
+      { what: 'The water type assigned to six bores', was: was.faciesClaim, now: `no type assigned — ${f.cationMajority} of ${f.bores} bores hold${f.cationMajority === 1 ? 's' : ''} a majority cation and at ${f.notCalcium.length} the largest is not calcium`, at: 'hydrochem',
+        why: 'Measured against the ion table the plates are drawn from. So the sentence is withdrawn and the composition is drawn in its place: a facies **name** needs a classification scheme, and this instance holds none.' },
+      { what: 'MW05’s ionic strength against the other bores', was: was.faciesTail, now: `${st.meanRatio}× the mean of the other ${st.ratios.length}, from ${st.highest.times.toFixed(2)}× to ${st.lowest.times.toFixed(2)}×`, at: 'hydrochem',
+        why: 'Recomputed as ½ Σ mᵢzᵢ² from the same ions. *Four times* is true of no bore in the table, and MW05 is less than twice the strength of the nearest one.' },
+      { what: 'The promise `#result-detail` makes to `#statistics`', was: was.summaryTable, now: `kept — ${summary.rows.length} statistics over the population the trend runs on`, at: 'statistics',
+        why: 'A link pointing at nothing. It is kept rather than withdrawn, because every measure it needs is an order statistic or a count over a population the record already holds.' },
+      { what: '§9.4’s five measures with no surface', was: was.absentMeasures, now: `${summary.supplied.length} supplied · ${summary.percentiles.length} percentiles with the convention stated`, at: 'statistics',
+        why: 'Detection frequency appeared nowhere in the repository at all, and it is the one that makes the population disagreement impossible to read past.' },
+      { what: 'How `#statistics` describes its own population', was: was.statisticsPopulation, now: `${readings.length} readings drawn, giving ${new Set(readings.map((r) => r.censored)).size} answers about how many of the ${SERIES.length} are censored`, at: 'statistics',
+        why: 'The sentence was rendered on the face and the array behind it holds no censored value. The screen states the disagreement rather than choosing, and runs its statistics over the exported record because §10 of the brief makes the seed the single source.' },
+      { what: 'Where `#background`’s percentiles come from', was: was.percentileProvenance, now: `counted absent — ${BACKGROUND.rows.length} typed percentiles against ${summary.percentiles.length} computed on a population this catalogue holds`, at: 'background',
+        why: 'The caution names 42 reference results with two censored and the record holds no reference distribution at all, so nothing recomputes them. Counted as an absence with what would close it.' },
+    ];
+  };
+
+  return {
+    analyses, of, composed, was,
+    MEASURES, FORMS,
+    readings, recount, summary, ions,
+    findingsFor, kindOf,
+    /**
+     * Which analyses read a given value — §15's chain from the result's end,
+     * one link further along than the dataset hop wave 19 added.
+     *
+     * Derived from each analysis's own population rather than listed: an
+     * analysis contains a value when its analyte is one the analysis reads and
+     * its location is one the analysis runs over. An analysis that widened its
+     * population would gain the value without anybody editing this.
+     */
+    membershipOf: ({ location, analyte }) => composed.map((a) => ({
+      analysis: a,
+      in: a.analytes.includes(analyte) && a.locations.includes(location),
+      why: !a.analytes.includes(analyte)
+        ? `It reads ${a.analytes.length} analyte${a.analytes.length === 1 ? '' : 's'} and ${analyte} is not among them.`
+        : !a.locations.includes(location)
+          ? `It reads ${analyte} and runs at ${a.locations.join(', ')}, not at ${location}.`
+          : `It reads ${analyte} and runs at ${location}.`,
+    })),
+    get d10() { return d10(); },
+    drift,
+    /** Every report item's source, classified — the §9.5 measurement. */
+    get sources() { return analysesSources(); },
+    /** The counts the faces render, so none of them is typed. */
+    get counts() {
+      return {
+        analyses: analyses.length,
+        composed: composed.length,
+        uncomposed: analyses.length - composed.length,
+        timed: analyses.filter((a) => a.computedAt).length,
+        measures: MEASURES.length,
+        forms: FORMS.length,
+        supplied: summary.supplied.length,
+        readings: readings.length,
+        censoredAnswers: new Set(readings.map((r) => r.censored)).size,
+        bores: ions.rows.length,
+        ionResults: ions.results,
+        faciesAssigned: 0,
+      };
+    },
+    get moved() { return moved(); },
+    drawnOn: '2026-09-03',
+  };
+})();
+
 export const VENDOR_BRIEF = (() => {
   /** §3's own ranking, section by section. `build.mjs` checks it against §3. */
   const PRIORITY = {
@@ -13348,10 +14371,10 @@ export const VENDOR_BRIEF = (() => {
       screens: ['qc', 'qualifiers', 'result-detail', 'lineage'],
       note: 'The workflow §2’s standard was written for. Each finding carries the question in a hydrogeologist’s words, the evidence, and an options table stating the propagation basis, what each option writes and whether it is available on this evidence — two options refused with the reason, plus an explicitly refused course — and wave 17 added which vocabulary each qualifier is drawn from and who asserted it.' },
 
-    { id: '9.1', title: 'Gap', verdict: 'missing',
+    { id: '9.1', title: 'Gap', verdict: 'partially',
       asks: 'The mockup must demonstrate a coherent Analysis workspace.',
-      screens: [],
-      note: 'There is no analysis workspace, so §12.2’s interpretation has nothing of the kind to cite and §9.5’s chain has no analytical-settings link. This note read “so §9.5’s chain has no first link” until 3 September 2026, when wave 19 built the dataset that link attaches to. Wave 21 builds the analysis on it.' },
+      screens: ['analysis', 'statistics', 'hydrochem', 'background', 'hydrograph'],
+      note: `An analysis is an object now: ${ANALYSES.counts.composed} of the ${ANALYSES.counts.analyses} the record names are composed, each with the dataset it read, its method and version, its parameters one row at a time, its population through the same accounting the dataset register counts with, its members’ QA/QC state, its output and what depends on it. This row read *missing* until 3 September 2026 and it moves one step and not two: **there is a register and there is no workspace**. Nothing constructs an analysis, re-runs one under a changed parameter, or previews what that would move — and ${ANALYSES.counts.uncomposed} of the sources that name a method compose nowhere at all, the sharpest being the potentiometric fit, whose method, control set and residual live inside the module that draws the plate.` },
     { id: '9.2', title: 'Groundwater-level analysis', items: 8, verdict: 'covered',
       asks: 'The design must expose datum, units, bore reference elevation, measurement status, temporal alignment and relevant exclusions.',
       screens: ['hydrograph', 'map', 'logger-series', 'location'],
@@ -13359,15 +14382,15 @@ export const VENDOR_BRIEF = (() => {
     { id: '9.3', title: 'Hydrochemistry', items: 7, verdict: 'partially',
       asks: 'The user must be able to inspect the input population, excluded records, unit conversions, charge-balance result and grouping or symbolisation logic.',
       screens: ['hydrochem', 'consistency'],
-      note: 'Piper, Stiff and Schoeller are drawn, and the ionic balance is computed from the ions rather than stated. Durov is approved (D2) and gated on the print test (D13) with every other figure family. The second sentence is where this fails: no population, no exclusions, no unit conversions and no table view — the screen renders a tenth of what the hydrograph does.' },
+      note: `Piper, Stiff and Schoeller are drawn, and the ionic balance is computed from the ions rather than stated. Durov is approved (D2) and gated on the print test (D13) with every other figure family. The second sentence is where this row now turns, and four of its five clauses landed on 3 September 2026: the input population is counted (${ANALYSES.ions.rows.length} of the ${ANALYSES.ions.onGrid.length} bores on the round’s grid, ${ANALYSES.ions.results} ion results), the excluded record is named rather than dropped, every ion is shown in meq/L and in mg/L per sample, and the charge-balance result is a table of the three checks rather than a caption. **The fifth is refused by the record**: the grouping and symbolisation logic is written inside the module that draws the plate, so it is present and not inspectable. This note read *“no population, no exclusions, no unit conversions and no table view — the screen renders a tenth of what the hydrograph does”* until that date. One thing left the screen too: it asserted a calcium-bicarbonate water type for five bores, and measured against the ion table the plates are drawn from, ${ANALYSES.ions.facies.measured.cationMajority} of the ${ANALYSES.ions.facies.measured.bores} holds a majority cation. A facies **name** needs a classification scheme and this instance holds none, so the composition is drawn and no type is assigned.` },
     { id: '9.4', title: 'Trend and statistical analysis', items: 10, verdict: 'partially',
       asks: 'A graph without an inspectable underlying population is inconsistent with Strataflow’s defensibility proposition.',
       screens: ['statistics', 'background'],
-      note: 'Five of the {items} are drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all, and the population behind the trend is described rather than inspectable.' },
+      note: `All {items} have a surface as of 3 September 2026. Five were already drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. The other five are supplied now: ${ANALYSES.summary.rows.length} statistics and ${ANALYSES.summary.percentiles.length} percentiles over a named population, each with the convention it is computed under, and **detection frequency, which appeared nowhere in this repository at all**. This note read *“Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all”* until that date. It stays partial on two clauses the requirement turns on. **Grouping is not exposed** — there is no control that groups a population by anything. And making the population inspectable found that it is ${ANALYSES.counts.readings} populations: five readings of *arsenic at MW05* give ${ANALYSES.counts.censoredAnswers} different answers about how many of its values are non-detects, so the mean and the minimum are drawn with the condition they hold under rather than as settled numbers.` },
     { id: '9.5', title: 'Analysis lineage', verdict: 'partially',
       asks: 'Query → included observations/results → QA/QC state → analytical settings → output',
       screens: ['lineage', 'saved-views', 'report-figures'],
-      note: 'The first two links landed on 3 September 2026 and this row read *missing* until then. The provenance chain gained a dataset hop, so a result names the populations it is a member of — with three answers rather than two, because a dataset naming an analyte suite cannot be resolved at all — and a dataset names what cites it, at the version cited. Analytical settings have nowhere to live until wave 21 builds the analysis object, and the QA/QC-state link runs through the qualifier register rather than through the population.' },
+      note: `All five links exist as of 3 September 2026 and this row read *missing* three days earlier. The provenance chain runs result → dataset → analysis, ${ANALYSES.composed.reduce((n, a) => n + a.parameters.length, 0)} analytical settings are held on ${ANALYSES.counts.composed} analyses, and an output resolves back: ${ANALYSES.sources.resolves} of the ${ANALYSES.sources.total} report items open the record their source names, against 2 before. This note said *“analytical settings have nowhere to live until wave 21 builds the analysis object”* until then. It stays partial on the third link and on the traversal. **QA/QC state is matched by reading a finding’s own prose**, because no result carries a qualifier channel at all — 0 of the 77 grid cells — so an analysis can say which findings governed its population and not which of its members each one reached. And **one analysis in the instance records when it ran**; the frozen state the requirement asks for is drawn as a field with the two acts that would move it beside it, one realised and one prospective, rather than filled from a timestamp the record does not hold.` },
 
     { id: '10.1', title: 'Gap', verdict: 'partially',
       asks: 'The mockup must demonstrate how a senior environmental manager works across many projects and sites, rather than one dataset at a time.',

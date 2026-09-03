@@ -35,7 +35,7 @@ import { CHROME_CSS } from './chrome.mjs';
 import { JOBS, RELATED } from './screens.mjs';
 import { HATCH_SPRITE, esc } from './ui.mjs';
 import { slideOver } from './controls.mjs';
-import { EXPLORER, LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
+import { ANALYSES, EXPLORER, LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Inside the app repo (as design/mockup/) the product stylesheet is read live,
@@ -116,7 +116,7 @@ const SECTION_VIEW = [
   // rows is on `formats`, `mapping-profiles`, `migration` and `imports`, all
   // of which are in this group already.
   { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, what each one rests on, and every format that crosses the boundary in either direction', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles', 'exchange'] },
-  { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'explorer', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
+  { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'explorer', 'analysis', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
   { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
   // Wave 12 files the configuration package here and the lede gains a clause
@@ -193,6 +193,48 @@ const SECTION_REGISTER = {
     for (const r of stale) console.error(`route line carries a state claim: “${r}”`);
     process.exit(1);
   }
+}
+
+/*
+ * Wave 21 — the five readings of one population each name a marker, and the
+ * marker has to still be there.
+ *
+ * `#statistics` draws a table of every place this catalogue describes *arsenic
+ * at MW05*, because making that population inspectable was the first time
+ * anybody asked all five the same question — and three of them give three
+ * different answers about the censoring. Two of the five are literals inside
+ * the module that draws a plate and one is a typed table under a caption
+ * calling it "the plotted values"; those three cannot be derived from the
+ * seed, so the row states them and this guard keeps the statement honest.
+ *
+ * The marker is chosen to carry the numbers the row reports wherever the row
+ * is not derived: the substitution, the censored array and the typed table's
+ * first row all include a value and a limit, so editing what the plate draws
+ * fails the build rather than leaving a table describing a drawing that
+ * changed underneath it. The two derived readings name their export, which is
+ * all a derived row needs — its numbers are counted off the object.
+ *
+ * A file that cannot be read is an offence, not a skip: a guard that goes
+ * quiet when its subject disappears is the shape wave 18 and wave 20 each
+ * shipped once.
+ */
+{
+  const offences = [];
+  for (const r of ANALYSES.readings) {
+    const file = resolve(here, r.where);
+    if (!existsSync(file)) {
+      offences.push(`population reading “${r.reading}”: names ${r.where}, which is not in this repository`);
+      continue;
+    }
+    if (!readFileSync(file, 'utf8').includes(r.marker)) {
+      offences.push(`population reading “${r.reading}”: ${r.where} no longer contains ${JSON.stringify(r.marker)} — re-measure the row before the table describes something that has changed`);
+    }
+  }
+  if (offences.length) {
+    for (const o of offences) console.error(o);
+    process.exit(1);
+  }
+  console.log(`population readings: ${ANALYSES.readings.length} located, ${ANALYSES.counts.censoredAnswers} answers about the censoring`);
 }
 
 /*
@@ -980,6 +1022,24 @@ ${palette()}
       EXPLORER.GROUPS.map(norm));
     inOrder('§4.4 representations', bulletsIn('4.4'),
       EXPLORER.representations.map((r) => norm(r.name)));
+
+    /*
+     * Wave 21 — §9.3's seven forms and §9.4's ten measures, closed the same way.
+     *
+     * The two lists this wave is built on are enumerations in the brief exactly
+     * as §4.2's dimensions are, and wave 20's audit made the finding that
+     * matters here: **a guard that covers some of a wave's lists is a guard
+     * whose gap is the interesting one**, because the uncovered list is the one
+     * nobody thought of as a list. Both are compared with the brief's own
+     * bullets word for word and in sequence, in both directions, so a form the
+     * brief adds cannot go undrawn and a measure it drops cannot linger as a
+     * statistic this catalogue supplies for nobody.
+     *
+     * `bulletsIn` matches `^\s*- ` (W20-A-2), so a nested bullet under either
+     * heading is seen rather than skipped.
+     */
+    inOrder('§9.3 hydrochemical forms', bulletsIn('9.3'), ANALYSES.FORMS.map(norm));
+    inOrder('§9.4 statistical measures', bulletsIn('9.4'), ANALYSES.MEASURES.map(norm));
 
     /*
      * W20-A-1. §4.2 and §4.4 were closed against the brief and §4.3's terms
