@@ -6,7 +6,7 @@ Wave 6 began implementing its findings. This is the evidence half of D13's secon
 walk. The walk pack itself waits until Wave 23 closes, because what a practitioner
 should be shown depends on what Waves 21–23 draw.
 
-**Method:** every `<section>` in the built page at `3112977` and at `HEAD`, matched
+**Method:** every `<section>` in the built page at `3112977` and at `05572ca`, matched
 by id, compared with `difflib.SequenceMatcher.ratio()` — the exact ratio, not the
 `quick_ratio` upper bound. *Unchanged* below means literal character similarity of
 the rendered section, which is a blunt instrument for prose and an honest one for
@@ -18,17 +18,24 @@ the review asked for — so `#field-capture` came back 100% unchanged and the wh
 table read as reassuring nonsense. The state a practitioner saw is the state before
 the wave that answered her, not the state of the wave that answered her.
 
+**The second end is pinned to a commit for the same reason the first is.** It
+read `HEAD` when it was written, and `HEAD` moved the next day — Wave 21 added a
+screen, so *"there are now 76"* became wrong within a commit of being measured.
+A dated measurement against a moving reference is not a measurement. **The whole
+table is re-measured when the pack is assembled after Wave 23**, against
+whatever `HEAD` is then, and pinned again.
+
 ## The catalogue then and now
 
-She could see **68** screens. There are now **76**. Eight are new since:
+She could see **68** screens. At `05572ca` there were **76**. Eight are new since:
 `composite · engagement · estate · exchange · explorer · instruments ·
 logger-series · package`.
 
-**31 of the 68 are byte-identical.** The other 37 have moved.
+**31 of the 68 were byte-identical.** The other 37 had moved.
 
 ## The four screens she reviewed
 
-| Screen | As seen | Now | Unchanged |
+| Screen | As seen | At `05572ca` | Unchanged |
 |---|---:|---:|---:|
 | `#field-capture` | 1,697 | 11,472 | **21.2%** |
 | `#qc` | 11,038 | 41,846 | **24.3%** |
@@ -45,7 +52,7 @@ rather than as confirmed work being re-shown.
 
 ## The screen that moved most is one she never saw
 
-| Screen | As seen | Now | Unchanged |
+| Screen | As seen | At `05572ca` | Unchanged |
 |---|---:|---:|---:|
 | `#saved-views` | 3,326 | 25,308 | **11.0%** |
 | `#qualifiers` | 2,638 | 8,723 | 19.3% |
