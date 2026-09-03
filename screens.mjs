@@ -5718,6 +5718,14 @@ const programme = () =>
         : a.held === 'held' ? '<span class="mk-muted">on the programme</span>' : '<span class="mk-muted">nowhere</span>',
     ]),
   }) +
+  /*
+   * W22-R2-2. The plan said this screen becomes "the entry to preparation" and
+   * nothing on it referenced `#events` at all — the only path was the generic
+   * five-link sibling strip in the footer, which says nothing about what is
+   * there. The one screen that did link to the measurement by name was
+   * `#field-capture`, not the plan side. Named link, matching that pattern.
+   */
+  `<p class="mk-tight">§6.2 asks a programme to carry field parameters, analytes, methods and QA/QC requirements — the things a crew needs in its hands. What the plan actually states is measured on the round rather than here: <a class="mk-ref" href="#events">the ${PLANNING.preparationCounts.both} of ${PLANNING.preparationCounts.total} §6.3 preparation items the plan states</a>, which is the forward half of this screen and the reason ${PLANNING.definitionCounts.absent} of the ${PLANNING.definitionCounts.total} attributes above read <em>absent</em>.</p>` +
   `<p class="mk-tight mk-muted">The responsible party is the one attribute with a second reading, and the two agree: ${esc(PLANNING.programmeOf('GW-QTR').code)} names <strong>${esc(PLANNING.programmeOf('GW-QTR').responsible)}</strong> and <a class="mk-ref" href="#obligations">the obligation register</a> independently names ${PLANNING.definition.find((a) => a.attr === 'Responsible party').corroborated.map((o) => `<strong>${esc(o)}</strong>`).join(', ')} as owner of its rounds. The other ${PLANNING.counts.programmes - 1} programmes are answerable to nobody this record can name.</p>` +
 
   /* ---------------------------------------------------------------- *
@@ -5746,11 +5754,28 @@ const programme = () =>
       head: '<span class="mk-queue__kind">Not drawn, and this is the reason</span>',
       body:
         `<p class="mk-tight"><strong>A programme version is not drawn here, because inventing one is inventing an approver.</strong> ${PLANNING.versioning.short.length} of the ${PLANNING.versioning.fields.length} fields have nowhere in this record to come from: ${PLANNING.versioning.short.map((f) => `<em>${esc(f.field.toLowerCase())}</em>`).join(', ')}. A version identifier with no approver and no moment of approval is a number, and a number is not an authority.</p>` +
-        `<p class="mk-tight">What it would take is the shape the objective set already has, plus the rule that set states: <em>every finding carries the rule version it was raised under</em>. The programme’s equivalent is that <strong>a round carries the programme version it was raised under</strong> — and a round here holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling round').n} of the five, so the consumer side is as empty as the producer side.</p>` +
+        `<p class="mk-tight">What it would take is the shape the objective set already has, plus the rule that set states: <em>every finding carries the rule version it was raised under</em>. The programme’s equivalent is that <strong>a round carries the programme version it was raised under</strong> — and a round here holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling round').n} of the ${PLANNING.versioning.fields.length}, so the consumer side is as empty as the producer side.</p>` +
         `<p class="mk-tight mk-muted">The freezing half of a version’s job is already in this product on a different object: <a class="mk-ref" href="#${esc(PLANNING.versioning.precedent.at)}">${esc(PLANNING.versioning.precedent.what)}</a></p>`,
       foot:
-        C.btn('Amend the programme') +
-        '<span class="mk-muted">The control is present and does nothing, which is the honest state: there is no version for an amendment to create.</span>',
+        /*
+         * W22-R2-1. The button was drawn enabled — full opacity, focusable,
+         * a plain actionable label — with its inertness disclosed only in the
+         * prose beside it, so a reader tabbing to it heard "Amend the
+         * programme, button" and nothing else. Five other inert controls in
+         * this file already use `{ disabled: true, title }`, and
+         * `.mk-btn[disabled]` has its own styling, so this was an omission
+         * rather than a missing capability.
+         *
+         * Not the same call as W20-A-4, which declined to disable the
+         * explorer's selects: the catalogue draws 39 selects and disables
+         * none, a view control that moves the display is not making a promise
+         * about the record, and this one is a write.
+         */
+        C.btn('Amend the programme', '', {
+          disabled: true,
+          title: `No version for an amendment to create — ${PLANNING.versioning.short.length} of the ${PLANNING.versioning.fields.length} fields a version needs have nowhere in this record to come from`,
+        }) +
+        '<span class="mk-muted">The control is drawn and refuses, which is the honest state: there is no version for an amendment to create, and the reason is on the button itself rather than only in this sentence.</span>',
     }),
     '3fr 2fr',
   ) +
@@ -5780,7 +5805,7 @@ const programme = () =>
   /* ---------------------------------------------------------------- *
    * The round state, against the glossary's own closed list
    * ---------------------------------------------------------------- */
-  '<h2 class="mk-h2" style="margin-top:1.4rem">A round has four states, and this register uses two of them</h2>' +
+  `<h2 class="mk-h2" style="margin-top:1.4rem">A round has ${PLANNING.roundStates.list.length} states, and this register uses ${PLANNING.roundStates.registerWords.length} of them</h2>` +
   cols(
     panel(
       `The four the model carries, and the ${PLANNING.roundStates.unused.length} with no row`,
