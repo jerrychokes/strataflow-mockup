@@ -10276,7 +10276,7 @@ const roundCompleteness = () => {
               cell(esc(r.says)),
             ]),
           }) +
-          `<p class="mk-tight mk-muted">Nothing on this screen chooses between them, and that is the rule rather than a hedge: making any one of the ${P.disagreements.mw09.readings.length} right would mean rewriting the others, and rewriting a register to agree with another is the act every one of them exists to make impossible. What a reconciliation owes is that the disagreement is <em>visible</em> — it was not, from any of the ${new Set(P.disagreements.mw09.readings.map((r) => r.at)).size} screens these live on.</p>`,
+          `<p class="mk-tight mk-muted">Nothing on this screen chooses between them, and that is the rule rather than a hedge: ${P.disagreements.mw09.camps.short.length} of the ${P.disagreements.mw09.readings.length} would have to be rewritten to make the other ${P.disagreements.mw09.camps.held.length + P.disagreements.mw09.camps.present.length} right, and rewriting a register to agree with another is the act every one of them exists to make impossible. What a reconciliation owes is that the disagreement is <em>visible</em> — it was not, from any of the ${new Set(P.disagreements.mw09.readings.map((r) => r.at)).size} screens these live on.</p>`,
       ),
       panel(
         `How many results does this round have? ${P.counts.denominators} answers, from ${P.disagreements.denominator.spread.low} to ${P.disagreements.denominator.spread.high}`,

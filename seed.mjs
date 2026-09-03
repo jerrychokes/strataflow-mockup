@@ -13299,33 +13299,55 @@ export const PLANNING = (() => {
       return [
         {
           register: 'The laboratory receipt', at: 'receipt',
+          camp: 'short', namesAnalyte: true,
           says: `${crackedCheck.what} failed: “${crackedCheck.found}”. The consequence recorded beneath it names the bore and the shortfall.`,
           holds: 'a cracked sulfate bottle',
         },
         {
           register: 'The sample manifest', at: 'events',
+          camp: 'short', namesAnalyte: false,
           says: `${crackedSample.id} carries ${crackedSample.tests} tests and ${crackedSample.results} results, and its state is ${crackedSample.state}.`,
           holds: `${crackedSample.tests - crackedSample.results} result short, analyte unnamed`,
         },
         {
           register: 'The completeness register', at: 'dqa',
+          camp: 'short', namesAnalyte: false,
           says: `${mw09Row.received} of ${mw09Row.planned} received. The row carries a location, a count and a state and names no analyte, so which of the ${mw09Row.planned} is absent cannot be read off it.`,
           holds: `${mw09Row.planned - mw09Row.received} result short, of a planned ${mw09Row.planned}`,
         },
         {
           register: 'The held rows', at: 'quarantine',
+          camp: 'held', namesAnalyte: true,
           says: `“${sulfateHeld.subject}” is ${sulfateHeld.state} — ${sulfateHeld.reason} The way out recorded is: ${sulfateHeld.wayOut}`,
           holds: 'the sulfate, held rather than absent',
         },
         {
           register: 'The results grid', at: 'crosstab',
+          camp: 'present', namesAnalyte: true,
           says: `The sulfate cell at MW09 reads ${sulfateCell.v} and carries no hold marker, while the nitrate cell beside it does. Across the column, ${mw09Cells.filter((c) => !c.cell.empty).length} of ${mw09Cells.length} cells carry a result and the one that does not is ${mw09Cells.find((c) => c.cell.empty).analyte}.`,
           holds: 'the sulfate, present and compliant',
         },
       ];
     },
     get distinctHoldings() { return [...new Set(this.readings.map((r) => r.holds))].length; },
-    says: 'Three registers agree that one result is short and do not agree on which. A fourth holds the sulfate rather than losing it. The fifth prints a number in the cell all four are pointing at. Nothing here is corrected: the disagreement is what the reconciliation is for, and resolving it is a decision with an author.',
+    get camps() {
+      const of = (c) => this.readings.filter((r) => r.camp === c);
+      return { short: of('short'), held: of('held'), present: of('present') };
+    },
+    /*
+     * This sentence typed a 3/1/1 split, and one clause of it repeated the
+     * W19-A-1 mistake: it said the three shortfall registers *"do not agree on
+     * which"*, where two of the three name no analyte at all. A register that
+     * cannot be asked a question is not disagreeing with the answer — the
+     * distinction W19-A-1 established, made again here by its author. The
+     * split is in the record now, on each reading, so the numbers are
+     * arithmetic and the clause says what is actually true of them.
+     */
+    get says() {
+      const c = this.camps;
+      const names = c.short.filter((r) => r.namesAnalyte).length;
+      return `${c.short.length} registers report a result short and ${names} of them ${names === 1 ? 'names' : 'name'} the analyte, so the other ${c.short.length - names} ${c.short.length - names === 1 ? 'is' : 'are'} silent about which rather than disagreeing about it. ${c.held.length} holds the sulfate rather than losing it. ${c.present.length} prints a number in the cell the other ${this.readings.length - c.present.length} are pointing at. Nothing here is corrected: the disagreement is what the reconciliation is for, and resolving it is a decision with an author.`;
+    },
   };
 
   /**
