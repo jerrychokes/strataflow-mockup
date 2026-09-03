@@ -33,6 +33,7 @@ import {
   // the three limits the PFAS components are reported against.
   DQO, FIELD_ROUND, METALS_BATCH, PFAS_LIMITS, QC_DECISIONS, Q2_OVERDUE,
   INDETERMINATE_QUOTE,
+  CADMIUM_ASSESSABILITY,
   // Wave 7 — provenance from the bore, the interpretation workspace, and the
   // shape of the crosstab now that a column is drawn empty.
   CONSTRUCTION, CROSSTAB_SHAPE, EVIDENCE, NARRATIVE, PROVENANCE, RENDERING_RULE,
@@ -412,7 +413,7 @@ const importReview = () => {
       label: 'Import runs',
     }) +
     stats([
-      stat('42', 'rows read'),
+      stat(String(IMPORTS.find((i) => i.id === 'IMP-0239').rows), 'rows read'),
       stat('39', 'ready to commit', 'good'),
       stat('3', 'waiting on you', 'warn'),
       stat('73', 'applied without asking'),
@@ -533,7 +534,7 @@ const certificate = () =>
       ['Issued', '2026-05-21'],
       ['Received', esc(ROUND.received)],
       ['Original file', '<span class="mk-file">PAS2026-04417_Wandalup_2026Q2.zip · 1.4 MB · retained</span>'],
-      ['Results produced', '<span class="mk-num">231</span>'],
+      ['Results produced', `<span class="mk-num">${IMPORTS.find((i) => i.id === 'IMP-0241').rows}</span>`],
       ['Supersedes', '<code>PAS2026-04398</code> — amended, transcription error'],
       ['NATA accreditation', '2377 · site 1841'],
     ]) +
@@ -804,7 +805,7 @@ const migration = () =>
     route: '/projects/:projectId/reconciliation',
   }) +
   stats([
-    stat('18,740', 'source rows'),
+    stat(IMPORTS.find((i) => i.id === 'IMP-0238').rows.toLocaleString('en-AU'), 'source rows'),
     stat('18,740', 'rows loaded', 'good'),
     stat('412', 'exceedances — both', 'good'),
     stat('112', 'quarantined', 'warn'),
@@ -2545,7 +2546,7 @@ const exceedances = () =>
     ]),
   }) +
   notice('warning', `${INDETERMINATE.length} results could not be assessed at all, and they are not on this register.`,
-    `Cadmium at every bore that returned water was reported below a limit of reporting that sits above the guideline value. Those are on the crosstab as <strong>indeterminate</strong> and on <a class="mk-ref" href="#indeterminate">their own register</a>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen. This sentence named the ${esc(PFAS_REACH.analyte)} sum at ${PFAS_REACH.was.indeterminate - INDETERMINATE.length} bores as well until 2 September 2026, when <a class="mk-ref" href="#batches">those five censored values were found to rest on analyses that were never run</a> — a different absence, and one this register was never going to catch, because a result that does not exist cannot be counted as compliant either.`) +
+    `Cadmium at every bore that returned water was reported below a limit of reporting that sits ${esc(CADMIUM_ASSESSABILITY.word)} the guideline value. Those are on the crosstab as <strong>indeterminate</strong> and on <a class="mk-ref" href="#indeterminate">their own register</a>. A register of exceedances that quietly counted them as compliant would be the more dangerous screen. This sentence named the ${esc(PFAS_REACH.analyte)} sum at ${PFAS_REACH.was.indeterminate - INDETERMINATE.length} bores as well until 2 September 2026, when <a class="mk-ref" href="#batches">those five censored values were found to rest on analyses that were never run</a> — a different absence, and one this register was never going to catch, because a result that does not exist cannot be counted as compliant either.`) +
   windowConditionPanel();
 
 /**
@@ -8666,7 +8667,7 @@ const indeterminateRegister = () => {
   notice(
     'warning',
     'This is a finding, and it belongs in the report.',
-    `${INDETERMINATE.length} results were reported below a limit of reporting that sits above the guideline value — all ${cadmium.length} of them cadmium. Nothing was measured either way. They are not compliant and they are not exceedances, and writing them into either column is the single most consequential error available here; a support thread on an incumbent records exactly that happening by default.`,
+    `${INDETERMINATE.length} results were reported below a limit of reporting that sits ${esc(CADMIUM_ASSESSABILITY.word)} the guideline value — all ${cadmium.length} of them cadmium. Nothing was measured either way. They are not compliant and they are not exceedances, and writing them into either column is the single most consequential error available here; a support thread on an incumbent records exactly that happening by default.`,
   ) +
   /*
    * Wave 15. This register held 11 rows across two analytes until 2 September
@@ -8716,7 +8717,7 @@ const indeterminateRegister = () => {
           { what: 'Results that become assessable', n: `${cadmium.length} per round` },
           { what: 'Additional cost per round', n: `$${cost}` },
           { what: 'Additional cost per year', n: `$${cost * 4}` },
-          { what: 'Criterion the new limit sits below', n: '0.54 µg/L — by 5.4×' },
+          { what: 'Criterion the new limit sits below', n: `${CADMIUM_ASSESSABILITY.criterionText} — by ${(CADMIUM_ASSESSABILITY.criterion / 0.1).toFixed(1)}×` },
           { what: 'Rounds of history this fixes', n: '0 — it reaches forward only' },
         ],
         action: 'Raise with the laboratory',
@@ -8732,7 +8733,7 @@ const indeterminateRegister = () => {
           tone: 'neutral',
           head: '<span class="mk-queue__kind">Report §3 — Data quality</span>',
           body:
-            `<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is 0.54 µg/L. The reporting limit therefore sits above the guideline value and cadmium could not be assessed against it at any location sampled this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3. The PFOS + PFHxS sum was analysed at ${esc(PFAS_REACH.locations.join(', '))} only, under subcontract to ${esc(PFAS_REACH.subcontract.laboratory)}; it was not analysed at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} and no result is reported for those locations.</em></p>`,
+            `<p class="mk-tight"><em>Cadmium was reported by the laboratory at a limit of reporting of 1.0 µg/L. The applicable ANZG 2018 95% species protection guideline value at the measured hardness is ${esc(CADMIUM_ASSESSABILITY.criterionText)}. The reporting limit therefore sits ${esc(CADMIUM_ASSESSABILITY.word)} the guideline value and cadmium ${CADMIUM_ASSESSABILITY.unassessable ? 'could not be assessed against it' : 'is assessable against it'} at any location sampled this round. These results are not reported as compliant. A method offering a limit of reporting of 0.1 µg/L is available and is recommended from 2026 Q3. The PFOS + PFHxS sum was analysed at ${esc(PFAS_REACH.locations.join(', '))} only, under subcontract to ${esc(PFAS_REACH.subcontract.laboratory)}; it was not analysed at ${esc(PFAS_REACH.withdrawnLocations.join(', '))} and no result is reported for those locations.</em></p>`,
         }) +
         /*
          * Wave 15: this paragraph used to end by extending the cadmium finding
@@ -10660,7 +10661,7 @@ const dataQuality = () => {
       table({
         head: ['Not met', 'Consequence for the assessment'],
         rows: [
-          ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits above the criterion and the comparison is arithmetic.')],
+          ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits ${CADMIUM_ASSESSABILITY.word} the criterion and the comparison is arithmetic.')],
           /*
            * Wave 17: the count and the meaning are read from the qualifier
            * register rather than typed in words beside it, and the sentence
@@ -13487,7 +13488,7 @@ const upgradeScreen = () => (
   stats([
     stat(UPGRADE.current, 'running now'),
     stat(UPGRADE.available, 'available', 'good'),
-    stat('4 of 5', 'pre-flight checks pass', 'warn'),
+    stat(`${UPGRADE.preflight.filter((p) => p.outcome === 'pass').length} of ${UPGRADE.preflight.length}`, 'pre-flight checks pass', 'warn'),
     stat('38 m', 'measured rollback time'),
   ]) +
   notice(
@@ -13858,7 +13859,7 @@ const assistance = () => (
         '<ul class="mk-palette__list">' +
         '<li class="mk-palette__group">Actions</li>' +
         '<li><button class="mk-palette__item" data-active="true"><span class="mk-palette__main">Reverse a committed import…</span><span class="mk-palette__ctx">IMP-0241</span></button></li>' +
-        '<li><button class="mk-palette__item"><span class="mk-palette__main">Review outstanding questions</span><span class="mk-palette__ctx">3 on IMP-0239</span></button></li>' +
+        `<li><button class="mk-palette__item"><span class="mk-palette__main">Review outstanding questions</span><span class="mk-palette__ctx">${IMPORTS.find((i) => i.id === 'IMP-0239').held} on IMP-0239</span></button></li>` +
         '<li class="mk-palette__group">Go to</li>' +
         '<li><button class="mk-palette__item"><span class="mk-palette__main">Exception review</span><span class="mk-palette__ctx">g then e</span></button></li>' +
         '<li><button class="mk-palette__item"><span class="mk-palette__main">Reports</span><span class="mk-palette__ctx">g then r</span></button></li>' +

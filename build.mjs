@@ -1368,6 +1368,61 @@ if (dangling.length || noExit.length || orphans.length || deadHrefs.length) {
 }
 
 /*
+ * Comparisons the page states between two numbers it also prints.
+ *
+ * ## The shape this exists for
+ *
+ * W23-R3-3, and it is the answer to *"what is the single most important thing
+ * still wrong"*. Eighteen findings across waves 18–23 share one shape — a
+ * verdict, a word or a comparison typed beside numbers that are live — and
+ * this catalogue had mechanised a guard for every adjacent staleness pattern
+ * (stale counts in a table name, a stale figure description, unrendered
+ * markdown, banned phrases) and none for the shape that kept costing rounds.
+ *
+ * A sentence saying *"1.0 µg/L sits above 0.54 µg/L"* makes a claim the page
+ * itself contains both halves of, so the page can be asked whether it is true.
+ * That is a narrower check than "every number derives" — it cannot see a
+ * comparison whose numbers are not both printed — but it is the half that can
+ * be mechanised, and it fires on the exact sentences waves 21, 22 and 23 each
+ * shipped and had returned.
+ */
+{
+  const text = html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;|&#\d+;/g, ' ')
+    .replace(/\s+/g, ' ');
+  const UNIT = String.raw`(?:µg\/L|mg\/L|µS\/cm|NTU|%)`;
+  /*
+   * The comparand must carry a unit or be a decimal. A bare integer following a
+   * standard's name is a year, not a threshold — the first run of this check
+   * read “1.0 µg/L sits above the ANZG 2018 criterion of 0.54 µg/L” as a claim
+   * that 1 exceeds 2018, which is the guard being cleverer than it is careful.
+   */
+  const RE = new RegExp(
+    String.raw`(\d[\d,]*(?:\.\d+)?)\s*` + UNIT + String.raw`?\s+(?:sits|is|are|was|were)\s+(above|below)\s+` +
+      String.raw`(?:[a-z’' ]{0,40}?\s)?(\d[\d,]*\.\d+|\d[\d,]*(?=\s*` + UNIT + String.raw`))`,
+    'gi',
+  );
+  const wrong = [];
+  let seen = 0;
+  for (const m of text.matchAll(RE)) {
+    const a = Number(m[1].replace(/,/g, ''));
+    const b = Number(m[3].replace(/,/g, ''));
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    seen += 1;
+    const holds = m[2].toLowerCase() === 'above' ? a > b : a < b;
+    if (!holds) wrong.push(`“${m[0].trim()}” — ${a} is not ${m[2].toLowerCase()} ${b}`);
+  }
+  if (wrong.length) {
+    console.error(`comparisons the page states about numbers it prints: ${wrong.length} false`);
+    for (const w of [...new Set(wrong)]) console.error(`  ${w}`);
+    process.exit(1);
+  }
+  console.log(`stated comparisons: ${seen} checked against the numbers beside them`);
+}
+
+/*
  * Markdown emphasis that never got rendered.
  *
  * A seed string written with `*emphasis*` and drawn through `esc` reaches the

@@ -1106,6 +1106,44 @@ export const INDETERMINATE = (() => {
 export const INDETERMINATE_QUOTE = { perSample: 18, by: 'Pilbara Analytical Services', at: '2026-05-21' };
 
 /**
+ * The cadmium limit of reporting against the criterion it is judged by, as one
+ * expression.
+ *
+ * ## Why this is here and not in a sentence
+ *
+ * W23-R3-1. Wave 23 derived this relationship inside the map's non-detect
+ * record and a round found three more sentences stating it as typed prose. The
+ * next round searched properly and found **seven more screens** — `#qc`,
+ * `#result-detail`, `#hardness`, `#indeterminate`, `#dqa`, `#exceedances` and
+ * `#coverage` — every one of them frozen, and two of them claiming *"the
+ * comparison is arithmetic"* while being typed. All seven predate wave 23. One
+ * mutation of the criterion produced a page contradicting itself across eight
+ * screens in a single build.
+ *
+ * The general rule — *a limit above a criterion is not a pass* — is a
+ * conditional and stays written, because it is true whichever way the numbers
+ * land. What must derive is every claim that the condition **holds here**.
+ */
+export const CADMIUM_ASSESSABILITY = (() => {
+  const lor = Number(INDETERMINATE[0].lor.replace(/[^\d.]/g, ''));
+  const criterion = Number(INDETERMINATE[0].criterion.replace(/[^\d.]/g, ''));
+  return {
+    lor,
+    criterion,
+    /* The record's own strings, so deriving the comparison does not reformat
+     * the numbers a reader has been seeing (`1.0` must not become `1`). */
+    lorText: INDETERMINATE[0].lor,
+    criterionText: INDETERMINATE[0].criterion,
+    analyte: INDETERMINATE[0].analyte,
+    /** `above` · `below` · `exactly at` — the word every surface reads. */
+    get word() { return lor > criterion ? 'above' : lor < criterion ? 'below' : 'exactly at'; },
+    /** True when a non-detect cannot be assessed, which is the whole point. */
+    get unassessable() { return lor > criterion; },
+    get times() { return Number((lor / criterion).toFixed(1)); },
+  };
+})();
+
+/**
  * Standing water level, monthly, three years, per bore.
  *
  * Shaped rather than random: a wet-season recovery each Q1, a long decline at
@@ -1926,7 +1964,7 @@ const QAQC_ROWS = [
   },
   {
     id: 'LOR-1', check: 'Reporting limit above criterion', scope: 'Cadmium (filtered) · all 7 bores', outcome: 'fail',
-    detail: 'LOR 1.0 µg/L sits above the ANZG 2018 criterion of 0.54 µg/L. Nothing can be asserted.',
+    get detail() { return `LOR ${CADMIUM_ASSESSABILITY.lorText} sits ${CADMIUM_ASSESSABILITY.word} the ANZG 2018 criterion of ${CADMIUM_ASSESSABILITY.criterionText}. ${CADMIUM_ASSESSABILITY.unassessable ? 'Nothing can be asserted.' : 'A non-detect is assessable against it.'}`; },
     action: 'Outcome recorded as indeterminate — not as a pass',
     concept: 'automatic', state: 'dispositioned',
     rule: { name: 'Reporting limit against the applicable criterion', version: 'Deterministic — ANZG 2018 · 2018.1', says: 'A limit above the criterion means nothing was measured either way. The comparison is arithmetic on two numbers that are both on the record, so the outcome is written rather than proposed — and it is written as indeterminate, which is not a pass.' },
@@ -3451,11 +3489,20 @@ export const RESULT_DETAIL = {
     { code: 'U', origin: 'laboratory', meaning: 'Not detected above the reporting limit' },
   ],
   annotations: [
+    /*
+     * W23-R3-1 reached this line and it is deliberately NOT derived. It is a
+     * quoted comment by a named person at a stated time — testimony, not a
+     * computed claim. Rewriting what somebody said so that it tracks a value
+     * they wrote it about is falsifying a record, which is the opposite of
+     * what every other fix in this wave is for. If the criterion moved, the
+     * honest catalogue shows a comment that has been overtaken by events.
+     */
     { by: 'A. Nakamura', at: '2026-05-21 15:02 AWST', text: 'LOR sits above the ANZG 2018 criterion for this analyte at this hardness. Raised with the laboratory on 21 May — they can reach 0.1 µg/L by ICP-MS/MS at additional cost. Recommend we fund it from Q3; until then cadmium at this site cannot be assessed and the report must say so rather than showing a pass.', flowsTo: 'Report §3 Data quality' },
   ],
   outcomes: [
-    { set: 'ANZG 2018 — 95% species protection', criterion: '0.54 µg/L (hardness-adjusted)', outcome: 'indeterminate', why: 'The reporting limit of 1.0 µg/L sits above the criterion. Nothing was measured either way, and this is not a pass.' },
-    { set: 'Licence L8842/2019/1 — Table 4', criterion: '≤ 2 µg/L', outcome: 'compliant', why: 'The reporting limit sits below the criterion, so a non-detect is assessable against it.' },
+    { set: 'ANZG 2018 — 95% species protection', criterion: '0.54 µg/L (hardness-adjusted)', outcome: 'indeterminate', get why() { return `The reporting limit of ${CADMIUM_ASSESSABILITY.lorText} sits ${CADMIUM_ASSESSABILITY.word} the criterion. ${CADMIUM_ASSESSABILITY.unassessable ? 'Nothing was measured either way, and this is not a pass.' : 'A non-detect is assessable against it.'}`; } },
+    { set: 'Licence L8842/2019/1 — Table 4', criterion: '≤ 2 µg/L', /* This set's criterion is 2 µg/L, not the hardness-adjusted one above. */
+      outcome: 'compliant', get why() { return `The reporting limit of ${CADMIUM_ASSESSABILITY.lorText} sits ${CADMIUM_ASSESSABILITY.lor > 2 ? 'above' : 'below'} the criterion, so a non-detect is ${CADMIUM_ASSESSABILITY.lor > 2 ? 'not assessable' : 'assessable'} against it.`; } },
   ],
 };
 
@@ -6378,7 +6425,13 @@ export const CUSTODY_CHAIN = {
   raisedAt: '2026-05-12 06:40 AWST',
   laboratory: 'Pilbara Analytical Services',
   workOrder: 'PAS-WO-268841',
-  containers: 38,
+  /*
+   * W23-R3-2. This was a literal, while the same screen's own blast-radius
+   * panel computed `EVENT_SAMPLES.reduce((n, s) => n + s.containers, 0)` a few
+   * lines below and printed it live — two paths to one number, one of them
+   * unwired, on one screen. The manifest is the register that owns it.
+   */
+  get containers() { return EVENT_SAMPLES.reduce((n, x) => n + x.containers, 0); },
   seals: '4471, 4472',
   state: 'received',
   /*
@@ -7024,7 +7077,7 @@ export const HARDNESS = {
   },
   cap: 'Capped at 400 mg/L. ANZG does not extrapolate the hardness relationship above that, so the criterion is computed at the cap rather than at 412 — the conservative direction, and it is stated rather than silently applied.',
   derived: [
-    { analyte: 'Cadmium (filtered)', base: '0.2 µg/L at 30 mg/L', slope: '0.89', criterion: '0.54 µg/L', result: '< 1.0 µg/L', outcome: 'indeterminate', note: 'The LOR sits above the criterion, so the hardness adjustment does not rescue it.' },
+    { analyte: 'Cadmium (filtered)', base: '0.2 µg/L at 30 mg/L', slope: '0.89', criterion: '0.54 µg/L', result: '< 1.0 µg/L', outcome: 'indeterminate', get note() { return `The LOR sits ${CADMIUM_ASSESSABILITY.word} the criterion, so the hardness adjustment ${CADMIUM_ASSESSABILITY.unassessable ? 'does not rescue it' : 'is what makes it assessable'}.`; } },
     { analyte: 'Nickel (filtered)', base: '11 µg/L at 30 mg/L', slope: '0.85', criterion: '11 µg/L', result: '14.2 µg/L', outcome: 'exceedance', note: 'Exceeds at 1.3×.' },
     { analyte: 'Zinc (filtered)', base: '8.0 µg/L at 30 mg/L', slope: '0.85', criterion: '8.0 µg/L', result: '31.6 µg/L', outcome: 'exceedance', note: 'Exceeds at 4.0×, and the batch matrix spike says the true value may be higher.' },
   ],
@@ -8742,7 +8795,10 @@ export const NARRATIVE = (() => {
           t('; and every elevated parameter is elevated against the site’s own background as well as against a guideline value. Taken together this is consistent with seepage from the tailings storage facility rather than with natural variation.'),
         ],
         [
-          t('Cadmium could not be assessed at any location this round: the laboratory’s limit of reporting of 1.0 µg/L sits above the guideline value of 0.54 µg/L'),
+          /* W23-R3-1: the assistant's own answer stated both numbers and the
+           * relationship between them as typed prose. An answer a reader is
+           * meant to trust is the last place a frozen comparison belongs. */
+          t(`Cadmium ${CADMIUM_ASSESSABILITY.unassessable ? 'could not be assessed' : 'was assessable'} at any location this round: the laboratory’s limit of reporting of ${CADMIUM_ASSESSABILITY.lorText} sits ${CADMIUM_ASSESSABILITY.word} the guideline value of ${CADMIUM_ASSESSABILITY.criterionText}`),
         ],
       ],
       /** The sentence the evidence set is pinned to — the inference, not the arithmetic. */
@@ -16515,7 +16571,7 @@ export const VENDOR_BRIEF = (() => {
       note: 'Every warning names the rule it came from and what happens if it is cleared by scrolling past it.' },
     { id: 'S6', verdict: 'covered', screens: ['quarantine', 'indeterminate', 'composite'],
       asks: 'Scientific or data exception state',
-      note: 'The states neither incumbent has: a result that could not be assessed because the reporting limit sits above the criterion, and an absence that says which kind of absence it is.' },
+      get note() { return `The states neither incumbent has: a result that could not be assessed because the reporting limit sits ${CADMIUM_ASSESSABILITY.word} the criterion, and an absence that says which kind of absence it is.`; } },
     { id: 'S7', verdict: 'partially', screens: ['qc', 'validation', 'signoff'],
       asks: 'Review state',
       note: 'A data review state is drawn and is the catalogue’s strongest surface. An *interpretation* review state is not, and there is no comment machinery for one to hang on.' },
