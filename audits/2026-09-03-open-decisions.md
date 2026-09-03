@@ -21,6 +21,67 @@ therefore the first thing needed, not a later one.
 
 ---
 
+## Verdicts — all thirteen answered 3 September 2026
+
+Answered by Jerry, one at a time. **This table is what a wave cites.** The
+entries below it are the reasoning that was put; where a verdict departs from the
+recommendation, the recommendation stands as written and the verdict governs.
+
+| ID | Verdict | Departs from the recommendation? |
+|---|---|---|
+| **D1** | **Accept the query capability, and amend the PRD.** Waves 19–21 run. | — |
+| **D2** | **All three figure families approved** — FP-1 depth profile, FP-3 Durov **and FP-2 head contours**. | **Yes.** FP-2 was recommended for deferral over a seven-point control network. |
+| **D3** | **NEPM 2013, commercial/industrial** — HIL D and the ecological screening levels, land use recorded as an applicability condition on the set. | — |
+| **D4** | **Accept the map workspace; NG4 is restated as "no GIS authoring".** The map consumes layers and never authors them. | — |
+| **D5** | **Draw the common model plus surface water and meteorology**, everything labelled S8. | — |
+| **D6** | **Both noise and dust** are drawn as period-aggregated proofs. | **Yes.** One was recommended; both was named as the largest addition to R1's exposure. |
+| **D7** | **Promote the work queue to a screen of its own, and keep `/` a project list.** Both prior decisions hold. | Chose the third option; the recommendation was to leave the queue a proposal. |
+| **D8** | **A client label on projects**, with the single-tenancy stated where the tier would otherwise be. | — |
+| **D9** | **Generalise fully — a criterion is a rule that produces a finding.** | **Yes**, in two ways: the recommendation was to put it to a practitioner, and full generalisation was the most exposed of the three substantive answers. |
+| **D10** | **Proposed-but-unapplied qualifiers are inside the population, and the plate says so.** | — |
+| **D11** | **Demote `#crosstab` to one representation**, and put the changed screen on the practitioner walk. | — |
+| **D12** | **Commit the advisor's brief to the public repo.** Landed as `VENDOR_REQUIREMENTS.md`. | — |
+| **D13** | **Both** — the practitioner walk before Wave 24, and the print test before any new figure family is drawn. | — |
+
+### What follows from the three departures
+
+**D2 · FP-2 approved.** The head-contour plate is drawn to the grammar already
+banked for it in the proposal, and that grammar is what keeps the approval honest:
+contours clipped to the seven-point control hull with everything beyond it faded or
+dashed, because a contour outside the hull is an extrapolation; each control bore's
+residual printed, as the potentiometric plate already does; and the interpolation
+rule named in the provenance line, because PP3 applies to a picture. The plate's
+`<desc>` states the control count. It is drawn because you decided to draw it, and
+it says what it does not know.
+
+**D6 · Both period-aggregated domains.** With D5 that is four new domain records,
+which makes Wave 24 the largest in the programme. It is split: **24a** for the
+common model, surface water and meteorology; **24b** for noise and dust. Each gets
+its own audit rather than one wave carrying four domains past a single gate.
+
+**D9 · Full generalisation.** This is now the central design constraint of 24a
+rather than a decision inside it. One criterion object at different settings —
+concentration against a value, an aggregate against a period- and
+receptor-dependent limit, a deposition rate over an interval, a population against
+a reference — with one rule holding the line: **a finding always renders which kind
+of assertion produced it**, so the mark on a grid never comes to mean four things.
+`#crosstab`'s existing refusal to conflate the two roads to `not evaluated` is the
+precedent and the starting point. D9 goes onto the practitioner walk as a
+validation, not as a re-ask.
+
+### What D13 changes about the running order
+
+The print test is now a **gate, not a background item**: FP-1, FP-2 and FP-3 are
+not drawn until an existing approved plate has been placed in the Word template and
+printed. Three families drawn to a grammar that has never survived paper would fail
+three times over rather than once. The practitioner walk sits between Wave 23 and
+Wave 24a, and carries D9, D11 and the four screens the first review corrected.
+
+Both are Jerry's actions rather than the pipeline's, and the programme is sequenced
+so waves 18–23 run without them.
+
+---
+
 ## Now — these gate the next wave that runs
 
 ### D1 · Does Strataflow acquire an ad-hoc query capability?

@@ -302,26 +302,37 @@ enough that answers can arrive without stalling the queue. Each wave runs the
 established loop: plan → implement → measured review gate → independent audit to
 zero P0/P1 → response → push.
 
-| Wave | Delivers | Blocked on |
+| Wave | Delivers | Status |
 |---|---|---|
-| **18** | The vendor-requirements enumeration on `#coverage` (deliverable #2), and the **saved-views defect** (§11) fixed as its rider | — |
-| **19** | The **governed dataset** — population object with definition, version, owner, lifecycle, variant lineage, and the four-absence exclusion accounting. Retires the typed view tables. | — |
-| **20** | **Data Explorer** — query canvas over the dataset, progressive construction as linked drawn states, the inclusion/exclusion explainer, and the representation switcher over one population (§4.2–4.4) | — |
-| **21** | **Analysis object** and `#hydrochem`'s missing population, configuration, exclusions and table view; §9.5's chain gets its first link (§9.3–9.5) | — |
-| **22** | **Sampling and analysis planning** — programme designer, amendments, round preparation, and the six-stage completeness workspace (§6) | — |
-| **23** | **Map workspace** — layers with source/date/authority, symbology configuration, time control, in-map investigation, spatial selection hand-off (§5) | **A2** |
-| **24** | **Common model and extension path** (§14.3–14.4), plus surface-water and meteorological records — the two that make Scenario E walkable | **A3, A4** |
-| **25** | **Criterion record**, criterion type, applicability conditions, conflict surface, and §13.4's historical reassessment | Soil criteria source (§4) for the soil half |
-| **26** | **Configuration governance** — hierarchy, inherited/overridden/local, review and rejected states, future-effective calendar (§11) | — |
-| **27** | **Laboratory register and format onboarding**, plus the five missing §7.4 exception types and profile versioning on an import run (§7) | — |
-| **28** | **Rule catalogue** — severity, analyte group, method, disposition permissions; holding time and preservation brought inside the governed set (§8) | — |
-| **29** | **Interpretation review, comments, recommendations register**, and the interpretation → obligation hop (§12, §15) | — |
-| **30** | **Portfolio work queue** — the seven missing filter dimensions as data, dependency, escalation, working reassignment (§10) | `#home`'s status (§4) |
-| **31** | **Scenario completion pass** — Scenario C's snapshot-contents and as-at-issue result, the reverse links on `#report-figures`, and the linked prototypes for A–E (deliverable #4) | — |
+| **18** | The vendor-requirements enumeration on `#coverage` (deliverable #2), and the **saved-views defect** fixed as its rider | ready |
+| **19** | The **governed dataset** — population object with definition, version, owner, lifecycle, variant lineage, and the four-absence exclusion accounting. Retires the typed view tables. | **D1 ✓** |
+| **20** | **Data Explorer** — query canvas over the dataset, progressive construction as linked drawn states, the inclusion/exclusion explainer, and the representation switcher; `#crosstab` becomes one representation (**D11 ✓**) | **D1 ✓** |
+| **21** | **Analysis object**, and `#hydrochem`'s missing population, configuration, exclusions and table view. Populations carry each member's QA/QC state, and a proposed-but-unapplied qualifier is **inside** the population with the plate saying so (**D10 ✓**) | **D1 ✓** |
+| **22** | **Sampling and analysis planning** — programme designer, versioned amendments, round preparation, and the six-stage completeness workspace | ready |
+| **23** | **Map workspace** — layers with source/date/authority, symbology configuration, time control, in-map investigation, spatial selection hand-off. NG4 restated as "no GIS authoring": the map consumes layers, never authors them (**D4 ✓**) | **D4 ✓** |
+| — | **Practitioner walk** — carries D9, D11, the four screens the first review corrected, and everything waves 18–23 built (**D13 ✓**) | Jerry |
+| — | **Print test (G-76b)** — an approved plate placed in the Word template and printed, before any new figure family is drawn (**D13 ✓**) | Jerry · gates all figure work |
+| **24a** | **Common model and extension path** (§14.3–14.4), plus surface-water and meteorological records — the two that make Scenario E walkable. Criterion generalises fully: one object at different settings, with every finding rendering which kind of assertion produced it (**D5 ✓, D9 ✓**) | after the walk |
+| **24b** | **Noise and dust** as period-aggregated proofs — a receptor- and time-dependent limit, and a deposition rate over an interval. Noise states on the screen that monitoring is not modelling, so NG5 stands (**D6 ✓**) | after 24a |
+| **25** | **Criterion record**, criterion type, applicability conditions, conflict surface, and §13.4's historical reassessment. Soil and sediment gain **NEPM 2013 HIL D and ESLs at commercial/industrial land use**, with land use as an applicability condition (**D3 ✓**) | **D3 ✓** |
+| **26** | **Configuration governance** — hierarchy, inherited/overridden/local, review and rejected states, future-effective calendar. A **client label** on projects, with the single tenancy stated where the tier would otherwise be (**D8 ✓**) | **D8 ✓** |
+| **27** | **Laboratory register and format onboarding**, plus the five missing §7.4 exception types and profile versioning on an import run | ready |
+| **28** | **Rule catalogue** — severity, analyte group, method, disposition permissions; holding time and preservation brought inside the governed set | ready |
+| **29** | **Interpretation review, comments, recommendations register**, and the interpretation → obligation hop | ready |
+| **30** | **The work queue as its own screen** — the seven missing filter dimensions as data, dependency, escalation, working reassignment. `/` stays a project list, so both prior decisions hold (**D7 ✓**) | **D7 ✓** |
+| **31** | **Scenario completion pass** — Scenario C's snapshot-contents and as-at-issue result, the reverse links on `#report-figures`, and the linked prototypes for A–E (deliverable #4) | ready |
 
-Figure work (Durov, depth profile) attaches to Waves 21 and 24 once approved, with
-the reference rendering authored as its own step before anything asserts against it,
-per the oracle rule.
+**Figure work.** FP-1 (depth profile), FP-2 (head contours) and FP-3 (Durov) are
+all approved (**D2 ✓**) and all three are **gated on the print test**, not on a
+wave. Each family's reference rendering is authored as its own step before any
+screen or test asserts against it, per the oracle rule. FP-2 is drawn to the
+grammar banked in its proposal — contours clipped to the seven-point control hull,
+residuals printed, the interpolation rule named in provenance — so the plate states
+what it does not know. All three inherit G-76b until the print test closes it.
+
+**All thirteen decisions are answered** — see `2026-09-03-open-decisions.md` for
+the verdict table waves cite, the three departures from my recommendations, and
+what follows from each.
 
 ---
 
