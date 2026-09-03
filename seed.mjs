@@ -3517,7 +3517,31 @@ export const QUALIFIERS = (() => {
   /** The six the ESdat specification names for `Lab_Qualifier` (§3, tier ✅). */
   const specNames = ['U', 'J', 'J+', 'J-', 'R', 'UJ'];
   const specField = 'Lab_Qualifier';
-  /** The glossary's two origin words, closed. Nothing here invents a third. */
+  /**
+   * The glossary's two origin words, closed. Nothing here invents a third.
+   *
+   * ## FOUND FOR THE PRODUCT — 3 September 2026 (wave 17), owner Jerry
+   *
+   * **`QualifierOrigin` is two-valued and this instance holds assertions it
+   * cannot express.** The glossary says origin is *"the laboratory, in the
+   * deliverable, or a practitioner manually"*. `FD-2` and `ST-1` are neither:
+   * a rule of this project's own raised them automatically against the DQO,
+   * and they are applied to 10 results between them. They carry
+   * `originState: 'uncovered'` and are counted rather than given a third word
+   * a mockup invented.
+   *
+   * Filed under its own marker rather than in the deferral ledger, and the
+   * distinction is the point: the ledger's marker counts debts this catalogue
+   * owes and a later wave can pay, and this is not one. Nothing in this
+   * repository can settle it — the exit is a decision about the product's own
+   * vocabulary, taken by its owner, after which the seed follows. A ledger
+   * entry would read as unattended-buildable scope and there is none here, and
+   * it would move a count two waves have reported. Greppable under the heading
+   * above, which is the whole reason it is a heading: it was recorded in three
+   * prose places before it was findable mechanically (W17-A-4). Two markers,
+   * two questions — what this repo owes, and what its reading of the product
+   * turned up.
+   */
   const originWords = ['laboratory', 'manually'];
 
   const esdatRun = IMPORTS.find((i) => i.id === 'IMP-0241');
@@ -3683,7 +3707,17 @@ export const QUALIFIERS = (() => {
   const applied = rows.filter((r) => r.applied);
   const proposed = rows.filter((r) => !r.applied);
   const laboratory = rows.filter((r) => r.origin === 'laboratory');
-  const raisedHere = rows.filter((r) => r.origin !== 'laboratory');
+  /*
+   * W17-A-2b. This read `r.origin !== 'laboratory'`, which is not the same
+   * predicate as "came from one of this round's QA/QC checks" — it only
+   * coincides with it while every non-laboratory row happens to be a finding.
+   * A practitioner-applied qualifier is the glossary's own second origin word
+   * and has no finding behind it, and every consumer here dereferences
+   * `r.finding` for the check, its scope and its basis. So the collection says
+   * what it means, and a manual assertion joins the register without killing
+   * the screen that draws the rules.
+   */
+  const raisedHere = rows.filter((r) => r.finding);
   const undecided = rows.filter((r) => r.schemeState === 'unrecorded');
   const sum = (list) => list.reduce((n, r) => n + (r.results ?? 0), 0);
 
@@ -3807,9 +3841,15 @@ export const QUALIFIERS = (() => {
       const derived = LINEAGE.chain.find((s) => s.kind === 'derived');
       return [
         {
-          was: { result: 'Zinc · MW05', code: fd2.qualifier, means: 'Estimated value', by: 'A. Nakamura', reason: `Field duplicate RPD 38.2% against the ${DQO.limitFor('Field duplicate RPD').limit} limit` },
+          // W17-A-1. `code` was `fd2.qualifier` — a before that re-derived from
+          // the present, on the panel whose whole subject is that befores are
+          // not silently repaired. What this screen drew is history and reads
+          // as a literal like its three siblings; the claim that today's record
+          // still says the same thing is `stands`, which is where a derivation
+          // belongs. Both halves of the verdict are asserted there now.
+          was: { result: 'Zinc · MW05', code: 'J', means: 'Estimated value', by: 'A. Nakamura', reason: `Field duplicate RPD 38.2% against the ${DQO.limitFor('Field duplicate RPD').limit} limit` },
           verdict: 'the code is right and the asserter is not',
-          stands: fd2.concept === 'automatic',
+          stands: fd2.qualifier === 'J' && fd2.concept === 'automatic',
           now: `${fd2.id} is concept ${fd2.concept}: ${fd2.rule.says.charAt(0).toLowerCase()}${fd2.rule.says.slice(1)} Nobody applied it, and it reached ${fd2.results} results — the parent and its duplicate — rather than the one row the screen drew.`,
           at: 'qc',
         },
@@ -9693,7 +9733,7 @@ export const EXCHANGE = (() => {
     { domain: 'Practical quantitation limit (PQL)', writes: 'nothing', tier: 'refused',
       basis: 'RDL is the candidate field and no source states the equivalence. The importer refuses to fill PQL from RDL on the strength of the names; the export refuses the same trade in the other direction.' },
     { domain: 'Qualifier — raised in this instance', writes: 'nothing', tier: 'refused',
-      basis: `A reason code raised by one of this instance’s own checks is ours. Writing it into a laboratory qualifier field would export it as though a laboratory had said it, which the glossary forbids by name. ${QUALIFIERS.counts.refused} of ${QUALIFIERS.counts.assertions} fall here, and one of them wears the same letter ${QUALIFIERS.collisions[0].code} a laboratory put on the PFAS result — which is why the field that decides this is origin rather than the character.` },
+      basis: `A reason code raised by one of this instance’s own checks is ours. Writing it into a laboratory qualifier field would export it as though a laboratory had said it, which the glossary forbids by name. ${QUALIFIERS.counts.refused} of ${QUALIFIERS.counts.assertions} fall here${QUALIFIERS.collisions[0] ? `, and one of them wears the same letter ${QUALIFIERS.collisions[0].code} a laboratory put on the PFAS result` : ', and no letter here is shared with one a laboratory wrote'} — which is why the field that decides this is origin rather than the character.` },
     { domain: '— (no domain term for the format’s ODL)', writes: 'left empty', tier: 'refused',
       basis: 'The format carries a fourth limit no practitioner says. On the way in it must not be dropped; on the way out there is nothing to put in it, and the column is written empty rather than filled from a neighbour.' },
 

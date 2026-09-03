@@ -1910,7 +1910,7 @@ const qcWorkspace = () => {
       `<p class="mk-tight"><strong>${byRule.map((r) => esc(r.finding.id)).join(' and ')} were assigned by this instance’s own rule, not reported by anybody.</strong> ` +
       `${byRule.map((r) => `${esc(r.code)} on ${r.results} results — ${esc(r.finding.rule.name)}, ${esc(r.finding.rule.version)}`).join('; ')}. ` +
       `That matters at the boundary rather than here: ${esc(QUALIFIERS.counts.refused === 1 ? 'the one code' : `all ${QUALIFIERS.counts.refused} codes`)} raised in this instance ` +
-      `<a class="mk-ref" href="#exchange">cannot be written into a laboratory qualifier field</a>, whatever letter they wear — and one of them wears the same <strong class="mk-file">${esc(QUALIFIERS.collisions[0].code)}</strong> a laboratory put on the PFAS result, which can.</p>`)(
+      `<a class="mk-ref" href="#exchange">cannot be written into a laboratory qualifier field</a>, whatever letter they wear${QUALIFIERS.collisions[0] ? ` — and one of them wears the same <strong class="mk-file">${esc(QUALIFIERS.collisions[0].code)}</strong> a laboratory put on the PFAS result, which can` : ' — no letter here is one a laboratory also wrote, and the answer would not change if it were'}.</p>`)(
       QUALIFIERS.raisedHere.filter((r) => r.applied),
     ) +
     cols(
@@ -2244,22 +2244,27 @@ const qualifiers = () => {
     }) +
     `<p class="mk-tight"><strong>${c.appliedResults} results carry a qualifier this instance applied</strong> — ${esc(Q.applied.filter((r) => r.results !== null).map((r) => `${r.code} on ${r.results}`).join(' and '))} — and ${c.proposedResults} more would if the ${c.proposed} open decision${c.proposed === 1 ? '' : 's'} ${c.proposed === 1 ? 'were' : 'were'} taken. The ${c.assertions - Q.rows.filter((r) => r.results !== null).length} rows with no count name the record they sit on instead: a laboratory's code on one result is that result's, and counting it would be inventing a population.</p>` +
     cols(
-      panel(
-        `The same letter, ${collision.on.length} assertions, ${new Set(collision.on.map((r) => r.mayWrite)).size} different fates`,
-        `<p class="mk-tight">Derived rather than pointed at: ${Q.collisions.length === 1 ? 'exactly one letter' : `${Q.collisions.length} letters`} in this instance ${Q.collisions.length === 1 ? 'is' : 'are'} carried by more than one assertion, and it is <strong class="mk-file">${esc(collision.code)}</strong>.</p>` +
-          table({
-            caption: 'One character, two things said with it.',
-            head: ['Asserted by', 'Origin', 'Scheme', 'The export'],
-            rows: collision.on.map((r) => [
-              `${esc(r.raisedBy)}<small>${esc(r.on)}</small>`,
-              qualifierGlyph(r),
-              schemeCell(r),
-              writeCell(r),
-            ]),
-          }) +
-          `<p class="mk-tight">Both mean <em>${esc(collision.on[0].means)}</em>, and they are not the same assertion. ${esc(collision.on.find((r) => r.origin === 'laboratory').raisedBy)} put one on a certificate; the other was raised by a rule of this project's own against its data quality objectives. A register keyed on the letter would merge them, and the file writer would then export ours as though a laboratory had said it — which is the thing the glossary forbids by name.</p>` +
-          '<p class="mk-tight mk-muted">This is the case the origin field exists for, and it was already in the seed before anybody looked for it.</p>',
-      ),
+      collision
+        ? panel(
+            `The same letter, ${collision.on.length} assertions, ${new Set(collision.on.map((r) => r.mayWrite)).size} different fates`,
+            `<p class="mk-tight">Derived rather than pointed at: ${Q.collisions.length === 1 ? 'exactly one letter' : `${Q.collisions.length} letters`} in this instance ${Q.collisions.length === 1 ? 'is' : 'are'} carried by more than one assertion, and it is <strong class="mk-file">${esc(collision.code)}</strong>.</p>` +
+              table({
+                caption: 'One character, two things said with it.',
+                head: ['Asserted by', 'Origin', 'Scheme', 'The export'],
+                rows: collision.on.map((r) => [
+                  `${esc(r.raisedBy)}<small>${esc(r.on)}</small>`,
+                  qualifierGlyph(r),
+                  schemeCell(r),
+                  writeCell(r),
+                ]),
+              }) +
+              `<p class="mk-tight">Both mean <em>${esc(collision.on[0].means)}</em>, and they are not the same assertion. ${esc(collision.on.find((r) => r.origin === 'laboratory').raisedBy)} put one on a certificate; the other was raised by a rule of this project's own against its data quality objectives. A register keyed on the letter would merge them, and the file writer would then export ours as though a laboratory had said it — which is the thing the glossary forbids by name.</p>` +
+              '<p class="mk-tight mk-muted">This is the case the origin field exists for, and it was already in the seed before anybody looked for it.</p>',
+          )
+        : panel(
+            'No letter here is carried by two assertions',
+            `<p class="mk-tight">Derived rather than pointed at, and today the derivation is empty: no character in this instance is carried by more than one assertion. The panel draws that case when there is one, because a register keyed on the letter alone would merge two different things — and what decides whether a code may be written is <em>origin</em> rather than the character, which holds either way.</p>`,
+          ),
       panel(
         'Locked periods',
         table({
@@ -2345,7 +2350,7 @@ const beforeQualifiersPanel = () => {
   const phantom = B.filter((r) => !QUALIFIERS.rows.some((q) => q.code === r.was.code));
   return (
     '<h2 class="mk-h2" style="margin-top:1.4rem">What this screen drew until 3 September 2026</h2>' +
-    `<p class="mk-tight"><strong>${B.length} typed rows, and ${phantom.length} of them asserted a code this instance has never applied.</strong> ${esc(phantom.map((r) => r.was.code).join(', '))} appear nowhere in the register above, and the fourth attributed an automatic qualifier to a person. Recorded rather than quietly repaired: the rows were plausible, they had been on the page since 23 August, and nothing but a recount was ever going to catch them.</p>` +
+    `<p class="mk-tight"><strong>${B.length} typed rows, and ${phantom.length} of them asserted a code this instance has never applied.</strong> ${esc(phantom.map((r) => r.was.code).join(', '))} appear nowhere in the register above, and the ${B.length - phantom.length === 1 ? 'remaining row' : `remaining ${B.length - phantom.length} rows`} attributed an automatic qualifier to a person. Recorded rather than quietly repaired: the rows were plausible, they had been on the page since 23 August, and nothing but a recount was ever going to catch them.</p>` +
     table({
       caption: 'The row as drawn, and the record that owns the claim.',
       head: ['Drawn until 3 Sep', 'Code', 'Assigned by', 'Verdict', 'What the record says'],
