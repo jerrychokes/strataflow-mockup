@@ -3271,7 +3271,10 @@ const hydrographWorkspace = () =>
               `<span class="mk-num${pt.value > 13 ? ' mk-num--bad' : ''}">${pt.value}</span>`,
               pt.censored ? 'yes' : '<span class="mk-muted">no</span>',
               rewritten
-                ? '<span class="mk-was">&lt;5.0 · non-detect · LOR 5.0 µg/L</span>'
+                /* Not `mk-was`: that class means a value this record has
+                 * superseded, and the plate draws this one now. A present
+                 * departure is tagged as a departure. */
+                ? '<span class="mk-tag mk-tag--warn">&lt;5.0 · non-detect · LOR 5.0 µg/L</span>'
                 : '<span class="mk-muted">unchanged · LOR 1.0 µg/L</span>',
               rewritten ? 'At the LOR, open triangle' : 'At the value',
             ];
@@ -3494,13 +3497,22 @@ const hydrochem = () => {
            * naming it was built on this same commit, for the series readings,
            * and simply was not pointed here.
            */
-          C.card({
+          ((pc) => C.card({
             tone: 'bad',
             head: '<span class="mk-queue__kind">The plates still say it</span>',
             body:
-              `<p class="mk-tight">Two of the three plates on this screen carry the withdrawn claim in their own accessible descriptions, which render here: the Piper reads <em>“separate from the Ca-HCO₃ background of every other bore”</em>, and the Stiff reads <em>“roughly four times the ionic strength of every other bore”</em>. The first is the sentence this panel withdraws. The second is refuted by the ionic-strength column above, where the closest bore is <strong>${esc(ANALYSES.ions.strengthClaim.highest.times.toFixed(2))}×</strong> and the mean of the other five is <strong>${esc(String(ANALYSES.ions.strengthClaim.meanRatio))}×</strong>, so four is true of no bore on the plate.</p>` +
-              `<p class="mk-tight">Neither is changed here. Both live in <code class="mk-file">figures.mjs</code>, which is fenced until the print test (D13) — and an approved plate's description is part of what that test is for. Named rather than corrected, so the contradiction is visible to the reader who meets both on this page.</p>`,
-          }) +
+              `<p class="mk-tight"><strong>${esc(String(pc.count.refuted))} of the ${esc(String(pc.count.total))} plates on this screen</strong> carry the withdrawn claim in their own accessible descriptions, which render here — so a reader meets the refutation and the claim on one page. The count is read off the record below rather than written down: round 1 named the two it was handed and said “two of the three”, and round 2 found the third saying the same thing, which made a typed count on the screen built to stop typed counts (W21-A-6).</p>` +
+              table({
+                caption: 'Each plate’s own description, the claim it makes about every other bore, and the arithmetic from the table above that decides it.',
+                head: ['Plate', 'What its description says', 'What the ion table measures'],
+                rows: pc.claims.map((c) => [
+                  `Figure ${esc(c.figure)} · ${esc(c.plate)}`,
+                  `<span class="mk-muted">“${esc(c.desc)}”</span>`,
+                  md(c.measured),
+                ]),
+              }) +
+              `<p class="mk-tight">None is changed here. All three live in <code class="mk-file">figures.mjs</code>, which is fenced until the print test (D13) — and an approved plate’s description is part of what that test is for. Named rather than corrected, and counted rather than asserted.</p>`,
+          }))({ claims: ANALYSES.ions.plateClaims, count: ANALYSES.ions.plateClaimCount }) +
           `<p class="mk-tight mk-muted"><strong>What would settle it.</strong> ${esc(f.settledBy)}</p>`,
       ),
       '3fr 2fr',

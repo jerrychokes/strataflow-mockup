@@ -13395,6 +13395,8 @@ export const ANALYSES = (() => {
   const readings = [
     {
       reading: 'The exported series',
+      /* Derived from the object itself — there is no literal to count. */
+      counts: false,
       where: 'seed.mjs', marker: 'export const ARSENIC_MW05',
       n: SERIES.length,
       get censored() { return SERIES.filter((p) => p.censored).length; },
@@ -13405,6 +13407,8 @@ export const ANALYSES = (() => {
     },
     {
       reading: 'The trend record',
+      /* A record of numbers a worker returned, not an array this file holds. */
+      counts: false,
       where: 'seed.mjs', marker: 'export const TREND',
       n: TREND.n, censored: TREND.censored, span: '—', range: '—',
       is: 'the record',
@@ -13412,6 +13416,9 @@ export const ANALYSES = (() => {
     },
     {
       reading: 'Figure 4.2, as the plate draws it',
+      /* A transform applied in the drawing, not an array — the marker is the
+       * substitution itself and there is nothing to count. */
+      counts: false,
       where: 'figures.mjs', marker: 'i < 2 ? { ...p, value: 5, censored: true, lor: 5 }',
       n: SERIES.length, censored: 2, span: '—', range: '—',
       is: 'a figure-local literal',
@@ -13428,11 +13435,31 @@ export const ANALYSES = (() => {
        * table changed and the row had not.
        */
       reading: 'The table drawn under Figure 4.2',
+      /* Every field below is a getter over the series, so the row cannot drift
+       * from the table and there is no literal to count (W21-A-7). */
+      counts: false,
       where: 'screens.mjs', marker: 'Figure 4.2 — the ${series.length} values in the record',
-      n: 14, censored: 0, span: '2023-01 to 2026-04', range: '3.5 – 26.1 µg/L',
+      /*
+       * W21-A-7. Round 1 rewrote this row and typed its numbers, on a row whose
+       * whole subject is a table that no longer types anything — so truncating
+       * the series left the table correct and this row reporting fourteen, next
+       * to a row twelve lines above that self-corrected because its fields are
+       * getters. The fourth instance of the shape, and the first one I wrote.
+       * The row reads the array it describes now, so it cannot say a number the
+       * table does not draw.
+       */
+      get n() { return ARSENIC_MW05.length; },
+      get censored() { return ARSENIC_MW05.filter((p) => p.censored).length; },
+      get span() { return `${ARSENIC_MW05[0].month} to ${ARSENIC_MW05.at(-1).month}`; },
+      get range() {
+        const v = ARSENIC_MW05.map((p) => p.value);
+        return `${Math.min(...v)} – ${Math.max(...v)} µg/L`;
+      },
       is: 'derived from the series',
-      was: 'Six typed rows, on months the series does not hold and at values it does not carry, under a caption that called them the plotted values — two non-detects at 5.0 and one at 1.0. Withdrawn 3 September 2026.',
-      says: 'The fourteen values the record holds, with the two rows the plate rewrites named as the plate\u2019s departure rather than restated as data. It agrees with the exported series because it is the exported series.',
+      was: 'Six typed rows, on months the series does not hold and at values it does not carry, under a caption that called them the plotted values — two non-detects at 5.0 and one at 1.0. Withdrawn 3 September 2026, which is why these five readings now give two answers about the censoring and not the three the wave first reported: one of the three was this table.',
+      get says() {
+        return `The ${ARSENIC_MW05.length} values the record holds, with the two rows the plate rewrites named as the plate\u2019s departure rather than restated as data. It agrees with the exported series because it is the exported series.`;
+      },
     },
     {
       reading: 'Figure 4.8, the probability plot',
@@ -13724,6 +13751,52 @@ export const ANALYSES = (() => {
           'Assigning a type to six bores because the words are already in the prose. The sentence beside these plates has named five of them calcium-bicarbonate waters since the first pass, and the table underneath it does not support that in either half.',
         settledBy:
           'A classification scheme as a governed object — the thresholds, the names they produce and the version they are in force under — held the way the criteria library holds a criteria set, so a water type on a report is a finding with a rule behind it rather than a word in a paragraph.',
+      },
+      /*
+       * W21-A-6. Round 1 named the two plate descriptions it was handed and
+       * round 2 found a third saying the same thing — and worse, the card
+       * added in round 1 opened with a typed *"Two of the three plates"*,
+       * which is a fresh false count on the screen built to stop exactly that.
+       * Typing a count while correcting a count is the defect answering
+       * itself, so the plates are a record now and the face counts them.
+       *
+       * Each entry holds the description verbatim, the claim it makes about
+       * *every other bore*, and the arithmetic from this table that decides
+       * it. A plate whose description survives the arithmetic would simply
+       * carry `refuted: false` and drop out of the count.
+       */
+      get plateClaims() {
+        const so4 = rows.map((r) => ({ code: r.code, v: r.ion.SO4 })).sort((a, b) => b.v - a.v);
+        const sulfateNearest = so4[0].v / so4[1].v;
+        const m = this.facies.measured;
+        const st = this.strengthClaim;
+        return [
+          {
+            plate: 'Piper', figure: '4.3',
+            desc: 'MW05 plots as a distinctly sulfate-dominated water separate from the Ca-HCO3 background of every other bore',
+            claims: 'that the other five are calcium-bicarbonate waters',
+            measured: `the largest cation is not calcium at ${m.notCalcium.length} of the ${m.bores}, and only ${m.anionMajority} hold a majority anion at all`,
+            refuted: true,
+          },
+          {
+            plate: 'Stiff', figure: '4.4',
+            desc: 'MW05 is roughly four times the ionic strength of every other bore',
+            claims: 'a factor of about four against every one of the other five',
+            measured: `the closest is ${st.highest.times.toFixed(2)}× and the widest ${st.lowest.times.toFixed(2)}×, mean ${st.meanRatio}× — four is true of none of them`,
+            refuted: true,
+          },
+          {
+            plate: 'Schoeller', figure: '4.5',
+            desc: 'Every bore shares a parallel Ca-Mg-HCO3 signature except MW05, whose sulfate limb is an order of magnitude above the rest',
+            claims: 'a shared calcium-magnesium-bicarbonate signature, and a sulfate limb ten times the rest',
+            measured: `the signature fails on the same ${m.notCalcium.length} bores, and the sulfate limb is ${sulfateNearest.toFixed(2)}× the next bore — an order of magnitude above *the rest* requires the nearest, not the furthest`,
+            refuted: true,
+          },
+        ];
+      },
+      get plateClaimCount() {
+        const all = this.plateClaims;
+        return { refuted: all.filter((p) => p.refuted).length, total: all.length };
       },
       /* ---- the ionic-strength claim, recomputed ---- */
       strengthClaim: {

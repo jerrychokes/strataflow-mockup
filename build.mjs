@@ -241,10 +241,10 @@ const SECTION_REGISTER = {
      *
      * Where a row names an array literal, the elements are counted at the
      * marker and compared with the number the row reports. `countAt` is the
-     * source of truth the row is describing; a row that names no array says
-     * so with `counts: false` and keeps the presence check alone, because a
-     * guard that pretends to measure what it cannot is worse than one that
-     * says what it does.
+     * source of truth the row is describing; a row that names no array **must**
+     * say so with `counts: false`, and the guard refuses a row declaring
+     * neither. The opt-out was described here before it existed, and a comment
+     * asserting a check that is not written is how W21-A-7 passed in silence.
      */
     const lengthAt = (needle) => {
       const at = text.indexOf(needle);
@@ -257,6 +257,9 @@ const SECTION_REGISTER = {
     /* The marker names the censored array on a figure-local reading, so it
      * carries a number the row reports and is counted too. Both halves of the
      * row are then measured rather than one. */
+    if (!r.countAt && r.counts !== false) {
+      offences.push(`population reading “${r.reading}”: declares neither an array to count nor counts: false — a reading that cannot be measured has to say so`);
+    }
     if (r.countAt) {
       const detects = lengthAt(r.countAt);
       const censored = lengthAt(r.marker);
