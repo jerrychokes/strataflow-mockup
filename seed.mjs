@@ -12799,7 +12799,10 @@ export const PLANNING = (() => {
         const rows = coverageOf(p);
         return rows.length ? `${rows.length} rows · ${[...new Set(rows.map((r) => r.suite))].length} distinct suites` : null;
       } }],
-      note: 'And this is the attribute the reconciliation breaks on: the suite is a **name**. Neither of the three names the coverage carries resolves to a row of the suite register, and no row of that register carries a membership — so *incomplete suite* is a question this record cannot be asked.',
+      /* Not a getter: `definition` is built with a spread below, which would
+       * invoke one before `suiteNames` is initialised. The count is computed
+       * from the coverage here instead, so it is still not typed. */
+      note: `And this is the attribute the reconciliation breaks on: the suite is a **name**. None of the ${[...new Set(Q2_PROGRAMME.map((r) => r.suite))].length} names the coverage carries resolves to a row of the suite register, and no row of that register carries a membership — so *incomplete suite* is a question this record cannot be asked.`,
     },
     {
       attr: 'Laboratory methods', fr: null, at: 'batches',
@@ -12860,7 +12863,7 @@ export const PLANNING = (() => {
    * ------------------------------------------------------------------ */
 
   /**
-   * Five fields make a version a version, and the objective set has all five.
+   * The fields that make a version a version, and the objective set has them all.
    *
    * `docs/GLOSSARY.md` says a **data quality objective** carries *a version, an
    * effective span and a source*, and that *every finding carries the rule
@@ -12918,7 +12921,7 @@ export const PLANNING = (() => {
   };
 
   /* ------------------------------------------------------------------ *
-   * The three amendment kinds §6.2 closes on, each drawn or counted
+   * The amendment kinds §6.2 closes on, each drawn or counted
    * ------------------------------------------------------------------ */
 
   /* An event names no programme: the field record does, for one round. */
@@ -12954,7 +12957,7 @@ export const PLANNING = (() => {
       kind: 'Versioned programme amendments',
       get instances() { return []; },
       get askable() { return versioning.canCarryOne; },
-      says: () => `Three of the five fields a version needs have nowhere to live: ${versioning.short.map((f) => f.field.toLowerCase()).join(', ')}.`,
+      says: () => `${versioning.short.length} of the ${VERSION_FIELDS.length} fields a version needs have nowhere to live: ${versioning.short.map((f) => f.field.toLowerCase()).join(', ')}.`,
       at: 'programme',
     },
   ].map((a) => ({
@@ -13290,7 +13293,8 @@ export const PLANNING = (() => {
    * it, so a register that changes its mind moves its own line and no other.
    */
   const mw09 = {
-    subject: 'One result short at MW09, on the 2026 Q2 round',
+    location: mw09Row.location,
+    get subject() { return `One result short at ${mw09Row.location}, on the ${FIELD_ROUND.round} round`; },
     get readings() {
       return [
         {
@@ -13305,8 +13309,8 @@ export const PLANNING = (() => {
         },
         {
           register: 'The completeness register', at: 'dqa',
-          says: `${mw09Row.received} of ${mw09Row.planned} received. The row carries a location, a count and a state and names no analyte, so which of the nine is absent cannot be read off it.`,
-          holds: `${mw09Row.planned - mw09Row.received} result short, of a planned nine`,
+          says: `${mw09Row.received} of ${mw09Row.planned} received. The row carries a location, a count and a state and names no analyte, so which of the ${mw09Row.planned} is absent cannot be read off it.`,
+          holds: `${mw09Row.planned - mw09Row.received} result short, of a planned ${mw09Row.planned}`,
         },
         {
           register: 'The held rows', at: 'quarantine',
@@ -13348,6 +13352,14 @@ export const PLANNING = (() => {
   /* ------------------------------------------------------------------ *
    * §6.4 — the ten conditions, each instantiated or counted absent
    * ------------------------------------------------------------------ */
+
+  /*
+   * The two disagreements, as a record rather than as two names in an export
+   * line — so the count of *places this record disagrees with itself* can be
+   * arithmetic over them plus the hand-offs that do not reconcile, instead of
+   * the literal four the lede carried, which nothing supported.
+   */
+  const disagreements = { mw09, denominator };
 
   /**
    * Which controls each objective row that states a *rate* asks for.
@@ -13421,7 +13433,7 @@ export const PLANNING = (() => {
           get instances() { return CROSSTAB.flatMap((r) => r.cells.filter((c) => c.notAnalysed)); },
         },
       ],
-      says: () => 'Both halves bite, and the first is where five registers stop agreeing — see the disagreement below. The second is the absence wave 15 separated out: a sample exists and the suite was never run on it, which is a different fact from no sample at all and is drawn differently.',
+      says: () => `Both halves bite, and the first is where ${mw09.readings.length} registers stop agreeing — see the disagreement below. The second is the absence wave 15 separated out: a sample exists and the suite was never run on it, which is a different fact from no sample at all and is drawn differently.`,
     },
     {
       ask: 'Incomplete suites', at: 'dictionary',
@@ -13573,7 +13585,7 @@ export const PLANNING = (() => {
     },
     {
       id: 'CP-2', stage: 'received', at: 'crosstab',
-      what: () => `One result short at ${mw09Row.location}, and five registers describe it differently`,
+      what: () => `One result short at ${mw09Row.location}, and ${mw09.readings.length} registers describe it differently`,
       owner: () => ({ absent: 'The held-rows register carries no assignee, and neither does the receipt. A cracked container is raised by the laboratory and owned by nobody in this record.', wouldBe: 'quarantine' }),
       rationale: () => ({ value: crackedCheck.found, from: 'the receipt’s failed check', at: 'receipt' }),
       disposition: () => ({ value: `${sulfateHeld.state} — “${sulfateHeld.wayOut}”`, from: 'the held rows', at: 'quarantine' }),
@@ -13658,7 +13670,7 @@ export const PLANNING = (() => {
     items,
     ingredients: INGREDIENTS,
     ingredientCounts,
-    disagreements: { mw09, denominator },
+    disagreements,
     /** The four lists `build.mjs` closes against the brief, in the brief's order. */
     lists: {
       get definition() { return definition.map((a) => a.attr); },
@@ -13673,6 +13685,16 @@ export const PLANNING = (() => {
       get items() { return items.length; },
       get mw09Readings() { return mw09.readings.length; },
       get denominators() { return denominator.readings.length; },
+      /*
+       * The screen's own lede typed **four** here and nothing in the record
+       * supported it — the eighth instance of the shape, and the second one
+       * (after W21-A-1) where the typed number was not merely fragile but
+       * false. A *place the record disagrees with itself* is one of two
+       * things drawn on this screen: a hand-off whose two ends report
+       * different quantities, or a register disagreement of its own. Both
+       * kinds derive, so the sum does.
+       */
+      get disagreementPlaces() { return handoffs.filter((h) => !h.agrees).length + Object.keys(disagreements).length; },
     },
   };
 })();

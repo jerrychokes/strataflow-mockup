@@ -5689,12 +5689,12 @@ const programme = () =>
    * Wave 22 — §6.2: what a programme is, measured against this record
    * ---------------------------------------------------------------- */
   '<h2 class="mk-h2" style="margin-top:1.4rem">What a scientist would be defining</h2>' +
-  `<p class="sf-lede mk-tight">§6.2 of the acquisition brief names ten attributes a monitoring programme must carry. <strong>${PLANNING.definitionCounts.held} of the ${PLANNING.definitionCounts.total} are held on a programme here</strong>, ${PLANNING.definitionCounts.partial} are held on some programmes and not others, and ${PLANNING.definitionCounts.absent} live somewhere else in this record or nowhere. The verdict in each row is the arithmetic of the cells beside it — a field added to one programme moves it without anybody editing a word.</p>` +
+  `<p class="sf-lede mk-tight">§6.2 of the acquisition brief names ${PLANNING.definitionCounts.total} attributes a monitoring programme must carry. <strong>${PLANNING.definitionCounts.held} of the ${PLANNING.definitionCounts.total} are held on a programme here</strong>, ${PLANNING.definitionCounts.partial} are held on some programmes and not others, and ${PLANNING.definitionCounts.absent} live somewhere else in this record or nowhere. The verdict in each row is the arithmetic of the cells beside it — a field added to one programme moves it without anybody editing a word.</p>` +
   table({
-    caption: `One row per attribute, in the brief’s own order, closed against §6.2 by the build. ${PLANNING.definitionCounts.required} of the ten are required by FR-8.1; the other ${PLANNING.definitionCounts.total - PLANNING.definitionCounts.required} are the brief’s own addition and no requirement in this product asks for them.`,
+    caption: `One row per attribute, in the brief’s own order, closed against §6.2 by the build. ${PLANNING.definitionCounts.required} of the ${PLANNING.definitionCounts.total} are required by FR-8.1; the other ${PLANNING.definitionCounts.total - PLANNING.definitionCounts.required} are the brief’s own addition and no requirement in this product asks for them.`,
     head: ['Attribute', 'Required by', 'Verdict', 'What each programme holds', 'Where it lives instead'],
     kind: 'matrix',
-    label: '§6.2 — the ten programme attributes',
+    label: `§6.2 — the ${PLANNING.definitionCounts.total} programme attributes`,
     rows: PLANNING.definition.map((a) => [
       cell(`<strong>${esc(a.attr)}</strong><small>${md(a.note)}</small>`),
       a.fr ? `<code>${esc(a.fr)}</code>` : '<span class="mk-num mk-num--nil">—</span>',
@@ -5713,10 +5713,10 @@ const programme = () =>
   '<h2 class="mk-h2" style="margin-top:1.4rem">Can a programme carry a version honestly?</h2>' +
   cols(
     panel(
-      `Five fields make a version a version, and a programme holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling programme').n}`,
+      `${PLANNING.versioning.fields.length} fields make a version a version, and a programme holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling programme').n}`,
       `<p class="mk-tight">Criteria sets, objective sets, formats, templates and derivation rules are all versioned here with an effective span. A programme is not — it simply exists since a date. The question is not whether one <em>could</em> be drawn but whether this record could fill the fields, and it is answered by asking the record rather than by deciding.</p>` +
         table({
-          caption: 'The same five fields, asked of three objects.',
+          caption: `The same ${PLANNING.versioning.fields.length} fields, asked of ${PLANNING.versioning.evidence.length} objects.`,
           head: ['Field', ...PLANNING.versioning.evidence.map((e) => e.object)],
           kind: 'matrix',
           label: 'What each object holds of a version',
@@ -5732,7 +5732,7 @@ const programme = () =>
       tone: 'warn',
       head: '<span class="mk-queue__kind">Not drawn, and this is the reason</span>',
       body:
-        `<p class="mk-tight"><strong>A programme version is not drawn here, because inventing one is inventing an approver.</strong> ${PLANNING.versioning.short.length} of the five fields have nowhere in this record to come from: ${PLANNING.versioning.short.map((f) => `<em>${esc(f.field.toLowerCase())}</em>`).join(', ')}. A version identifier with no approver and no moment of approval is a number, and a number is not an authority.</p>` +
+        `<p class="mk-tight"><strong>A programme version is not drawn here, because inventing one is inventing an approver.</strong> ${PLANNING.versioning.short.length} of the ${PLANNING.versioning.fields.length} fields have nowhere in this record to come from: ${PLANNING.versioning.short.map((f) => `<em>${esc(f.field.toLowerCase())}</em>`).join(', ')}. A version identifier with no approver and no moment of approval is a number, and a number is not an authority.</p>` +
         `<p class="mk-tight">What it would take is the shape the objective set already has, plus the rule that set states: <em>every finding carries the rule version it was raised under</em>. The programme’s equivalent is that <strong>a round carries the programme version it was raised under</strong> — and a round here holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling round').n} of the five, so the consumer side is as empty as the producer side.</p>` +
         `<p class="mk-tight mk-muted">The freezing half of a version’s job is already in this product on a different object: <a class="mk-ref" href="#${esc(PLANNING.versioning.precedent.at)}">${esc(PLANNING.versioning.precedent.what)}</a></p>`,
       foot:
@@ -5746,12 +5746,12 @@ const programme = () =>
    * The three amendment kinds §6.2 closes on
    * ---------------------------------------------------------------- */
   '<h2 class="mk-h2" style="margin-top:1.4rem">Recurring, one-off, temporary — and versioned</h2>' +
-  `<p class="sf-lede mk-tight">§6.2 closes on four things the mockup must show. One is drawn. The other ${PLANNING.amendments.filter((a) => a.state !== 'drawn').length} cannot be asked of this record, and each says which field is missing rather than being drawn as though it could.</p>` +
+  `<p class="sf-lede mk-tight">§6.2 closes on ${PLANNING.amendments.length} things the mockup must show. ${PLANNING.amendments.filter((a) => a.state === 'drawn').length} is drawn. The other ${PLANNING.amendments.filter((a) => a.state !== 'drawn').length} cannot be asked of this record, and each says which field is missing rather than being drawn as though it could.</p>` +
   table({
     caption: 'Each kind, and whether the record can express it at all.',
     head: ['Kind', 'State', 'What the record says'],
     kind: 'matrix',
-    label: 'The four amendment kinds',
+    label: `The ${PLANNING.amendments.length} amendment kinds`,
     rows: PLANNING.amendments.map((a) => [
       cell(`<strong>${esc(a.kind)}</strong>`),
       C.status(a.state, a.state === 'drawn' ? 'good' : a.state === 'not expressible' ? 'bad' : 'warn'),
@@ -10211,7 +10211,7 @@ const roundCompleteness = () => {
   const due = P.ingredientCounts.find((g) => g.key === 'due');
 
   return (
-    head('Round completeness', 'Planned against actual, in one view — and the four places this record disagrees with itself.', {
+    head('Round completeness', `Planned against actual, in one view — and the ${P.counts.disagreementPlaces} places this record disagrees with itself.`, {
       route: '/projects/:projectId/rounds/:roundId/completeness — a proposal',
       toolbar: C.exportMenu() + C.segmented({ options: ['2026 Q2 · GW-QTR', '2026 Q1 · GW-QTR', '2026 M05 · GW-MTH'], value: '2026 Q2 · GW-QTR', label: 'Round' }),
     }) +
@@ -10223,17 +10223,17 @@ const roundCompleteness = () => {
       stat(String(P.counts.denominators), 'answers to how big this round is', 'bad'),
       stat(`${owner.carried} / ${P.counts.items}`, 'items with an owner', owner.carried === P.counts.items ? 'good' : 'warn'),
     ]) +
-    `<p class="sf-lede mk-tight">The six stages are the brief’s own sentence — <strong>${P.lists.stages.join(' → ')}</strong> — and the build compares these six words with §6.4 in order, so a stage the brief renames cannot go undrawn. Each stage below names the register that owns it and reads its numbers off that register. <a class="mk-ref" href="#programme">The programme</a> is the plan side; everything after it is what became of it.</p>` +
+    `<p class="sf-lede mk-tight">The ${P.lists.stages.length} stages are the brief’s own sentence — <strong>${P.lists.stages.join(' → ')}</strong> — and the build compares these ${P.lists.stages.length} words with §6.4 in order, so a stage the brief renames cannot go undrawn. Each stage below names the register that owns it and reads its numbers off that register. <a class="mk-ref" href="#programme">The programme</a> is the plan side; everything after it is what became of it.</p>` +
 
     /* ---------------------------------------------------------------- *
      * The six stages
      * ---------------------------------------------------------------- */
-    '<h2 class="mk-h2" style="margin-top:1.4rem">Six stages, six registers</h2>' +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">${P.lists.stages.length} stages, ${P.lists.stages.length} registers</h2>` +
     table({
       caption: 'One row per stage. Every number is read off the register named beside it — no count on this screen is taken twice.',
       head: ['Stage', 'The register that owns it', 'What that register counts'],
       kind: 'matrix',
-      label: 'The six stages of the round',
+      label: `The ${P.lists.stages.length} stages of the round`,
       rows: P.stages.map((s) => [
         cell(`<strong>${esc(s.stage)}</strong>`),
         cell(`<a class="mk-ref" href="#${esc(s.at)}">${esc(s.register)}</a>`),
@@ -10269,14 +10269,14 @@ const roundCompleteness = () => {
             caption: 'One row per register, each read off the register itself.',
             head: ['Register', 'What it holds', 'In its own words'],
             kind: 'matrix',
-            label: 'Five registers on one absence at MW09',
+            label: `${P.disagreements.mw09.readings.length} registers on one absence at ${P.disagreements.mw09.location}`,
             rows: P.disagreements.mw09.readings.map((r) => [
               cell(`<a class="mk-ref" href="#${esc(r.at)}"><strong>${esc(r.register)}</strong></a>`),
               cell(`<em>${esc(r.holds)}</em>`),
               cell(esc(r.says)),
             ]),
           }) +
-          `<p class="mk-tight mk-muted">Nothing on this screen chooses between them, and that is the rule rather than a hedge: three of the five would have to be rewritten to make the other two right, and rewriting a register to agree with another is the act every one of them exists to make impossible. What a reconciliation owes is that the disagreement is <em>visible</em> — it was not, from any of the five screens these live on.</p>`,
+          `<p class="mk-tight mk-muted">Nothing on this screen chooses between them, and that is the rule rather than a hedge: making any one of the ${P.disagreements.mw09.readings.length} right would mean rewriting the others, and rewriting a register to agree with another is the act every one of them exists to make impossible. What a reconciliation owes is that the disagreement is <em>visible</em> — it was not, from any of the ${new Set(P.disagreements.mw09.readings.map((r) => r.at)).size} screens these live on.</p>`,
       ),
       panel(
         `How many results does this round have? ${P.counts.denominators} answers, from ${P.disagreements.denominator.spread.low} to ${P.disagreements.denominator.spread.high}`,
@@ -10284,7 +10284,7 @@ const roundCompleteness = () => {
           caption: 'Each register counts something different, and each is right about what it counts.',
           head: ['Register', 'Expected', 'Held'],
           scroll: true,
-          label: 'Four denominators for one round',
+          label: `${P.disagreements.denominator.readings.length} denominators for one round`,
           rows: P.disagreements.denominator.readings.map((r) => [
             cell(`<a class="mk-ref" href="#${esc(r.at)}"><strong>${esc(r.register)}</strong></a><small>${esc(r.of)}</small>`),
             `<span class="mk-num">${esc(String(r.n))}</span>`,
@@ -10300,13 +10300,13 @@ const roundCompleteness = () => {
     /* ---------------------------------------------------------------- *
      * §6.4's ten conditions
      * ---------------------------------------------------------------- */
-    '<h2 class="mk-h2" style="margin-top:1.4rem">The ten conditions, each instantiated or counted absent</h2>' +
-    `<p class="sf-lede mk-tight">§6.4 names ten things a scientist must be able to identify and act on. The build closes this list against the brief in both directions and in order. <strong>${P.conditionCounts.instantiated} are instantiated</strong> from ${P.conditionCounts.instances} instances in the record, ${P.conditionCounts.none} have no instance here and say why, and ${P.conditionCounts.notExpressible} cannot be asked of this record at all. Each verdict is the arithmetic of the instances beside it — an instance arriving moves the word without anybody editing it.</p>` +
+    `<h2 class="mk-h2" style="margin-top:1.4rem">The ${P.conditionCounts.total} conditions, each instantiated or counted absent</h2>` +
+    `<p class="sf-lede mk-tight">§6.4 names ${P.conditionCounts.total} things a scientist must be able to identify and act on. The build closes this list against the brief in both directions and in order. <strong>${P.conditionCounts.instantiated} are instantiated</strong> from ${P.conditionCounts.instances} instances in the record, ${P.conditionCounts.none} have no instance here and say why, and ${P.conditionCounts.notExpressible} cannot be asked of this record at all. Each verdict is the arithmetic of the instances beside it — an instance arriving moves the word without anybody editing it.</p>` +
     table({
       caption: 'One row per condition, in the brief’s own order. “Not expressible” means the record has no field the question could be asked against, and the row says which field.',
       head: ['Condition', 'State', 'Instances', 'What the record says'],
       kind: 'matrix',
-      label: '§6.4 — the ten completeness conditions',
+      label: `§6.4 — the ${P.conditionCounts.total} completeness conditions`,
       rows: P.conditions.map((c) => [
         cell(`<strong>${esc(c.ask)}</strong>`),
         C.status(c.state, conditionTone[c.state] ?? 'neutral'),
@@ -10316,7 +10316,7 @@ const roundCompleteness = () => {
     }) +
     C.card({
       tone: 'bad',
-      head: '<span class="mk-queue__kind">The one with no machinery, and it is the sharpest of the ten</span>',
+      head: `<span class="mk-queue__kind">The one with no machinery, and it is the sharpest of the ${P.conditionCounts.total}</span>`,
       body:
         `<p class="mk-queue__headline">${esc(P.conditions.find((c) => c.ask === 'Unexpected samples or analytes').ask)} — the sample half is answerable and the analyte half is not.</p>` +
         `<p class="mk-queue__context"><a class="mk-ref" href="#import-review">The exception review</a> reconciles an arriving row against the location register and the analyte dictionary, so a row naming a bore or a substance this project does not hold is caught. <strong>Nothing reconciles an arriving row against the plan.</strong> A sample that arrived and was never expected is not an exception to any rule this record states — it is simply a sample, and the only reason all ${esc(String(P.conditions.find((c) => c.ask === 'Unexpected samples or analytes').parts[0].instances.length))} of this round’s are accountable is that ${esc(String(P.qcRequirements.length))} objective rows happen to require most of them.</p>`,
@@ -10329,7 +10329,7 @@ const roundCompleteness = () => {
      * The workflow half
      * ---------------------------------------------------------------- */
     '<h2 class="mk-h2" style="margin-top:1.4rem">Actionable, or a status table with better manners</h2>' +
-    `<p class="sf-lede mk-tight">The brief names five things that separate a workflow from a table. Measured over the ${P.counts.items} items this round raises: ${P.ingredientCounts.map((g) => `<strong>${g.carried} of ${P.counts.items}</strong> carry ${/^[aeiou]/i.test(g.ingredient) ? 'an' : 'a'} ${g.ingredient.toLowerCase()}`).join(', ')}. The two that fall short are the two nothing in this record assigns — and no name and no date is invented to fill either.</p>` +
+    `<p class="sf-lede mk-tight">The brief names ${P.ingredientCounts.length} things that separate a workflow from a table. Measured over the ${P.counts.items} items this round raises: ${P.ingredientCounts.map((g) => `<strong>${g.carried} of ${P.counts.items}</strong> carry ${/^[aeiou]/i.test(g.ingredient) ? 'an' : 'a'} ${g.ingredient.toLowerCase()}`).join(', ')}. The ${P.ingredientCounts.filter((g) => g.carried < P.counts.items).length} that fall short are the ones nothing in this record assigns — and no name and no date is invented to fill either.</p>` +
     table({
       caption: 'One row per item. Every cell is read off a register, or states the register that would have to hold it.',
       head: ['Item', 'Stage', 'Owner', 'Rationale', 'Disposition', 'Due', 'Downstream consequence'],
@@ -11476,7 +11476,7 @@ const samplingEvents = () => (
         caption: 'One row per item, in the brief’s own order. The plan column reads the programme’s coverage; the record column reads whichever register holds it afterwards.',
         head: ['What the crew must understand', 'What the plan states', 'What the record holds afterwards', 'Verdict'],
         kind: 'matrix',
-        label: '§6.3 — the ten preparation items',
+        label: `§6.3 — the ${P.preparation.length} preparation items`,
         rows: P.preparation.map((x) => [
           cell(`<strong>${esc(x.item)}</strong><small>${esc(x.note)}</small>`),
           x.planned ? cell(esc(x.planned)) : '<span class="mk-num mk-num--nil">— the plan is silent</span>',
