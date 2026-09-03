@@ -124,6 +124,50 @@ for (const width of widths) {
 }
 
 /*
+ * The same column, on every matrix table rather than on one screen.
+ *
+ * W22-R3-2. The check above asserts the frozen column *stays put*, and it was
+ * hardcoded to `#crosstab`. Both halves were too small. A sticky element wider
+ * than the scrollport it is pinned inside stays put perfectly and covers the
+ * whole pane at every scroll offset — so the column a reader is meant to keep
+ * their place by becomes the only column they can ever see. It held on 29 of
+ * this catalogue's 126 matrix tables at 375px, the worst 1,801px inside a
+ * 306px pane, and the guard that existed for exactly this shape never looked
+ * at any of them.
+ *
+ * A guard scoped to one screen is a guard whose gap is every other screen.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
+  await page.goto(url);
+  await page.waitForTimeout(400);
+  const over = await page.evaluate(() => {
+    const bad = [];
+    let seen = 0;
+    for (const sec of document.querySelectorAll('section.mk-screen')) {
+      const was = sec.dataset.active;
+      sec.dataset.active = 'true';
+      for (const box of sec.querySelectorAll('.sf-table-scroll')) {
+        const table = box.querySelector('table.sf-table--matrix');
+        const th = table && table.querySelector('tbody th');
+        if (!th) continue;
+        seen += 1;
+        const pane = box.clientWidth;
+        const sticky = th.getBoundingClientRect().width;
+        if (sticky > pane) {
+          bad.push(`#${sec.id} · ${(box.getAttribute('aria-label') || 'a matrix table').slice(0, 60)} — frozen column ${Math.round(sticky)}px inside a ${Math.round(pane)}px pane`);
+        }
+      }
+      sec.dataset.active = was || 'false';
+    }
+    return { bad, seen };
+  });
+  for (const line of over.bad) failures.push(`sticky column wider than its pane at 375px: ${line}`);
+  console.log(`sticky columns: ${over.seen} matrix tables measured against their own pane at 375px`);
+  await page.close();
+}
+
+/*
  * §10's figure layout check: lay out every generated figure and compare every
  * `<text>` box against every other.
  *

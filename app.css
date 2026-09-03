@@ -773,6 +773,36 @@ body {
    * take part in `border-collapse` and move the whole grid by a pixel.
    */
   box-shadow: 1px 0 0 0 var(--sf-rule);
+  /*
+   * W22-R3-2. `min-width: max-content` above sizes every column to its longest
+   * unwrapped line, and the row-identity column often carries a note — so on a
+   * phone this column was routinely wider than the pane it is pinned inside.
+   * A sticky element wider than its scrollport paints over the whole of it at
+   * *every* scroll offset, not just the first: 29 of the 126 matrix tables in
+   * this catalogue had a frozen column a reader could never scroll past, the
+   * worst of them 1,801 px inside a 306 px pane, with 0% of the second column
+   * reachable at maximum scroll.
+   *
+   * The cap is on the frozen column alone and only while the table pans. The
+   * value columns keep `max-content`, which is the whole point of panning: a
+   * crosstab that shrinks is a crosstab whose values wrap to three lines. The
+   * identity column is the one place wrapping is harmless, because a label
+   * over two lines is still a label.
+   */
+}
+
+/*
+ * Scoped to the panning range deliberately. Above the desktop breakpoint the
+ * table takes `min-width: 100%` and fits, so the frozen column cannot exceed
+ * its pane and a cap there would only make a column wrap where there is room.
+ */
+@media (max-width: 1119px) {
+  .sf-table--matrix tbody th,
+  .sf-table--matrix thead th:first-child {
+    max-width: min(62vw, 20rem);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .sf-table--matrix tbody tr:nth-child(even) th {

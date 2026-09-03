@@ -1588,7 +1588,21 @@ const roundPreflight = () => {
         { what: 'Obligation countdowns that stop', n: '1 — the quarterly groundwater round' },
         { what: 'Records that would still be on the device afterwards', n: `${P.pendingRecords} — and this is what holds it` },
       ],
-      action: 'Mark the round complete',
+      /*
+       * W22-R3-1. The button read "Mark the round complete" while the notice
+       * directly above it said the round cannot be. The screen's own argument
+       * is the right one and it was only half applied: *"stays refusable
+       * rather than silently disabled — a greyed-out button that will not say
+       * why is how a field officer at a gate loses an afternoon."* Refusable
+       * and saying why is exactly `blastRadius`'s established convention,
+       * used at three other sites as `Not available — <reason>`. The label
+       * carries the refusal now, so the button is neither silent nor a
+       * promise, and it goes back to plain "Mark the round complete" the
+       * moment nothing holds the round.
+       */
+      action: blocking.length
+        ? `Not available — ${blocking.length === 1 ? 'one thing holds' : `${blocking.length} things hold`} the round`
+        : 'Mark the round complete',
       cancel: 'Not yet',
       reversible:
         'Reversible while the round is open: completion is a state on the round, recorded with who set it and when, and it can be reopened with a reason. What cannot be undone is the sync — a captured record, once written, is superseded rather than replaced.',
@@ -5771,9 +5785,20 @@ const programme = () =>
          * none, a view control that moves the display is not making a promise
          * about the record, and this one is a write.
          */
-        C.btn('Amend the programme', '', {
+        /*
+         * W22-R3-1 sent this back for a second look. Round 2 marked the button
+         * `disabled` with the reason in a `title`, and round 3 proved the title
+         * is unreachable — `disabled` takes a button out of the tab order, so a
+         * keyboard or screen-reader user never gets it. `#field-capture` has
+         * argued the general case on its own face since wave 6: a control that
+         * refuses must say why, and a grey button that will not is worse than
+         * an honest one. So the refusal is in the button's *name*, which is
+         * what assistive technology reads, and `disabled` stays as the visual
+         * mark rather than as the whole disclosure.
+         */
+        C.btn('Amend the programme — not available, there is no version to amend', '', {
           disabled: true,
-          title: `No version for an amendment to create — ${PLANNING.versioning.short.length} of the ${PLANNING.versioning.fields.length} fields a version needs have nowhere in this record to come from`,
+          title: `${PLANNING.versioning.short.length} of the ${PLANNING.versioning.fields.length} fields a version needs have nowhere in this record to come from`,
         }) +
         '<span class="mk-muted">The control is drawn and refuses, which is the honest state: there is no version for an amendment to create, and the reason is on the button itself rather than only in this sentence.</span>',
     }),
@@ -5808,7 +5833,7 @@ const programme = () =>
   `<h2 class="mk-h2" style="margin-top:1.4rem">A round has ${PLANNING.roundStates.list.length} states, and this register uses ${PLANNING.roundStates.registerWords.length} of them</h2>` +
   cols(
     panel(
-      `The four the model carries, and the ${PLANNING.roundStates.unused.length} with no row`,
+      `The ${PLANNING.roundStates.list.length} the model carries, and the ${PLANNING.roundStates.unused.length} with no row`,
       `<p class="mk-tight">A <strong>sampling round state</strong> is a closed list in the product’s own vocabulary — ${PLANNING.roundStates.list.map((x) => `<code>${esc(x.state)}</code>`).join(' · ')} — and the register above carries two words of its own, ${PLANNING.roundStates.registerWords.map((w) => `<em>${esc(w)}</em>`).join(' and ')}. They are mapped below rather than rewritten: what the row holds is what the record says.</p>` +
         table({
           caption: 'One row per planned location, with the word the register holds and the state it maps to.',

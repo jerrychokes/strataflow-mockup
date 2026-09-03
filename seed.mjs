@@ -13346,7 +13346,7 @@ export const PLANNING = (() => {
     get says() {
       const c = this.camps;
       const names = c.short.filter((r) => r.namesAnalyte).length;
-      return `${c.short.length} registers report a result short and ${names} of them ${names === 1 ? 'names' : 'name'} the analyte, so the other ${c.short.length - names} ${c.short.length - names === 1 ? 'is' : 'are'} silent about which rather than disagreeing about it. ${c.held.length} holds the sulfate rather than losing it. ${c.present.length} prints a number in the cell the other ${this.readings.length - c.present.length} are pointing at. Nothing here is corrected: the disagreement is what the reconciliation is for, and resolving it is a decision with an author.`;
+      return `${c.short.length} registers report a result short and ${names} of them ${names === 1 ? 'names' : 'name'} the analyte, so the other ${c.short.length - names} ${c.short.length - names === 1 ? 'is' : 'are'} silent about which rather than disagreeing about it. ${c.held.length} ${c.held.length === 1 ? 'holds' : 'hold'} the sulfate rather than losing it. ${c.present.length} ${c.present.length === 1 ? 'prints' : 'print'} a number in the cell the other ${this.readings.length - c.present.length} are pointing at. Nothing here is corrected: the disagreement is what the reconciliation is for, and resolving it is a decision with an author.`;
     },
   };
 
