@@ -4622,7 +4622,7 @@ export const SAVED_VIEWS = (() => {
       return this.against(locationsOnGrid).filter((d) => d.grid !== d.view);
     },
     note:
-      'The grid is on this view with unsaved changes. A view is a shared object, so an edit nobody saved is one person’s question rather than the project’s — which is the whole reason the bar names the view it started from.',
+      'The working population is this dataset with unsaved changes. A dataset is a shared object, so an edit nobody saved is one person’s question rather than the project’s — which is the whole reason a population names the dataset it started from. Until wave 20 that naming was done by the results grid’s own filter bar; D11 moved the bar to the explorer and the sentence is unchanged in substance.',
   };
 
   /**
@@ -4753,6 +4753,40 @@ export const SAVED_VIEWS = (() => {
    * rows at all, and *one of the two bores I select returned nothing* is still
    * true and still worth saying when the cells cannot be counted.
    */
+  /**
+   * The accounting itself, over any array of cells — **wave 20**.
+   *
+   * Wave 19 counted the absences inside `populationOf`, which was right while
+   * a population was always a dataset's. The explorer walks a population that
+   * narrows step by step and is not any dataset's, and it has to report the
+   * same four kinds at every step. Two implementations of *what left and why*
+   * is exactly the disagreement this record exists to end, so there is one
+   * expression and both callers pass their own cells to it.
+   *
+   * **The kinds are read off the cells rather than listed here.** `byKind`
+   * derives its words from the cells it was given, so a grid that gains a
+   * fifth absence appears in the readout without anybody adding it to a list —
+   * and a step that drops a kind entirely reports it as absent from its scope
+   * rather than silently stopping counting it.
+   */
+  const accounting = (cells) => {
+    const included = cells.filter((x) => !x.cell.empty);
+    const absent = cells.filter((x) => x.cell.empty);
+    const allNot = (x) => x.cell.o.every((o) => o === 'not_evaluated');
+    return {
+      cells,
+      included,
+      excluded: absent,
+      byKind: [...new Set(absent.map((x) => x.cell.word))].map((word) => ({
+        word,
+        glyph: absent.find((x) => x.cell.word === word).cell.glyph,
+        list: absent.filter((x) => x.cell.word === word),
+      })),
+      nothingAsserted: included.filter(allNot),
+      partlyAsserted: included.filter((x) => x.cell.o.some((o) => o === 'not_evaluated') && !allNot(x)),
+    };
+  };
+
   const populationOf = (v) => {
     const codes = locationCodes(v);
     const columns = codes.filter((c) => CROSSTAB_COLUMNS.includes(c));
@@ -4761,9 +4795,8 @@ export const SAVED_VIEWS = (() => {
       const row = CROSSTAB.find((r) => r.analyte === name);
       return columns.map((code) => ({ analyte: name, location: code, cell: row.cells[CROSSTAB_COLUMNS.indexOf(code)] }));
     });
-    const included = cells.filter((x) => !x.cell.empty);
-    const emptyBy = (word) => cells.filter((x) => x.cell.empty && x.cell.word === word);
-    const allNot = (x) => x.cell.o.every((o) => o === 'not_evaluated');
+    const acc = accounting(cells);
+    const kind = (word) => acc.byKind.find((k) => k.word === word)?.list ?? [];
     return {
       locations: codes,
       columns,
@@ -4773,13 +4806,9 @@ export const SAVED_VIEWS = (() => {
       byName: v.analyteNames?.length ?? 0,
       bySuite: v.suite ? suiteOf(v.suite).n : 0,
       resolves: rows.length > 0,
-      cells,
-      included,
-      excluded: cells.filter((x) => x.cell.empty),
-      dry: emptyBy('dry'),
-      notAnalysed: emptyBy('not analysed'),
-      nothingAsserted: included.filter(allNot),
-      partlyAsserted: included.filter((x) => x.cell.o.some((o) => o === 'not_evaluated') && !allNot(x)),
+      ...acc,
+      dry: kind('dry'),
+      notAnalysed: kind('not analysed'),
     };
   };
 
@@ -5244,6 +5273,8 @@ export const SAVED_VIEWS = (() => {
      * Wave 19's surface, one accessor per question the object answers.
      * ---------------------------------------------------------------- */
     dimensionsOf, populationOf, citationsOf, locationCodes, membershipOf,
+    /* Wave 20 — the one expression the explorer's every step counts through. */
+    accounting,
     versionOf, lifecycleOf, roles, AXES,
     get absences() { return absences(); },
     get insideAnyway() { return insideAnyway(); },
@@ -12577,6 +12608,614 @@ export const ESTATE = (() => {
  * per decision. Four decisions, and the number of rows citing one is counted
  * rather than stated.
  */
+/* ==================================================================== *
+ * Wave 20 — the explorer over the dataset (D1, D11)
+ *
+ * §4.2's dimensions, §4.3's progressive construction and population readout,
+ * and §4.4's six representations over one population — **all of it over the
+ * governed dataset wave 19 built, not beside it**. Every population count in
+ * this record is taken through `SAVED_VIEWS.accounting`, which is the same
+ * expression `#crosstab` and the dataset register already count with, so no
+ * two surfaces can report different exclusions for the same cells.
+ *
+ * ## The constraint that shapes the whole record, stated once
+ *
+ * **This catalogue is static HTML.** `build.mjs`'s only script does screen
+ * navigation, a rail filter and slide-overs. Nothing filters live. So §4.3's
+ * *"show how the resulting population changes as filters are applied"* is
+ * delivered as **a sequence of drawn states**, each carrying its own readout —
+ * which is what §17 asks a mockup for. A drawn sequence that implied working
+ * filters would be the one claim this catalogue has never made, so the screen
+ * says what it is in its first sentence and again beside the sequence.
+ *
+ * ## The scenario the brief asks for cannot be run, and that is the finding
+ *
+ * §4.3 requires *groundwater → Unit C → dissolved metals → arsenic and
+ * manganese → 2021–2026 → validated results only → rejected data excluded →
+ * comparison against nominated groundwater criteria*. Two exits were
+ * available and only one is honest: seed a manganese and a Unit C to make the
+ * example runnable, which means inventing fourteen rounds of results at seven
+ * bores with a reporting limit and a criterion — the trade this catalogue has
+ * refused six times — or **walk what the record can express, name the site's
+ * own equivalents as equivalents, and enumerate every term it cannot express
+ * with the reason**. The second, counted rather than apologised for.
+ *
+ * ## On the words
+ *
+ * `docs/GLOSSARY.md` carries neither *explorer* nor *query* as a term, in the
+ * same way it carries neither *saved view* nor *dataset* (wave 19). The words
+ * are the requirement's — §3 ranks the capability as *Environmental Data
+ * Explorer and Query Builder* — and the glossary entry is part of the PRD
+ * amendment D1 accepted and that has not landed. *Population* is different: it
+ * is not a headword either, but the glossary already uses it in the sense
+ * meant here, in **Data quality limit** — *"One number a site replaced, with
+ * the population it applies to"*. Stated on the screen, not assumed.
+ * ==================================================================== */
+export const EXPLORER = (() => {
+  const V = SAVED_VIEWS;
+
+  /** Every cell this project holds, on both grids, in one stream. */
+  const WATER_CELLS = CROSSTAB.flatMap((r) =>
+    r.cells.map((c, i) => ({ grid: 'water', analyte: r.analyte, column: CROSSTAB_COLUMNS[i], location: CROSSTAB_COLUMNS[i], cell: c })));
+  const SOIL_CELLS = SOIL.grid.flatMap((r) =>
+    r.cells.map((c, i) => ({ grid: 'soil', analyte: r.analyte, column: SOIL.gridColumns[i].head, sample: SOIL.gridColumns[i].id, cell: c })));
+  const ALL_CELLS = [...WATER_CELLS, ...SOIL_CELLS];
+
+  const locationOf = (code) => LOCATIONS.find((l) => l.code === code);
+
+  /**
+   * Locations, samples and results — the three numbers §4.3 asks a reader to
+   * see, each counted off the cells in scope rather than beside them.
+   *
+   * The sample count is where the two grids stop being interchangeable and the
+   * readout says so instead of adding them. A water column is a **location**
+   * and the sample analysed there is the round's primary one — so a column
+   * that returned nothing contributes a location and no sample, which is
+   * exactly the MW11 case. A soil column **is** a sample: a composite belongs
+   * to four places at once and a grid drawn by location has nowhere to put it
+   * (`#composite`). Adding those two counts would be the conflation the matrix
+   * filter was fixed to stop making.
+   */
+  const readout = (cells) => {
+    const acc = V.accounting(cells);
+    const waterColumns = [...new Set(cells.filter((x) => x.grid === 'water').map((x) => x.location))];
+    const soilColumns = [...new Set(cells.filter((x) => x.grid === 'soil').map((x) => x.sample))];
+    const primaries = EVENT_SAMPLES.filter((s) => s.qc === '—' && waterColumns.includes(s.location));
+    return {
+      ...acc,
+      locations: waterColumns,
+      soilSamples: soilColumns,
+      samples: [...primaries.map((s) => s.id), ...soilColumns],
+      grids: [...new Set(cells.map((x) => x.grid))],
+      results: acc.included.length,
+      total: cells.length,
+      kind: (word) => acc.byKind.find((k) => k.word === word)?.list.length ?? 0,
+    };
+  };
+
+  /* ---------------------------------------------------------------- *
+   * §4.2 — the dimensions, enumerated and measured
+   *
+   * The names and the group headings are §4.2's own, verbatim, and
+   * `build.mjs` fails the build if this list and the brief's bullets drift
+   * apart in either direction — the same closure the seventh enumeration on
+   * `#coverage` already has, applied a second time to the list this screen is
+   * built on.
+   *
+   * `holds` is the measurement and it has three values, never a verdict:
+   * **a record** — a field or a register holds it and is named; **derived** —
+   * nothing holds it as a field and it resolves from something that does, with
+   * the derivation named; **nothing** — no record in this catalogue holds it,
+   * and the row says what stands nearest.
+   *
+   * **What the explorer offers follows from that rather than being assigned.**
+   * A control is drawn for a dimension the record holds or can derive, and for
+   * none that it cannot, because a control over nothing is a promise. So the
+   * offered count is computed, and the two it does not offer are the two the
+   * record cannot express.
+   * ---------------------------------------------------------------- */
+  const nUnit = (u) => LOCATIONS.filter((l) => l.unit === u).length;
+  const UNITS_NAMED = [...new Set(LOCATIONS.map((l) => l.unit))].filter((u) => u !== '—');
+  const SCREENED = LOCATIONS.filter((l) => l.screen && l.screen !== '—');
+  const QC_KINDS = [...new Set(EVENT_SAMPLES.map((s) => s.qc))].filter((k) => k !== '—');
+  const CENSORED = WATER_CELLS.filter((x) => x.cell.censored);
+  const SUPERSEDED = WATER_CELLS.filter((x) => x.cell.superseded);
+  const QUARANTINED = WATER_CELLS.filter((x) => x.cell.quarantined);
+  const FILTERED_ROWS = CROSSTAB.filter((r) => /\(filtered\)/.test(r.analyte)).map((r) => r.analyte);
+
+  const dimensions = [
+    { group: 'Project and organisational context', name: 'Organisation or client', holds: 'a record',
+      through: `the project’s operator — ${PROJECT.operator}`,
+      note: 'One organisation, and the deployment is single-tenant, so this is a constant rather than a dimension: a control over one value selects nothing away.' },
+    { group: 'Project and organisational context', name: 'Project', holds: 'a record',
+      through: `the project register — ${PROJECTS.length} projects, ${PROJECTS.filter((p) => p.drawn).length} of them drawn`,
+      note: 'The one dimension that already has a working control in the product: the switcher. The second project is deliberately undrawn, which is why a cross-project population is not offered here.' },
+    { group: 'Project and organisational context', name: 'Site', holds: 'a record',
+      through: `the facility record — ${FACILITY.name}, ${FACILITY.areas.length} areas`,
+      note: 'One facility on this project, so it narrows nothing here and would narrow a portfolio population.' },
+    { group: 'Project and organisational context', name: 'Monitoring programme', holds: 'derived',
+      through: `a code carried on each area (${[...new Set(FACILITY.areas.flatMap((a) => a.programme.split(', ')))].join(', ')}) and named in an obligation’s basis`,
+      note: 'There is no programme record with its own fields. The code identifies a programme; nothing holds one, so a population selected by programme resolves through the areas that name it.' },
+    { group: 'Project and organisational context', name: 'Sampling event or monitoring round', holds: 'a record',
+      through: `the event register — ${EVENTS.length} events`,
+      note: 'The grid draws one round and carried no round control at all, which is the gap §4.4’s time-series representation falls into below.' },
+
+    { group: 'Location and environmental setting', name: 'Monitoring location', holds: 'a record',
+      through: `the location register — ${LOCATIONS.length} locations`, wasOnGrid: 'Locations',
+      note: 'The one dimension every surface here already selects on.' },
+    { group: 'Location and environmental setting', name: 'Location type', holds: 'a record',
+      through: `the location’s class — ${[...new Set(LOCATIONS.map((l) => l.klass))].length} classes`,
+      note: 'Nothing offered it before this wave, and the grid’s matrix control offered *Groundwater* as a matrix until wave 9 corrected it — which is the confusion this row and the matrix row exist to keep apart.' },
+    { group: 'Location and environmental setting', name: 'Bore', holds: 'derived',
+      through: `a location of class groundwater — ${LOCATIONS.filter((l) => l.klass === 'groundwater').length} of them; ${CONSTRUCTION.codes.length} carries a construction record`,
+      note: 'A bore is not a separate register here. Selecting by bore resolves through the class, and everything a construction record holds — casing, annulus, slot — exists for one of the seven.' },
+    { group: 'Location and environmental setting', name: 'Bore group', holds: 'a record',
+      through: `the location groups — ${INSTRUMENTS.groups.length} of them`,
+      note: `Already in use as a dimension rather than a label: ${V.fromGroup} of the ${V.views.length} datasets resolve their location dimension through a group, so a bore joining one joins the dataset that reports it.` },
+    { group: 'Location and environmental setting', name: 'Area or spatial grouping', holds: 'a record',
+      through: `the location’s area — ${[...new Set(LOCATIONS.map((l) => l.area))].length} areas`, wasOnGrid: 'Locations — two of its four options are areas',
+      note: 'The grid’s location options are counted off the areas, so this dimension had a control without a name of its own.' },
+    { group: 'Location and environmental setting', name: 'Hydrostratigraphic unit', holds: 'a record',
+      through: `the location’s unit — ${UNITS_NAMED.join(' and ')}, ${UNITS_NAMED.map((u) => `${nUnit(u)} ${u.toLowerCase()}`).join(' and ')}`,
+      note: 'Held, load-bearing, and selectable nowhere until this wave. It decides which criteria set applies to a location and it is why the confined bore is excluded from the potentiometric fit — two decisions the record already makes on a dimension nothing offered.' },
+    { group: 'Location and environmental setting', name: 'Screened interval', holds: 'a record',
+      through: `the location’s screened interval — ${SCREENED.length} of ${LOCATIONS.length} locations carry one`,
+      note: 'The pits and the creek carry none, correctly: a test pit and a surface-water point have no screen.' },
+    { group: 'Location and environmental setting', name: 'Sample or investigation depth range', holds: 'a record',
+      through: `the sample’s own depth — one figure on a water sample, a logged interval on a soil one (${SOIL.samples.filter((s) => s.from !== null).length} intervals)`,
+      note: 'A range on one matrix and a point on the other, which is why a depth control cannot mean one thing across both grids.' },
+
+    { group: 'Sample', name: 'Sample date and time', holds: 'a record',
+      through: `the sample’s collection timestamp, with its zone — ${EVENT_SAMPLES[0].collected}`,
+      note: 'Time of day is carried, not only the date, which is what a holding-time clock measured from collection needs.' },
+    { group: 'Sample', name: 'Sample type', holds: 'a record',
+      through: `the sample’s QA kind — ${QC_KINDS.length} kinds on the round’s manifest, and ${LAB_QC.length} more in the laboratory’s own`,
+      note: 'The primary case is written as an em dash and the word *primary* appears on no row, so the commonest value of this dimension is the absence of the others.' },
+    { group: 'Sample', name: 'Matrix', holds: 'a record',
+      through: `the sample’s matrix — ${MATRIX_WORDS.length} words in the vocabulary, ${[...new Set([...EVENT_SAMPLES, ...SOIL.samples].map((s) => s.matrix).filter(Boolean))].length} of them with samples here`,
+      wasOnGrid: 'Matrix', note: 'Counted off the manifests since wave 9, so the control cannot offer a matrix this project has no samples of.' },
+    { group: 'Sample', name: 'Depth', holds: 'a record',
+      through: 'the same field as the range above, read as a value',
+      note: 'One field, two dimensions in the brief’s list. Both are named rather than one being quietly counted twice.' },
+    { group: 'Sample', name: 'Field or laboratory sample', holds: 'derived',
+      through: `two registers rather than a field — the round’s manifest (${EVENT_SAMPLES.length} samples) and the laboratory’s own QC (${LAB_QC.length})`,
+      note: 'Which register a row is in *is* the answer, and it is the right shape: a matrix spike is not material somebody carried out of a bore. But it is not a field, so it cannot be combined with another dimension in one selection.' },
+    { group: 'Sample', name: 'Primary, duplicate, blank or other QA sample type', holds: 'a record',
+      through: `the QA kind on both registers — ${QC_KINDS.join(', ')}`,
+      note: 'Blind field duplicates carry their parent; the blanks carry what they are a blank of. The parent link is what makes an RPD computable and a blank interpretable.' },
+
+    { group: 'Analytical', name: 'Analyte', holds: 'a record',
+      through: `the analyte dictionary — ${ANALYTES.length} analytes on this project’s water grid`,
+      note: 'The dimension the brief’s scenario turns on, and the reason it cannot be run: it names two analytes and this dictionary holds one of them.' },
+    { group: 'Analytical', name: 'Analyte group or suite', holds: 'a record',
+      through: `the suite register — ${ANALYTE_SUITES.length} suites`, wasOnGrid: 'Analyte suite',
+      note: 'A suite is a **size** here and never a membership, which wave 19 measured: a dataset naming one has an analyte dimension nothing can expand, and this explorer inherits that limit rather than guessing which eight of eleven.' },
+    { group: 'Analytical', name: 'Method', holds: 'a record',
+      through: `the batch’s method and the soil analyte’s own — ${[...new Set([...BATCHES.map((b) => b.method), ...SOIL.analytes.map((a) => a.method)])].length} distinct`,
+      note: 'Held on the batch rather than on the result, so selecting by method reaches results one hop away.' },
+    { group: 'Analytical', name: 'Laboratory', holds: 'derived',
+      through: 'a string on a batch, a certificate, an event and a format',
+      note: 'There is no laboratory record anywhere — the same absence §7.1 measures. A population selected by laboratory matches text, which is why two spellings would be two laboratories.' },
+    { group: 'Analytical', name: 'Laboratory batch', holds: 'a record',
+      through: `the batch register — ${BATCHES.length} batches on this round`,
+      note: 'The dimension a QA/QC finding is scoped by: the zinc matrix-spike failure reaches every zinc result in one batch and none outside it.' },
+    { group: 'Analytical', name: 'Unit', holds: 'a record',
+      through: `the unit register — ${UNITS.length} units and ${CONVERSIONS.length} conversions`,
+      note: 'Canonical units with their aliases, so a selection by unit is a selection and not a spelling.' },
+    { group: 'Analytical', name: 'Fraction, including dissolved or total', holds: 'derived',
+      through: 'a parenthetical inside the analyte’s name',
+      note: 'Not a field. The glossary makes **Fraction** first-class and says the domain word is *dissolved*, because filtration is what was done and dissolved is what the number means — and every analyte name on this grid says *(filtered)*. So the dimension resolves by matching a string, in a word the glossary has already ruled against.' },
+    { group: 'Analytical', name: 'Detection or reporting limit', holds: 'a record',
+      through: 'the analyte’s limit of reporting, on both grids',
+      note: 'And it moves: the cadmium limit stepped from 5.0 to 1.0 µg/L between two rounds, which is why a series that mixed them would read as an improvement.' },
+
+    { group: 'Data quality', name: 'Validation status', holds: 'derived',
+      through: `the round’s own validation state — ${ROUND.code} is ${ROUND.validationState}`,
+      note: 'One state for the whole round. No result carries its own, so *validated results only* is answerable for a round and not for a result — and the walk below is where that stops being an abstraction.' },
+    { group: 'Data quality', name: 'Qualifier', holds: 'a record',
+      through: `the qualifier register — ${QUALIFIERS.counts.assertions} assertions over ${QUALIFIERS.counts.codes} codes`,
+      note: `D10 settles what a population does with them: ${QUALIFIERS.counts.proposed} are proposed and unapplied and they are **inside**, because excluding them would be the product taking a decision the practitioner has not.` },
+    { group: 'Data quality', name: 'QA/QC disposition', holds: 'a record',
+      through: `the decision layer — ${QC_DECISIONS.checks} checks, ${QC_DECISIONS.dispositioned} dispositioned`,
+      note: 'Dispositions are attributed and reversible, and three still need a person. A population selected on this dimension changes when somebody decides, which is the behaviour rather than a defect.' },
+    { group: 'Data quality', name: 'Included or rejected result', holds: 'nothing',
+      through: 'no record holds *rejected*',
+      note: `The nearest is quarantine, and it is a different thing: ${QUARANTINE.length} rows are held at the import boundary and never committed, so they are not in a population to be excluded from. ${QUARANTINED.length} committed cell is drawn quarantined, in brackets on a hatched ground, and it is still there.` },
+    { group: 'Data quality', name: 'Detection status', holds: 'a record',
+      through: `the value’s own censoring — ${CENSORED.length} censored cells on the water grid`, wasOnGrid: 'Show — “Censored only”',
+      note: 'A non-detect keeps the laboratory’s own <LOR notation and is never rendered as a substituted number, so this dimension selects on what was reported rather than on a treatment.' },
+    { group: 'Data quality', name: 'Current or superseded result', holds: 'a record',
+      through: `supersession — ${SUPERSEDED.length} superseded cell on the grid, with its original beside it`,
+      note: 'The superseded value stays visible struck through, so a population that selected *current only* would still be able to say what it dropped and why.' },
+
+    { group: 'Criteria', name: 'Applicable guideline or criterion', holds: 'a record',
+      through: `the criteria library — ${CRITERIA_LIBRARY.length} rows, ${CRITERIA.length} sets in force on this grid`,
+      wasOnGrid: 'Criteria sets', note: 'Applicability is by matrix, location class and unit, so nominating a set is not the same as applying it — which is what the last step of the walk measures.' },
+    { group: 'Criteria', name: 'Criterion category', holds: 'derived',
+      through: `what a set protects — filled on ${CRITERIA_LIBRARY.filter((c) => c.protects).length} of the ${CRITERIA_LIBRARY.length} library rows`,
+      note: 'The guideline sets say what they protect; the licence and site-specific sets say nothing, because a licence limit is not written to protect a named receptor. So a category exists for half the library and the other half is not a gap to be filled.' },
+    { group: 'Criteria', name: 'Exceedance or non-exceedance', holds: 'a record',
+      through: 'the outcome mark on each cell, one per criteria set',
+      wasOnGrid: 'Show — “Exceedances only”', note: 'Two marks per value, always in the same order, because a result above one set and below another is two answers rather than one.' },
+    { group: 'Criteria', name: 'Magnitude above criterion', holds: 'a record',
+      through: `the exceedance register’s factor — ${EXCEEDANCES.length} rows`,
+      note: 'Computed against the criterion in force at the round, which is why a hardness-dependent factor understates a change when the criterion moved too.' },
+
+    { group: 'Time', name: 'Arbitrary date range', holds: 'derived',
+      through: 'the sample’s own collection timestamp, read as a range',
+      wasOnGrid: 'Period', note: 'The control existed and the grid it sat on is one round, so it had nothing to narrow. That is the finding the period step of the walk records rather than a missing feature.' },
+    { group: 'Time', name: 'Monitoring round', holds: 'a record',
+      through: `the event register’s round codes — ${EVENTS.length} of them`,
+      note: 'Nothing offered it before this wave. The grid’s *By round* switch is a **layout** — it changes which axis the cells are drawn on, not which cells are in the population.' },
+    { group: 'Time', name: 'Season', holds: 'nothing',
+      through: 'no sample, result or round carries a season',
+      note: 'The word is in the record twice and neither is an attribute: a fauna programme’s frequency reads *twice yearly — one wet season, one dry*, and the seasonal Mann–Kendall blocks by quarter. Blocking by quarter is what a test does with time; it is not a field a population can select on.' },
+    { group: 'Time', name: 'Month, quarter or year', holds: 'derived',
+      through: `the round code and the monthly series — ${WATER_LEVELS.months.length} months, ${WATER_LEVELS.months[0]} to ${WATER_LEVELS.months.at(-1)}`,
+      note: 'A quarter is legible in a round code and computable from a timestamp. Neither is a stored period, which is why a fiscal year would have to be asked for rather than looked up.' },
+    { group: 'Time', name: 'Latest result', holds: 'derived',
+      through: 'the last value of a series, computed',
+      note: 'No record marks a result as the latest, which is right — *latest* is a property of a question and not of a number, and freezing it onto a row is how a stale figure becomes undetectable.' },
+    { group: 'Time', name: 'Historical period', holds: 'derived',
+      through: 'a period that has been reported and locked, and a migration of published results',
+      note: 'The record holds a locked 2026 Q1 that refuses a write, and a historical import whose validation states were preserved. There is no period register, so *historical* is a state a period is in rather than a thing to select.' },
+  ];
+
+  const held = (v) => dimensions.filter((d) => d.holds === v);
+  const offered = dimensions.filter((d) => d.holds !== 'nothing');
+  const onGrid = dimensions.filter((d) => d.wasOnGrid);
+  const GROUPS = [...new Set(dimensions.map((d) => d.group))];
+
+  /* ---------------------------------------------------------------- *
+   * §4.3 — the scenario, walked as far as the record allows
+   * ---------------------------------------------------------------- */
+
+  /**
+   * The brief's eight terms, each measured against this record.
+   *
+   * `verdict` is one of three and it is a measurement, not an opinion:
+   * **expressible** — a dimension the record holds selects it as written;
+   * **an equivalent** — the record holds the dimension and not the value the
+   * brief names, so the site's own value stands in and is named as a
+   * substitute; **not expressible** — the record holds neither.
+   */
+  const manganese = ANALYTES.filter((a) => /mangan/i.test(a.name));
+  const unitC = LOCATIONS.filter((l) => /(^|\s)C$|Unit C/i.test(l.unit ?? ''));
+  const recordBegins = ARSENIC_MW05[0].month;
+  const askedFrom = 2021;
+  const askedTo = 2026;
+  const yearsAsked = Array.from({ length: askedTo - askedFrom + 1 }, (_, i) => askedFrom + i);
+  const yearsHeld = [...new Set(ARSENIC_MW05.map((p) => Number(p.month.slice(0, 4))))];
+  const yearsEmpty = yearsAsked.filter((y) => !yearsHeld.includes(y));
+  const VALIDATION_STATES = ['imported', 'screened', 'validated', 'approved', 'published'];
+  const reached = VALIDATION_STATES.indexOf(ROUND.validationState);
+  const wanted = VALIDATION_STATES.indexOf('validated');
+
+  const scenario = {
+    /** The brief's own sentence, quoted rather than paraphrased. */
+    asks: 'Groundwater → Unit C → dissolved metals → arsenic and manganese → 2021–2026 → validated results only → rejected data excluded → comparison against nominated groundwater criteria',
+    refused:
+      'Seeding a manganese and a Unit C to make the example runnable. An analyte is fourteen rounds of results at seven bores, a limit of reporting and a criterion, and a hydrostratigraphic unit is a division this operation’s hydrogeologists agreed on — inventing either would put a record in this catalogue that nothing in it supports, which is the trade refused six times already.',
+    terms: [
+      { term: 'Groundwater', verdict: 'expressible',
+        via: 'Two dimensions rather than one — matrix **Water** and location class **groundwater**',
+        why: 'They are different questions and the grid’s matrix control offered *Groundwater* as a matrix until wave 9 corrected it. Both are held, so the walk applies both and reports what each one costs.' },
+      { term: 'Unit C', verdict: 'an equivalent',
+        via: `Hydrostratigraphic unit — this project’s units are ${UNITS_NAMED.join(' and ')}`,
+        why: `The dimension is held on every location; the value is not. ${unitC.length} locations are in anything called Unit C, and the units a project divides its geology into are named per project rather than globally, so there is no general Unit C to fall back on. The walk selects **${UNITS_NAMED[0]}** and says it is a substitution.` },
+      { term: 'dissolved metals', verdict: 'an equivalent',
+        via: `The suite register holds ${ANALYTE_SUITES.find((s) => s.code === 'metals-dissolved').label} at ${ANALYTE_SUITES.find((s) => s.code === 'metals-dissolved').n}`,
+        why: `A suite is a size here and never a membership, so the suite cannot expand to rows. What resolves instead is the grid’s own rows carrying the dissolved fraction — ${FILTERED_ROWS.length} of the ${CROSSTAB.length} — and the fraction is a parenthetical in a name rather than a field.` },
+      { term: 'arsenic and manganese', verdict: 'an equivalent',
+        via: 'Arsenic resolves; manganese does not',
+        why: `No analyte in this dictionary is a manganese — ${manganese.length} of ${ANALYTES.length}. It did not fail a filter and it is not a non-detect — it has never been measured here, and a population that reported the arsenic count alone would be answering half the question as though it were the whole one.` },
+      { term: '2021–2026', verdict: 'an equivalent',
+        via: `An arbitrary date range is held; this record begins ${recordBegins}`,
+        why: `Of the ${yearsAsked.length} years asked for, ${yearsEmpty.length} hold no result at all (${yearsEmpty.join(' and ')}). And the grid the walk runs over is **one round**, so a period narrows nothing on it — the population that has a period is the series behind it, ${ARSENIC_MW05.length} quarterly values.` },
+      { term: 'validated results only', verdict: 'expressible',
+        via: `Validation state — ${ROUND.code} is **${ROUND.validationState}**`,
+        why: `It is expressible and it empties the population. *${ROUND.validationState}* is ${wanted - reached} step before *validated* in the glossary’s own order, so nothing in this round qualifies. That is the answer, and a screen that drew an empty grid without it would be the failure.` },
+      { term: 'rejected data excluded', verdict: 'not expressible',
+        via: 'No record holds *rejected*',
+        why: `Quarantine is the nearest and it is a different state: ${QUARANTINE.length} rows held at the import boundary that never committed. A held row was never in the population, so excluding it removes nothing — and the one committed cell drawn quarantined is still a result somebody has to decide about.` },
+      { term: 'comparison against nominated groundwater criteria', verdict: 'expressible',
+        via: `${CRITERIA.length} sets in force on this grid`,
+        why: 'Nominating a set is a real selection and it is not free: the two sets assess different numbers of the same results, and the walk’s last step counts the difference.' },
+    ],
+  };
+
+  /* ---------------------------------------------------------------- *
+   * The drawn sequence
+   * ---------------------------------------------------------------- */
+
+  /**
+   * Each step is a **drawn state**, not an interaction.
+   *
+   * `keep` is applied to the cells the previous step left, and everything the
+   * row reports is counted off the two arrays that result — what stayed and
+   * what left — through the same accounting the dataset register uses. A step
+   * that removes nothing still reports, because *this filter cost you nothing*
+   * is an answer a scientist needs as much as any other.
+   */
+  const walk = (list, from) => {
+    let cells = from;
+    return list.map((step) => {
+      const before = cells;
+      const kept = step.keep ? before.filter(step.keep) : before;
+      const left = before.filter((x) => !kept.includes(x));
+      cells = kept;
+      return { ...step, cells: kept, state: readout(kept), left: readout(left), leftCount: left.length };
+    });
+  };
+
+  const MAIN = [
+    { n: 1, term: '—', applied: 'Nothing yet', dimension: 'The starting population',
+      says: 'Every cell this project holds, on both grids. A population that starts anywhere narrower has already made a decision nobody recorded.' },
+    { n: 2, term: 'Groundwater', applied: 'Matrix — Water', dimension: 'Matrix',
+      keep: (x) => x.grid === 'water',
+      says: 'The soil and sediment grid leaves whole, and it does not leave quietly: its composited cells are an absence of a result of its own, not a pass, and they stop being counted here because they are counted there.' },
+    { n: 3, term: 'Groundwater', applied: 'Location class — groundwater', dimension: 'Location type',
+      keep: (x) => locationOf(x.location)?.klass === 'groundwater',
+      says: 'The second half of the brief’s first term, and it removes nothing: every column on this grid is already a groundwater bore. A step that costs nothing is worth drawing, because the alternative is a reader assuming it did something.' },
+    { n: 4, term: 'Unit C', applied: `Hydrostratigraphic unit — ${UNITS_NAMED[0]}`, dimension: 'Hydrostratigraphic unit',
+      keep: (x) => locationOf(x.location)?.unit === UNITS_NAMED[0],
+      says: 'There is no Unit C here, and the substitution earns its place: the bore this step drops is screened in the confined unit and is half of a nest with one that stays. That is exactly what the dimension is for — two rows in a register at one place, in two flow systems.' },
+    { n: 5, term: 'dissolved metals', applied: 'Analyte suite — the rows carrying the dissolved fraction', dimension: 'Analyte group or suite',
+      keep: (x) => FILTERED_ROWS.includes(x.analyte),
+      says: 'The suite cannot expand — the record holds its size and never its membership — so the population resolves through the grid’s own rows instead, and the readout says which of the two it did.' },
+    { n: 6, term: 'arsenic and manganese', applied: 'Analyte — arsenic', dimension: 'Analyte',
+      keep: (x) => x.analyte === CROSSTAB.find((r) => /^Arsenic/.test(r.analyte)).analyte,
+      says: 'One of the two named analytes. The other is not in the dictionary, so it takes nothing out of the population and it takes half the question with it.' },
+    { n: 7, term: '2021–2026', applied: `Period — ${askedFrom}-01 to ${askedTo}-12`, dimension: 'Arbitrary date range',
+      says: 'Nothing leaves, and the reason matters: this grid is one round, so a period is not a dimension of it. The population that has a period is the series behind the bore, and it begins two years after the range does.' },
+    { n: 8, term: 'validated results only', applied: 'Validation state — validated', dimension: 'Validation status',
+      keep: () => false, empties: true,
+      says: 'The population empties, and this is the honest end of the brief’s own scenario against this record. Nothing in the round has been validated; it is screened, one state short. An explorer that drew an empty grid here would have answered the question and told the scientist nothing.' },
+  ];
+
+  const BRANCH = [
+    { n: 9, term: 'rejected data excluded', applied: 'Included or rejected — nothing holds *rejected*', dimension: 'Included or rejected result',
+      keep: (x) => !x.cell.quarantined,
+      says: 'Drawn against the quarantine mark, which is the nearest thing the record holds and is not the same thing. It removes nothing from this population, and it would remove one cell from the whole grid.' },
+    { n: 10, term: 'comparison against nominated groundwater criteria', applied: `Criteria set — ${CRITERIA[0].short}`, dimension: 'Applicable guideline or criterion',
+      keep: (x) => x.cell.empty || x.cell.o[0] !== 'not_evaluated',
+      says: 'Nominating a set narrows to the results it actually assesses. Here it narrows nothing — every result in the population is assessed against this set — and across the whole grid the two sets assess different numbers of the same results, which the table beside this counts.' },
+  ];
+
+  const main = walk(MAIN, ALL_CELLS);
+  const branchFrom = main[MAIN.findIndex((s) => s.empties) - 1];
+  const branch = walk(BRANCH, branchFrom.cells);
+  const steps = [...main, ...branch];
+  const final = branch.at(-1);
+
+  /**
+   * The branch, said out loud rather than arranged around.
+   *
+   * Step 8 empties the population, so the two terms after it would be drawn
+   * over nothing. They are drawn over the population as it stood at step 7,
+   * which is a **deliberate reading** and is marked as one on every row — a
+   * sequence that quietly skipped its own emptying step would be reporting a
+   * walk that did not happen.
+   */
+  const branchNote = {
+    from: branchFrom.n,
+    at: MAIN.find((s) => s.empties).n,
+    says: `Step ${MAIN.find((s) => s.empties).n} empties the population. The two terms after it are drawn over the population as it stood at step ${branchFrom.n}, so the brief’s last two terms can be measured at all — marked on each row rather than arranged around, because a sequence that skipped its own emptying step would be reporting a walk that did not happen.`,
+  };
+
+  /** What the whole grid says about the criteria nomination, once. */
+  const nomination = CRITERIA.map((c, i) => ({
+    set: c.short,
+    assessed: WATER_CELLS.filter((x) => !x.cell.empty && x.cell.o[i] !== 'not_evaluated').length,
+    of: WATER_CELLS.filter((x) => !x.cell.empty).length,
+  }));
+
+  /* ---------------------------------------------------------------- *
+   * §4.4 — six representations, one population
+   * ---------------------------------------------------------------- */
+
+  /**
+   * The six the brief lists, closed against §4.4's own bullets by the build.
+   *
+   * `over` is what each would draw over the population the walk ends on, and
+   * `drawable` is measured rather than assumed: a time series over a
+   * population that is one round has nothing to plot, and saying so is the
+   * requirement being met rather than dodged.
+   */
+  const representations = () => {
+    const f = final.state;
+    const exceeding = f.included.filter((x) => x.cell.o[0] === 'exceedance');
+    return [
+      { name: 'Tabular results', screen: 'crosstab', drawable: true,
+        over: `${f.results} rows`,
+        says: 'The population as rows, one per result, with the value’s own marks. There is no flat result register in this catalogue — the grid is where a result is read — so this representation and the next land on one screen.' },
+      { name: 'Crosstab', screen: 'crosstab', drawable: true,
+        over: `1 analyte × ${f.locations.length} locations`,
+        says: `A crosstab of one row, which is what a population narrowed to a single analyte is. ${f.kind('dry')} of the ${f.locations.length} columns is a bore that returned nothing and it stays drawn, because a column that disappears reads as a bore that does not exist.` },
+      { name: 'Time series', screen: 'hydrograph', drawable: false,
+        over: '—',
+        says: `Not drawable over this population, and the reason is the walk’s own step 7: the population is one round, and a series needs the period dimension this grid does not carry. The series that exists for this analyte at this bore holds ${ARSENIC_MW05.length} quarterly values and is a different population from the one above.` },
+      { name: 'Summary statistics', screen: null, drawable: true,
+        over: `n = ${f.results}, ${f.included.filter((x) => x.cell.censored).length} censored`,
+        says: 'Computable over this population and drawn on no screen in this catalogue. The statistics screen holds trend tests — Mann–Kendall, Sen’s slope, the seasonal pair — and no summary statistics at all, which is the one of the six with no surface rather than the wrong surface.' },
+      { name: 'Map', screen: 'map', drawable: true,
+        over: `${f.locations.length} locations`,
+        says: `Every location in the population carries coordinates and an outcome, so the map is the population symbolised. The bore that returned nothing carries an open mark and the word, not an absence — a compliance-boundary bore that vanishes from a network map because it held no water that week is the reading a map can least afford.` },
+      { name: 'Exceedance view', screen: 'exceedances', drawable: true,
+        over: `${exceeding.length} of ${f.results} above ${CRITERIA[0].short}`,
+        says: 'The population read against the nominated set. It is one view of the same cells rather than a different query, which is the whole of what §4.4 asks for.' },
+    ];
+  };
+
+  /**
+   * What each of those screens draws today, and it is **its own** population.
+   *
+   * This is the measurement §4.4 turns on and it is not the same claim as the
+   * strip above. Naming a population is not sharing one: five surfaces state
+   * theirs from today and no two of them inherit. The sixth has no screen to
+   * name anything on.
+   */
+  const own = [
+    { screen: 'crosstab', what: `the ${ROUND.code} water grid`,
+      get line() {
+        const r = readout(WATER_CELLS);
+        return `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${r.total} cells · ${r.results} results · ` +
+          `${r.byKind.map((k) => `${k.list.length} ${k.word}`).join(' · ')} · ` +
+          `${r.nothingAsserted.length} results carry no verdict from either set and ${r.partlyAsserted.length} carry one from one of the ${CRITERIA.length} and not the other`;
+      },
+      says: 'Its own, and inherited from nothing. Until this wave the grid chose it with a filter bar of its own.' },
+    { screen: 'exceedances', what: 'the same grid, read against the sets in force',
+      get line() {
+        const r = readout(WATER_CELLS);
+        return `${EXCEEDANCES.length} exceedances over ${r.results} results at ${r.locations.length} locations · ${CRITERIA.length} criteria sets · ` +
+          `${INDETERMINATE.length} results could not be assessed and are not on this register`;
+      },
+      says: 'One row per result per criterion, so a result above two sets appears twice. The register’s population and the grid’s are the same cells read a different way.' },
+    { screen: 'statistics', what: 'one analyte at one bore, across rounds',
+      get line() {
+        return `${TREND.n} quarterly values of ${TREND.analyte} · ${TREND.censored} censored, entering as tied values and never substituted · ` +
+          `${ARSENIC_MW05[0].month} to ${ARSENIC_MW05.at(-1).month}`;
+      },
+      says: 'A different population from the grid’s in every dimension: one analyte, one bore, fourteen rounds. Nothing on the screen said so until this wave.' },
+    { screen: 'hydrograph', what: 'the water-level record this screen reads',
+      get line() {
+        const codes = Object.keys(WATER_LEVELS.series);
+        return `${codes.length} series × ${WATER_LEVELS.months.length} months (${WATER_LEVELS.months[0]} to ${WATER_LEVELS.months.at(-1)}) · ` +
+          `${WATER_LEVELS.noLevel.length} bore has no level to plot at all — ${WATER_LEVELS.noLevel.map((x) => x.code).join(', ')}, dry`;
+      },
+      says: 'Levels rather than concentrations, so it shares not one cell with the grid. The dry bore is a break in the record rather than a line drawn through it.' },
+    { screen: 'map', what: 'the network this round’s grid draws',
+      get line() {
+        const codes = CROSSTAB_COLUMNS.map(locationOf);
+        return `${codes.length} groundwater bores · ${CROSSTAB_SHAPE.sampledColumns.length} returned material and ${CROSSTAB_SHAPE.emptyColumns.length} was dry · ` +
+          `${codes.filter((l) => l.unit === UNITS_NAMED[1]).length} screened in the ${UNITS_NAMED[1].toLowerCase()} unit and excluded from the potentiometric fit for that reason`;
+      },
+      says: 'The one screen whose population is decided by a dimension nothing offered a control for until this wave: the confined bore is out because contouring two aquifers as one surface produces a flow direction true of neither.' },
+  ];
+  const ownOf = (screen) => own.find((o) => o.screen === screen);
+
+  /* ---------------------------------------------------------------- *
+   * D11 — the crosstab becomes one representation
+   * ---------------------------------------------------------------- */
+
+  /**
+   * What the grid keeps, what it loses, and where each control went.
+   *
+   * D11's words are that it *"keeps its cell grammar, its four absence states
+   * and its keyboard contract, and loses its private filter bar"*. The
+   * verdict also says the changed screen goes onto the second practitioner
+   * walk rather than being treated as settled, and the screen says so — it is
+   * one of only four a practitioner has ever read.
+   */
+  const demotion = {
+    decision: 'D11',
+    verdict: 'Demote #crosstab to one representation, and put the changed screen on the practitioner walk.',
+    keeps: [
+      { what: 'The cell grammar', why: 'Two marks per value in the same order, the laboratory’s own censoring notation, a superseded value struck through beside its replacement, a quarantined one in brackets on a hatched ground.' },
+      { what: 'The four absence states', why: 'Dry, not analysed, composited and not evaluated stay four different things, each with its glyph, its word and the sentence a screen reader gets.' },
+      { what: 'The keyboard contract', why: 'The whole grid worked without a mouse and a population it does not choose does not change one key of that.' },
+      { what: 'The population readout', why: 'It was a count on the filter bar. It is now the readout at the head of the screen, and it counts the exclusions by kind rather than naming two of them.' },
+    ],
+    loses: [
+      { control: 'Locations', to: 'explorer', dimension: 'Monitoring location · Area or spatial grouping' },
+      { control: 'Analyte suite', to: 'explorer', dimension: 'Analyte group or suite' },
+      { control: 'Period', to: 'explorer', dimension: 'Arbitrary date range' },
+      { control: 'Matrix', to: 'explorer', dimension: 'Matrix' },
+      { control: 'Criteria sets', to: 'explorer', dimension: 'Applicable guideline or criterion' },
+      { control: 'Show', to: 'explorer', dimension: 'Detection status · Exceedance or non-exceedance' },
+    ],
+    walk:
+      'It is one of the four screens a practitioner has actually read, and the redesign has not been seen. D13 schedules the second walk before wave 24; this change goes onto it rather than being counted as settled by the decision that authorised it.',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * The recorded boundary this does not overturn
+   * ---------------------------------------------------------------- */
+  const boundary = {
+    /* Quoted as it stood before this wave, which is the point: the boundary is
+     * honoured and only its destination moved, and a quotation that silently
+     * updated itself would hide that the sentence had ever said anything else. */
+    quoted: 'Search covers identifiers and names, not result values — a number is found through the crosstab’s filters, where the criteria set and period that make it meaningful are also chosen.',
+    was: 'the crosstab’s filters',
+    now: 'the explorer',
+    at: 'search',
+    says:
+      'The explorer is the second of those two things and not the first. It reaches values through a definition that carries a criteria set and a period, so a number arrives with the two facts that make it mean anything. It does not become a free-text box, and the sentence above stands — what changes is only where the filters live.',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * Every value this wave moved, with what it was
+   * ---------------------------------------------------------------- */
+  const was = {
+    /** The grid's own filter bar, before D11 was executed. */
+    gridControls: 6,
+    gridReadout: 'a count on the filter bar, naming two absences of the four',
+    gridChose: 'its own population, with a bar of six controls',
+    /** What §4.2's list had ever been measured against. */
+    dimensionsMeasured: 'a sentence on one coverage row',
+    /** What the scenario had been. */
+    scenarioWalked: 'stated as unrunnable, with six of eight terms said to have no facet',
+    /** What each representation said about its population. */
+    namedPopulation: 'none of the five',
+    namedEvidence:
+      'Measured at wave 19’s audit: the word appears 0 times on the statistics and hydrograph screens, and its 2 appearances on the background screen are the statistical reference population, which is a different sense.',
+  };
+
+  const moved = () => [
+    { what: 'The results grid’s filter bar', was: `${was.gridControls} controls, choosing the grid’s own population`, now: `0 — ${demotion.loses.length} controls moved to the explorer`, at: 'crosstab',
+      why: 'D11. A screen that chooses its own population cannot be one representation of somebody else’s, and §4.4’s whole demand is moving between six without rebuilding the question.' },
+    { what: 'The grid’s population readout', was: was.gridReadout, now: `a readout at the head of the screen counting ${V.absences.length} kinds`, at: 'crosstab',
+      why: 'The bar’s count named the dry cells and the unrun suite and stopped. Composited and not-evaluated were absent from it, and those are the two a reader is most likely to mistake for a pass.' },
+    { what: '§4.2’s dimensions, measured', was: was.dimensionsMeasured, now: `${dimensions.length} rows, ${held('a record').length} held as a record, ${held('derived').length} derived, ${held('nothing').length} not held at all`, at: 'explorer',
+      why: 'A sentence saying *roughly a third* is not an enumeration. The list is closed against the brief by the build now, in both directions, so a dimension the brief adds cannot go unmeasured.' },
+    { what: 'The brief’s worked scenario', was: was.scenarioWalked, now: `walked — ${scenario.terms.filter((t) => t.verdict === 'expressible').length} terms expressible, ${scenario.terms.filter((t) => t.verdict === 'an equivalent').length} by an equivalent, ${scenario.terms.filter((t) => t.verdict === 'not expressible').length} not expressible`, at: 'explorer',
+      why: 'The earlier reading counted the terms that had no facet. This counts what the record can express, which is a different and harder question — and it finds one term that empties the population rather than narrowing it.' },
+    { what: 'Representations naming their population', was: was.namedPopulation, now: `${own.length} of the ${representations().length}`, at: 'explorer',
+      why: 'Wave 19 measured that none did. Each now states what it ran over — and states that it is its own, because naming a population and sharing one are different claims and only the first is true today.' },
+    { what: 'Where the search boundary sends a reader looking for a number', was: boundary.was, now: boundary.now, at: 'search',
+      why: 'The boundary itself is unchanged and is honoured rather than overturned — search covers identifiers and names and not result values. Only its destination moved, because D11 took the filter bar off the grid, and a sentence that went on pointing at controls that are no longer there would be the quietest kind of stale.' },
+  ];
+
+  return {
+    dimensions, GROUPS, offered, onGrid, held,
+    scenario, steps, main, branch, branchNote, final, nomination,
+    own, ownOf, demotion, boundary, was,
+    get representations() { return representations(); },
+    get moved() { return moved(); },
+    /** The starting population, for the screen's own opening statement. */
+    get start() { return readout(ALL_CELLS); },
+    readout,
+    /** The counts the faces render, so none of them is typed. */
+    get counts() {
+      return {
+        dimensions: dimensions.length,
+        groups: GROUPS.length,
+        record: held('a record').length,
+        derived: held('derived').length,
+        nothing: held('nothing').length,
+        offered: offered.length,
+        onGrid: onGrid.length,
+        steps: steps.length,
+        expressible: scenario.terms.filter((t) => t.verdict === 'expressible').length,
+        equivalent: scenario.terms.filter((t) => t.verdict === 'an equivalent').length,
+        notExpressible: scenario.terms.filter((t) => t.verdict === 'not expressible').length,
+        terms: scenario.terms.length,
+        drawable: representations().filter((r) => r.drawable).length,
+        withoutScreen: representations().filter((r) => !r.screen).length,
+        screens: [...new Set(representations().map((r) => r.screen).filter(Boolean))].length,
+      };
+    },
+    /** The live/frozen question, answered by pointing rather than repeating. */
+    version: {
+      has: false,
+      says:
+        'The population this walk ends on is a **working population**: it started from everything and belongs to no dataset, so there is no version for a figure to cite. That is the state wave 19 drew the seam for — a dataset being refined is live, a dataset a figure cites is frozen at a version, and the transition is an act with a record rather than a save button.',
+      act: V.seam.act,
+    },
+    drawnOn: '2026-09-03',
+  };
+})();
+
 export const VENDOR_BRIEF = (() => {
   /** §3's own ranking, section by section. `build.mjs` checks it against §3. */
   const PRIORITY = {
@@ -12607,16 +13246,16 @@ export const VENDOR_BRIEF = (() => {
   const requirement = [
     { id: '4.2', title: 'Query dimensions', items: 43, verdict: 'partially', decision: 'D1',
       asks: 'The vendor shall show users constructing queries through combinations of the following dimensions.',
-      screens: ['crosstab', 'locations', 'exceedances', 'search'],
-      note: 'A facet exists on some screen for roughly a third of the {items} — the results grid alone carries six — and no facet composes with one on another screen. Nothing constructs a query; the nearest thing is a filter bar whose selections do not survive leaving the screen.' },
+      screens: ['explorer', 'crosstab', 'locations', 'exceedances', 'search'],
+      note: `Wave 20 measured all {items} against this record, one row each, and the list is closed against §4.2 by the build in both directions and in order. ${EXPLORER.counts.record} are held by a record that is named; ${EXPLORER.counts.derived} resolve only through a derivation, so they cannot be combined with another dimension in one selection; and ${EXPLORER.counts.nothing} — *included or rejected*, and *season* — no record holds at all. The explorer offers a control for the ${EXPLORER.counts.offered} it can and for none it cannot, because a control over nothing is a promise. It stays partial for two reasons the screen states rather than hides: this page is static, so combinations are drawn states and not a working builder, and a suite is a size here and never a membership, so the analyte dimension cannot expand for a dataset that names one. This note read *“a facet exists on some screen for roughly a third of the {items} — the results grid alone carries six”* until 3 September 2026; the six controls in fact reached ${EXPLORER.counts.onGrid} dimensions, because the location options are areas and *Show* selects on detection status and on exceedance.` },
     { id: '4.3', title: 'Query interaction', verdict: 'partially', decision: 'D1',
       asks: 'The mockup must demonstrate progressive query construction and show how the resulting population changes as filters are applied.',
-      screens: ['saved-views', 'crosstab'],
-      note: `The first clause is still missing and the second landed on 3 September 2026. Nothing constructs a query progressively, and the worked scenario cannot be expressed at all: six of its eight terms have no facet anywhere, and neither manganese nor a Unit C exists in this seed. What wave 19 answered is the sentence about understanding *exactly why each record is included or excluded* — every dataset now resolves its population against the grid and counts what it leaves out per kind, keeping the four absences apart. Until that wave the readout was one static line on the grid: ${CROSSTAB_SHAPE.results} results, ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing, ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run.` },
+      screens: ['explorer', 'saved-views', 'crosstab'],
+      note: `All three clauses are now drawn and the row stays partial on the fourth. Progressive construction is ${EXPLORER.counts.steps} **drawn states**, each with its own readout of locations, samples and results and its own count of what left and why per kind — this catalogue is static HTML, so a sequence is what §17 asks a mockup for and the screen says that in its first sentence rather than implying a live filter. The required scenario is walked as far as the record allows: of its ${EXPLORER.counts.terms} terms ${EXPLORER.counts.expressible} are expressible as written, ${EXPLORER.counts.equivalent} are walked through the site's own equivalent and named as substitutions, and ${EXPLORER.counts.notExpressible} — *rejected data excluded* — is not expressible at all, because no record here holds *rejected*. **It cannot be run, and that is the finding**: there is no manganese in the dictionary and no Unit C in this project's hydrostratigraphy, and seeding either to make an example runnable is the trade this catalogue has refused six times. One term is expressible and empties the population — nothing in ${ROUND.code} has been validated — which the screen draws as an empty state that says why rather than as an empty grid. This note said *"six of its eight terms have no facet anywhere"* until 3 September 2026; measured term by term, ${EXPLORER.counts.expressible + EXPLORER.counts.equivalent} of the ${EXPLORER.counts.terms} can be walked.` },
     { id: '4.4', title: 'Result representations', items: 6, verdict: 'partially', decision: 'D1',
       asks: 'Without rebuilding the query, users must be able to move between:',
-      screens: ['crosstab', 'hydrograph', 'statistics', 'map', 'exceedances'],
-      note: 'Five of the {items} exist as screens; the sixth, summary statistics, is a link pointing at a screen that holds trend tests and no summary statistics. None of the five shares a population with another, so moving between them is rebuilding the question — which is the half the requirement is about.' },
+      screens: ['explorer', 'crosstab', 'hydrograph', 'statistics', 'map', 'exceedances'],
+      note: `Five of the {items} exist as screens and they land on ${EXPLORER.counts.screens}, because a flat result table and a crosstab are two representations of one grid here; the sixth, summary statistics, has no surface at all — the statistics screen holds trend tests and no summary statistics. Wave 20 drew all {items} over one population on the explorer, with ${EXPLORER.counts.drawable} drawable over it and the time series honestly not, because a population that is one round has nothing to plot. And the ${EXPLORER.own.length} that have a screen now **state the population each ran over**, which none of them did before — wave 19 measured the word at zero occurrences on two of them. The row stays partial on the clause it turns on: **naming a population is not sharing one**. Each of the ${EXPLORER.own.length} lines is that screen's own selection and no two inherit, so moving between them is still rebuilding the question.` },
     { id: '4.5', title: 'Saved queries and governed datasets', items: 7, verdict: 'partially', decision: 'D1',
       asks: 'A saved query or dataset used by an analysis, figure, interpretation or report must retain lineage to the exact query definition and relevant version.',
       screens: ['saved-views', 'crosstab', 'report-figures'],
@@ -12852,9 +13491,9 @@ export const VENDOR_BRIEF = (() => {
     { id: 'S2', verdict: 'covered', screens: ['crosstab', 'locations', 'exceedances', 'imports'],
       asks: 'Populated working state',
       note: 'Grid-dense, on the product’s own tokens — the state every register here is drawn in first.' },
-    { id: 'S3', verdict: 'partially', screens: ['crosstab', 'locations', 'qc'],
+    { id: 'S3', verdict: 'partially', screens: ['explorer', 'locations', 'crosstab', 'qc'],
       asks: 'Filtered or selected state',
-      note: 'Drawn as states rather than performed: a filter bar with its chips and the view it started from, and a selection bar whose every action names its scope. The catalogue is static by construction, so what §4.3 asks to be demonstrated is a sequence of drawn states, and this row says so rather than implying an interaction.' },
+      note: `Drawn as states rather than performed, and since wave 20 as a **sequence** of them: ${EXPLORER.counts.steps} drawn states, each with its own population readout and its own count of what left and why. The filter bar with its chips and the dataset it started from is on the explorer now — D11 took it off the results grid, which states the population it was handed instead — and the selection bar, whose every action names its scope, is where it was. The catalogue is static by construction, so what §4.3 asks to be demonstrated is a sequence of drawn states, and the screen says that in its own first sentence rather than letting a reader infer an interaction.` },
     { id: 'S4', verdict: 'covered', screens: ['data-states', 'imports', 'documents'],
       asks: 'Loading or processing state where user understanding depends on it',
       note: 'Determinate, with bytes and a time. An indeterminate spinner cannot be told from a dead connection on a site link, which is the condition this product is used in.' },

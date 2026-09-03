@@ -78,6 +78,10 @@ import {
   // as one record read by `#saved-views`, `#crosstab` and `#report-figures`.
   // `VENDOR_BRIEF` is the seventh enumeration on `#coverage`.
   ANALYTE_SUITES, SAVED_VIEWS, VENDOR_BRIEF,
+  // Wave 20 — §4.2's dimensions measured against this record, the brief's
+  // scenario walked as far as it goes, and the drawn sequence whose every
+  // readout counts through `SAVED_VIEWS.accounting`.
+  EXPLORER,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, OUTCOME_LABEL, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -2376,11 +2380,38 @@ const beforeQualifiersPanel = () => {
  * J3 — Know what's wrong
  * ================================================================== */
 
+/**
+ * The population a representation ran over, stated on the representation —
+ * wave 20.
+ *
+ * §4.4 requires the active population to be visible or readily inspectable in
+ * every representation, and wave 19 measured that none of them said anything
+ * at all: the word appears zero times on the statistics and hydrograph
+ * screens, and its two appearances on the background screen are the
+ * statistical *reference* population, which is a different sense.
+ *
+ * **Naming a population is not sharing one, and the line says which this is.**
+ * Every one of these is the screen's own selection, computed from the same
+ * arrays as every other count in this catalogue, and no two of them inherit.
+ * That is a catalogue a reader can check rather than a query that composes,
+ * and the difference is the half of §4.4 that is still open.
+ */
+const populationLine = (screen) => {
+  const o = EXPLORER.ownOf(screen);
+  return (
+    `<p class="mk-tight mk-muted"><strong>Population — ${esc(o.what)}.</strong> ` +
+    `${esc(o.line)}. ${md(o.says)} ` +
+    `<a class="mk-ref" href="#explorer">Where a population is constructed</a>, and where the ` +
+    `${esc(String(EXPLORER.representations.length))} representations §4.4 lists are drawn over one.</p>`
+  );
+};
+
 const exceedances = () =>
   head('Exceedances — 2026 Q2', 'Where a result sits outside a criterion, and which criteria set says so.', {
     route: '/projects/:projectId/exceedances',
     toolbar: C.exportMenu() + btn('Acknowledge selected', 'primary'),
   }) +
+  populationLine('exceedances') +
   stats([
     stat(String(EXCEEDANCES.length), 'exceedances', 'bad'),
     stat(String(new Set(EXCEEDANCES.map((e) => e.location)).size), 'locations affected', 'bad'),
@@ -2519,33 +2550,45 @@ const windowConditionPanel = () => {
 /**
  * The matrices this project holds samples of, counted off the manifests.
  *
- * Declared beside the crosstab because the matrix filter is the control that
- * has to be honest about them, and used by nothing else — the grid itself is
- * one matrix, which is the fact the filter could not previously state.
+ * Declared beside the crosstab because the matrix filter was the control that
+ * had to be honest about them, and the grid itself is one matrix — which is
+ * the fact the filter could not previously state. Wave 20 moves that control
+ * to `#explorer` under D11 and leaves this derivation exactly where it was:
+ * the record is about the manifests, not about which screen reads it.
  */
 const MATRICES = (() => {
   const all = [...EVENT_SAMPLES, ...SOIL.samples];
   return [...new Set(all.map((s) => s.matrix))].map((mx) => ({ m: mx, n: all.filter((s) => s.matrix === mx).length }));
 })();
 
-const crosstab = () => {
-  /*
-   * The location filter's options, counted rather than typed. "All 9
-   * locations" was a typed label that had been stale since the register grew
-   * past nine rows, sitting on a grid that draws seven groundwater bores —
-   * and the three options beneath it were already counts of the same set, so
-   * the one number nobody derived was the one that went wrong. The scope is
-   * groundwater because that is what this matrix is: the matrix filter says
-   * Groundwater and the grid's own columns are the same seven bores.
-   */
+/**
+ * The location filter's options, counted rather than typed.
+ *
+ * "All 9 locations" was a typed label that had been stale since the register
+ * grew past nine rows, sitting on a grid that draws seven groundwater bores —
+ * and the three options beneath it were already counts of the same set, so the
+ * one number nobody derived was the one that went wrong. The scope is
+ * groundwater because that is what this matrix is.
+ *
+ * **Wave 20 moved it out of `crosstab()` and changed nothing about it.** D11
+ * takes the filter bar off the grid and puts these options on `#explorer`,
+ * and the seed's own comment on the record it feeds says why they must not be
+ * counted twice: *"that option is counted off the location register there, and
+ * counting it a second time here is the defect this whole record is about."*
+ * One derivation, two readers.
+ */
+const LOCATION_OPTIONS = (() => {
   const wells = LOCATIONS.filter((l) => l.klass === 'groundwater');
   const inArea = (area) => wells.filter((l) => l.area === area).length;
-  const locationOptions = [
+  return [
     `All ${wells.length} locations`,
     `Compliance boundary (${inArea('Compliance boundary')})`,
     `Downgradient of TSF (${inArea('TSF')})`,
     `Background (${wells.filter((l) => l.position === 'Background').length})`,
   ];
+})();
+
+const crosstab = () => {
   /*
    * A column whose every cell is empty says so in its own head as well as in
    * its cells. The reason travels with the identifier, so a reader panning the
@@ -2576,55 +2619,35 @@ const crosstab = () => {
       kind: 'matrix',
       label: 'Exceedance register',
     }) +
-    C.filterBar({
-      onView: SAVED_VIEWS.onCrosstab.view.name,
-      saved: false,
-      controls: [
-        C.field({ label: 'Locations', control: C.select({ options: locationOptions, value: locationOptions[0] }) }),
-        /*
-         * Wave 18 — the suite counts, counted once.
-         *
-         * These four options carried `(8)`, `(4)`, `(14)` and `(5)` as typed
-         * characters, and one of them — `Dissolved metals (8)` — was the same
-         * number a saved view typed independently in the seed. Two records
-         * agreeing is what made this one evidence when the drawn saved-views
-         * screen said six; a third surface typing it again is how that stops
-         * being true. They read `ANALYTE_SUITES` now, in the `MATRICES` shape
-         * below: the label and its size, composed rather than written out.
-         */
-        C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', ...ANALYTE_SUITES.filter((x) => x.code !== 'licence-t4').map((x) => `${x.label} (${x.n})`)], value: 'Everything in the round' }) }),
-        C.field({ label: 'Period', control: C.dateRange({ from: '2026-04-01', to: '2026-06-30' }) }),
-        /*
-         * Wave 9 — the matrix filter, honestly backed.
-         *
-         * It offered "Groundwater · Surface water · All matrices": one option
-         * naming a **location class** rather than a matrix, one naming a
-         * class this seed had no samples of, and a third implying more than
-         * one existed. The options are counted off the manifests now, in the
-         * glossary's own words, and the grid below is the Water set — which
-         * is what it always was and could not previously say.
-         */
-        C.field({ label: 'Matrix', control: C.select({ options: [...MATRICES.map((x) => `${x.m} (${x.n})`), `All matrices (${MATRICES.reduce((n, x) => n + x.n, 0)})`], value: `${MATRICES[0].m} (${MATRICES[0].n})` }) }),
-        C.field({ label: 'Criteria sets', control: C.select({ options: ['Both sets', 'ANZG 2018 95% only', 'Licence Table 4 only'], value: 'Both sets' }) }),
-        C.field({ label: 'Show', control: C.select({ options: ['Every result', 'Exceedances only', 'Indeterminate only', 'Censored only'], value: 'Every result' }) }),
-      ],
-      /*
-       * Wave 18 — the edits are computed against the view the bar names.
-       *
-       * The bar said `edited` and then named one edit, `added zinc`, while
-       * four of its own selections differed from the view it says it is on.
-       * A chip that states one difference on a bar showing four is the same
-       * defect as a count typed beside a record: it reads as measured and it
-       * is not. Each differing dimension gets its own chip now, compared with
-       * the record — and the locations option is passed in rather than
-       * restated, because it is counted off the register a few lines above.
-       */
-      chips: [
-        C.chip(MATRICES[0].m, { prefix: 'matrix' }),
-        ...SAVED_VIEWS.onCrosstab.differing(locationOptions[0]).map((d) => C.chip(`${d.dimension}: ${d.grid}`, { prefix: 'edited', tone: 'new' })),
-      ],
-      count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results (was ${PFAS_REACH.was.results}) · ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing · ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run`,
-    }) +
+    /* ================================================================ *
+     * Wave 20 — D11 executed. The grid loses its private filter bar.
+     *
+     * **A screen that chooses its own population cannot be one representation
+     * of somebody else's**, and §4.4's whole demand is moving between six
+     * without rebuilding the question. So the six controls that stood here —
+     * Locations, Analyte suite, Period, Matrix, Criteria sets, Show — are on
+     * `#explorer` now, and this grid states the population it was handed.
+     *
+     * What it keeps is what D11 says it keeps: the cell grammar, the four
+     * absence states, and the keyboard contract. What it gains is a readout
+     * that counts the exclusions **by kind**. The bar's count named two of
+     * the four absences and stopped, and the two it left out — composited,
+     * and results that carry no verdict at all — are the two a reader is most
+     * likely to read as a pass.
+     *
+     * The edits still sitting on this grid are unchanged in substance and
+     * change owner: they are the working population's, and the two acts that
+     * would keep them are the ones the dataset register already draws.
+     * ================================================================ */
+    ((O) => notice('default', 'This grid no longer chooses its own population.',
+      `<strong>Population — ${esc(O.what)}.</strong> ${esc(O.line)}. ` +
+      `It is handed to this screen rather than selected on it: the ${esc(String(EXPLORER.demotion.loses.length))} controls that used to stand here — ` +
+      `${EXPLORER.demotion.loses.map((l) => `<em>${esc(l.control)}</em>`).join(', ')} — are <a class="mk-ref" href="#explorer">on the explorer</a>, ` +
+      `where a population is built one dimension at a time and this grid is one of ${esc(String(EXPLORER.representations.length))} ways to read it (D11, 3 September 2026). ` +
+      '<strong>The grid keeps everything that makes it readable</strong>: two marks per value in the same order, the four absence states each with its glyph and its word, and the whole keyboard contract below. ' +
+      `And the readout counts what is <em>not</em> here by kind, which the old filter-bar count did not: it named the ${esc(String([...new Set(CROSSTAB.flatMap((r) => r.cells).filter((cx) => cx.empty).map((cx) => cx.word))].length))} absences that appear on this grid as empty cells and stopped, leaving out the composited increments on the grid below and the results that carry no verdict at all — which are the two a reader mistakes for a pass. ` +
+      `<a class="mk-ref" href="#data-states">The pattern is set out here</a>.`))(EXPLORER.ownOf('crosstab')) +
+    `<p class="mk-tight mk-muted"><strong>${esc(String(SAVED_VIEWS.onCrosstab.differing(LOCATION_OPTIONS[0]).length))} dimensions of this population differ from <a class="mk-ref" href="#saved-views">${esc(SAVED_VIEWS.onCrosstab.view.name)}</a>, the dataset it was built from</strong> — ${SAVED_VIEWS.onCrosstab.differing(LOCATION_OPTIONS[0]).map((d) => `${esc(d.dimension.toLowerCase())} (${esc(d.grid)} against ${esc(d.view)})`).join(', ')}. ${esc(SAVED_VIEWS.onCrosstab.note)} The two ways to keep them are on the register, with the whole radius of each stated before the act.</p>` +
     `<p class="sf-lede mk-tight">${esc(ROUND.code)} · collected ${esc(ROUND.collected)} · ${esc(ROUND.laboratory)} certificate ${esc(ROUND.certificate)} · validation state <strong>${esc(ROUND.validationState)}</strong> · all times ${esc(PROJECT.timezone)}</p>` +
     `<section aria-label="Criteria applied">${criteriaLegend(CRITERIA)}${outcomeLegend()}</section>` +
     C.selectionBar({
@@ -2846,7 +2869,7 @@ const crosstab = () => {
                 : '<span class="mk-num mk-num--nil">—</span>',
             ]),
           }) +
-          `<p class="mk-tight mk-muted">One dataset’s period reads <strong>two readings</strong>: this record says <em>${esc(SAVED_VIEWS.period.readings[0].says)}</em> and <a class="mk-ref" href="#saved-views">the saved-views screen</a> said <em>${esc(SAVED_VIEWS.period.readings[1].says)}</em>, and nothing else in the catalogue holds a third. It is drawn as a disagreement rather than settled, and the period on this bar is an edit, so this grid is not a third reading.</p>` +
+          `<p class="mk-tight mk-muted">One dataset’s period reads <strong>two readings</strong>: this record says <em>${esc(SAVED_VIEWS.period.readings[0].says)}</em> and <a class="mk-ref" href="#saved-views">the saved-views screen</a> said <em>${esc(SAVED_VIEWS.period.readings[1].says)}</em>, and nothing else in the catalogue holds a third. It is drawn as a disagreement rather than settled, and the period this grid inherits is an edit rather than a dataset’s own window, so this grid is not a third reading.</p>` +
           /*
            * Wave 19 — what each of these datasets excludes, counted off the
            * same cells this grid draws. The numbers are the population
@@ -3066,6 +3089,10 @@ const hydrographWorkspace = () =>
     route: '/projects/:projectId/hydrograph',
     toolbar: btn('Export SVG') + btn('Save configuration') + btn('Add to report', 'primary'),
   }) +
+  populationLine('hydrograph') +
+  /* The record holds six series; the plate draws three of them, and which is a
+   * fact about the figure rather than about the population it was taken from. */
+  `<p class="mk-tight mk-muted">Figure 4.1 draws <strong>${esc(String(F.HYDROGRAPH_BORES.length))}</strong> of those series — ${esc(F.HYDROGRAPH_BORES.join(', '))} — which is a choice made on this screen and not a property of the record behind it.</p>` +
   cols(
     figure('4.1', `Groundwater elevation, ${esc(F.HYDROGRAPH_BORES.join(' · '))}`, F.hydrograph(),
       'Rainfall in its own panel, never on a second axis inside the plot. Each trace ends on the round’s own manual dip, and the ruled epoch is a resurvey moving a datum rather than a change in the water.'),
@@ -3269,6 +3296,7 @@ const statistics = () =>
     route: '/projects/:projectId/statistics',
     toolbar: btn('Export SVG') + btn('Add to report', 'primary'),
   }) +
+  populationLine('statistics') +
   cols(
     figure('4.6', 'Arsenic trend at MW05', F.trendPlot(),
       'Sen’s slope drawn only across the period it was computed from, and clipped to the plot.'),
@@ -3315,6 +3343,7 @@ const mapScreen = () =>
     route: '/projects/:projectId/map',
     toolbar: btn('Print layout') + btn('Export GeoJSON') + btn('Export shapefile'),
   }) +
+  populationLine('map') +
   figure('4.9', 'Monitoring network — 2026 Q2 exceedance state', F.siteMap(),
     'The same four state marks as the crosstab. A map and a table that disagree about a bore is the failure this encoding exists to prevent.') +
   cols(
@@ -3351,6 +3380,346 @@ const mapScreen = () =>
     }) + '<p class="mk-tight mk-muted">GDA2020 is not WGS84. They agree only at epoch 2020.0 and separate by about 7 cm a year, so a WGS84 export carries its epoch and a conversion without one is refused rather than assumed.</p>'),
     '1fr 1fr',
   );
+
+/**
+ * Emphasis inside a seed string, rendered rather than printed — wave 20.
+ *
+ * Several of the explorer's measured notes lean on one emphasised word, and
+ * the seed is data: it cannot carry markup, because the same strings are read
+ * by the build's guards and would then have to be stripped again. So the
+ * emphasis is written the way prose writes it and converted here, **after**
+ * escaping — the order matters, and since escaping never emits an asterisk,
+ * nothing a seed string contains can reach the page as markup.
+ */
+const md = (text) =>
+  esc(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+/**
+ * The data explorer — wave 20, and the one thing it must never imply.
+ *
+ * **This catalogue is static HTML.** Nothing on this page filters, and §4.3
+ * asks to see *"how the resulting population changes as filters are
+ * applied"*. That is delivered as a **sequence of drawn states**, each with
+ * its own population readout, which is what §17 asks a mockup for — and the
+ * screen says so in its first sentence, beside the sequence, and again on the
+ * one control bar it draws. A drawn sequence passing itself off as a working
+ * one is the single claim this catalogue has never made.
+ *
+ * Everything numeric here is counted through `SAVED_VIEWS.accounting`, which
+ * is the expression the dataset register and the results grid already count
+ * with, so the three surfaces cannot report different exclusions for the same
+ * cells. The four absences stay four: *dry*, *not analysed*, *composited* and
+ * *not evaluated* are different absences and none of them is a pass.
+ */
+const explorer = () => {
+  const E = EXPLORER;
+  const c = E.counts;
+  const V = SAVED_VIEWS;
+  const finalState = E.final.state;
+  const holdsTone = { 'a record': 'good', derived: 'warn', nothing: 'bad' };
+  const verdictTone = { expressible: 'good', 'an equivalent': 'warn', 'not expressible': 'bad' };
+
+  /** The absences in scope at a step, as the glyph and word the grid draws. */
+  const kindsCell = (state) =>
+    state.byKind.length
+      ? state.byKind
+        .map((k) => `<span class="mk-num mk-num--warn">${esc(String(k.list.length))}</span> <span aria-hidden="true">${esc(k.glyph)}</span> ${esc(k.word)}`)
+        .join('<br>')
+      : '<span class="mk-num mk-num--nil">0</span> <span class="mk-muted">none in scope</span>';
+
+  /**
+   * The fourth absence, which is the one that is **inside** the population.
+   *
+   * Three kinds are cells with no result in them at all. The fourth is a
+   * result that exists and about which nothing was asserted, because no
+   * criterion was selectable for it — so it is not excluded, it is in, and it
+   * carries a dashed mark and no verdict. A readout that counted only the
+   * three would let *not evaluated* read as *compliant*, which is the single
+   * substitution this catalogue exists to refuse.
+   */
+  const verdictCell = (state) =>
+    state.results
+      ? `<span class="mk-num${state.nothingAsserted.length ? ' mk-num--warn' : ' mk-num--nil'}">${esc(String(state.nothingAsserted.length))}</span> none at all` +
+        `<br><span class="mk-num${state.partlyAsserted.length ? ' mk-num--warn' : ' mk-num--nil'}">${esc(String(state.partlyAsserted.length))}</span> one of ${esc(String(CRITERIA.length))}`
+      : '<span class="mk-num mk-num--nil">—</span> <span class="mk-muted">no results in scope</span>';
+
+  const leftCell = (step) => {
+    if (!step.leftCount) return '<span class="mk-num mk-num--nil">0</span> <span class="mk-muted">nothing left</span>';
+    const l = step.left;
+    return (
+      `<span class="mk-num">${esc(String(l.total))}</span> cells — ` +
+      `<span class="mk-num">${esc(String(l.results))}</span> results` +
+      (l.byKind.length ? ` and ${l.byKind.map((k) => `<span class="mk-num mk-num--warn">${esc(String(k.list.length))}</span> ${esc(k.word)}`).join(', ')}` : '')
+    );
+  };
+
+  return (
+    head('Data explorer', 'A population built one dimension at a time — what it selects, what it leaves out, and why each record is in or out.', {
+      route: 'a proposal — not in the product',
+      toolbar: C.exportMenu() + btn('Save as a dataset', 'primary'),
+    }) +
+
+    /* The claim this page is most at risk of making by accident, refused first. */
+    notice('warning', 'Nothing on this page filters. It is a sequence of drawn states.',
+      `This catalogue is static HTML and it has no query engine behind it. §4.3 asks to see how a population changes as filters are applied, and what is drawn below is <strong>${esc(String(c.steps))} states</strong>, each one a picture of the population after one more dimension was applied, each carrying its own readout. ` +
+      'Changing a control on this page does nothing at all. Every number below is counted off the same cell arrays <a class="mk-ref" href="#crosstab">the results grid</a> draws and <a class="mk-ref" href="#saved-views">the dataset register</a> counts, so no two of the three can disagree about the same cells — but a drawn sequence is a drawing, and a mockup that let a reader believe otherwise would have made the one claim this catalogue has never made.') +
+
+    notice('default', 'Proposed. No FR covers ad-hoc query construction.',
+      '<strong>Decision D1 (3 September 2026) accepted the capability and the PRD amendment that carries it</strong>, and <strong>D11 settles that <a class="mk-ref" href="#crosstab">the results grid</a> becomes one representation of a population</strong> rather than a screen with a filter bar of its own. The screen stays a proposal until the amendment lands and something routes to it.') +
+
+    `<p class="mk-tight mk-muted"><strong>On the words.</strong> <code>docs/GLOSSARY.md</code> carries neither <em>explorer</em> nor <em>query</em> as a term, exactly as it carries neither <em>saved view</em> nor <em>dataset</em>. They are the requirement’s own words — §3 ranks the capability as <em>Environmental Data Explorer and Query Builder</em> — and the glossary entries are part of the amendment D1 accepted and that has not landed. <strong><em>Population</em> is different:</strong> it is not a headword either, but the glossary already uses it in the sense meant here, under <em>Data quality limit</em> — “one number a site replaced, <em>with the population it applies to</em>”. Said rather than assumed.</p>` +
+
+    stats([
+      stat(String(c.dimensions), `dimensions §4.2 asks for, in ${c.groups} groups`),
+      stat(String(c.record), 'held by a record here', 'good'),
+      stat(String(c.derived), 'derived rather than held', 'warn'),
+      stat(String(c.nothing), 'no record holds at all', 'bad'),
+      stat(String(c.steps), 'drawn states in the sequence'),
+      stat(`${c.expressible + c.equivalent} / ${c.terms}`, 'scenario terms this record can walk', 'warn'),
+    ]) +
+
+    /* ================================================================ *
+     * §4.2 — the dimensions, enumerated and measured
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The dimensions, enumerated and measured</h2>' +
+    `<p class="mk-tight">§4.2 lists <strong>${esc(String(c.dimensions))}</strong> dimensions in ${esc(String(c.groups))} groups and asks that a user construct queries through combinations of them. Every one is a row below, in the brief’s own words and its own order, and <strong>the build fails if this list and the brief drift apart in either direction</strong> — the same closure <a class="mk-ref" href="#coverage">the seventh enumeration</a> already has, applied a second time to the list this screen is built on.</p>` +
+    `<p class="mk-tight"><strong>What the explorer offers follows from the measurement rather than being decided.</strong> A control is drawn for a dimension the record holds or can derive — ${esc(String(c.offered))} of the ${esc(String(c.dimensions))} — and for none that it cannot, because a control over nothing is a promise. The ${esc(String(c.nothing))} it does not offer are the ${esc(String(c.nothing))} the record cannot express.</p>` +
+    E.GROUPS.map((group) => {
+      const list = E.dimensions.filter((d) => d.group === group);
+      return (
+        `<h3 class="mk-h3">${esc(group)} — ${esc(String(list.length))}</h3>` +
+        table({
+          head: ['Dimension', 'The record', 'Resolved through', 'A control here', 'What that costs'],
+          kind: 'matrix',
+          scroll: true,
+          label: `§4.2 dimensions — ${group}`,
+          rows: list.map((d) => [
+            `<strong>${esc(d.name)}</strong>${d.wasOnGrid ? `<small>was a control on the grid — ${esc(d.wasOnGrid)}</small>` : ''}`,
+            tag(d.holds, holdsTone[d.holds]),
+            cell(md(d.through)),
+            d.holds === 'nothing' ? '<span aria-hidden="true">○</span> <span class="mk-muted">none — nothing to offer</span>' : '<span aria-hidden="true">✓</span> <span class="mk-muted">drawn on this screen</span>',
+            cell(md(d.note)),
+          ]),
+        })
+      );
+    }).join('') +
+    `<p class="mk-tight mk-muted"><strong>${esc(String(c.onGrid))} of the ${esc(String(c.dimensions))} had a control before this wave</strong>, and the grid’s bar carried ${esc(String(E.demotion.loses.length))} controls to reach them — two of the six serve more than one dimension, because two of the location control’s four options are areas and <em>Show</em> selects on detection status and on exceedance. Six controls, ${esc(String(c.onGrid))} dimensions — and the remaining ${esc(String(c.dimensions - c.onGrid))} had no control at all, ${esc(String(c.offered - c.onGrid))} of them held by a record or derivable from one and ${esc(String(c.nothing))} held by nothing.</p>` +
+
+    /* ================================================================ *
+     * The construction bar — drawn, and drawn as a drawing
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The population, constructed</h2>' +
+    `<p class="mk-tight">The bar below is drawn in the state <strong>step ${esc(String(E.final.n))} leaves it</strong> — the end of the walk. It is a picture of a bar, not a bar: this page has no query engine, and the sequence under it is how the population got here.</p>` +
+    C.filterBar({
+      onView: V.onCrosstab.view.name,
+      saved: false,
+      controls: [
+        C.field({ label: 'Matrix', control: C.select({ options: [...MATRICES.map((x) => `${x.m} (${x.n})`), `All matrices (${MATRICES.reduce((n, x) => n + x.n, 0)})`], value: `${MATRICES[0].m} (${MATRICES[0].n})` }) }),
+        C.field({ label: 'Locations', control: C.select({ options: LOCATION_OPTIONS, value: LOCATION_OPTIONS[0] }) }),
+        C.field({ label: 'Hydrostratigraphic unit', control: C.select({ options: ['Any unit', ...[...new Set(LOCATIONS.map((l) => l.unit))].filter((u) => u !== '—').map((u) => `${u} (${LOCATIONS.filter((l) => l.unit === u).length})`)], value: `${LOCATIONS.find((l) => l.code === 'MW05').unit} (${LOCATIONS.filter((l) => l.unit === LOCATIONS.find((x) => x.code === 'MW05').unit).length})` }) }),
+        C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', ...ANALYTE_SUITES.filter((x) => x.code !== 'licence-t4').map((x) => `${x.label} (${x.n})`)], value: `${ANALYTE_SUITES.find((x) => x.code === 'metals-dissolved').label} (${ANALYTE_SUITES.find((x) => x.code === 'metals-dissolved').n})` }) }),
+        C.field({ label: 'Analyte', control: C.select({ options: CROSSTAB.map((r) => r.analyte), value: CROSSTAB.find((r) => /^Arsenic/.test(r.analyte)).analyte }) }),
+        C.field({ label: 'Period', control: C.dateRange({ from: '2021-01-01', to: '2026-12-31' }) }),
+        C.field({ label: 'Validation state', control: C.select({ options: ['Any state', 'Imported', 'Screened', 'Validated', 'Approved', 'Published'], value: 'Any state' }) }),
+        C.field({ label: 'Criteria sets', control: C.select({ options: ['Both sets', ...CRITERIA.map((x) => `${x.short} only`)], value: `${CRITERIA[0].short} only` }) }),
+      ],
+      chips: E.steps.filter((s) => s.leftCount > 0 && !s.empties).map((s) => C.chip(`${s.dimension}: −${s.left.total} cells`, { prefix: `step ${s.n}`, tone: 'new' })),
+      count: `${finalState.locations.length} locations · ${finalState.samples.length} samples · ${finalState.results} results · ${finalState.kind('dry')} cell at a bore that returned nothing`,
+    }) +
+    `<p class="mk-tight"><strong>The validation control reads <em>Any state</em> and the brief’s scenario asks for <em>validated</em>.</strong> That is not a slip: step ${esc(String(E.branchNote.at))} of the sequence applies the validated term and the population goes to <strong>0</strong>, so the bar is drawn on the branch that relaxes it — the only state in which the brief’s last two terms can be measured at all. The chips name the ${esc(String(E.steps.filter((x) => x.leftCount > 0 && !x.empties).length))} steps that actually narrowed this population and none of them is that one.</p>` +
+    `<p class="mk-tight mk-muted">The count on the bar is the readout the brief asks for — <strong>locations, samples and results</strong> — and the sample number is where the two grids stop being interchangeable. A water column is a <em>location</em> and the sample analysed there is the round’s primary one, so a bore that returned nothing contributes a location and no sample. A soil column <em>is</em> a sample, because <a class="mk-ref" href="#composite">a composite belongs to four places at once</a> and a grid drawn by location has nowhere to put one. Adding the two would be the conflation the matrix control was fixed to stop making.</p>` +
+
+    /* ================================================================ *
+     * The sequence
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The sequence, one drawn state at a time</h2>' +
+    `<p class="mk-tight">The walk is the brief’s own scenario, in the brief’s own order, against this record. Each row is a state that was drawn, not a click that was made. <strong>Every number is counted off the cells that stayed and the cells that left</strong>, through the same accounting <a class="mk-ref" href="#saved-views">the dataset register</a> uses — so a step that narrows to “validated results only” cannot quietly drop the dry, unanalysed, composited and unevaluated cells the way a row-set filter would.</p>` +
+    table({
+      caption: 'One row per drawn state. Three of the four absences are cells with no result in them and are counted as such; the fourth is a result that exists and carries no verdict, so it is counted inside the population rather than out of it. None of the four is a pass.',
+      head: ['Step', 'The brief’s term', 'Dimension applied', 'Locations', 'Samples', 'Results', 'Cells with no result', 'Results with no verdict', 'What left'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'The drawn sequence and its population readout',
+      rows: E.steps.map((s) => [
+        `<span class="mk-num">${esc(String(s.n))}</span>${s.n > E.branchNote.from && s.n !== E.branchNote.at ? '<small>branch</small>' : ''}`,
+        cell(`<strong>${esc(s.term)}</strong>`),
+        cell(md(s.applied)),
+        `<span class="mk-num">${esc(String(s.state.locations.length))}</span>`,
+        `<span class="mk-num">${esc(String(s.state.samples.length))}</span>`,
+        s.empties
+          ? `<span class="mk-num mk-num--bad">${esc(String(s.state.results))}</span>`
+          : `<span class="mk-num">${esc(String(s.state.results))}</span>`,
+        cell(kindsCell(s.state)),
+        cell(verdictCell(s.state)),
+        cell(leftCell(s)),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>The branch, said out loud.</strong> ${esc(E.branchNote.says)}</p>` +
+    E.steps.map((s) => `<p class="mk-tight"><strong>${esc(String(s.n))}. ${md(s.applied)}</strong> — ${md(s.says)}</p>`).join('') +
+
+    /* §17's empty state, drawn as the state it actually is. */
+    cols(
+      panel(
+        `Step ${esc(String(E.branchNote.at))} — the population is empty, and the screen says why`,
+        C.stateBlock('empty', {
+          headline: `No result in ${ROUND.code} has been validated.`,
+          detail: `The round is at <strong>${esc(ROUND.validationState)}</strong>, which is one state short of <em>validated</em> in the glossary’s own order — imported, screened, validated, approved, published. So the filter is not wrong and the data is not missing: the review has not reached this round yet. The population above is what the same walk holds one state earlier.`,
+          action: 'Open the validation board',
+          secondary: 'Relax the validation term',
+        }) +
+          '<p class="mk-tight mk-muted">An explorer that drew an empty grid here would have answered the question and told the scientist nothing. The count is <strong>0</strong> and the reason is a state, not an absence — which is the same distinction the four absences make one column over.</p>',
+      ),
+      panel(
+        'What a nominated criteria set costs, across the whole grid',
+        `<p class="mk-tight">The last step narrows nothing, because every result left in the population is assessed against the set it nominates. Across the whole grid the choice is not free:</p>` +
+          table({
+            head: ['Criteria set', 'Results it assesses', 'Of'],
+            scroll: true,
+            label: 'What each criteria set assesses on the water grid',
+            rows: E.nomination.map((n) => [
+              `<strong>${esc(n.set)}</strong>`,
+              `<span class="mk-num">${esc(String(n.assessed))}</span>`,
+              `<span class="mk-num">${esc(String(n.of))}</span>`,
+            ]),
+          }) +
+          `<p class="mk-tight">The difference between them is <strong>${esc(String(Math.abs(E.nomination[0].assessed - E.nomination[1].assessed)))}</strong> results out of ${esc(String(E.nomination[0].of))}. Nominating a set is not a presentation choice — <a class="mk-ref" href="#criteria">applicability is by matrix, class and unit</a>, and the results a set does not reach are <em>not evaluated</em> rather than compliant.</p>`,
+      ),
+    ) +
+
+    /* ================================================================ *
+     * The scenario, walked
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The brief’s own scenario, term by term</h2>' +
+    `<p class="mk-tight">§4.3 states one required complex scenario: <em>${esc(E.scenario.asks)}</em>. Of its ${esc(String(c.terms))} terms, <strong>${esc(String(c.expressible))}</strong> are expressible as written, <strong>${esc(String(c.equivalent))}</strong> are walked through the site’s own equivalent and named as substitutions, and <strong>${esc(String(c.notExpressible))}</strong> is not expressible at all.</p>` +
+    table({
+      caption: 'One row per term. A verdict here is a measurement against the record, never a judgement about the brief.',
+      head: ['The brief’s term', 'Verdict', 'What this record offers', 'Why'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'The brief’s scenario, term by term',
+      rows: E.scenario.terms.map((t) => [
+        `<strong>${esc(t.term)}</strong>`,
+        tag(t.verdict, verdictTone[t.verdict]),
+        cell(md(t.via)),
+        cell(md(t.why)),
+      ]),
+    }) +
+    C.card({
+      tone: 'bad',
+      head: '<span class="mk-queue__kind">Refused</span>',
+      body: `<p class="mk-tight">${md(E.scenario.refused)}</p>`,
+    }) +
+
+    /* ================================================================ *
+     * §4.4 — six representations, one population
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Six representations, one population</h2>' +
+    `<p class="mk-tight">§4.4 requires moving between six representations <em>without rebuilding the query</em>, with the active population visible or readily inspectable in every one. Each row below states what it would draw over the population the walk ends on — <strong>${esc(String(finalState.results))} results at ${esc(String(finalState.locations.length))} locations</strong> — and whether it can be drawn at all.</p>` +
+    table({
+      caption: 'The six the brief lists, in its own words and order, closed against §4.4 by the build. “Not drawable” is a measurement about this population, not about the representation.',
+      head: ['Representation', 'Screen', 'Over this population', 'What it draws'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'The six representations over one population',
+      rows: E.representations.map((r) => [
+        `<strong>${esc(r.name)}</strong>`,
+        r.screen ? `<a class="mk-ref" href="#${esc(r.screen)}">${esc(r.screen)}</a>` : '<span class="mk-num mk-num--nil">— no screen</span>',
+        r.drawable ? `<span class="mk-num">${esc(r.over)}</span>` : `${tag('not drawable', 'bad')}`,
+        cell(md(r.says)),
+      ]),
+    }) +
+    `<p class="mk-tight"><strong>${esc(String(c.drawable))} of the ${esc(String(E.representations.length))} are drawable over this population, ${esc(String(c.withoutScreen))} has no screen anywhere in this catalogue, and the ${esc(String(E.representations.length))} land on ${esc(String(c.screens))} screens</strong> — because a flat result table and a crosstab are two representations of one grid here. The one that cannot be drawn is the interesting one: a time series over a population that is a single round has nothing to plot, and saying so is the requirement being met rather than dodged.</p>` +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Naming a population is not sharing one</h2>' +
+    `<p class="mk-tight">This is the measurement §4.4 actually turns on, and it is the half that is still open. Before this wave <strong>${esc(E.was.namedPopulation)}</strong> representation screens that have a screen at all said what population it had run over. ${esc(E.was.namedEvidence)} Each now states its own — and states that it <em>is</em> its own, because five screens naming five different populations is a catalogue that can be checked, not a query that composes.</p>` +
+    table({
+      caption: 'What each representation screen draws today. No two of them inherit; every one is its own selection, and the line on each screen is computed from the same arrays as the line here.',
+      head: ['Screen', 'Its population', 'Counted', 'Why it is its own'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'What each representation screen’s own population is',
+      rows: E.own.map((o) => [
+        `<a class="mk-ref" href="#${esc(o.screen)}">${esc(o.screen)}</a>`,
+        cell(esc(o.what)),
+        cell(esc(o.line)),
+        cell(md(o.says)),
+      ]),
+    }) +
+
+    /* ================================================================ *
+     * D11 — the demotion
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The results grid becomes one representation — D11</h2>' +
+    `<p class="mk-tight"><strong>${esc(E.demotion.verdict)}</strong> A screen that chooses its own population cannot be one representation of somebody else’s, and moving between six without rebuilding the question is the whole of what §4.4 asks.</p>` +
+    cols(
+      panel(
+        'What it keeps',
+        facts(E.demotion.keeps.map((k) => [esc(k.what), esc(k.why)])),
+      ),
+      panel(
+        `What it loses — ${esc(String(E.demotion.loses.length))} controls, and where each went`,
+        table({
+          head: ['Control', 'Dimension it selected', 'Now on'],
+          scroll: true,
+          label: 'The controls the results grid loses',
+          rows: E.demotion.loses.map((l) => [
+            `<strong>${esc(l.control)}</strong>`,
+            cell(md(l.dimension)),
+            `<a class="mk-ref" href="#${esc(l.to)}">${esc(l.to)}</a>`,
+          ]),
+        }) +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">And this change is not settled by the decision that authorised it</span>',
+            body: `<p class="mk-tight">${esc(E.demotion.walk)}</p>`,
+          }),
+      ),
+    ) +
+
+    /* ================================================================ *
+     * The version, and the boundary
+     * ================================================================ */
+    cols(
+      panel(
+        'This population has no version, and that is the state rather than a gap',
+        `<p class="mk-tight">${md(E.version.says)}</p>` +
+          C.card({
+            tone: 'neutral',
+            head: `<span class="mk-queue__kind">${esc(E.version.act.variant.label)}</span>`,
+            body:
+              `<p class="mk-tight"><strong>${esc(E.version.act.variant.makes)}.</strong> Costs ${esc(E.version.act.variant.costs)}.</p>` +
+              `<p class="mk-tight mk-muted">${esc(E.version.act.variant.reversible)}</p>`,
+          }) +
+          `<p class="mk-tight mk-muted"><a class="mk-ref" href="#saved-views">The dataset register</a> holds the whole radius before the act — what a save would cost, which citations are bound to the version before it, and what a variant costs instead, which is nothing.</p>`,
+      ),
+      panel(
+        'A recorded boundary this does not overturn',
+        `<p class="mk-tight"><a class="mk-ref" href="#${esc(E.boundary.at)}">Search</a> said, and goes on saying: <em>“${esc(E.boundary.quoted)}”</em></p>` +
+          `<p class="mk-tight">${esc(E.boundary.says)}</p>` +
+          `<p class="mk-tight mk-muted"><strong>One word of it moved and the boundary did not.</strong> The sentence pointed at <em>${esc(E.boundary.was)}</em> and now points at <em>${esc(E.boundary.now)}</em>, because D11 took the bar off the grid. It is quoted above as it stood, since a quotation that updated itself would hide that it had ever said anything else.</p>`,
+      ),
+    ) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Every value this wave moved, with what it was</h2>' +
+    table({
+      caption: 'Each before is written down once, in the seed; each now is counted off the record as it stands.',
+      head: ['Value', 'Was', 'Now', 'Where', 'Why'],
+      kind: 'matrix',
+      label: 'Values wave 20 moved',
+      rows: E.moved.map((m) => [
+        esc(m.what),
+        `<span class="mk-num mk-num--warn">${md(m.was)}</span>`,
+        `<span class="mk-num">${md(m.now)}</span>`,
+        `<a class="mk-ref" href="#${m.at}">${esc(m.at)}</a>`,
+        md(m.why),
+      ]),
+    }) +
+    notice('default', 'A population that cannot say what it left out is not evidence.',
+      `The starting population holds <strong>${esc(String(E.start.total))}</strong> cells across ${esc(String(E.start.grids.length))} grids, of which ${esc(String(E.start.results))} are results and ${esc(String(E.start.excluded.length))} are absences of ${esc(String(E.start.byKind.length))} different kinds. ` +
+      `And a fourth absence is not an empty cell at all: <strong>${esc(String(E.start.nothingAsserted.length))}</strong> results carry no verdict from either set and ${esc(String(E.start.partlyAsserted.length))} carry one from one of the ${esc(String(CRITERIA.length))} and not the other. Those stay <em>inside</em> the population, because a result exists and nothing was asserted about it. ` +
+      '<strong>Not evaluated is not compliant</strong>, a dry bore is not a clean one, and a suite that was never run is not a non-detect. Every step above counts them apart.')
+  );
+};
 
 /**
  * The dataset register — the saved view, promoted to the object §4.5 asks for
@@ -3410,6 +3779,7 @@ const savedViews = () => {
     notice('warning', 'Proposed. No FR covers saved queries.',
       'FR-6.6 persists a <em>chart</em> configuration. Nothing persists the question that selected the data — which locations, which analytes, which period, which criteria sets. Every incumbent has this and it is most of what a returning user does. ' +
       '<strong>Decision D1 (3 September 2026) accepted the capability and the PRD amendment that carries it</strong>, so the sentence above is a record of the gap this screen found rather than an argument that is still open — and the screen stays a proposal until the amendment lands and something routes to it.') +
+    `<p class="mk-tight"><strong>A dataset is a population somebody named.</strong> <a class="mk-ref" href="#explorer">The explorer</a> is where one is built — ${esc(String(EXPLORER.counts.dimensions))} dimensions, a readout at every step, and what it excludes counted by kind — and this register is what happens when the act is taken. The two read one record: every count on both pages goes through the same accounting, so neither can report a different exclusion for the same cells.</p>` +
     `<p class="mk-tight mk-muted"><strong>On the word — this object is called a <em>${esc(V.vocabulary.word)}</em>, and <code>docs/GLOSSARY.md</code> carries neither that word nor <em>saved view</em> as a term.</strong> ${esc(V.vocabulary.says)}</p>` +
     stats([
       stat(String(V.views.length), 'datasets on this project'),
@@ -3439,7 +3809,7 @@ const savedViews = () => {
     '<h2 class="mk-h2" style="margin-top:1.4rem">The definition, dimension by dimension</h2>' +
     `<p class="mk-tight">§4.5 asks for the filtering logic to be <strong>inspectable</strong>. Until today it was ${esc(V.was.definitionAs)} — legible, and not the same thing. Each dimension below states the record it resolves through, and whether this catalogue can turn it into rows.</p>` +
     table({
-      caption: 'The four dimensions the grid’s filter bar also carries, in the same order, because the grid compares its own selections against these. “Expands to” is the honest column: a suite is a size here and never a membership.',
+      caption: 'The four dimensions the working population is compared against, in the same order — the comparison is drawn on the explorer now that D11 has taken the filter bar off the grid. “Expands to” is the honest column: a suite is a size here and never a membership.',
       head: ['Dataset', 'Dimension', 'Selects', 'Resolved through', 'Expands to'],
       kind: 'matrix',
       scroll: true,
@@ -3548,8 +3918,8 @@ const savedViews = () => {
     ) +
     cols(
       panel(
-        `The act, stated before it is taken — ${esc(String(V.onCrosstab.dimensions.length))} edits are sitting on the grid right now`,
-        `<p class="mk-tight"><a class="mk-ref" href="#crosstab">The results grid</a> is on <strong>${esc(V.onCrosstab.view.name)}</strong> with unsaved changes on every one of its ${esc(String(V.onCrosstab.dimensions.length))} dimensions. There are two ways to keep them and they are not the same act.</p>` +
+        `The act, stated before it is taken — ${esc(String(V.onCrosstab.dimensions.length))} edits are sitting on the working population right now`,
+        `<p class="mk-tight">The population <a class="mk-ref" href="#explorer">the explorer</a> holds, and <a class="mk-ref" href="#crosstab">the results grid</a> draws, is <strong>${esc(V.onCrosstab.view.name)}</strong> with unsaved changes on every one of its ${esc(String(V.onCrosstab.dimensions.length))} dimensions. There are two ways to keep them and they are not the same act.</p>` +
           C.blastRadius({
             lede: `${esc(S.act.into.label)} — “${esc(S.act.into.makes)}” — would:`,
             rows: S.radius,
@@ -3728,7 +4098,7 @@ const savedViews = () => {
       panel(
         'The grid is on this dataset, edited',
         `<p class="mk-tight">${esc(V.onCrosstab.note)}</p>` +
-          `<p class="mk-tight mk-muted">Which dimensions differ is computed on <a class="mk-ref" href="#crosstab">the grid itself</a>, where the location option is counted off the register — counting it a second time here is the defect this whole page is about. What is new since 3 September is that the edits are <strong>an act with two shapes</strong> rather than a state: a variant, or a version.</p>` +
+          `<p class="mk-tight mk-muted">Which dimensions differ is computed once, against location options counted off the register — counting them a second time here is the defect this whole page is about. Until wave 20 that derivation lived inside the grid, because the grid held the filter bar; <strong>D11 moved the bar to <a class="mk-ref" href="#explorer">the explorer</a></strong> and the derivation moved out to where both screens read it. What is new since 3 September is that the edits are <strong>an act with two shapes</strong> rather than a state: a variant, or a version.</p>` +
           `<p class="mk-tight"><strong>And it is why the grid cannot settle the period.</strong> It is on a single quarter, which is an <em>edit</em> rather than the dataset’s own window. A third surface showing a third period is not a third reading.</p>`,
       ),
     ) +
@@ -9195,7 +9565,7 @@ const globalSearch = () => {
         C.stateBlock('empty', {
           headline: 'No identifier, name or certificate matches “MW0X”.',
           detail:
-            `Search covers identifiers and names, not result values — a number is found through the crosstab’s filters, where the criteria set and period that make it meaningful are also chosen. ${SEARCH.prefixLocations} locations start with “MW0” on ${esc(PROJECT.code)} and ${SEARCH.containsLocations} more contain it on ${esc(KURRAJONG.code)}; the nearest is MW05.`,
+            `Search covers identifiers and names, not result values — a number is found through <a class="mk-ref" href="#explorer">the explorer</a>, where the criteria set and period that make it meaningful are chosen with it. The boundary is unchanged and the destination is: this sentence read <em>“through the crosstab’s filters”</em> until 3 September 2026, when D11 took the filter bar off the grid. ${SEARCH.prefixLocations} locations start with “MW0” on ${esc(PROJECT.code)} and ${SEARCH.containsLocations} more contain it on ${esc(KURRAJONG.code)}; the nearest is MW05.`,
           action: 'Search MW05 instead',
           secondary: 'Open the location register',
         }),
@@ -11883,7 +12253,7 @@ const coverage = () => {
     ['F-22', 'Minor', 'Dead ends between the three URL spaces', 'Every screen', 'The top bar carries home, the project switcher, across-projects and the principal menu.'],
     ['F-23', 'Minor', 'Section nav misses the touch-target minimum', 'Every screen', '44 px under a coarse pointer, on the nav as well as the form controls.'],
     ['F-24', 'Minor', 'Sign-out gives no feedback', 'n/a — viewer', 'There is no session in this document. Recorded rather than quietly dropped.'],
-    ['F-25', 'Minor', 'The results register offers no filters or paging', 'crosstab · locations', 'A filter bar with saveable views, a result count, and paging that says what it is paging through.'],
+    ['F-25', 'Minor', 'The results register offers no filters or paging', 'explorer · crosstab · locations', 'A filter bar with saveable views, a result count, and paging that says what it is paging through. The bar moved to the explorer under D11 on 3 September 2026; the answer is unchanged and the screen that carries it is not.'],
     ['F-26', 'Polish', 'Dev-mode hydration mismatch', 'n/a — not a surface', 'A development-server defect with no design content.'],
     ['F-27', 'Polish', 'Commit is not visually distinguished as consequential', 'import-commit', 'A blast radius stating what will be written, before the control that writes it.'],
   ];
@@ -12698,6 +13068,37 @@ export const JOBS = [
       { id: 'background', label: 'Background comparison', body: backgroundComparison, state: 'not built', isNew: true, now: 'shipped' },
       { id: 'stygofauna', label: 'Subterranean fauna', body: stygofaunaScreen, state: 'not built', isNew: true, now: 'shipped' },
       { id: 'map', label: 'Map and spatial', body: mapScreen, state: 'engine-only', now: 'shipped' },
+      /*
+       * Wave 20, and the `state`-less rule a seventh time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A
+       * distinct user decision: *which records am I asking about, and why is
+       * each one in or out* — a population constructed one dimension at a
+       * time, with what it excludes counted by kind at every step. That is a
+       * decision taken before any figure, statistic or register is read, and
+       * it is the decision §4.2, §4.3 and §4.4 each ask for from a different
+       * direction. (2) No existing screen owns it, and after D11 none can:
+       * `crosstab` is one representation of a population and no longer
+       * chooses one; `saved-views` is the register of populations that have
+       * been *named*, which is the act after this one rather than this one;
+       * `search` states in its own words that it covers identifiers and names
+       * and not result values, deliberately. (3) It needs its own state: the
+       * 43-dimension enumeration measured against the record, the drawn
+       * sequence with a readout per step, the scenario walked term by term
+       * and the six representations over one population are a workspace, not
+       * a panel on something else. (4) It improves the graph rather than the
+       * count — it is what the five representation screens now name when they
+       * say where their population came from, and it gives `crosstab` and
+       * `saved-views` the middle term they had to describe instead of link.
+       *
+       * `proposed`, and it stays that way: no FR covers ad-hoc query
+       * construction. D1 accepted the capability **and** the PRD amendment
+       * that carries it on 3 September 2026, and this repository cannot amend
+       * the PRD — so the screen argues for itself until the amendment lands
+       * and something routes to it.
+       */
+      { id: 'explorer', label: 'Data explorer', body: explorer, now: 'proposed', added: '2026-09-03' },
       { id: 'saved-views', label: 'Saved views', body: savedViews, state: 'proposed', now: 'proposed' },
     ] },
   { id: 'j5', n: 'J5', title: 'Produce the submission', who: 'U2 · U4',
@@ -12882,7 +13283,10 @@ export const JOBS = [
  */
 export const RELATED = {
   home: ['exceedances', 'import-review', 'programme', 'projects', 'search'],
-  search: ['location', 'crosstab', 'certificate', 'licence'],
+  // Wave 20: the sentence that says search does not reach values now names
+  // the screen that does, so the declared graph carries the edge the empty
+  // state draws rather than leaving it an inline href.
+  search: ['location', 'crosstab', 'certificate', 'licence', 'explorer'],
   projects: ['project-home', 'project-settings', 'roles', 'home'],
   // Wave 11: the project manager's 'who else is in here' has a record to
   // open, so the declared architecture says so rather than the panel linking
@@ -12947,8 +13351,8 @@ export const RELATED = {
   // the instance should reach the boundary that decides it.
   qualifiers: ['qc', 'validation', 'lineage', 'result-detail', 'exchange'],
 
-  exceedances: ['result-detail', 'hardness', 'indeterminate', 'lineage', 'tarp', 'map'],
-  crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report', 'exchange'],
+  exceedances: ['result-detail', 'hardness', 'indeterminate', 'lineage', 'tarp', 'map', 'explorer'],
+  crosstab: ['result-detail', 'exceedances', 'lineage', 'criteria', 'saved-views', 'report', 'exchange', 'explorer'],
   // Wave 17: this page draws one of the six qualifier assertions and is the
   // only one whose scheme the record settles, so the register it belongs to is
   // declared rather than reached by an href written inside a panel.
@@ -12958,16 +13362,25 @@ export const RELATED = {
   tarp: ['exceedances', 'alerts', 'notification'],
   alerts: ['tarp', 'obligations', 'notification'],
 
-  hydrograph: ['location', 'statistics', 'saved-views', 'report-figures', 'logger-series'],
+  hydrograph: ['location', 'statistics', 'saved-views', 'report-figures', 'logger-series', 'explorer'],
   hydrochem: ['consistency', 'crosstab', 'report-figures'],
-  statistics: ['background', 'hydrograph', 'crosstab', 'report-figures'],
+  statistics: ['background', 'hydrograph', 'crosstab', 'report-figures', 'explorer'],
   background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances'],
   stygofauna: ['background', 'map', 'locations', 'obligations'],
-  map: ['location', 'stygofauna', 'exceedances', 'report-figures'],
+  map: ['location', 'stygofauna', 'exceedances', 'report-figures', 'explorer'],
   // Wave 19: the chain gained a dataset hop, so the register and the lineage
   // page point at each other — the declared architecture matching the hrefs
   // both screens now write.
-  'saved-views': ['crosstab', 'hydrograph', 'report-figures', 'lineage'],
+  'saved-views': ['crosstab', 'hydrograph', 'report-figures', 'lineage', 'explorer'],
+  /*
+   * Wave 20. The explorer exits into every screen that reads a population it
+   * could have built — the register of the populations that have been named,
+   * the grid it demoted to one representation of one, the four other
+   * representations §4.4 lists, and the boundary it is careful not to cross:
+   * `search` covers identifiers and names and not result values, and this
+   * screen is the other half of that sentence rather than an exception to it.
+   */
+  explorer: ['crosstab', 'saved-views', 'exceedances', 'statistics', 'hydrograph', 'map', 'search', 'criteria'],
 
   report: ['report-figures', 'dqa', 'narrative', 'snapshot', 'signoff'],
   'report-figures': ['report', 'narrative', 'supersession', 'certificate', 'saved-views'],

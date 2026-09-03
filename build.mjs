@@ -35,7 +35,7 @@ import { CHROME_CSS } from './chrome.mjs';
 import { JOBS, RELATED } from './screens.mjs';
 import { HATCH_SPRITE, esc } from './ui.mjs';
 import { slideOver } from './controls.mjs';
-import { LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
+import { EXPLORER, LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Inside the app repo (as design/mockup/) the product stylesheet is read live,
@@ -116,7 +116,7 @@ const SECTION_VIEW = [
   // rows is on `formats`, `mapping-profiles`, `migration` and `imports`, all
   // of which are in this group already.
   { label: 'Import runs', lede: 'Step 3 — deliverables as they arrive, what each one rests on, and every format that crosses the boundary in either direction', ids: ['imports', 'import-review', 'import-commit', 'quarantine', 'certificate', 'documents', 'migration', 'mapping-profiles', 'exchange'] },
-  { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
+  { label: 'Results', lede: 'Step 4 — every result, and every question asked while reading the numbers', ids: ['crosstab', 'explorer', 'result-detail', 'qc', 'batches', 'qc-limits', 'dqa', 'consistency', 'validation', 'qualifiers', 'hydrochem', 'statistics', 'audit', 'supersession', 'saved-views', 'lineage'] },
   { label: 'Exceedances', lede: 'Step 5 — where a result sits outside a criterion, and what that obliges', ids: ['exceedances', 'indeterminate', 'hardness', 'criteria', 'background', 'tarp', 'alerts', 'notification', 'licence'] },
   { label: 'Reports', lede: 'Step 6 — submission-quality documents, and the record of issuing them', ids: ['report', 'report-figures', 'narrative', 'snapshot', 'submissions', 'signoff'] },
   // Wave 12 files the configuration package here and the lede gains a clause
@@ -900,6 +900,9 @@ ${palette()}
       title: x.heading.slice(x.heading.indexOf(' ') + 1),
       bullets: x.bullets,
       text: norm(x.lines.join(' ')),
+      /* Wave 20 keeps the raw lines so §4.2's and §4.4's own bullet lists can
+       * be compared item by item, not only counted. */
+      lines: x.lines,
     }));
     const scenarios = subsections.filter((x) => x.heading.startsWith('Scenario '));
 
@@ -942,6 +945,36 @@ ${palette()}
         if (list[i] && norm(list[i].asks) !== b) offences.push(`${what} #${i + 1}: row reads “${norm(list[i].asks)}”, the brief reads “${b}”`);
       });
     }
+
+    /*
+     * Wave 20 — the explorer's two lists, closed against the brief in both
+     * directions and **in order**.
+     *
+     * `#coverage` closes the brief section by section; `#explorer` is built on
+     * two of the brief's own enumerations — §4.2's 43 dimensions and §4.4's
+     * six representations — and a screen that measured 43 things against a
+     * list of 43 things it typed itself would be checking its own homework.
+     * So the names are compared word for word with the bullets they claim to
+     * be, in sequence, and the group headings with §4.2's own subheadings.
+     * A dimension the brief adds cannot go unmeasured, one it drops cannot
+     * linger, and neither can be silently reordered into a different reading.
+     */
+    const linesIn = (id) => numbered.find((x) => x.id === id)?.lines ?? [];
+    const inOrder = (what, expected, actual) => {
+      compare(what, expected, actual);
+      /* Only when the two hold the same members: a rename is a membership
+       * failure and reporting it twice would make one defect look like two. */
+      const sameMembers = expected.length === actual.length && expected.every((x) => actual.includes(x));
+      if (sameMembers && expected.join(' | ') !== actual.join(' | ')) {
+        offences.push(`${what}: same members, different order from the brief`);
+      }
+    };
+    inOrder('§4.2 dimensions', linesIn('4.2').filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2))),
+      EXPLORER.dimensions.map((d) => norm(d.name)));
+    inOrder('§4.2 dimension groups', linesIn('4.2').filter((l) => /^#### /.test(l)).map((l) => norm(l.slice(5))),
+      EXPLORER.GROUPS.map(norm));
+    inOrder('§4.4 representations', linesIn('4.4').filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2))),
+      EXPLORER.representations.map((r) => norm(r.name)));
 
     /*
      * W18-A-1. This asked whether the quoted words were anywhere in the brief,
