@@ -998,7 +998,7 @@ uses and exactly what this screen draws.
 **Wave 13 (2 September 2026) spends no new screens and pays four debts, and every one of
 them is the same move: a disagreement described in a comment becomes one source read N
 times.** The deferral ledger this pipeline has been keeping since wave 7 stood at nine
-records; it stands at **three** — four after wave 14, four after wave 15, which settled one and opened one, and three after wave 16 — and the ones that closed are kept as
+records; it stands at **five** — four after wave 14, four after wave 15, which settled one and opened one, and three after wave 16 — and the ones that closed are kept as
 dated settled-notes rather than deleted, because a debt that vanishes when it is paid leaves
 nobody able to tell it from one that was never noticed.
 
