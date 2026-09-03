@@ -12804,7 +12804,7 @@ export const EXPLORER = (() => {
       note: 'Canonical units with their aliases, so a selection by unit is a selection and not a spelling.' },
     { group: 'Analytical', name: 'Fraction, including dissolved or total', holds: 'derived',
       through: 'a parenthetical inside the analyte’s name',
-      note: 'Not a field. The glossary makes **Fraction** first-class and says the domain word is *dissolved*, because filtration is what was done and dissolved is what the number means — and every analyte name on this grid says *(filtered)*. So the dimension resolves by matching a string, in a word the glossary has already ruled against.' },
+      note: 'Not a field. The glossary makes **Fraction** first-class and says the domain word is *dissolved*, because filtration is what was done and dissolved is what the number means — and every analyte name on this grid says *(filtered)*. So the dimension resolves by matching a string, in a word the glossary has already ruled against. **This is not a rename this repository may make** (W20-A-5): the approved reference rendering says *Arsenic (filtered)* too, so the disagreement is between an oracle and the glossary and it is settled in the product, not here. Renaming the grid alone would put the catalogue out of step with the plate it is drawn to.' },
     { group: 'Analytical', name: 'Detection or reporting limit', holds: 'a record',
       through: 'the analyte’s limit of reporting, on both grids',
       note: 'And it moves: the cadmium limit stepped from 5.0 to 1.0 µg/L between two rounds, which is why a series that mixed them would read as an improvement.' },
@@ -12906,8 +12906,15 @@ export const EXPLORER = (() => {
       { term: 'dissolved metals', verdict: 'an equivalent',
         via: `The suite register holds ${ANALYTE_SUITES.find((s) => s.code === 'metals-dissolved').label} at ${ANALYTE_SUITES.find((s) => s.code === 'metals-dissolved').n}`,
         why: `A suite is a size here and never a membership, so the suite cannot expand to rows. What resolves instead is the grid’s own rows carrying the dissolved fraction — ${FILTERED_ROWS.length} of the ${CROSSTAB.length} — and the fraction is a parenthetical in a name rather than a field.` },
-      { term: 'arsenic and manganese', verdict: 'an equivalent',
-        via: 'Arsenic resolves; manganese does not',
+      /*
+       * W20-A-3. This read `an equivalent`, and an equivalent is something
+       * that stands in. Nothing stands in for manganese — half the term
+       * resolves and the other half has no substitute, which is neither of the
+       * other two verdicts either. A fourth word rather than the nearest of
+       * three, because the taxonomy was one value short of what was measured.
+       */
+      { term: 'arsenic and manganese', verdict: 'half of it',
+        via: 'Arsenic resolves; manganese has no substitute',
         why: `No analyte in this dictionary is a manganese — ${manganese.length} of ${ANALYTES.length}. It did not fail a filter and it is not a non-detect — it has never been measured here, and a population that reported the arsenic count alone would be answering half the question as though it were the whole one.` },
       { term: '2021–2026', verdict: 'an equivalent',
         via: `An arbitrary date range is held; this record begins ${recordBegins}`,

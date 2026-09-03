@@ -892,7 +892,11 @@ ${palette()}
       const h = line.match(/^### (.+)$/);
       if (h) { cur = { heading: h[1].trim(), bullets: 0, lines: [] }; subsections.push(cur); continue; }
       if (/^## /.test(line)) cur = null;
-      if (cur && /^- /.test(line)) cur.bullets += 1;
+      /* W20-A-2. This matched `^- ` only, so an indented bullet was invisible
+       * to the count and to both closure limbs — which falsified the comment
+       * below it, since a dimension the brief nested could go unmeasured. A
+       * bullet is a bullet at any depth. */
+      if (cur && /^\s*- /.test(line)) cur.bullets += 1;
       if (cur) cur.lines.push(line);
     }
     const numbered = subsections.filter((x) => /^\d+\.\d+ /.test(x.heading)).map((x) => ({
@@ -910,7 +914,7 @@ ${palette()}
     const bulletsOf = (from, to) => {
       const start = lines.findIndex((l) => l.startsWith(from));
       const end = lines.findIndex((l, i) => i > start && l.startsWith(to));
-      return lines.slice(start, end).filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2)));
+      return lines.slice(start, end).filter((l) => /^\s*- /.test(l)).map((l) => norm(l.replace(/^\s*- /, '')));
     };
 
     const expectedRequirement = numbered.filter((x) => x.id !== '4.1');
@@ -969,12 +973,30 @@ ${palette()}
         offences.push(`${what}: same members, different order from the brief`);
       }
     };
-    inOrder('§4.2 dimensions', linesIn('4.2').filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2))),
+    const bulletsIn = (id) => linesIn(id).filter((l) => /^\s*- /.test(l)).map((l) => norm(l.replace(/^\s*- /, '')));
+    inOrder('§4.2 dimensions', bulletsIn('4.2'),
       EXPLORER.dimensions.map((d) => norm(d.name)));
     inOrder('§4.2 dimension groups', linesIn('4.2').filter((l) => /^#### /.test(l)).map((l) => norm(l.slice(5))),
       EXPLORER.GROUPS.map(norm));
-    inOrder('§4.4 representations', linesIn('4.4').filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2))),
+    inOrder('§4.4 representations', bulletsIn('4.4'),
       EXPLORER.representations.map((r) => norm(r.name)));
+
+    /*
+     * W20-A-1. §4.2 and §4.4 were closed against the brief and §4.3's terms
+     * were not, so deleting a term from the scenario left the build green and
+     * every derived count re-read without a murmur — including the wave's own
+     * headline, which would have dropped from one not-expressible term to
+     * none. The scenario is a single sentence rather than a list, so it closes
+     * by splitting the brief's own arrow-separated sentence, which is where
+     * the terms came from in the first place.
+     */
+    const scenarioSentence = linesIn('4.3').find((l) => l.includes('→'));
+    if (!scenarioSentence) {
+      offences.push('§4.3: the brief no longer carries an arrow-separated scenario, and the walk is built on one');
+    } else {
+      const terms = norm(scenarioSentence.replace(/^>\s*\*\*|\*\*$/g, '')).split('→').map((t) => norm(t));
+      inOrder('§4.3 scenario terms', terms, EXPLORER.scenario.terms.map((w) => norm(w.term)));
+    }
 
     /*
      * W18-A-1. This asked whether the quoted words were anywhere in the brief,
