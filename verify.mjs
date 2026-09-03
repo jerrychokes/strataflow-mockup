@@ -168,6 +168,66 @@ for (const width of widths) {
 }
 
 /*
+ * A table whose accessible name states a count, against the rows it has —
+ * on every screen, wave 23.
+ *
+ * This catalogue names its tables after the enumeration they close: *“the 10
+ * preparation items”*, *“the 6 stages of the round”*, *“the 14 layers §5.2
+ * names”*. That name is a **claim about the table's own contents**, it is the
+ * first thing a screen-reader user is given, and until now nothing checked it
+ * — so a list that lost a row left its own name asserting the old number, in
+ * the one place a sighted reader is least likely to look.
+ *
+ * It is the wave-18 shape one more time, and the answer wave 22 paid for is
+ * baked in from the start: **it runs over every table on every screen**, not
+ * over the one the wave was thinking about. Twenty-nine tables state a count
+ * in their name today.
+ *
+ * The pattern is deliberately narrow — `the <N> <lowercase word>`, N of one to
+ * three digits or a number word — because a wider one reads years and work
+ * order numbers as counts ("the 2026 Q2 report" is not a claim about fourteen
+ * rows). A caption is *prose about* a table and matches this pattern for other
+ * reasons entirely, so captions are out of scope and measured to be: sixteen
+ * of the twenty-seven captions carrying such a phrase are talking about
+ * something that is not the row count.
+ *
+ * The first such phrase in a name is the one measured. A name carrying two
+ * counts is a name a reader cannot resolve either, and rewording it is the fix.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(url);
+  await page.waitForTimeout(400);
+  const named = await page.evaluate(() => {
+    const WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+    const NUM = Object.fromEntries(WORDS.map((w, i) => [w, i + 1]));
+    const RE = new RegExp('\\b[Tt]he (\\d{1,3}|' + WORDS.join('|') + ') ([a-z][a-z-]*)');
+    const bad = [];
+    let seen = 0;
+    for (const sec of document.querySelectorAll('section.mk-screen')) {
+      const was = sec.dataset.active;
+      sec.dataset.active = 'true';
+      for (const table of sec.querySelectorAll('table')) {
+        const box = table.closest('.sf-table-scroll');
+        const name = (box && box.getAttribute('aria-label')) || table.getAttribute('aria-label') || '';
+        const m = name.match(RE);
+        if (!m) continue;
+        seen += 1;
+        const claimed = /^[0-9]+$/.test(m[1]) ? Number(m[1]) : NUM[m[1]];
+        const rows = table.querySelectorAll('tbody tr').length;
+        if (claimed !== rows) bad.push(`#${sec.id} · “${name}” names ${claimed} ${m[2]} and the table has ${rows} rows`);
+      }
+      sec.dataset.active = was || 'false';
+    }
+    return { bad, seen };
+  });
+  for (const line of named.bad) failures.push(`a table names a count it does not have: ${line}`);
+  console.log(`named counts: ${named.seen} tables whose accessible name states a count, measured against their own rows`);
+  await page.close();
+}
+
+/*
  * §10's figure layout check: lay out every generated figure and compare every
  * `<text>` box against every other.
  *
@@ -487,5 +547,5 @@ if (failures.length) {
 console.log(
   'verify: no document overflow at any width, no duplicate ids, no unnamed controls, no heading skips, ' +
     'matrix panning intact, no figure text collisions, every coarse-pointer target ≥44px, no stacked label ' +
-    'squeezed below its own text, no caption wider than the region it captions',
+    'squeezed below its own text, no caption wider than the region it captions, no table naming a count it does not have',
 );

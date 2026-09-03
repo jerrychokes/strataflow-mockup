@@ -95,6 +95,14 @@ import {
   // from a register or counted absent. Read by `#programme`, `#completeness`,
   // `#events`, `#field-capture`, `#dqa` and `#coverage`.
   PLANNING, Q2_PROGRAMME,
+  // Wave 23 — the map as a workspace: §5.2's fourteen layers with the source,
+  // date and custody each one can and cannot state, §5.3's seven symbology
+  // dimensions measured against the record, the six settings §5.3 says change
+  // a map with the arithmetic that shows they do, §5.4's absence vocabulary
+  // borrowed rather than reinvented, §5.5's nine items as reaches, and §5.6's
+  // spatial selection resolved into a population. Read by `#map`, `#explorer`,
+  // `#locations`, `#facility` and `#coverage`.
+  SPATIAL,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, OUTCOME_LABEL, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -3799,24 +3807,410 @@ const summaryStatistics = () => {
   );
 };
 
-const mapScreen = () =>
-  head('Map', 'The monitoring network, symbolised by this round’s outcome.', {
-    route: '/projects/:projectId/map',
-    toolbar: btn('Print layout') + btn('Export GeoJSON') + btn('Export shapefile'),
-  }) +
-  populationLine('map') +
-  figure('4.9', 'Monitoring network — 2026 Q2 exceedance state', F.siteMap(),
-    'The same four state marks as the crosstab. A map and a table that disagree about a bore is the failure this encoding exists to prevent.') +
-  cols(
+/**
+ * The map, as a workspace — wave 23, under D4.
+ *
+ * **D4 (3 September 2026): the map workspace is accepted and NG4 is restated
+ * as “no GIS authoring”.** The map consumes layers and never authors them —
+ * no digitising, no geoprocessing, no topology editing — and the screen says
+ * which side of that line every part of it is on.
+ *
+ * **`figures.mjs` is untouched by this wave.** The wave plan's own amendment
+ * of 3 September 2026 fenced it, and D13 gates every figure family behind a
+ * print test that has not happened. So the two plates below are the two that
+ * were already here; a layer that cannot be drawn inside the grammar already
+ * banked is **counted, with what it would need**. That is not the cheap half
+ * of §5.2 — the clause with teeth is its last paragraph, which asks for
+ * source, date or version, and project-supplied against derived against
+ * authoritative, **for every layer including the ones that are not drawn**.
+ *
+ * Everything numeric here is counted through `SPATIAL`, and the selection's
+ * population through `EXPLORER.readout` — the same accounting the results
+ * grid, the dataset register and the explorer already count with, so a
+ * population that arrives from this screen cannot report different exclusions
+ * from the screen that receives it.
+ */
+const MAP = SPATIAL.against(F.POTENTIOMETRIC_FIT);
+
+const mapScreen = () => {
+  const S = SPATIAL;
+  const c = S.counts;
+  const m = MAP.counts;
+  const stateTone = { drawn: 'good', 'an equivalent': 'warn', counted: 'bad' };
+  const nil = (what) => `<span class="mk-num mk-num--nil">— ${esc(what)}</span>`;
+
+  return (
+    head('Map', 'The monitoring network as an investigation workspace — what is drawn, where each layer came from, and what a selection hands on.', {
+      route: '/projects/:projectId/map',
+      toolbar: btn('Print layout') + btn('Export GeoJSON') + btn('Export shapefile'),
+    }) +
+    populationLine('map') +
+
+    notice('default', 'The map consumes layers. It never authors them — D4, 3 September 2026.',
+      '<strong>NG4 is restated as “no GIS authoring”</strong>: there is no digitising, no geoprocessing and no topology editing on this screen or anywhere behind it, and nothing here creates a geometry. ' +
+      'What it does instead is govern what it consumes — every layer states its source, its date or version, and whether it is project-supplied, derived or authoritative — and hand a selection to a workspace that can analyse it.') +
+
+    /*
+     * §5's vocabulary against the product's, said rather than assumed.
+     *
+     * `docs/GLOSSARY.md` carries **area**, **location group** and **location
+     * cluster** and it carries no *layer*, no *symbology* and no *basemap* —
+     * exactly as it carried no *explorer* and no *dataset* when wave 20 needed
+     * those. They are the requirement's own words and they are used as the
+     * requirement uses them. The one word deliberately **not** borrowed is
+     * *custody*: the glossary's **custody transfer** is a chain-of-custody act
+     * on a sample, and reusing the stem for a layer's provenance is the
+     * invented abstraction over an established concept QB-9 forbids — so the
+     * column is headed with §5.2's phrase in full instead.
+     */
+    `<p class="mk-tight mk-muted"><strong>On the words.</strong> <code class="mk-file">docs/GLOSSARY.md</code> carries neither <em>layer</em> nor <em>symbology</em> nor <em>basemap</em>, exactly as it carries neither <em>explorer</em> nor <em>dataset</em>. They are §5’s own words and are used as §5 uses them; the glossary entries are part of the amendment <strong>D4</strong> accepted. Three words here <em>are</em> the glossary’s and keep its meanings precisely: an <strong>area</strong> groups locations managed together, a <strong>location group</strong> is a set assessed together where membership is an assessment decision, and a <strong>location cluster</strong> is locations in the same place — which is why the selection below derives a position rather than reading one off a group, and why the group answer and the derived answer differ. The one word this screen refuses is <em>custody</em>: the glossary’s <strong>custody transfer</strong> is an act on a sample, and borrowing the stem for a layer’s provenance would be an abstraction over an established concept, so §5.2’s own phrase is the column heading instead.</p>` +
+
+    stats([
+      stat(`${c.drawn + c.equivalent} / ${c.layers}`, `of §5.2’s layers on a plate — ${c.counted} counted`, 'warn'),
+      stat(`${c.sourced} / ${c.layers}`, 'name the record they come from', 'warn'),
+      stat(`${c.datedLayers} / ${c.layers}`, 'carry a date or a version', 'bad'),
+      stat(`${c.supplied} / ${c.layers}`, 'say project-supplied, derived or authoritative', 'warn'),
+      stat(`${m.everyLocation} / ${c.symbology}`, 'symbologies every location can answer', 'warn'),
+      stat(String(m.selected), 'bores a spatial selection hands over', 'good'),
+    ]) +
+
+    figure('4.9', 'Monitoring network — 2026 Q2 exceedance state', F.siteMap(),
+      'The same four state marks as the crosstab. A map and a table that disagree about a bore is the failure this encoding exists to prevent.') +
+
+    /* ================================================================ *
+     * §5.2 — the layer manager, which is the requirement
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The layers, and where each one came from</h2>' +
+    `<p class="mk-tight">§5.2 lists <strong>${esc(String(c.layers))}</strong> layers and its last paragraph is the part with teeth: the interface must identify active layers, legends, <strong>source, date or version</strong>, and <strong>whether a layer is project-supplied, derived or authoritative</strong>. That is a governance question, and it is asked below of every one of the ${esc(String(c.layers))} — <strong>including the ${esc(String(c.counted))} that are not drawn</strong>. A layer manager that lists ${esc(String(c.layers))} and draws ${esc(String(c.drawn))} is honest if it says which ${esc(String(c.drawn))}; it is theatre if it does not.</p>` +
+    `<p class="mk-tight"><strong>Nothing here is drawn that this wave could not already draw.</strong> <code class="mk-file">figures.mjs</code> is untouched — the wave plan fenced it on 3 September 2026 and <a class="mk-ref" href="#report-figures">D13</a> gates every figure family behind a print test that has not happened. So a layer needing a grammar move is counted with what it would need, and the count is the answer rather than a placeholder for one.</p>` +
+    cols(
+      panel(
+        `Active layers — ${esc(String(c.drawn + c.equivalent))} of ${esc(String(c.layers))}`,
+        '<div class="mk-stack">' +
+        S.layers.filter((l) => l.state !== 'counted').map((l) =>
+          C.checkbox({
+            label: l.name,
+            checked: true,
+            hint: `${l.supply ?? 'not stated — project-supplied, derived or authoritative'} · ${l.dated ?? 'no date on the record'}${l.legend ? '' : ' · no legend entry'}`,
+          })).join('') +
+        '</div>' +
+        `<p class="mk-tight mk-muted">Toggling a layer is a view control and writes nothing, so it needs no consequence panel. <strong>${esc(String(c.legended))} of the ${esc(String(c.drawn + c.equivalent))} carry a legend</strong>; the one that does not is the operational-area outline, which is drawn as context with a text label and no entry of its own.</p>`,
+      ),
+      panel(
+        'What the governance columns actually say',
+        table({
+          head: ['What §5.2 asks each layer for', 'Layers that can answer', 'What the empty cells are'],
+          kind: 'matrix',
+          scroll: true,
+          label: 'What each governance column says across the layer catalogue',
+          rows: S.GOVERNANCE.map((g) => {
+            const answered = S.layers.filter((l) => g.of(l)).length;
+            return [
+              `<strong>${esc(g.asks)}</strong>`,
+              `<span class="mk-num${answered === c.layers ? '' : answered ? ' mk-num--warn' : ' mk-num--bad'}">${esc(String(answered))}</span> of ${esc(String(c.layers))}`,
+              cell(g.empty
+                ? esc(g.empty)
+                : `${S.SUPPLY.map((k) => `${S.layers.filter((l) => l.supply === k).length} ${esc(k)}`).join(', ')} — and ${c.layers - answered} that cannot say.`),
+            ];
+          }),
+        }) +
+        `<p class="mk-tight mk-muted"><strong>${esc(String(c.answered))} of the ${esc(String(c.askedFor))} answers §5.2 asks for exist</strong> — ${esc(String(c.governance))} questions of ${esc(String(c.layers))} layers — and the empty cells are the finding. §5.2 asks the interface to identify these; filling them in from the person drawing the map would answer the requirement by assuming it.</p>`,
+      ),
+      '2fr 3fr',
+    ) +
+    table({
+      caption: 'One row per layer in §5.2’s own words and order, closed against the brief by the build in both directions. “Counted” is a measurement about this record, not a judgement about the layer.',
+      head: ['Layer', 'On the plate', 'Source', 'Date or version', 'Project-supplied,<small>derived or authoritative</small>', 'What it would need'],
+      kind: 'matrix',
+      scroll: true,
+      label: `The ${S.LAYERS.length} layers §5.2 names`,
+      rows: S.layers.map((l) => [
+        `<strong>${esc(l.name)}</strong><small>${esc(l.says)}</small>`,
+        tag(l.state, stateTone[l.state]),
+        l.source ? cell(esc(l.source)) : nil('nothing holds it'),
+        l.dated ? cell(esc(l.dated)) : nil('none'),
+        l.supply ? C.status(l.supply, l.supply === 'authoritative' ? 'good' : 'neutral') : nil('cannot be stated'),
+        l.needs ? cell(md(l.needs)) : '<span class="mk-num mk-num--nil">—</span>',
+      ]),
+    }) +
+    C.card({
+      tone: 'warn',
+      head: '<span class="mk-queue__kind">The row worth reading twice</span>',
+      body:
+        `<p class="mk-tight"><strong>${esc(S.layerOf(S.LAYERS[5]).name)} is drawn and no record holds it.</strong> The outline on the plate above is four coordinate pairs written into <code class="mk-file">figures.mjs</code> as context; the facility record carries <strong>${esc(String(FACILITY.areas.length))}</strong> areas as names, kinds, programmes and location counts, and a geometry for none of them. So it is the one drawn layer that can answer none of §5.2’s three governance questions, and all three of its cells are empty rather than filled with the name of the file that happens to carry the literal. <a class="mk-ref" href="#facility">Where the areas are governed</a>.</p>`,
+    }) +
+
+    /* ================================================================ *
+     * §5.3 — symbology, and the six settings that change a map
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Symbology — what the record can colour on</h2>' +
+    `<p class="mk-tight">§5.3 asks for ${esc(String(c.symbology))} dimensions. <strong>${esc(String(m.everyLocation))} can answer for every location</strong> on this project, <strong>${esc(String(m.someLocations))} for some</strong>, and each row says how many of the ${esc(String(LOCATIONS.length))} it reaches — because a symbology that silently leaves half the network uncoloured is a map that looks complete and is not.</p>` +
+    C.filterBar({
+      onView: 'Symbolised by criterion exceedance',
+      saved: false,
+      controls: [
+        C.field({ label: 'Colour by', control: C.select({ options: S.SYMBOLOGY.map((x) => x), value: S.SYMBOLOGY[1] }) }),
+        C.field({ label: 'Analyte', control: C.select({ options: CROSSTAB.map((r) => r.analyte), value: CROSSTAB.find((r) => /^Cadmium/.test(r.analyte)).analyte }) }),
+        C.field({ label: 'Criteria set', control: C.select({ options: ['Worst across both sets', ...CRITERIA.map((x) => x.short)], value: 'Worst across both sets' }) }),
+        C.field({ label: 'Non-detects', control: C.select({ options: S.nonDetectRules.map((r) => r.rule), value: S.nonDetectRules[0].rule }) }),
+        C.field({ label: 'Classes', control: C.select({ options: [`Equal interval (${S.CLASSES})`, `Quantile (${S.CLASSES})`, 'Criterion-relative'], value: `Equal interval (${S.CLASSES})` }) }),
+      ],
+      count: `${LOCATIONS.length} locations · symbolised on ${S.SYMBOLOGY[1].toLowerCase()} · ${S.layers.filter((l) => l.state !== 'counted').length} layers active`,
+    }) +
+    `<p class="mk-tight"><strong>The bar is drawn and the plate is not redrawn under it.</strong> This catalogue is static HTML and <code class="mk-file">figures.mjs</code> is fenced, so what changing a setting would do to the map is <em>measured and printed</em> below rather than rendered — which is the same discipline <a class="mk-ref" href="#explorer">the explorer</a> applies to its sequence, and the same claim this catalogue has never made in the other direction.</p>` +
+    table({
+      caption: 'One row per dimension, in §5.3’s own words and order, closed against the brief by the build. The count is how many of the project’s locations the record can give a value for — not how many are interesting.',
+      head: ['Dimension', 'Locations it reaches', 'Resolved through', 'On the plate today', 'What that means'],
+      kind: 'matrix',
+      scroll: true,
+      label: `The ${S.SYMBOLOGY.length} dimensions §5.3 lists`,
+      rows: MAP.symbology.map((s) => [
+        `<strong>${esc(s.name)}</strong>`,
+        `<span class="mk-num${s.values === s.of ? '' : ' mk-num--warn'}">${esc(String(s.values))}</span> of ${esc(String(s.of))}`,
+        cell(esc(s.through)),
+        s.onPlate ? C.status('drawn', 'good') : C.status('not drawn', 'neutral'),
+        cell(md(s.says)),
+      ]),
+    }) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The six settings §5.3 says change a map</h2>' +
+    `<p class="mk-tight">The harder half of §5.3 is its second sentence: show how <em>${esc(S.DIALS.join(', '))}</em> affect the map. Each is below with the arithmetic, over this round’s own cells. <strong>The one that must not be skipped is the treatment of non-detects</strong> — a map that colours a censored value as though it were a measurement is <a class="mk-ref" href="#crosstab">the grid’s four-absence defect</a> in a second medium.</p>` +
+    table({
+      caption: 'What each setting moves, counted rather than asserted. A setting that moves nothing is as much a finding as one that moves everything, and the units differ by row because the things being counted differ.',
+      head: ['Setting', 'Shown as', 'What moves', 'Why'],
+      kind: 'matrix',
+      scroll: true,
+      label: `The ${S.DIALS.length} settings §5.3 says change a map`,
+      rows: S.dials.map((d) => [
+        `<strong>${esc(d.dial)}</strong>`,
+        cell(esc(d.shown)),
+        `<span class="mk-num${d.moves ? ' mk-num--warn' : ' mk-num--nil'}">${esc(String(d.moves))}</span> of ${esc(String(d.of))}<small>${esc(d.unit)}</small>`,
+        cell(md(d.says)),
+      ]),
+    }) +
+    cols(
+      panel(
+        `Non-detects — one analyte, ${esc(String(S.censoredCadmium.length))} censored cells, four maps`,
+        `<p class="mk-tight"><strong>${esc(CROSSTAB.find((r) => /^Cadmium/.test(r.analyte)).analyte)} is the case this record already holds.</strong> ${esc(String(S.censoredCadmium.length))} of the ${esc(String(CROSSTAB_COLUMNS.length))} cells are non-detects reported at <span class="mk-num">${esc(String(S.cadmiumLimit))}</span> µg/L against a criterion of <span class="mk-num">${esc(String(S.cadmiumCriterion))}</span> µg/L — the limit of reporting sits <em>above</em> the thing it is being judged against. Four rules ship in this industry and all four are below.</p>` +
+          table({
+            head: ['Rule', 'What the map would read', 'At'],
+            scroll: true,
+            label: `The ${S.nonDetectRules.length} rules a map can apply to a non-detect`,
+            rows: S.nonDetectRules.map((r) => [
+              cell(`<strong>${esc(r.rule)}</strong><small>${esc(r.says)}</small>`),
+              C.status(r.reads, r.tone),
+              `<span class="mk-num">${esc(String(r.n))}</span> bores`,
+            ]),
+          }) +
+          `<p class="mk-tight">Same data, same criterion, same six bores: <strong>exceedance</strong>, <strong>compliant</strong>, <strong>absent</strong> or <strong>indeterminate</strong>, decided entirely by a rule a reader of the map cannot see. So the rule is a control on the bar and its state is printed in the provenance line, and the default is the one the record already takes — <a class="mk-ref" href="#indeterminate">the ${esc(String(INDETERMINATE.length))} results that could not be assessed</a> are exactly these cells, and they are on a register rather than coloured in.</p>`,
+      ),
+      panel(
+        `Classification — ${esc(String(S.classDisagree.length))} of ${esc(String(S.classed.length))} move class between two standard methods`,
+        `<p class="mk-tight">One analyte, one round, one criteria set, ${esc(String(S.CLASSES))} classes. The only thing that changes between these two columns is the method.</p>` +
+          table({
+            head: ['Location', 'Value<small>µg/L</small>', 'Equal interval', 'Quantile', 'Same class'],
+            scroll: true,
+            label: 'The same values under two classification methods',
+            rows: S.classed.map((x) => [
+              loc(x.code),
+              `<span class="mk-num">${esc(String(x.v))}</span>`,
+              `<span class="mk-num">${esc(String(x.equal))}</span>`,
+              `<span class="mk-num">${esc(String(x.quantile))}</span>`,
+              x.equal === x.quantile ? C.status('same', 'good') : C.status('moves', 'warn'),
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">The censored value is in neither column and is not a row here: a limit of reporting is not a measurement, and binning it with measurements is the previous panel’s defect wearing a different rule. ${esc(String(S.classed.length))} of the ${esc(String(CROSSTAB_COLUMNS.length))} columns are classifiable — one is censored and one is dry.</p>`,
+      ),
+    ) +
+
+    /* ================================================================ *
+     * §5.4 — time, and what absence looks like on a map
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Time, and what a missing round looks like</h2>' +
+    `<p class="mk-tight">§5.4 asks for a round or period control and for the sequence to be walked without rebuilding the map. <strong>This catalogue is static, so that is drawn states</strong> — and here the honest count is smaller than the control implies: <strong>${esc(String(S.time.populated))} of the ${esc(String(S.time.events))} events</strong> in this record has a grid behind it.</p>` +
+    C.segmented({
+      label: 'Monitoring round',
+      options: EVENTS.map((e) => `${e.code}${e.code === ROUND.code ? '' : ' — no grid'}`),
+      value: `${ROUND.code}`,
+    }) +
+    `<p class="mk-tight"><strong>${esc(S.time.example.says)}</strong></p>` +
+    panel(
+      'What has time depth here, and what has not',
+      table({
+        head: ['Record', 'Series', 'Steps', 'What it can carry'],
+        kind: 'matrix',
+        scroll: true,
+        label: 'What in this record has time depth',
+        rows: S.time.depth.map((d) => [
+          `<strong>${esc(d.what)}</strong>`,
+          `<span class="mk-num">${esc(String(d.series))}</span>`,
+          `<span class="mk-num">${esc(String(d.steps))}</span><small>${esc(d.unit)}</small>`,
+          cell(esc(d.says)),
+        ]),
+      }) +
+        '<p class="mk-tight mk-muted">A period control over one populated period is a control with nowhere to go. It is drawn, and drawn empty, rather than drawn as four tabs over one round — the alternative is a screen that implies three periods this record does not hold.</p>',
+    ) +
+    (
+      panel(
+        `Absence — ${esc(String(S.counts.absences))} kinds, and the vocabulary is borrowed`,
+        `<p class="mk-tight">The field record already distinguishes ${esc(String(FIELD_ROUND.dispositions.length))} things that can happen at a location, and the grid already draws four kinds of absence. <strong>The map borrows both rather than inventing a second vocabulary for a second surface</strong> — two vocabularies for absence is how a dry bore comes to read as a missed one on a map and as a measurement on a table.</p>` +
+          table({
+            head: ['On the map', 'Read through', 'Here', 'What it must not become'],
+            scroll: true,
+            label: `The ${S.time.absence.length} kinds of absence a map has to draw`,
+            rows: S.time.absence.map((a) => [
+              `<strong>${esc(a.kind)}</strong>`,
+              cell(`<a class="mk-ref" href="#${esc(a.at)}">${esc(a.vocabulary)}</a>`),
+              cell(esc(a.here)),
+              cell(esc(a.says)),
+            ]),
+          }),
+      )
+    ) +
+
+    /* ================================================================ *
+     * §5.6 — the selection, and the population it hands on
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A spatial selection, and the population it hands on</h2>' +
+    `<p class="mk-tight">§5.6 is mandatory and it is the largest hole this screen has ever had: until this wave the map had <strong>no selection</strong>, so <em>“select all bores downgradient of Area A → analyse nitrate and PFAS”</em> could not be expressed and <a class="mk-ref" href="#coverage">Scenario D</a> broke here. The requirement is the relationship <strong>${esc(S.HAND_OFF.join(' ↔ '))}</strong>, and what has to cross it is a <strong>population</strong> — locations, samples, results and every exclusion by kind — because a selection that produces a highlight is a selection nothing can be done with.</p>` +
+    C.selectionBar({
+      n: MAP.derived.length,
+      unit: 'bores',
+      actions: ['Open in the data explorer', 'Start an analysis', 'Save as a dataset', 'Add to a group'],
+      undo: 'A selection writes nothing. It is a question, and the population it resolves to is recomputed whenever the fit or the round moves.',
+    }) +
+    cols(
+      panel(
+        `“Downgradient of the TSF” — three answers, and the map draws all three`,
+        `<p class="mk-tight">There is no <em>Area A</em> on this site; the TSF is the source area the whole network is arranged around, and the substitution is named rather than assumed. The harder finding is that asking the record which bores are downgradient of it gives <strong>${esc(String(new Set(MAP.answers.map((a) => a.set.join(','))).size))} different answers</strong>.</p>` +
+          table({
+            head: ['How it is asked', 'Bores', 'The rule', 'What it is answering'],
+            kind: 'matrix',
+            scroll: true,
+            label: `The ${MAP.answers.length} ways to ask which bores are downgradient`,
+            rows: MAP.answers.map((a) => [
+              `<strong>${esc(a.how)}</strong>`,
+              cell(`<span class="mk-num">${esc(String(a.set.length))}</span> — ${a.set.map((x) => loc(x)).join(' ')}`),
+              cell(esc(a.rule)),
+              cell(md(a.says)),
+            ]),
+          }) +
+          `<p class="mk-tight"><strong>${MAP.onlyDerived.map((x) => loc(x)).join(' and ')} are in the derivation and in neither of the others.</strong> They are named on the register by their <em>role</em> — compliance boundary — and a role is not a position. Nothing is resolved here: the selection uses the derivation because it is the only one of the three that can answer for a location nobody has classified by hand, and the other two are drawn beside it so a reader can disagree with the choice rather than with a hidden one.</p>` +
+          `<p class="mk-tight mk-muted">The derivation is a projection along the flow direction the <a class="mk-ref" href="#hydrograph">potentiometric fit</a> already states — ${esc(F.POTENTIOMETRIC_FIT.bearingText)} at ${esc(F.POTENTIOMETRIC_FIT.gradientText)} on a largest residual of ${esc(F.POTENTIOMETRIC_FIT.worstText)} — measured from ${loc(S.REFERENCE)}, the one location this record holds that stands on the embankment. It is a derivation with named inputs and it moves when they move, which is what <a class="mk-ref" href="#lineage">PP3</a> asks of a value that was computed rather than recorded.</p>`,
+      ),
+      panel(
+        'Where the derivation and the typed record disagree, location by location',
+        table({
+          head: ['Location', 'Along the flow path<small>km from the embankment</small>', 'Typed position'],
+          scroll: true,
+          label: 'Every location projected onto the flow direction',
+          rows: MAP.placed.map((p) => [
+            loc(p.code),
+            `<span class="mk-num${p.down ? ' mk-num--warn' : ''}">${p.along >= 0 ? '+' : '−'}${(Math.abs(p.along) / 1000).toFixed(2)}</span>`,
+            cell(esc(p.typed)),
+          ]),
+        }) +
+          `<p class="mk-tight mk-muted">The pits are the interesting rows. Four of the ${esc(String(SOIL.counts.pits))} are logged as a seepage path and the projection agrees with three of them; <strong>${loc('TP01')}, logged as <em>nearest the TSF</em>, comes out ${esc(String(Math.round(Math.abs(MAP.placed.find((p) => p.code === 'TP01').along))))} m upgradient</strong> of the reference point. That is inside the uncertainty of the reference itself — a piezometer at one chainage is one point on a perimeter, not the perimeter — and it is drawn rather than corrected, because correcting it would mean choosing a footprint no record holds.</p>`,
+      ),
+    ) +
+
+    '<h3 class="mk-h3">What crosses to the explorer</h3>' +
+    `<p class="mk-tight">The selection narrowed to the brief’s own two analytes — <strong>${esc(MAP.asked.join(' and '))}</strong> — is <strong>${esc(String(m.cells))} cells</strong>: ${esc(String(m.results))} results at ${esc(String(m.locations))} locations across ${esc(String(m.samples))} samples, and ${esc(String(m.absences))} cells with no result in them at all. It is counted through <a class="mk-ref" href="#explorer">the same accounting the explorer counts with</a>, so the two screens cannot report different exclusions for the same cells.</p>` +
+    table({
+      caption: 'The brief’s selection scenario, term by term, against this record. A verdict is a measurement about the record and never a judgement about the brief.',
+      head: ['The brief’s term', 'Verdict', 'What this record offers', 'Why'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'The selection scenario, term by term',
+      rows: MAP.scenario.map((t) => [
+        `<strong>${esc(t.term)}</strong>`,
+        tag(t.verdict, t.verdict === 'expressible' ? 'good' : 'warn'),
+        cell(md(t.via)),
+        cell(md(t.why)),
+      ]),
+    }) +
+    cols(
+      panel(
+        'The population, as the receiving screen will count it',
+        facts([
+          ['Locations', `${m.locations} — ${MAP.population.locations.map((x) => esc(x)).join(', ')}`],
+          ['Samples', `${m.samples} — a bore that returned nothing contributes a location and no sample`],
+          ['Results', `${m.results} of ${m.cells} cells`],
+          ['Cells with no result', `${m.absences} in ${m.kinds} kinds — ${MAP.population.byKind.map((k) => `${k.list.length} ${esc(k.word)}`).join(', ')}`],
+          ['Results carrying no verdict from one set', `${MAP.population.partlyAsserted.length} of ${m.results} — ${esc(CRITERIA[0].short)} carries no value for ${esc(MAP.asked[0])}`],
+        ]) +
+          `<p class="mk-tight"><strong>Neither absence is a pass.</strong> The dry cells are an absence of material and the unanalysed ones an absence of analysis; a selection that dropped them would hand on a population of ${esc(String(m.results))} results and lose the ${esc(String(m.absences))} facts that say why it is not ${esc(String(m.cells))}.</p>`,
+      ),
+      panel(
+        `${esc(S.HAND_OFF.join(' ↔ '))} — what is on each side of each arrow`,
+        table({
+          head: ['Workspace', 'What it receives', 'What it hands on'],
+          scroll: true,
+          label: 'The three workspaces the hand-off names',
+          rows: [
+            ['<strong>Map</strong>', cell('A project and a round.'), cell(`A population — ${m.locations} locations, ${m.results} results, ${m.absences} cells with no result.`)],
+            [`<strong><a class="mk-ref" href="#explorer">Data Explorer</a></strong>`, cell('The population, with the selection stated as the dimension that made it.'), cell('The same population, narrowed further or saved as a dataset.')],
+            [`<strong><a class="mk-ref" href="#analysis">Analysis</a></strong>`, cell('A named population and a method.'), cell('A result with each member’s QA/QC state as at computation.')],
+          ],
+        }) +
+          '<p class="mk-tight mk-muted">The arrows point both ways in the brief and they do here too: an analysis names the population it ran over, and the population names the selection that built it. What does not happen is a highlight — a set of coloured marks with nothing behind them is what this hand-off exists to replace.</p>',
+      ),
+    ) +
+
+    /* ================================================================ *
+     * §5.5 — the location panel, which reaches rather than restates
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Selecting one location — what it reaches, and what it must not copy</h2>' +
+    `<p class="mk-tight">§5.5 lists <strong>${esc(String(c.investigation))}</strong> things selecting a location must expose <em>without unnecessarily leaving the spatial investigation</em>. Every one of them already exists on a screen that owns it, and <strong>all ${esc(String(m.reachable))} are reachable</strong>. So the panel reaches them; it does not restate them. A panel that copied those values would become a second place the truth lives, which is the thing this catalogue refuses everywhere else.</p>` +
+    table({
+      caption: 'One row per item in §5.5’s own words and order, closed against the brief by the build. “Reaches” counts the locations on this project for which there is anything at the other end — which is the half a link cannot answer on its own.',
+      head: ['What §5.5 asks for', 'Reaches', 'Held by', 'Owned by', 'What the panel does with it'],
+      kind: 'matrix',
+      scroll: true,
+      label: `The ${S.INVESTIGATION.length} items §5.5 lists`,
+      rows: MAP.investigation.map((i) => {
+        const n = LOCATIONS.filter((l) => i.reaches(l)).length;
+        return [
+          `<strong>${esc(i.name)}</strong>`,
+          `<span class="mk-num${n === LOCATIONS.length ? '' : ' mk-num--warn'}">${esc(String(n))}</span> of ${esc(String(LOCATIONS.length))}`,
+          cell(esc(i.holds)),
+          `<a class="mk-ref" href="#${esc(i.at)}">${esc(i.at)}</a>`,
+          cell(md(i.says)),
+        ];
+      }),
+    }) +
+    cols(
+      panel(
+        `${esc('MW05')} — the panel, drawn as it opens`,
+        `<p class="mk-tight">Selecting a mark opens this beside the map rather than instead of it. Every line is a reach, and the only values on it are the ones that identify the location rather than describe it.</p>` +
+          facts(MAP.investigation.map((i) => [
+            esc(i.name),
+            i.reaches(LOCATIONS.find((l) => l.code === 'MW05'))
+              ? `<a class="mk-ref" href="#${esc(i.at)}">Open on ${esc(i.at)}</a>`
+              : `<span class="mk-num mk-num--nil">— nothing to open</span>`,
+          ])) +
+          `<p class="mk-tight mk-muted"><strong>${esc(String(MAP.investigation.filter((i) => i.reaches(LOCATIONS.find((l) => l.code === 'MW05'))).length))} of ${esc(String(c.investigation))} open for ${esc('MW05')}.</strong> The same panel at <a class="mk-ref" href="#locations">${esc('PB03')}</a> opens ${esc(String(MAP.investigation.filter((i) => i.reaches(LOCATIONS.find((l) => l.code === 'PB03'))).length))} of ${esc(String(c.investigation))}, and the difference is the point: a decommissioned production bore nobody samples has a screened interval and a lifecycle and nothing else, and a panel that drew nine empty rows at it would be drawing a bore that had failed rather than one nobody asks these questions of.</p>`,
+      ),
+      panel(
+        'The one item that reaches through nothing',
+        `<p class="mk-tight"><strong>Attachments.</strong> §5.5’s last item is <em>photographs or attachments where appropriate</em>, and the two halves have different answers here. Photographs reach through the field session — ${esc(String(FIELD_ROUND.sessions.filter((s) => s.photographs).length))} sessions carry them, ${esc(String(FIELD_ROUND.sessions.reduce((n, s) => n + (s.photographs ?? 0), 0)))} photographs in all. <strong>Attachments reach through nothing</strong>: all ${esc(String(DOCUMENTS.length))} documents in this instance are attached to an import run, a certificate or a report, and not one of them names a location.</p>` +
+          `<p class="mk-tight">It is drawn as the absence it is rather than as an empty gallery. <a class="mk-ref" href="#documents">The document register</a> is where a location attachment would have to become possible, and it is a change to that record rather than to this panel.</p>`,
+      ),
+    ) +
+
+    /* ================================================================ *
+     * The two plates that were already here, and their own accounts
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The surface, and why it is a plane</h2>' +
     cols(
     figure('4.10', 'Potentiometric surface and flow direction — 2026 Q2', F.potentiometric(),
-      'The claim every other screen rests on, drawn rather than stored as a string.'),
+      'The claim every other screen rests on, drawn rather than stored as a string — and the layer the selection above derives its position from.'),
     panel(
       'Which way the water goes',
       '<p class="mk-tight">Every location on this project carries a position — <em>upgradient</em>, <em>downgradient of TSF</em>, <em>compliance boundary</em> — and until this plate those were attributes somebody typed. This derives them.</p>' +
         `<p class="mk-tight">The surface is a planar least-squares fit through the ${F.POTENTIOMETRIC_FIT.control} superficial bores that carry a head this round. That is the honest method for a network this size: it states one gradient and one direction and cannot invent local structure the data does not support. Interpolating a curved surface through seven bores draws detail nobody measured, and it is the picture that gets argued with.</p>` +
         `<p class="mk-tight"><strong>${F.POTENTIOMETRIC_FIT.reduced} of those ${F.POTENTIOMETRIC_FIT.control} heads are reduced from the round; ${esc(F.POTENTIOMETRIC_FIT.estimated.join(' and '))} are estimates and the plate says so.</strong> A head is a top of casing less a depth to water, and the ${F.POTENTIOMETRIC_FIT.reduced} monitoring bores that were dipped this round have theirs computed from <a class="mk-ref" href="#field-capture">the field record</a> — the same subtraction <a class="mk-ref" href="#hydrograph">the hydrograph</a> is anchored to, made once. The two subterranean-fauna bores carry no session on that round, so there is no dip to reduce; they are stated values, and they are what keeps a near-collinear network from producing an ill-conditioned plane.</p>` +
-        `<p class="mk-tight"><strong>Two of the reduced heads used to be something else.</strong> Until 2 September 2026 this table held numbers that had been adjusted until the plane fitted them: ${F.POTENTIOMETRIC_FIT.moved.map((m) => `${esc(m.code)} <span class="mk-num">${m.was.toFixed(2)}</span> → <span class="mk-num">${m.now.toFixed(2)}</span>`).join(', ')}. MW12 was <span class="mk-num">1.41</span> m from what the tape and the survey say, on a plate whose largest residual was ${F.POTENTIOMETRIC_FIT.worstWas.toFixed(2)} m. A fit through numbers chosen to make it fit measures nothing, which is why the residual below is larger now and means more.</p>` +
+        `<p class="mk-tight"><strong>Two of the reduced heads used to be something else.</strong> Until 2 September 2026 this table held numbers that had been adjusted until the plane fitted them: ${F.POTENTIOMETRIC_FIT.moved.map((m2) => `${esc(m2.code)} <span class="mk-num">${m2.was.toFixed(2)}</span> → <span class="mk-num">${m2.now.toFixed(2)}</span>`).join(', ')}. MW12 was <span class="mk-num">1.41</span> m from what the tape and the survey say, on a plate whose largest residual was ${F.POTENTIOMETRIC_FIT.worstWas.toFixed(2)} m. A fit through numbers chosen to make it fit measures nothing, which is why the residual below is larger now and means more.</p>` +
         `<p class="mk-tight"><strong>${esc(F.POTENTIOMETRIC_FIT.dry.join(', '))} is drawn and is not a control point.</strong> It was dipped to the base of its screened interval on 14 May and found dry, so it has no standing level and therefore no head — it had been contributing one, a water table fifteen metres above where the tape found nothing. The bore stays on the plate with an open mark and the word: a compliance-boundary bore that disappears from a network map because it held no water that week is the reading this figure can least afford.</p>` +
         '<p class="mk-tight"><strong>The network geometry decides whether this figure is possible at all.</strong> Six of these bores sit almost on one line, and a plane fitted through collinear points is barely constrained across that line — the first version of this plate returned a flow direction of due south on a site whose every other screen says south-east, with a residual of 1.46 m against its own one-metre limit. Two bores genuinely off the transect fixed it. That is why the residual is printed on the plate rather than kept in a log: it is the figure telling you whether to believe it.</p>' +
         '<p class="mk-tight"><strong>MW03B is excluded.</strong> It screens the confined unit. Contouring two aquifers as one surface is the commonest error on a plate like this, and it produces a flow direction that is an average of two systems and true of neither.</p>' +
@@ -3829,18 +4223,23 @@ const mapScreen = () =>
     ),
     '3fr 2fr',
   ) +
-  panel('Symbology', '<p class="mk-tight">Worst outcome per location across every criteria set. A bore compliant against the licence and above an ANZG guideline value reads as an exceedance, because that is the more consequential of the two.</p>' +
+  cols(
+    panel('Symbology on the plate', '<p class="mk-tight">Worst outcome per location across every criteria set. A bore compliant against the licence and above an ANZG guideline value reads as an exceedance, because that is the more consequential of the two.</p>' +
       '<p class="mk-tight mk-muted">Shape, not colour. The print layout is the same map at A3 with a north arrow, a bar scale, a grid and a title block — and it survives a monochrome office printer, which is where most of them end up.</p>'),
     panel('Spatial export', table({
       head: ['Format', 'Contains', 'CRS'],
+      label: 'What each spatial export carries',
       rows: [
         ['GeoJSON', 'Locations, state, latest result', 'WGS84 with epoch'],
         ['Shapefile', 'Locations, state, latest result', esc(PROJECT.crs)],
         ['CSV with coordinates', 'Full register', esc(PROJECT.crs)],
       ],
-    }) + '<p class="mk-tight mk-muted">GDA2020 is not WGS84. They agree only at epoch 2020.0 and separate by about 7 cm a year, so a WGS84 export carries its epoch and a conversion without one is refused rather than assumed.</p>'),
+    }) + '<p class="mk-tight mk-muted">GDA2020 is not WGS84. They agree only at epoch 2020.0 and separate by about 7 cm a year, so a WGS84 export carries its epoch and a conversion without one is refused rather than assumed. ' +
+      `An export carries what is drawn, which is <strong>${esc(String(c.drawn + c.equivalent))} of the ${esc(String(c.layers))} layers</strong> — the ${esc(String(c.counted))} counted above have nothing to write.</p>`),
     '1fr 1fr',
+  )
   );
+};
 
 /**
  * Emphasis inside a seed string, rendered rather than printed — wave 20.
@@ -4107,6 +4506,56 @@ const explorer = () => {
         cell(md(o.says)),
       ]),
     }) +
+
+    /* ================================================================ *
+     * §5.6 — the one population this screen does not choose
+     *
+     * Wave 23. Everything above is this screen's own selection, and the
+     * section before it says so at length: naming a population is not
+     * sharing one. This is the exception and the reason it is drawn here
+     * rather than on the map — **a population that arrived**. It is
+     * `SPATIAL.against(POTENTIOMETRIC_FIT)`, the same object `#map`
+     * resolves its selection to, counted through `EXPLORER.readout`, which
+     * is the accounting this whole screen counts with. Two surfaces, one
+     * array: they cannot report different exclusions for the same cells.
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A population that arrived from the map</h2>' +
+    `<p class="mk-tight"><strong>This is the one population on this screen that the screen did not choose.</strong> §5.6 makes the relationship <strong>${esc(SPATIAL.HAND_OFF.join(' ↔ '))}</strong> mandatory, and what crosses the first arrow is a population rather than a highlight: <a class="mk-ref" href="#map">${esc(String(MAP.counts.selected))} bores selected on the map</a> by a rule the map states, narrowed to the brief’s own two analytes.</p>` +
+    C.filterBar({
+      onView: `Downgradient of the TSF — ${MAP.counts.selected} bores, from the map`,
+      saved: false,
+      controls: [
+        C.field({ label: 'Locations', control: C.select({ options: [`From the map — ${MAP.derived.length} bores`, ...LOCATION_OPTIONS], value: `From the map — ${MAP.derived.length} bores` }) }),
+        C.field({ label: 'Analyte', control: C.select({ options: CROSSTAB.map((r) => r.analyte), value: MAP.asked[0] }) }),
+        C.field({ label: 'Criteria sets', control: C.select({ options: ['Both sets', ...CRITERIA.map((x) => `${x.short} only`)], value: 'Both sets' }) }),
+      ],
+      chips: MAP.asked.map((a) => C.chip(a, { prefix: 'analyte', tone: 'new' })).concat([
+        /* The codes are in the panel below. A chip carrying four of them is
+         * 433 px wide and overflowed the document by 103 px at 375 — measured,
+         * not guessed, and a chip is a summary rather than a list. */
+        C.chip(`downgradient of the TSF — ${MAP.derived.length} bores`, { prefix: 'from the map', tone: 'new' }),
+      ]),
+      count: `${MAP.population.locations.length} locations · ${MAP.population.samples.length} samples · ${MAP.counts.results} results · ${MAP.counts.absences} cells with no result`,
+    }) +
+    cols(
+      panel(
+        'What arrived, counted here',
+        facts([
+          ['The selection', `${MAP.counts.selected} bores — ${MAP.derived.map((x) => loc(x)).join(' ')}`],
+          ['The rule that made it', `a projection along the flow direction the potentiometric fit states, from ${loc(SPATIAL.REFERENCE)} — recomputed when the fit moves, never stored`],
+          ['Cells', `${MAP.counts.cells} — ${MAP.counts.results} results and ${MAP.counts.absences} with no result in them`],
+          ['Absences, by kind', MAP.population.byKind.map((k) => `${k.list.length} ${esc(k.word)}`).join(' · ')],
+          ['Results with a verdict from one set only', `${MAP.population.partlyAsserted.length} of ${MAP.counts.results}`],
+        ]) +
+        `<p class="mk-tight">Every number here is <code class="mk-file">EXPLORER.readout</code> over the cells the map selected — <strong>the same function this screen’s own sequence counts through</strong>. That is what makes this a hand-off rather than a second query: if the map and this screen disagreed about how many cells a selection holds, one of them would be counting by hand.</p>`,
+      ),
+      panel(
+        'What it does not carry, and why that matters',
+        `<p class="mk-tight">A selection is a <em>question</em>, not a result set. What crosses is the definition — which locations, by which rule, over which analytes — and the population is recomputed on this side rather than shipped as rows.</p>` +
+          `<p class="mk-tight"><strong>${esc(MAP.asked[1])} is the term that shows it.</strong> ${esc(String(PFAS_REACH.locations.length))} of the ${esc(String(MAP.counts.selected))} selected bores was analysed for it; the others return <em>not analysed</em>, which is an absence of analysis and not a result below a limit. A hand-off that shipped rows would have shipped ${esc(String(MAP.counts.results))} and lost the ${esc(String(MAP.counts.absences))} facts that say why it is not ${esc(String(MAP.counts.cells))}.</p>` +
+          `<p class="mk-tight mk-muted">And it is still not the general case. <strong>${esc(String(E.own.length))} of the representation screens above still choose their own population</strong> and no two of them inherit; this is one arrow of one relationship, drawn because §5.6 makes it mandatory and Scenario D broke exactly here. The sentence above stands.</p>`,
+      ),
+    ) +
 
     /* ================================================================ *
      * D11 — the demotion
@@ -4724,7 +5173,14 @@ const savedViews = () => {
           table({
             head: ['Role', 'What the record holds', 'Drawn as'],
             scroll: true,
-            label: 'The two roles §4.5 asks for',
+            /*
+             * Wave 23. This read `The two roles §4.5 asks for` over three
+             * rows — accurate about the brief and misleading about the table,
+             * and the accessible name is what a screen-reader user is given
+             * before the rows. The third row is what the record holds
+             * instead, so the name says that.
+             */
+            label: 'The three roles, and which of them this record holds',
             rows: [
               ['Creator', '<span class="mk-num mk-num--nil">— nothing</span>', cell('A field, empty, with what would fill it')],
               ['Current owner', '<span class="mk-num mk-num--nil">— nothing</span>', cell('A field, empty, and kept apart from the one above rather than filled from it')],
@@ -11064,7 +11520,16 @@ const locationRegistry = () => {
           : takeOf(l.code)
             ? C.status('not sampled — take only', 'neutral')
             : C.status(l.state.replace(/_/g, ' '), toneFor(l.state)),
-    l.code === 'MW05' ? '<span class="mk-num mk-num--bad">8</span>' : l.code === 'MW07' ? '<span class="mk-num mk-num--bad">1</span>' : '<span class="mk-num mk-num--nil">0</span>',
+    /*
+     * Wave 23. This read `MW05 ? 8 : MW07 ? 1 : 0` — three typed numbers in
+     * the last column of a table whose every other cell derives, and they
+     * happened to be right, which is the whole difficulty with the shape: a
+     * tenth exceedance at MW05 would have left this column asserting nine
+     * were eight and nothing would have gone red. It counts the register now.
+     */
+    ((n) => `<span class="mk-num${n ? ' mk-num--bad' : ' mk-num--nil'}">${n}</span>`)(
+      EXCEEDANCES.filter((e) => e.location === l.code).length,
+    ),
   ]);
 
   return (
@@ -11086,7 +11551,17 @@ const locationRegistry = () => {
          * the day soil stopped being an empty class.
          */
         C.field({ label: 'Class', control: C.select({ options: [`All classes (${LOCATIONS.length})`, ...[...new Set(LOCATIONS.map((l) => l.klass))].map((k) => `${k.replace(/_/g, ' ')} (${LOCATIONS.filter((l) => l.klass === k).length})`)], value: `All classes (${LOCATIONS.length})` }) }),
-        C.field({ label: 'Group', control: C.select({ options: ['Any group', 'Downgradient of TSF', 'Compliance boundary', 'Background'], value: 'Any group' }) }),
+        /*
+         * Wave 23. This offered `Downgradient of TSF`, `Compliance boundary`
+         * and `Background` — and two of the three name no group in this
+         * record: they are a *position* string and a *position* string. The
+         * glossary's **location group** is a named set of locations assessed
+         * together, `INSTRUMENTS.groups` is where they live, and a control
+         * that offers a group nobody can be a member of is the same promise
+         * as a control over nothing. The options are the groups now, with
+         * their sizes, so a group added or renamed moves this control with it.
+         */
+        C.field({ label: 'Group', control: C.select({ options: ['Any group', ...INSTRUMENTS.groups.map((g) => `${g.name} (${g.members.length})`)], value: 'Any group' }) }),
         C.field({ label: 'Network health', control: C.select({ options: ['Any', 'Unsampled in 6 months', 'Missing survey data', 'Decommissioned but still in a programme'], value: 'Any' }) }),
       ],
       count: `${LOCATIONS.length} of ${LOCATIONS.length} locations`,
@@ -11218,8 +11693,23 @@ const locationRegistry = () => {
         table({
           head: ['Question', 'Answer here', 'Rows'],
           rows: [
-            ['Which monitoring locations have not been sampled in six months?', 'Network health filter', '<span class="mk-num">0</span>'],
-            ['Which have no survey epoch, so elevation cannot be derived?', 'Network health filter', '<span class="mk-num">0</span>'],
+            /*
+             * Wave 23 — two typed zeros, derived. Both were right and both
+             * were written rather than counted, in the same table as four
+             * cells that count. The definition each one derives under is in
+             * the cell, because a zero whose definition is unstated is a
+             * claim rather than an answer.
+             */
+            ((n) => ['Which monitoring locations have not been sampled in six months?', 'Network health filter',
+              cell(`<span class="mk-num${n ? ' mk-num--warn' : ''}">${n}</span> <span class="mk-muted">— no sample on any manifest, no field visit, no instrument read and no take record</span>`)])(
+              LOCATIONS.filter((l) => !sampledAt.has(l.code)
+                && !FIELD_ROUND.current.some((v) => v.location === l.code)
+                && !INSTRUMENTS.installed.some((i) => i.held === l.code)
+                && !WATER.bores.some((b) => b.code === l.code)
+                && !STYGOFAUNA.rows.some((r) => r.bore === l.code)).length),
+            ((n) => ['Which have no survey epoch, so elevation cannot be derived?', 'Network health filter',
+              cell(`<span class="mk-num${n ? ' mk-num--warn' : ''}">${n}</span> <span class="mk-muted">— every row carries a top of casing or a ground surface to reduce through</span>`)])(
+              LOCATIONS.filter((l) => l.toc === undefined && l.elevation === undefined).length),
             [
               'Which are decommissioned but still named in a programme?',
               'Network health filter',
@@ -11236,6 +11726,15 @@ const locationRegistry = () => {
       panel(
         'Groups, and what changing one touches',
         '<p class="mk-tight">Groups drive criteria applicability, programme membership and figure series, so a membership change is never only a label.</p>' +
+          /*
+           * Wave 23. §5.6 needs a spatial selection to produce a population,
+           * and this register is one of the three places that can answer
+           * "which bores are downgradient". The other two are the typed
+           * position attribute on the rows above and the derivation the map
+           * makes from the plane fit; the three do not agree, and the map
+           * draws all three rather than picking one silently.
+           */
+          `<p class="mk-tight"><strong>A group is a membership, not a geometry.</strong> ${INSTRUMENTS.groups.length} groups exist here and the glossary is explicit that membership is an assessment decision rather than a place — which is why <a class="mk-ref" href="#map">the map</a> derives <em>downgradient</em> from the potentiometric fit instead of reading it off a group, and why the two answers differ: the derivation returns ${MAP.derived.length} bores and the group returns ${MAP.group.members.length}. Neither is wrong and they are answering different questions, so the map draws both.</p>` +
           C.blastRadius({
             lede: 'Adding MW07 to “Compliance boundary” would change:',
             rows: FACILITY.blastRadius,
@@ -11255,8 +11754,11 @@ const facilityScreen = () => (
   C.tabs([
     { label: 'Hierarchy', current: true },
     { label: 'Locations', count: LOCATIONS.length },
-    { label: 'Programmes', count: 3 },
-    { label: 'Documents', count: 6 },
+    /* Wave 23 — two typed tab counts beside four derived facts. Both were
+     * right; neither was counted. The programmes are the distinct codes the
+     * areas name, which is where a programme is identified in this record. */
+    { label: 'Programmes', count: [...new Set(FACILITY.areas.flatMap((a) => a.programme.split(', ')))].length },
+    { label: 'Documents', count: DOCUMENTS.length },
     { label: 'Audit' },
   ]) +
   facts([
@@ -11280,6 +11782,33 @@ const facilityScreen = () => (
       C.btn('Edit', '', {}) + ' ' + C.btn('Move'),
     ]),
   }) +
+  /*
+   * Wave 23 — what an area is, spatially, and what it is not.
+   *
+   * §5.2's operational-and-infrastructure-areas layer is drawn on `#map` and
+   * **no record holds its geometry**: the outline on the plate is a literal
+   * in `figures.mjs`. This is where that finding belongs, because this is the
+   * screen that owns areas — and it is the one place a reader can see that an
+   * area here is a *membership*, not a shape.
+   */
+  '<h2 class="mk-h2" style="margin-top:1.2rem">What an area is, and what it is not</h2>' +
+  `<p class="mk-tight">An area on this record is a <strong>membership with a programme</strong>: ${esc(String(LOCATIONS.length))} locations distributed across ${esc(String(FACILITY.areas.length))} of them, each binding criteria applicability and programme membership. <strong>None of the ${esc(String(FACILITY.areas.length))} carries a geometry</strong> — not a boundary, not a centroid, not an extent — and that is the finding <a class="mk-ref" href="#map">the map’s layer manager</a> reports against §5.2: the TSF outline it draws is four coordinate pairs written into the figure module as context, and there is nothing here to ask for it.</p>` +
+  table({
+    caption: 'One row per area. “Extent” is what the map could draw the area as if it were asked; “from the members” is a convex hull over the locations that belong to it, which is a picture of where the monitoring is rather than of where the thing is.',
+    head: ['Area', 'Geometry on the record', 'What the map draws today', 'What it could derive'],
+    kind: 'matrix',
+    scroll: true,
+    label: `Where each of the ${FACILITY.areas.length} areas stands on geometry`,
+    rows: FACILITY.areas.map((a) => [
+      `<strong>${esc(a.name)}</strong>`,
+      '<span class="mk-num mk-num--nil">— none</span>',
+      a.name === 'TSF'
+        ? cell('An outline, as context — <strong>held by no record</strong>')
+        : '<span class="mk-num mk-num--nil">— nothing</span>',
+      cell(`${a.locations} member location${a.locations === 1 ? '' : 's'}, which is a membership and not an extent`),
+    ]),
+  }) +
+  `<p class="mk-tight mk-muted">Deriving an extent from the members is available and is <strong>not</strong> offered: a hull over ${esc(String(FACILITY.areas.find((a) => a.name === 'TSF').locations))} monitoring points around a tailings facility is a picture of where the bores are, and drawing it as the facility would be the map authoring a geometry — which is exactly what <strong>D4</strong> restates NG4 to forbid. The honest answer is the empty column.</p>` +
   cols(
     panel(
       'Reorganising the hierarchy — the preview is the feature',
@@ -11470,7 +11999,8 @@ const samplingEvents = () => (
       panel(
         'What the field crew found, location by location',
         table({
-          caption: `The round's seven planned locations and the disposition each one carries. Sampled is one of seven states, and the other six are not absences.`,
+          /* Wave 23 — `seven` twice, typed, in a caption over a derived table. */
+          caption: `The round's ${FIELD_ROUND.planned.length} planned locations and the disposition each one carries. Sampled is one of ${FIELD_ROUND.dispositions.length} states, and the other ${FIELD_ROUND.dispositions.length - 1} are not absences.`,
           head: ['Location', 'Visits', 'Disposition', 'Reason', 'Samples on the manifest', 'On the record'],
           scroll: true,
           label: 'Field dispositions for round 2026-Q2-GW',
@@ -11489,7 +12019,8 @@ const samplingEvents = () => (
             ];
           }),
         }) +
-          `<p class="mk-tight">${FIELD_ROUND.preflight.sampled} sampled · ${FIELD_ROUND.preflight.dry} dry · ${FIELD_ROUND.preflight.visits} visits to ${FIELD_ROUND.preflight.planned} bores. The manifest above lists ${EVENT_SAMPLES.filter((x) => x.qc === '—').length} primary samples from ${FIELD_ROUND.preflight.sampled} bores, and the two counts agree because they are the same sessions read twice.</p>`,
+          `<p class="mk-tight">${FIELD_ROUND.preflight.sampled} sampled · ${FIELD_ROUND.preflight.dry} dry · ${FIELD_ROUND.preflight.visits} visits to ${FIELD_ROUND.preflight.planned} bores. The manifest above lists ${EVENT_SAMPLES.filter((x) => x.qc === '—').length} primary samples from ${FIELD_ROUND.preflight.sampled} bores, and the two counts agree because they are the same sessions read twice.</p>` +
+          `<p class="mk-tight mk-muted"><strong>This vocabulary is what <a class="mk-ref" href="#map">the map</a> draws absence with, rather than a second one of its own.</strong> A dry bore is a measurement of the aquifer on both surfaces or on neither: two vocabularies for absence is how a bore comes to read as attempted on a table and as missing on a plate, and the ${FIELD_ROUND.dispositions.length} states here are the ones the map borrows.</p>`,
       ) +
       panel(
         'The round is not complete, and this is what holds it',
@@ -11559,7 +12090,7 @@ const samplingEvents = () => (
       cols(
         panel(
           'The plan and the outcome are sharing a row, and that is why there was nothing to reconcile',
-          `<p class="mk-tight">The coverage record carries ${P.coverageShape.fields.length} fields per location: <strong>${P.coverageShape.plan.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are the plan, and <strong>${P.coverageShape.outcome.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are what became of it. One row, two claims — so *what was expected* and *what happened* were never two things that could be compared, only two halves of a sentence.</p>` +
+          `<p class="mk-tight">The coverage record carries ${P.coverageShape.fields.length} fields per location: <strong>${P.coverageShape.plan.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are the plan, and <strong>${P.coverageShape.outcome.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are what became of it. One row, two claims — so <em>what was expected</em> and <em>what happened</em> were never two things that could be compared, only two halves of a sentence.</p>` +
             `<p class="mk-tight">That is the shape <a class="mk-ref" href="#completeness">the reconciliation</a> separates, and separating it is what made the ${P.counts.mw09Readings}-register disagreement about ${esc(P.disagreements.mw09.subject.replace('One result short at ', '').replace(', and five registers describe it differently', ''))} visible. It was in the record the whole time and no screen was standing anywhere it could be seen from.</p>`,
         ),
         panel(
@@ -14556,7 +15087,7 @@ export const RELATED = {
   // Wave 8: the bore reaches what is hanging in it, and the series that
   // instrument is writing — both questions asked while standing at one.
   location: ['crosstab', 'hydrograph', 'map', 'programme', 'exceedances', 'documents', 'lineage', 'purge', 'instruments', 'logger-series'],
-  facility: ['locations', 'programme', 'criteria', 'project-settings'],
+  facility: ['locations', 'programme', 'criteria', 'project-settings', 'map'],
   // Wave 9: the round reaches the composite collected inside it, which is the
   // one sample on its manifest that no other screen can open.
   // Wave 22: the round reaches the reconciliation that says whether it is
@@ -14641,7 +15172,13 @@ export const RELATED = {
   statistics: ['background', 'hydrograph', 'crosstab', 'report-figures', 'explorer', 'analysis'],
   background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances', 'analysis'],
   stygofauna: ['background', 'map', 'locations', 'obligations'],
-  map: ['location', 'stygofauna', 'exceedances', 'report-figures', 'explorer'],
+  /*
+   * Wave 23. The map became a workspace, so its exits became the workspaces a
+   * spatial investigation actually leaves for: the population it hands on, the
+   * analysis that receives one, the registers its layers are governed from,
+   * and the records its location panel reaches rather than restates.
+   */
+  map: ['location', 'locations', 'facility', 'explorer', 'analysis', 'crosstab', 'exceedances', 'indeterminate', 'hydrograph', 'events', 'stygofauna', 'report-figures'],
   // Wave 19: the chain gained a dataset hop, so the register and the lineage
   // page point at each other — the declared architecture matching the hrefs
   // both screens now write.

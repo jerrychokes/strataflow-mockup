@@ -5325,7 +5325,7 @@ export const SAVED_VIEWS = (() => {
       word: 'dataset',
       inGlossary: false,
       says:
-        'The brief’s §4.5 is headed “Saved queries and governed datasets” and `docs/PRD.md` uses *dataset* in prose; `docs/GLOSSARY.md` carries neither that word nor *saved view* as a term. So the object is named in the requirement’s own words rather than in one this catalogue invented, and the glossary entry is part of the PRD amendment D1 accepted and that has not landed. The screen keeps its id and its label, because a route is not a noun.',
+        'The brief’s §4.5 is headed “Saved queries and governed datasets” and `docs/PRD.md` uses the word dataset in prose; `docs/GLOSSARY.md` carries neither that word nor “saved view” as a term. So the object is named in the requirement’s own words rather than in one this catalogue invented, and the glossary entry is part of the PRD amendment D1 accepted and that has not landed. The screen keeps its id and its label, because a route is not a noun.',
     },
     /* The counts the surfaces render, so none of them is typed. */
     get shared() { return views.filter((v) => v.shared).length; },
@@ -11148,7 +11148,7 @@ export const EXCHANGE = (() => {
       where: 'crosstab',
       whereLabel: 'the results grid, where the cell says which absence it is',
       checked:
-        'The Sample file carries a row per sample and the Chemistry file a row per result, and neither carries the sample’s *test list* — so a suite that was not run produces no row and no column says it was not asked for. The check that matters is that this is not the dry-bore loss wearing a different name: these bores returned water, filled containers and reconciled at the laboratory, and every other analyte on them crossed.',
+        'The Sample file carries a row per sample and the Chemistry file a row per result, and neither carries the sample’s test list — so a suite that was not run produces no row and no column says it was not asked for. The check that matters is that this is not the dry-bore loss wearing a different name: these bores returned water, filled containers and reconciled at the laboratory, and every other analyte on them crossed.',
       reads:
         `${grid.notAnalysedCells} silences in one analyte row. In this file they are indistinguishable from ${grid.emptyColumns.join(', ')}’s absence, from a result held in quarantine, and from a deliverable that has not been sent — four different facts arriving as the same nothing.`,
     },
@@ -15557,6 +15557,582 @@ export const ANALYSES = (() => {
   };
 })();
 
+/**
+ * The map as a workspace — wave 23, under D4.
+ *
+ * **D4 (3 September 2026) accepted the map workspace and restated NG4 as “no
+ * GIS authoring”**: the map *consumes* layers and never authors them — no
+ * digitising, no geoprocessing, no topology editing. Everything in this record
+ * sits on the consuming side of that line, and every surface built on it says
+ * which side it is on.
+ *
+ * **What this record is, and what it deliberately is not.** §5.2 lists fourteen
+ * layers and the clause with teeth is its last paragraph: the interface must
+ * identify active layers, legends, source, date or version, and **whether a
+ * layer is project-supplied, derived or authoritative**. That is a governance
+ * question about layers rather than a drawing question, and it is asked here of
+ * every one of the fourteen — including the ones that are not drawn, because a
+ * layer manager that lists fourteen and draws five is honest only if it says
+ * which five and what the other nine would need.
+ *
+ * **`figures.mjs` is untouched by this wave**, on the wave plan's own amendment
+ * of 3 September 2026 and on D13, which gates every figure family behind a
+ * print test that has not happened. So a layer that cannot be drawn inside the
+ * grammar already banked is **counted, with what it would need** — never drawn.
+ * The three the plan called *reachable now* were measured and are already
+ * drawn: `siteMap()` carries the location marks and the TSF outline, and
+ * `potentiometric()` sits beside it with `POTENTIOMETRIC_FIT`.
+ *
+ * **Everything that needs the plane fit is behind `against(fit)`.** The fit
+ * lives in `figures.mjs` and `figures.mjs` imports this file, so this module
+ * cannot import it back; fitting a second plane here to avoid the injection
+ * would put two answers to one question in one repository, which is the defect
+ * this catalogue spends most of its effort refusing. One fit, injected once.
+ */
+export const SPATIAL = (() => {
+  /* ---------------------------------------------------------------- *
+   * §5.2's fourteen layers, §5.3's seven symbology dimensions, §5.5's
+   * nine investigation items — the brief's own words, in the brief's own
+   * order. `build.mjs` closes all three against the document in both
+   * directions and in sequence, the same closure §4.2, §4.4, §6.2, §6.3,
+   * §6.4, §9.3 and §9.4 already have.
+   * ---------------------------------------------------------------- */
+  const LAYERS = [
+    'Monitoring locations',
+    'Groundwater bores',
+    'Surface-water monitoring points',
+    'Soil, sediment and other sampling locations',
+    'Site and project boundaries',
+    'Operational and infrastructure areas',
+    'Hydrostratigraphic units',
+    'Geology',
+    'Groundwater contours',
+    'Contaminant or plume contours',
+    'Receptors',
+    'Drainage and surface-water features',
+    'Regulatory or compliance areas',
+    'Aerial imagery or background mapping',
+  ];
+
+  const SYMBOLOGY = [
+    'Analyte concentration',
+    'Criterion exceedance',
+    'QA/QC status',
+    'Monitoring status',
+    'Groundwater elevation',
+    'Trend',
+    'Location type',
+  ];
+
+  const INVESTIGATION = [
+    'Construction details',
+    'Screened interval or sample depth context',
+    'Groundwater elevation',
+    'Recent samples and field observations',
+    'Exceedances',
+    'Hydrograph or relevant time series',
+    'Analytes and results',
+    'QA/QC state',
+    'Photographs or attachments where appropriate',
+  ];
+
+  /**
+   * §5.3's second sentence, split into the six things it says change a map.
+   *
+   * Held as the brief's own fragments so `build.mjs` can close them against
+   * the sentence itself rather than against a paraphrase — the same mechanism
+   * §4.3's and §6.4's arrow sentences close through.
+   */
+  const DIALS = [
+    'the selected analyte',
+    'criterion',
+    'time period',
+    'units',
+    'treatment of non-detects',
+    'classification method',
+  ];
+
+  /**
+   * §5.2's last paragraph, as the list it is.
+   *
+   * The clause with teeth asks each layer for three things, and both the
+   * governance table and every sentence counting them read this — so *three*
+   * is arithmetic here rather than a word, and a fourth thing the requirement
+   * grew could not be answered by a screen still saying three.
+   */
+  const GOVERNANCE = [
+    { asks: 'Source', of: (l) => l.source,
+      empty: 'The rest name nothing, and the table says so rather than crediting the module that happens to hold a literal.' },
+    { asks: 'Date or version', of: (l) => l.dated,
+      empty: 'No coordinate on the location register carries a capture date at all. The only survey history in this instance is one bore’s top of casing, which is an elevation and not a position.' },
+    { asks: 'Project-supplied, derived or authoritative', of: (l) => l.supply,
+      empty: null },
+  ];
+
+  /*
+   * §5.2's own three words, used as §5.2 uses them.
+   *
+   * Deliberately **not** called *custody*: `docs/GLOSSARY.md` carries
+   * **custody transfer**, which is a chain-of-custody act on a sample, and
+   * reusing the stem for a layer's provenance would be exactly the invented
+   * abstraction over an established concept QB-9 forbids. The field is
+   * `supply` and the column heading is the brief's phrase in full.
+   */
+  const SUPPLY = ['project-supplied', 'derived', 'authoritative'];
+
+  const byClass = (k) => LOCATIONS.filter((l) => l.klass === k);
+  const bores = byClass('groundwater');
+  const surface = byClass('surface_water');
+  const otherSampling = LOCATIONS.filter((l) => l.klass !== 'groundwater' && l.klass !== 'surface_water');
+  const units = [...new Set(LOCATIONS.map((l) => l.unit))].filter((u) => u !== '—');
+  const cadmium = CROSSTAB.find((r) => /^Cadmium/.test(r.analyte));
+  const arsenic = CROSSTAB.find((r) => /^Arsenic/.test(r.analyte));
+  const nitrate = CROSSTAB.find((r) => /^Nitrate/.test(r.analyte));
+  const pfas = CROSSTAB.find((r) => /^PFOS/.test(r.analyte));
+  const col = (code) => CROSSTAB_COLUMNS.indexOf(code);
+
+  /* ---------------------------------------------------------------- *
+   * §5.2 — the fourteen, each with its source, its date and its custody
+   *
+   * `state` has three values and each is a measurement rather than a
+   * verdict: **drawn** — the layer is on a plate in this catalogue today;
+   * **an equivalent** — something answering the same question is drawn in a
+   * different form, and the row says what the difference is; **counted** —
+   * not drawn, with what it would need.
+   *
+   * `source`, `dated` and `custody` are null where nothing holds them, and
+   * the counts below are arithmetic over those nulls. A layer manager whose
+   * governance columns were filled in by the person drawing it would answer
+   * §5.2's last paragraph by assuming it.
+   * ---------------------------------------------------------------- */
+  const layers = [
+    {
+      name: LAYERS[0], state: 'drawn', legend: true,
+      source: `the location register — ${LOCATIONS.length} locations`,
+      dated: null, supply: 'project-supplied',
+      says: 'Every row on the register is a mark on the plate, and the mark is this round’s outcome rather than the location’s class.',
+      needs: 'A capture date. No coordinate on this register carries one — the only survey history here is MW05’s top of casing, which is an elevation and not a position.',
+    },
+    {
+      name: LAYERS[1], state: 'drawn', legend: true,
+      source: `the same register narrowed to class groundwater — ${bores.length} of ${LOCATIONS.length}`,
+      dated: null, supply: 'derived',
+      says: 'Not a second register. A bore is a location of a class, which is why selecting bores and selecting locations cannot disagree about a bore.',
+      needs: null,
+    },
+    {
+      name: LAYERS[2], state: 'drawn', legend: true,
+      source: `class surface_water — ${surface.length} location, ${surface.map((l) => l.code).join(', ')}`,
+      dated: null, supply: 'derived',
+      says: 'One point, downstream of the licensed discharge. It carries the creek’s only geometry in this record, which is why the drainage layer below is counted rather than drawn.',
+      needs: null,
+    },
+    {
+      name: LAYERS[3], state: 'drawn', legend: true,
+      source: `every class that is neither — ${otherSampling.length} locations, ${byClass('soil').length} of them test pits`,
+      dated: null, supply: 'derived',
+      says: `The pits, the two fauna bores, the ${byClass('production_bore').length} production bores and the embankment piezometer. A test pit is drawn as a pit and not as a bore missing its casing.`,
+      needs: null,
+    },
+    {
+      name: LAYERS[4], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: 'Nothing in this record holds a boundary of any kind — not the site, not the project, not the tenement.',
+      needs: `A surveyed boundary. The project holds a tenement identifier, ${FACILITY.tenement}, and an identifier is not a geometry.`,
+    },
+    {
+      /*
+       * The row worth reading twice, and the reason this table exists.
+       *
+       * The TSF outline **is drawn** — and it is the one drawn layer whose
+       * geometry no record holds. It is four coordinate pairs written into
+       * `figures.mjs` as context, so it cannot state a source, a date or a
+       * supply class, and the honest answer to all three is a null rather
+       * than the name of the file that happens to carry the literal.
+       */
+      name: LAYERS[5], state: 'drawn', legend: false,
+      source: null, dated: null, supply: null,
+      says: `Drawn, and held by nothing. The facility record carries ${FACILITY.areas.length} areas as names, kinds, programmes and location counts, and a geometry for none of them; the outline on the plate is a literal in the figure module.`,
+      needs: `The area geometries, as a record. Until then this layer cannot answer any of §5.2’s ${GOVERNANCE.length} governance questions, and the map says so rather than crediting the figure module as a source.`,
+    },
+    {
+      name: LAYERS[6], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: `The register holds the unit per location — ${units.join(' and ')} — which is a point attribute, not an extent.`,
+      needs: 'Mapped unit extents. Drawing the point attribute as a surface asserts a boundary between two bores that nobody mapped, and the confined bore excluded from the potentiometric fit is the reason that matters here.',
+    },
+    {
+      name: LAYERS[7], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: `What this record logs is geology at points: ${SOIL.counts.intervals} depth intervals across ${SOIL.counts.pits} pits, and one bore construction log at ${CONSTRUCTION.codes.join(', ')}.`,
+      needs: 'A mapped geology, which is a different record and an authoritative one. Nothing here holds a line of it.',
+    },
+    {
+      name: LAYERS[8], state: 'an equivalent', legend: true,
+      source: 'the potentiometric fit — a least-squares plane through the superficial bores that carry a head this round, with the confined one excluded by name',
+      dated: `${ROUND.code} — refitted with the round, never stored`,
+      supply: 'derived',
+      says: 'Drawn as a fitted plane rather than as contours: one gradient, one direction, its largest residual printed on the plate and the confined bore excluded by name.',
+      needs: 'Contours proper. D2 approved the head-contour plate on 3 September 2026 and D13 gates it behind the print test, which has not happened — so the surface stays the plane it already was and the contours are counted.',
+    },
+    {
+      name: LAYERS[9], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: `An interpolation, and a decision about censored values before it runs. This round holds ${bores.filter((b) => b.unit === units[0]).length} superficial bores, one of them dry.`,
+      needs: `A control network and a stated non-detect rule. ${cadmium.cells.filter((c) => c.censored).length} of the ${CROSSTAB_COLUMNS.length} cadmium cells are non-detects whose limit of reporting sits above the criterion — contours through those are a picture of a substitution rule rather than of a plume.`,
+    },
+    {
+      name: LAYERS[10], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: 'There is no receptor register anywhere in this catalogue — not a bore user, not a wetland, not a dwelling.',
+      needs: `A receptor register. ${surface.map((l) => l.code).join(', ')} is a monitoring point on the creek, which is where a receptor would be measured and is not the receptor.`,
+    },
+    {
+      name: LAYERS[11], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: `The record names the creek as an area and holds ${surface.length} monitoring point on it; the watercourse itself has no geometry here.`,
+      needs: 'The watercourse as a line, and the drainage that feeds it. Both would be project-supplied or authoritative and neither is present.',
+    },
+    {
+      name: LAYERS[12], state: 'an equivalent', legend: false,
+      source: `licence ${LICENCE.id} condition ${LICENCE.conditions[0].n}, and the compliance-boundary area on the register`,
+      dated: `${LICENCE.lastVaried} — the variation that set the limits in force`,
+      supply: 'authoritative',
+      says: 'On the plate as the bores that stand on the boundary and as the licence condition that names them, and not as a line.',
+      needs: 'The boundary’s own geometry. The licence names the locations its limits are assessed at; it carries no polygon, and this record holds none.',
+    },
+    {
+      name: LAYERS[13], state: 'counted', legend: null,
+      source: null, dated: null, supply: null,
+      says: 'No imagery source is named anywhere in this catalogue, and none is invented here.',
+      needs: 'An imagery source with a capture date and a licence. NG4 as D4 restates it does not refuse one — consuming a basemap is consuming, not authoring — so this layer is absent rather than excluded.',
+    },
+  ];
+
+  const layerOf = (name) => layers.find((l) => l.name === name);
+  const stateIs = (s) => layers.filter((l) => l.state === s);
+
+  /* ---------------------------------------------------------------- *
+   * §5.5 — the nine, and how far each one reaches on this record
+   *
+   * The rule the wave plan sets: **reach it, do not restate it.** Every one
+   * of the nine already lives on a screen that owns it, and a panel that
+   * copied the values would become a second place the truth lives. So each
+   * row carries the screen that owns it and a predicate that says, for any
+   * location, whether there is anything to reach — which is the half a link
+   * cannot answer on its own.
+   * ---------------------------------------------------------------- */
+  const sampledCodes = new Set([
+    ...EVENT_SAMPLES.map((s) => s.location),
+    ...SOIL.samples.map((s) => s.location),
+  ].filter((c) => c && c !== '—'));
+  const visitedCodes = new Set(FIELD_ROUND.sessions.map((s) => s.location));
+  const qualifierCodes = new Set(
+    LOCATIONS.map((l) => l.code).filter((code) => QUALIFIERS.rows.some((r) => new RegExp(`\\b${code}\\b`).test(r.on))),
+  );
+  const resultCodes = new Set([
+    ...CROSSTAB_COLUMNS.filter((c) => CROSSTAB.some((r) => !r.cells[col(c)].empty)),
+    ...SOIL.gridColumns.map((g) => g.head).filter((h) => LOCATIONS.some((l) => l.code === h)),
+  ]);
+  const photographCodes = new Set(FIELD_ROUND.sessions.filter((s) => s.photographs).map((s) => s.location));
+
+  const investigationOf = (fit) => [
+    { name: INVESTIGATION[0], at: 'location', reaches: (l) => CONSTRUCTION.codes.includes(l.code),
+      holds: `the construction record — ${CONSTRUCTION.codes.length} of ${LOCATIONS.length} locations carry one`,
+      says: 'Casing, annulus, slot and the log beside them. One bore has it, which is a fact about this seed and not about the screen.' },
+    { name: INVESTIGATION[1], at: 'location', reaches: (l) => (l.screen && l.screen !== '—') || l.klass === 'soil',
+      holds: 'the screened interval on a cased hole, and the logged depth intervals on a pit',
+      says: 'Two different facts under one requirement, and the row answers in the class’s own terms rather than drawing a pit as a bore with blank casing fields.' },
+    { name: INVESTIGATION[2], at: 'hydrograph', reaches: (l) => fit.headOf(l.code) !== null,
+      holds: `the head the potentiometric fit holds for a bore — ${LOCATIONS.filter((l) => fit.headOf(l.code) !== null).length} of ${LOCATIONS.length}`,
+      says: 'Derived at the measurement date and never stored, which is why it is reached rather than copied: a panel holding a number would be holding a derivation’s output with none of its inputs.' },
+    { name: INVESTIGATION[3], at: 'field-capture', reaches: (l) => sampledCodes.has(l.code) || visitedCodes.has(l.code),
+      holds: `the round’s manifests and the field sessions — ${sampledCodes.size} locations sampled, ${[...visitedCodes].filter((c) => !sampledCodes.has(c)).length} visited and not sampled`,
+      says: 'A visit that produced no sample is still a field observation, and it is the one this record is most likely to be asked about.' },
+    { name: INVESTIGATION[4], at: 'exceedances', reaches: (l) => EXCEEDANCES.some((e) => e.location === l.code),
+      holds: `the exceedance register — ${EXCEEDANCES.length} rows at ${new Set(EXCEEDANCES.map((e) => e.location)).size} locations`,
+      says: 'One row per result per criterion, so a location above two sets appears twice and the panel says which set said so.' },
+    { name: INVESTIGATION[5], at: 'hydrograph', reaches: (l) => Boolean(WATER_LEVELS.series[l.code]),
+      holds: `the water-level series — ${Object.keys(WATER_LEVELS.series).length} bores over ${WATER_LEVELS.months.length} months`,
+      says: 'A level series and not a concentration series. The distinction matters on the map: a trend symbology has one of these for six bores and the other for one.' },
+    { name: INVESTIGATION[6], at: 'crosstab', reaches: (l) => resultCodes.has(l.code),
+      holds: `the round’s grids — ${CROSSTAB_COLUMNS.length} water columns and ${SOIL.gridColumns.length} soil columns`,
+      says: 'The population the grid draws, narrowed to one location. It is a representation of the same cells rather than a second query.' },
+    { name: INVESTIGATION[7], at: 'qc', reaches: (l) => qualifierCodes.has(l.code),
+      holds: `the qualifier register — ${QUALIFIERS.counts.assertions} assertions, of which ${QUALIFIERS.rows.filter((r) => LOCATIONS.some((x) => new RegExp(`\\b${x.code}\\b`).test(r.on))).length} name a location`,
+      says: `The rest name a batch or a sample. The matrix-spike proposal reaches ${QC_DECISIONS.needDecisionRows[0].results} results in one batch and names no location at all, so a location-coloured QA/QC layer resolves through the batch’s manifest — one hop the record supports and the assertion does not state.` },
+    { name: INVESTIGATION[8], at: 'documents', reaches: (l) => photographCodes.has(l.code),
+      holds: `the field sessions — ${[...photographCodes].length} locations carry photographs`,
+      says: `Photographs reach through the session. **Attachments reach through nothing**: all ${DOCUMENTS.length} documents in this instance are attached to a run, a certificate or a report, and not one of them names a location.` },
+  ];
+
+  /* ---------------------------------------------------------------- *
+   * §5.4 — time, and what a missing round looks like
+   * ---------------------------------------------------------------- */
+  const drawableRounds = EVENTS.filter((e) => e.code === ROUND.code);
+  const time = {
+    /** The brief's own worked example, measured against this record. */
+    example: {
+      analyte: pfas.analyte,
+      periods: 4,
+      here: PFAS_REACH.locations.length,
+      rounds: 1,
+      says: `§5.4 asks for ${pfas.analyte} walked across four periods. This record holds it at ${PFAS_REACH.locations.length} location in ${drawableRounds.length} round — ${PFAS_REACH.decision} — so the brief’s own example cannot be run here, and seeding three more periods to make it runnable is the trade this catalogue has refused every time it has been offered.`,
+    },
+    /** What a period control could actually move between. */
+    populated: drawableRounds.length,
+    events: EVENTS.length,
+    depth: [
+      { what: 'Water levels', series: Object.keys(WATER_LEVELS.series).length, steps: WATER_LEVELS.months.length,
+        unit: 'months', says: 'The one record with real time depth across more than one location.' },
+      { what: TREND.analyte, series: 1, steps: ARSENIC_MW05.length,
+        unit: 'quarters', says: 'One analyte at one bore. A concentration map through time needs this at every location and has it at one.' },
+      { what: 'The results grid', series: CROSSTAB_COLUMNS.length, steps: drawableRounds.length,
+        unit: 'round', says: 'Seven columns, one round. A period control over one populated period is a control with nowhere to go, and the screen says so instead of drawing four tabs.' },
+    ],
+    /**
+     * The half the wave plan says is worth more than the control: how absence
+     * is represented. The vocabulary already exists and is good — the map
+     * borrows it rather than inventing a second one for a second surface.
+     */
+    absence: [
+      { kind: 'A missing round', vocabulary: `the ${FIELD_ROUND.dispositions.length} field dispositions`, at: 'field-capture',
+        here: `${Q2_OVERDUE.location} — ${Q2_OVERDUE.phrase}`,
+        says: 'The round is owed and was attempted. Overdue is a state of the obligation; the disposition is what the crew found, and the two are different facts about the same visit.' },
+      { kind: 'An unsampled location', vocabulary: 'the disposition, with its glyph and its reason', at: 'events',
+        here: `${FIELD_ROUND.current.filter((s) => s.disposition !== 'sampled').map((s) => `${s.location} — ${FIELD_ROUND.disposition(s.disposition).label.toLowerCase()}`).join(', ')}`,
+        says: 'A dry bore is a measurement of the aquifer, not a gap: the hydrograph draws a break rather than a line, the round is satisfied as attempted, and the map draws the mark and the word rather than dropping the location.' },
+      { kind: 'A location with no round at all', vocabulary: 'the class, and what that class is read by', at: 'locations',
+        here: `${LOCATIONS.length - FIELD_ROUND.planned.length} of ${LOCATIONS.length} — production bores, fauna bores, the embankment piezometer and the pits`,
+        says: 'Not sampled and not missing. Each says which kind of not-sampled it is, which is the distinction a map is likeliest to flatten.' },
+      { kind: 'A changed monitoring network', vocabulary: 'the lifecycle field', at: 'locations',
+        here: `${LOCATIONS.filter((l) => l.lifecycle).map((l) => `${l.code} — ${l.position.replace(/^Production — /, '')}`).join(', ')}`,
+        says: `One lifecycle date in the whole register and no commissioning date on any location, so a map of the network as at an earlier date can move exactly ${LOCATIONS.filter((l) => l.lifecycle).length} of ${LOCATIONS.length} marks. That is the measurement, and it is the reason a time control here is drawn states rather than a slider.` },
+    ],
+  };
+
+  /* ---------------------------------------------------------------- *
+   * §5.3's six dials, each with the arithmetic that shows it moves the map
+   * ---------------------------------------------------------------- */
+  const markOf = (cell, set) => (cell.empty ? cell.word : cell.o[set]);
+  const changedBetweenAnalytes = CROSSTAB_COLUMNS.filter((c, i) => markOf(arsenic.cells[i], 0) !== markOf(nitrate.cells[i], 0)).length;
+  const changedBetweenSets = (row) => row.cells.filter((c) => !c.empty && c.o[0] !== c.o[1]).length;
+
+  /** Equal-interval and quantile over the same values, so the two can differ. */
+  const classify = (values, classes) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const lo = sorted[0], hi = sorted.at(-1);
+    const width = (hi - lo) / classes;
+    const equal = (v) => Math.min(classes - 1, Math.floor((v - lo) / width)) + 1;
+    const quantile = (v) => Math.min(classes - 1, Math.floor((sorted.indexOf(v) * classes) / sorted.length)) + 1;
+    return { equal, quantile };
+  };
+  const arsenicMeasured = CROSSTAB_COLUMNS
+    .map((code, i) => ({ code, cell: arsenic.cells[i] }))
+    .filter((x) => !x.cell.empty && !x.cell.censored)
+    .map((x) => ({ code: x.code, v: Number(x.cell.v) }));
+  const CLASSES = 4;
+  const classes = classify(arsenicMeasured.map((x) => x.v), CLASSES);
+  const classed = arsenicMeasured.map((x) => ({ ...x, equal: classes.equal(x.v), quantile: classes.quantile(x.v) }));
+  const classDisagree = classed.filter((x) => x.equal !== x.quantile);
+
+  /**
+   * The non-detect dial, and it is the one that must not be skipped.
+   *
+   * Six of the seven cadmium cells are non-detects reported at a limit above
+   * the criterion. The same six cells read four different ways on a map
+   * depending only on a rule nobody sees, and every one of the four is a rule
+   * somebody ships: **exceedance** at six bores under LOR substitution,
+   * **compliant** at six under half-LOR, **absent** under exclusion, and
+   * **indeterminate** — which is what the record actually says — when the
+   * value is left as reported. A map that colours a censored value as though
+   * it were a measurement is the grid's four-absence defect in a second
+   * medium, and this is the arithmetic that shows it.
+   */
+  const censoredCadmium = CROSSTAB_COLUMNS
+    .map((code, i) => ({ code, cell: cadmium.cells[i] }))
+    .filter((x) => x.cell.censored);
+  const cadmiumLimit = Number(INDETERMINATE[0].lor.replace(/[^\d.]/g, ''));
+  const cadmiumCriterion = Number(INDETERMINATE[0].criterion.replace(/[^\d.]/g, ''));
+  const nonDetectRules = [
+    { rule: 'Left as reported', reads: 'indeterminate', n: censoredCadmium.length, tone: 'good',
+      says: `What the record says. The value is a limit and not a measurement, and the limit is above the criterion — so nothing can be asserted, and the mark is the hatched one the grid already uses.` },
+    { rule: `Substituted at the limit of reporting (${cadmiumLimit})`, reads: 'exceedance', n: censoredCadmium.length, tone: 'bad',
+      says: `${cadmiumLimit} is above ${cadmiumCriterion}, so every one of these bores would be coloured as an exceedance nobody measured.` },
+    { rule: `Substituted at half the limit (${cadmiumLimit / 2})`, reads: 'compliant', n: censoredCadmium.length, tone: 'bad',
+      says: `${cadmiumLimit / 2} is below ${cadmiumCriterion}, so the same six bores would be coloured as compliant — the opposite answer from the same data and a different arbitrary rule.` },
+    { rule: 'Excluded from the layer', reads: 'absent', n: censoredCadmium.length, tone: 'bad',
+      says: 'The six disappear from the map. A compliance-boundary bore that vanishes because its result was a non-detect is the reading a network map can least afford, and it is the same argument the dry bore is drawn under.' },
+  ];
+
+  const dials = [
+    { dial: DIALS[0], moves: changedBetweenAnalytes, of: CROSSTAB_COLUMNS.length, unit: 'marks',
+      shown: `${arsenic.analyte} → ${nitrate.analyte}`,
+      says: `${changedBetweenAnalytes} of the ${CROSSTAB_COLUMNS.length} marks change, and not because the water changed: ${nitrate.analyte} has no value in ${CRITERIA[0].short}, so the whole network reads *not evaluated* against the set the other analyte is judged by. The analyte selects the criterion as well as the number.` },
+    { dial: DIALS[1], moves: changedBetweenSets(cadmium), of: CROSSTAB_COLUMNS.length, unit: 'marks',
+      shown: `${CRITERIA[0].short} → ${CRITERIA[1].short}, on ${cadmium.analyte}`,
+      says: `Every censored cadmium cell reads *indeterminate* under ${CRITERIA[0].short} and *compliant* under ${CRITERIA[1].short}. Same value, same limit of reporting, two criteria: ${changedBetweenSets(cadmium)} of ${CROSSTAB_COLUMNS.length} marks move. On ${arsenic.analyte} the same swap moves ${changedBetweenSets(arsenic)}.` },
+    { dial: DIALS[2], moves: 0, of: EVENTS.length, unit: 'periods',
+      shown: `${ROUND.code} only`,
+      says: `Nothing moves, and that is the measurement: ${drawableRounds.length} of the ${EVENTS.length} events in this record has a grid behind it. The dial is drawn and it is drawn empty rather than drawn as four tabs over one period.` },
+    { dial: DIALS[3], moves: 0, of: CONVERSIONS.length, unit: 'conversions',
+      shown: `${CONVERSIONS[1].from} → ${CONVERSIONS[1].to}`,
+      says: `A unit change must move **no** mark, and that is a claim rather than a nothing: the classification runs in the canonical unit and the criterion is stated in it, so ${CONVERSIONS[1].factor} changes every printed number and no class. ${CONVERSIONS.filter((c) => !c.exact).length} of the ${CONVERSIONS.length} conversions here are not scalings at all — a speciation basis and a datum derivation — and neither may be applied to a value on a map without its basis.` },
+    { dial: DIALS[4], moves: censoredCadmium.length, of: CROSSTAB_COLUMNS.length, unit: 'marks',
+      shown: `${cadmium.analyte}, under four rules`,
+      says: `The four rules give four different maps of the same six cells. The record says *indeterminate*; two substitutions say *exceedance* and *compliant*; exclusion says nothing at all.` },
+    { dial: DIALS[5], moves: classDisagree.length, of: classed.length, unit: 'locations',
+      shown: `${arsenic.analyte}, ${CLASSES} classes, equal-interval → quantile`,
+      says: `${classDisagree.length} of the ${classed.length} measured values change class between two standard methods over one analyte, one round and one criterion. The censored value is in neither classification, because a limit of reporting is not a measurement and binning it with measurements is the previous dial’s defect wearing a different rule.` },
+  ];
+
+  /* ---------------------------------------------------------------- *
+   * §5.3 — what the record can symbolise on, dimension by dimension
+   * ---------------------------------------------------------------- */
+  const symbologyOf = (fit) => [
+    { name: SYMBOLOGY[0], values: arsenic.cells.filter((c) => !c.empty).length, of: LOCATIONS.length, onPlate: false,
+      through: `a cell on a grid for the nominated analyte — ${CROSSTAB_COLUMNS.length} water columns, ${arsenic.cells.filter((c) => c.empty).length} of them with no result this round`,
+      says: 'Every value carries its own censoring, so this dimension cannot be drawn without answering the non-detect question first.' },
+    { name: SYMBOLOGY[1], values: LOCATIONS.length, of: LOCATIONS.length, onPlate: true,
+      through: 'the worst outcome per location across every criteria set',
+      says: 'The one symbology drawn today, and the only one every location can answer — because *not evaluated* is an answer and a blank would not be.' },
+    { name: SYMBOLOGY[2], values: qualifierCodes.size, of: LOCATIONS.length, onPlate: false,
+      through: `the qualifier assertions that name a location — ${qualifierCodes.size} of them do`,
+      says: `The rest scope to a batch or a sample. A QA/QC layer is therefore two hops for most results, and the honest count is the ${qualifierCodes.size} the assertion itself names.` },
+    { name: SYMBOLOGY[3], values: FIELD_ROUND.current.length + LOCATIONS.filter((l) => l.lifecycle).length, of: LOCATIONS.length, onPlate: false,
+      through: `the round’s dispositions (${FIELD_ROUND.current.length}) and the lifecycle field (${LOCATIONS.filter((l) => l.lifecycle).length})`,
+      says: 'The vocabulary the map borrows for absence, rather than a second one invented for a second surface.' },
+    { name: SYMBOLOGY[4], values: LOCATIONS.filter((l) => fit.headOf(l.code) !== null).length, of: LOCATIONS.length, onPlate: false,
+      through: `the head the potentiometric fit holds for a location — ${LOCATIONS.filter((l) => fit.headOf(l.code) !== null).length} of ${LOCATIONS.length} carry one, and ${fit.dry.join(', ')} carries none because it was dipped and found dry`,
+      says: `Reduced from the round’s own dips where there is one and stated where there is not, and the plate prints which is which: ${fit.reduced} reduced, ${fit.estimated.length} stated.` },
+    { name: SYMBOLOGY[5], values: 1, of: LOCATIONS.length, onPlate: false,
+      through: `a series long enough to test — ${Object.keys(WATER_LEVELS.series).length} bores have one for water level and ${1} for a concentration`,
+      says: `The dimension this record cannot symbolise. A trend map needs a series at every location; ${TREND.analyte} is ${ARSENIC_MW05.length} quarters at one bore, and the other six would be blank — which is not the same as flat.` },
+    { name: SYMBOLOGY[6], values: LOCATIONS.length, of: LOCATIONS.length, onPlate: false,
+      through: `the location’s class — ${[...new Set(LOCATIONS.map((l) => l.klass))].length} classes`,
+      says: 'Held for every location and drawn on none of them: the plate labels codes, not classes.' },
+  ];
+
+  /* ---------------------------------------------------------------- *
+   * §5.6 — the selection, and the population it hands over
+   *
+   * The brief: *"Select all bores downgradient of Area A → analyse nitrate
+   * and PFAS"*, and *"The relationship between Map ↔ Data Explorer ↔
+   * Analysis is mandatory"*. Both ends exist. This is the join, and it is
+   * built so that the thing handed over is a **population** — the same
+   * accounting the explorer, the dataset register and the grid all count
+   * through — rather than a highlight.
+   * ---------------------------------------------------------------- */
+  const HAND_OFF = ['Map', 'Data Explorer', 'Analysis'];
+  const REFERENCE = 'TSF-VWP-03';
+
+  const against = (fit) => {
+    const ref = LOCATIONS.find((l) => l.code === REFERENCE);
+    const rad = (fit.bearing * Math.PI) / 180;
+    const dE = Math.sin(rad), dN = Math.cos(rad);
+    /** Metres along the flow direction from the embankment piezometer. */
+    const along = (l) => (l.easting - ref.easting) * dE + (l.northing - ref.northing) * dN;
+
+    const placed = LOCATIONS.map((l) => ({
+      code: l.code, klass: l.klass, typed: l.position, along: along(l),
+      down: along(l) > 0,
+    }));
+
+    /* Three answers to one question, and the catalogue draws all three. */
+    const derived = placed.filter((p) => p.klass === 'groundwater' && p.down).map((p) => p.code);
+    const typed = LOCATIONS.filter((l) => l.klass === 'groundwater' && /downgradient/i.test(l.position)).map((l) => l.code);
+    const group = INSTRUMENTS.groups.find((g) => /downgradient/i.test(g.name));
+    const answers = [
+      { how: 'Derived from the plane fit', set: derived, at: 'map',
+        rule: `along the flow direction (${fit.bearingText} at ${fit.gradientText}) from ${REFERENCE}, the one location this record holds that stands on the embankment`,
+        says: 'A rule with named inputs, recomputed whenever the fit moves. It is the only one of the three that answers for a location nobody has classified by hand.' },
+      { how: 'The typed position attribute', set: typed, at: 'locations',
+        rule: 'the position attribute typed on each row of the location register',
+        says: 'Two bores say *downgradient* in words. The other two say *compliance boundary*, which is a role rather than a position — so this answer is smaller than the derivation and is not wrong, it is answering a different question.' },
+      { how: 'The location group', set: group.members, at: 'locations',
+        rule: `the group “${group.name}” — ${group.why.charAt(0).toLowerCase()}${group.why.slice(1)}`,
+        says: 'Membership is an assessment decision, which is exactly what the glossary says a location group is. It is not a geometry and was never meant to be one.' },
+    ];
+    const agree = answers.every((a) => a.set.length === answers[0].set.length && a.set.every((c) => answers[0].set.includes(c)));
+    const onlyDerived = derived.filter((c) => !typed.includes(c) && !group.members.includes(c));
+
+    /* The population, counted through the accounting every other surface uses. */
+    const WATER_CELLS = CROSSTAB.flatMap((r) =>
+      r.cells.map((c, i) => ({ grid: 'water', analyte: r.analyte, column: CROSSTAB_COLUMNS[i], location: CROSSTAB_COLUMNS[i], cell: c })));
+    const selected = WATER_CELLS.filter((x) => derived.includes(x.location));
+    const ANALYTES_ASKED = [nitrate.analyte, pfas.analyte];
+    const narrowed = selected.filter((x) => ANALYTES_ASKED.includes(x.analyte));
+    const population = EXPLORER.readout(narrowed);
+    const everything = EXPLORER.readout(selected);
+
+    /*
+     * The brief's scenario, term by term — §4.3's and §6.4's convention, and
+     * the terms are the brief's **own arrow split** so `build.mjs` can close
+     * them against the sentence rather than against a decomposition this file
+     * chose. Two terms, because the brief writes two.
+     */
+    const scenario = [
+      { term: 'Select all bores downgradient of Area A', verdict: 'an equivalent',
+        via: `class groundwater (${bores.length} of ${LOCATIONS.length} locations), downgradient of the TSF — ${derived.length} bores by the fit, ${typed.length} by the typed attribute, ${group.members.length} by the group`,
+        why: 'A bore is a location of a class here, so *all bores* is a class filter and cannot disagree with the register about a bore. There is no *Area A* on this site: the TSF is the source area the whole network is arranged around, and the substitution is named rather than assumed — as is the fact that the three ways of asking *downgradient* give two different answers.' },
+      { term: 'analyse nitrate and PFAS', verdict: 'an equivalent',
+        via: `${nitrate.analyte} at every selected bore, ${pfas.analyte} at ${PFAS_REACH.locations.length} of the ${derived.length}`,
+        why: `Both analytes are in this dictionary, which is more than the explorer's scenario got. Nitrate is evaluated against ${CRITERIA[1].short} alone — ${CRITERIA[0].short} carries no value for it, so every nitrate mark is *not evaluated* under one of the two sets in force. The PFAS suite reached one sample, so the other selected bores return *not analysed*: an absence of analysis and not a result below a limit, counted inside the population as such rather than dropped.` },
+    ];
+
+    const symbology = symbologyOf(fit);
+    const investigation = investigationOf(fit);
+
+    return {
+      ref, placed, answers, agree, onlyDerived, derived, typed, group,
+      scenario, symbology, investigation,
+      population, everything, asked: ANALYTES_ASKED,
+      /** §5.3's elevation row, which needs the fit and is measured with it. */
+      heads: LOCATIONS.filter((l) => fit.headOf(l.code) !== null).map((l) => l.code),
+      counts: {
+        selected: derived.length,
+        cells: narrowed.length,
+        results: population.results,
+        locations: population.locations.length,
+        samples: population.samples.length,
+        absences: population.byKind.reduce((n, k) => n + k.list.length, 0),
+        kinds: population.byKind.length,
+        everyLocation: symbology.filter((x) => x.values === x.of).length,
+        someLocations: symbology.filter((x) => x.values > 0 && x.values < x.of).length,
+        noLocation: symbology.filter((x) => x.values === 0).length,
+        reachable: investigation.filter((x) => LOCATIONS.some((l) => x.reaches(l))).length,
+      },
+    };
+  };
+
+  const counts = {
+    layers: layers.length,
+    governance: GOVERNANCE.length,
+    answered: GOVERNANCE.reduce((n, g) => n + layers.filter((l) => g.of(l)).length, 0),
+    askedFor: GOVERNANCE.length * layers.length,
+    drawn: stateIs('drawn').length,
+    equivalent: stateIs('an equivalent').length,
+    counted: stateIs('counted').length,
+    sourced: layers.filter((l) => l.source).length,
+    datedLayers: layers.filter((l) => l.dated).length,
+    supplied: layers.filter((l) => l.supply).length,
+    legended: layers.filter((l) => l.legend === true).length,
+    onPlate: layers.filter((l) => l.state !== 'counted').length,
+    symbology: SYMBOLOGY.length,
+    dials: dials.length,
+    investigation: INVESTIGATION.length,
+    absences: time.absence.length,
+  };
+
+  return {
+    LAYERS, SYMBOLOGY, INVESTIGATION, DIALS, SUPPLY, GOVERNANCE, HAND_OFF, REFERENCE,
+    layers, layerOf, dials, time,
+    nonDetectRules, censoredCadmium, cadmiumLimit, cadmiumCriterion, classed, classDisagree, CLASSES,
+    counts, against,
+    drawnOn: '2026-09-03',
+  };
+})();
+
 export const VENDOR_BRIEF = (() => {
   /** §3's own ranking, section by section. `build.mjs` checks it against §3. */
   const PRIORITY = {
@@ -15602,30 +16178,30 @@ export const VENDOR_BRIEF = (() => {
       screens: ['saved-views', 'crosstab', 'report-figures'],
       note: 'Wave 19 promoted the view into the object: a purpose that had been in the record and on no face, the definition as four inspectable dimensions each naming the record it resolves through, a version and a lifecycle counted off the acts recorded against each dataset rather than typed, a variant that names its parent and costs the original nothing, and a citation bound to a version with the derivation naming its own limit. Six of the {items} are drawn. The seventh is refused: the record names one person per dataset in one capacity — *used by*, which is the only header that field ever carried — and neither a creator nor a current owner is recorded anywhere, so both are drawn as fields and neither is filled from the other. The brief’s four states are also two axes, and the screen draws them apart rather than as one strip.' },
 
-    { id: '5.1', title: 'Gap', verdict: 'missing', decision: 'D4',
+    { id: '5.1', title: 'Gap', verdict: 'partially', decision: 'D4',
       asks: 'Mapping must become a scientific investigation workspace, not simply another way of displaying monitoring locations.',
-      screens: ['map'],
-      note: 'Two static plates. No layer list, no toggle, no symbology control, no time control and no selection. D4 accepts the workspace and restates NG4 as “no GIS authoring” — the map consumes layers and never authors them — and wave 23 builds it.' },
+      screens: ['map', 'explorer', 'locations', 'facility'],
+      note: `The screen is a workspace now: a layer manager over ${SPATIAL.counts.layers} layers with their governance, a symbology control over ${SPATIAL.counts.symbology} dimensions with the ${SPATIAL.counts.dials} settings §5.3 says change a map measured beside it, an absence vocabulary borrowed from the field record rather than invented, a location panel that reaches ${SPATIAL.counts.investigation} records rather than copying them, and a spatial selection that resolves to a population. It stays partial on the half that is not a drawing: **the plate is not redrawn under the symbology bar**. This catalogue is static and *figures.mjs* is fenced by D13's print test, so what each setting would do to the map is measured and printed rather than rendered — and the screen says that in the sentence under the bar rather than implying a live map. This row read *“two static plates … no layer list, no toggle, no symbology control, no time control and no selection”* until 3 September 2026.` },
     { id: '5.2', title: 'Required environmental layers', items: 14, verdict: 'partially', decision: 'D4',
       asks: 'The interface must clearly identify active layers, legends, source, date or version where relevant, and whether a layer is project-supplied, derived or authoritative.',
       screens: ['map', 'locations'],
-      note: 'Three of the {items} are drawn and exactly one meets the standard: the fitted potentiometric surface states its method, its control set, its largest residual and the confined bore it excludes. There is no layer list, so nothing else states a source, a date, or whether it is project-supplied, derived or authoritative.' },
-    { id: '5.3', title: 'Environmental symbology', items: 7, verdict: 'missing', decision: 'D4',
+      note: `All {items} are a row on the map's layer manager, closed against §5.2 by the build in both directions and in order, and each one carries the three things §5.2's last paragraph asks for — **including the ${SPATIAL.counts.counted} that are not drawn**. Measured rather than described: **${SPATIAL.counts.drawn} are drawn**, ${SPATIAL.counts.equivalent} are drawn as an equivalent in a different form, ${SPATIAL.counts.counted} are counted with what each would need; ${SPATIAL.counts.sourced} name the record they come from, **${SPATIAL.counts.datedLayers} carry a date or a version**, and ${SPATIAL.counts.supplied} say whether they are project-supplied, derived or authoritative. The sharpest row is the one that moved this note: the operational-area outline **is drawn and no record holds it** — four coordinate pairs in the figure module — so it answers none of the three and its cells are empty rather than crediting the file that carries the literal. This note said *“three of the {items} are drawn … there is no layer list”* until 3 September 2026.` },
+    { id: '5.3', title: 'Environmental symbology', items: 7, verdict: 'partially', decision: 'D4',
       asks: 'Users must be able to colour or symbolise locations by:',
-      screens: ['map'],
-      note: 'One fixed symbology, no control, none of the seven dimensions selectable. The second sentence — how the analyte, criterion, period, units, non-detect treatment and classification method change the map — has nowhere to be asked.' },
+      screens: ['map', 'crosstab', 'indeterminate'],
+      note: `All {items} are measured against the record one row each and closed against §5.3 by the build. The count on each row is how many of the ${LOCATIONS.length} locations the record can give a value for, which is the question a symbology control has to answer before it is offered — and **trend is the one it cannot**: a trend map needs a series at every location and this record has a concentration series at one. The second sentence is the harder half and it is answered with arithmetic: ${SPATIAL.counts.dials} settings, each with what it moves over this round's own cells. **The non-detect treatment is the one that must not be skipped and is not**: ${SPATIAL.censoredCadmium.length} cadmium cells are non-detects reported at a limit above the criterion, and the same six bores read *exceedance*, *compliant*, *absent* or *indeterminate* on four rules that all ship — so the rule is a control and its state is printed. The row stays partial because the plate is not redrawn under the bar: *figures.mjs* is fenced by D13. This note said *“one fixed symbology, no control, none of the seven dimensions selectable”* until 3 September 2026.` },
     { id: '5.4', title: 'Temporal analysis', verdict: 'missing', decision: 'D4',
       asks: 'The user must not need to rebuild the map for each period.',
       screens: ['map'],
-      note: 'One period, drawn once, with no round control. The vocabulary for the harder half exists elsewhere and is good — on the grid an unsampled bore is a column carrying a disposition and a glyph rather than a blank — so what wave 23 has to move is the control, not the concept.' },
+      note: `The control is drawn and it is drawn as **drawn states**, which is what §17 asks a static mockup for and what the screen says rather than implying a live map. The measurement under it is smaller than the control looks: ${SPATIAL.time.populated} of the ${SPATIAL.time.events} events in this record has a grid behind it, and **the brief's own worked example cannot be run** — it asks for PFAS across four periods and the suite reached ${PFAS_REACH.locations.length} location in ${SPATIAL.time.populated} round. The harder half is answered rather than deferred: ${SPATIAL.time.absence.length} kinds of absence, each read through a vocabulary that already exists — the ${FIELD_ROUND.dispositions.length} field dispositions, the grid's absence marks and the lifecycle field — because a second vocabulary for absence on a second surface is how a dry bore comes to read as a missed one. The register holds ${LOCATIONS.filter((l) => l.lifecycle).length} lifecycle date and no commissioning date, so a map of the network as at an earlier date can move exactly ${LOCATIONS.filter((l) => l.lifecycle).length} of its ${LOCATIONS.length} marks.` },
     { id: '5.5', title: 'Location investigation', items: 9, verdict: 'partially', decision: 'D4',
       asks: 'Selecting a bore or location must expose relevant scientific context without unnecessarily leaving the spatial investigation:',
       screens: ['location', 'map', 'hydrograph', 'documents'],
-      note: 'Every one of the {items} exists, and the bore record is one of the strongest screens here — construction, screened interval read vertically as a nest, elevation, recent samples, exceedances, hydrograph, QA/QC state, attachments. Reaching any of them leaves the map, which is the clause the requirement turns on.' },
-    { id: '5.6', title: 'Spatial selection and hand-off', verdict: 'missing', decision: 'D4',
+      note: `All {items} are reachable from the map now, and the panel **reaches rather than restates** — a panel that copied those values would become a second place the truth lives. Each row states the record behind it and how many of the ${LOCATIONS.length} locations there is anything to reach for, which is the half a link cannot answer: nine open for MW05 and the same panel opens far fewer at a decommissioned production bore, which is the difference between a bore nobody asks these questions of and a bore that failed. One item reaches through nothing and the screen says so: **attachments**. All ${DOCUMENTS.length} documents in this instance hang off an import run, a certificate or a report, and not one names a location — so photographs reach through the field session and attachments reach through a change to the document register.` },
+    { id: '5.6', title: 'Spatial selection and hand-off', verdict: 'partially', decision: 'D4',
       asks: 'The relationship between Map ↔ Data Explorer ↔ Analysis is mandatory.',
-      screens: ['map', 'crosstab'],
-      note: 'The map has no selection, so the hand-off has no subject — and two of the three workspaces the relationship names do not exist. Scenario D breaks precisely here.' },
+      screens: ['map', 'explorer', 'analysis', 'crosstab', 'locations'],
+      note: `A selection exists and **it produces a population, not a highlight**. The brief's scenario walks: bores are a class filter, *downgradient of Area A* is walked through the TSF as the site's own equivalent, nitrate is held at every selected bore and PFAS at one. What crosses is counted through *EXPLORER.readout* — the same accounting the explorer, the dataset register and the results grid count with — so the two ends cannot report different exclusions for the same cells. The finding the selection produced is that this record answers *which bores are downgradient* three ways and they do not agree: the plane fit returns more than the typed attribute and the location group, and the map draws all three rather than picking one silently. It stays partial on the general case, which the explorer states in its own words: **naming a population is not sharing one**, and this is one arrow of one relationship rather than a population that composes everywhere. This note said *“the map has no selection, so the hand-off has no subject”* until 3 September 2026.` },
 
     { id: '6.1', title: 'Gap', verdict: 'partially',
       asks: 'Strataflow must demonstrate not only the recording of samples, but the management of the intended monitoring programme and confirmation that it was executed correctly.',
@@ -15818,7 +16394,7 @@ export const VENDOR_BRIEF = (() => {
     { id: 'D', title: 'Scenario D — Emerging groundwater issue', verdict: 'partially',
       asks: 'The scientist must maintain project, time, spatial and analyte context as they move between workspaces.',
       screens: ['obligations', 'exceedances', 'location', 'map', 'crosstab', 'statistics', 'hydrograph', 'narrative', 'tarp'],
-      note: 'Both ends work and the middle carries no context. The map has no selection, so “surrounding bores → Data Explorer” cannot be expressed at all, and the interpretation reaches no obligation surface. Wave 23 gives the map a selection and wave 29 the interpretation→obligation hop; the walk needs both.' },
+      note: `The middle hop is drawn: **map → surrounding bores → data explorer** is expressible now, as a selection that resolves to a population the explorer receives and counts with the same function. It stays partial on the hop wave 23 was never going to reach — the interpretation still reaches no obligation surface, which is wave 29's. This note said the map had no selection so the hop *“cannot be expressed at all”* until 3 September 2026; it can, and the walk still needs the last arrow.` },
     { id: 'E', title: 'Scenario E — Multi-domain investigation', verdict: 'missing',
       asks: 'Elevated groundwater concentration + nearby surface-water monitoring + rainfall event',
       screens: ['locations', 'crosstab', 'hydrograph'],

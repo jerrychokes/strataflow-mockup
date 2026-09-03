@@ -35,7 +35,10 @@ import { CHROME_CSS } from './chrome.mjs';
 import { JOBS, RELATED } from './screens.mjs';
 import { HATCH_SPRITE, esc } from './ui.mjs';
 import { slideOver } from './controls.mjs';
-import { ANALYSES, EXPLORER, LINEAGE, PLANNING, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
+/* Read-only: the one plane fit in this repository, so the guard measures the
+ * same selection the map draws rather than fitting a second one. */
+import { POTENTIOMETRIC_FIT } from './figures.mjs';
+import { ANALYSES, EXPLORER, LINEAGE, PLANNING, PRINCIPAL, PROJECT, PROJECTS, SPATIAL, VENDOR_BRIEF } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Inside the app repo (as design/mockup/) the product stylesheet is read live,
@@ -1147,6 +1150,84 @@ ${palette()}
     compare('§6.4 quality-control requirements', PLANNING.qcRateRows, PLANNING.qcRequirements.map((r) => r.check));
 
     /*
+     * Wave 23 — §5's four enumerations, closed the same way.
+     *
+     * Everything on the map workspace is built on one of these: §5.2's
+     * fourteen layers, §5.3's seven symbology dimensions, §5.3's own sentence
+     * naming the six settings that change a map, and §5.5's nine items of
+     * location context. Wave 20's audit made the finding all of this answers —
+     * **a guard that covers some of a wave's lists is a guard whose gap is the
+     * interesting one** — so all four are compared with the brief's own words,
+     * in sequence, in both directions. A layer the brief adds cannot go
+     * uncounted, a symbology dimension it drops cannot linger as a control
+     * over nothing, and a setting renamed cannot be quietly answered under its
+     * old name.
+     *
+     * `bulletsIn` matches `^\s*- ` (W20-A-2), so a nested bullet under any of
+     * these headings is seen rather than skipped.
+     */
+    inOrder('§5.2 layers', bulletsIn('5.2'), SPATIAL.LAYERS.map(norm));
+    inOrder('§5.3 symbology dimensions', bulletsIn('5.3'), SPATIAL.SYMBOLOGY.map(norm));
+    inOrder('§5.5 location investigation', bulletsIn('5.5'), SPATIAL.INVESTIGATION.map(norm));
+
+    /*
+     * §5.3's second sentence is prose rather than a list, so the six settings
+     * close by splitting the sentence itself — the same way §4.3's and §6.4's
+     * arrow sentences do. The screen states these six verbatim and measures
+     * each one; a sentence that gained a seventh would otherwise leave the
+     * screen answering six and claiming to answer the brief.
+     */
+    const dialSentence = linesIn('5.3').find((l) => /must show how/.test(l));
+    if (!dialSentence) {
+      offences.push('§5.3: the brief no longer names the settings that affect the map, and the map screen measures a list of them');
+    } else {
+      const said = norm(dialSentence)
+        .replace(/^.*must show how /, '')
+        .replace(/ affect the map\.?$/, '')
+        .split(/,\s*|\s+and\s+/)
+        .map(norm)
+        .filter(Boolean);
+      inOrder('§5.3 settings', said, SPATIAL.DIALS.map(norm));
+    }
+
+    /*
+     * §5.4's worked example is a blockquote of periods. The map screen states
+     * that the example cannot be run here and prints how many periods it asks
+     * for, so the number is read off the brief rather than typed beside it.
+     */
+    const periodLine = linesIn('5.4').find((l) => l.includes('→'));
+    if (!periodLine) {
+      offences.push('§5.4: the brief no longer carries a worked period sequence, and the map screen is built on one');
+    } else {
+      const periods = norm(periodLine.replace(/^>\s*\*\*|\*\*$/g, '')).split('→').length;
+      if (periods !== SPATIAL.time.example.periods) {
+        offences.push(`§5.4: the brief walks ${periods} periods, the map screen says ${SPATIAL.time.example.periods}`);
+      }
+    }
+
+    /*
+     * §5.6's mandatory relationship, closed on the three workspaces it names.
+     * The selection hand-off is drawn as three sides of two arrows; if the
+     * brief renamed one of them the drawing would go on naming the old one.
+     */
+    if (!norm(numbered.find((x) => x.id === '5.6')?.text ?? '').includes(norm(SPATIAL.HAND_OFF.join(' ↔ ')))) {
+      offences.push(`§5.6: the brief no longer names “${SPATIAL.HAND_OFF.join(' ↔ ')}”, and the hand-off is drawn as those three workspaces`);
+    }
+
+    /*
+     * The selection scenario, closed on the brief's own arrow split — the same
+     * mechanism §4.3 and §6.4 close on, and for the same reason: a term the
+     * brief drops would otherwise leave a verdict standing against nothing.
+     */
+    const selectSentence = linesIn('5.6').find((l) => l.includes('→'));
+    if (!selectSentence) {
+      offences.push('§5.6: the brief no longer carries an arrow-separated selection scenario, and the map walks one');
+    } else {
+      const terms = norm(selectSentence.replace(/^>\s*\*\*|\*\*$/g, '')).split('→').map((t) => norm(t));
+      inOrder('§5.6 selection terms', terms, SPATIAL.against(POTENTIOMETRIC_FIT).scenario.map((t) => norm(t.term)));
+    }
+
+    /*
      * W20-A-1. §4.2 and §4.4 were closed against the brief and §4.3's terms
      * were not, so deleting a term from the scenario left the build green and
      * every derived count re-read without a murmur — including the wave's own
@@ -1206,6 +1287,15 @@ ${palette()}
   }
   console.log(`vendor brief: ${VENDOR_BRIEF.rows.length} rows closed against ${VENDOR_BRIEF.source}`);
   console.log(`sampling plan: ${PLANNING.definitionCounts.held} of ${PLANNING.definitionCounts.total} §6.2 attributes held on a programme, ${PLANNING.conditionCounts.instantiated} of ${PLANNING.conditionCounts.total} §6.4 conditions instantiated, ${PLANNING.counts.handoffsAgreeing} of ${PLANNING.counts.handoffsChecked} hand-offs reconciling`);
+  {
+    const S = SPATIAL.counts;
+    const M = SPATIAL.against(POTENTIOMETRIC_FIT).counts;
+    console.log(
+      `spatial layers: ${S.drawn} drawn, ${S.equivalent} an equivalent, ${S.counted} counted of ${S.layers} — ` +
+      `${S.answered} of the ${S.askedFor} governance answers §5.2 asks for exist (${S.sourced} a source, ${S.datedLayers} a date, ${S.supplied} project-supplied/derived/authoritative); ` +
+      `symbology ${M.everyLocation} of ${S.symbology} for every location; selection hands on ${M.results} results and ${M.absences} absences at ${M.locations} locations`,
+    );
+  }
 }
 
 writeFileSync(OUT, html, 'utf8');
@@ -1251,4 +1341,29 @@ if (dangling.length || noExit.length || orphans.length || deadHrefs.length) {
   process.exitCode = 1; // a failed check that exits 0 is a claim, not a check
 } else {
   console.log('link graph: no dangling targets, no dead ends, no orphans, no dead hrefs');
+}
+
+/*
+ * Markdown emphasis that never got rendered.
+ *
+ * A seed string written with `*emphasis*` and drawn through `esc` reaches the
+ * reader as literal asterisks. Five were on the page — two in a raw paragraph
+ * that never went through `md`, three in seed strings whose render sites
+ * escape — and the wave that noticed them counted three, because it grepped
+ * the source rather than the built page. The page is the only place that can
+ * answer this: the same string is correct through `md` and wrong through
+ * `esc`, so the defect is in the pairing and not in either half.
+ */
+{
+  const text = html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  const stray = [...text.matchAll(/\*[A-Za-z][^*\n]{2,60}\*/g)].map((m) => m[0]);
+  if (stray.length) {
+    console.error(
+      `unrendered markdown emphasis reaching the page: ${stray.length} — ` +
+        `${[...new Set(stray)].slice(0, 6).join(' · ')}. A string written for \`md\` is drawn through \`esc\`.`,
+    );
+    process.exit(1);
+  }
 }
