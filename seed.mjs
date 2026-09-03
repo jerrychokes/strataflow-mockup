@@ -3122,6 +3122,33 @@ export const WORK_QUEUE = [
 ].map((w) => ({ ...w, crossProject: w.project !== PROJECT.code }));
 
 /**
+ * What the 2026 Q2 round expected at each bore — hoisted so it can be read
+ * rather than described (wave 15), and moved into the seed in wave 22.
+ *
+ * It was a literal inside `programme()`, and the PFAS settlement needed the one
+ * fact it holds that no other register does: **which bores the suite was ever
+ * asked for at.** Only MW05's row says *Full + PFAS*, which is the programme
+ * side of the same finding the manifest and the custody chain make from the
+ * material side — so the decision record counts these rows instead of asserting
+ * what they say, and the two surfaces cannot come apart on it.
+ *
+ * **Wave 22 moves it out of `screens.mjs`** because it is the plan side of the
+ * six-stage reconciliation and three screens now read it. Nothing about the
+ * rows changed in the move: `state` still carries the register's own two words,
+ * and `PLANNING.roundStates` reconciles those against the glossary's closed
+ * list rather than rewriting them here.
+ */
+export const Q2_PROGRAMME = [
+  { code: 'MW01A', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
+  { code: 'MW03B', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
+  { code: 'MW05', suite: 'Full + PFAS', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
+  { code: 'MW07', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
+  { code: 'MW09', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
+  { code: 'MW11', suite: 'Full groundwater', due: '2026-05-14', collected: '—', received: '—', state: 'overdue' },
+  { code: 'MW12', suite: 'Reduced — background', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
+];
+
+/**
  * Planned against received for the open period (EX-20).
  *
  * This is the programme-completeness signal, and it belongs on the landing
@@ -12591,6 +12618,1066 @@ export const ESTATE = (() => {
 })();
 
 /* ==================================================================== *
+ * Wave 22 — the programme as something a scientist defines, and the
+ * reconciliation that existed on six screens and nowhere.
+ * 3 September 2026.
+ * ==================================================================== */
+
+/**
+ * `VENDOR_REQUIREMENTS.md` §6, measured against this record rather than
+ * described.
+ *
+ * ## The gap, in the assessment's own words
+ *
+ * *Recording is strong and planning is absent.* `#programme` is a table to
+ * read; nothing anywhere shows a programme being **defined**, versioned or
+ * amended. And §6.4's six-stage reconciliation — *planned → collected →
+ * submitted → received → analysed → validated* — exists as six sound hand-offs
+ * on six different screens and nowhere as a reconciliation.
+ *
+ * ## Three closed lists, and the build holds every one of them shut
+ *
+ * §6.2 enumerates ten programme attributes, §6.3 ten preparation items and
+ * §6.4 ten completeness conditions, and the six stages are the brief's own
+ * arrow sentence. All four are compared with the brief's bullets word for word
+ * and in order, in both directions, by the guard `build.mjs` already runs over
+ * §4.2, §4.3, §4.4, §9.3 and §9.4. A list this wave is built on that the guard
+ * did not cover would be the gap wave 20's audit named: *the uncovered list is
+ * the one nobody thought of as a list.*
+ *
+ * ## What is measured and what is refused
+ *
+ * Every count below is read off the register that owns the stage. Nothing is
+ * re-counted here that another screen already counts, and where two registers
+ * disagree about the same absence, **both readings are drawn and neither is
+ * corrected** — the shape wave 15 used for the PFAS three-way and wave 19 for
+ * the period. There are two such disagreements in this record and finding the
+ * second is what this wave is for.
+ *
+ * Nothing is invented. Not a programme version, not an approver, not a bottle
+ * order, not a hazard, not an owner. A condition with no instance is a
+ * condition with no instance, with the reason it has none.
+ *
+ * ## The verdicts derive
+ *
+ * Wave 21 closed at the audit cap on a record whose numbers were measured and
+ * whose **verdict** was a typed `true`, so a count on the face could only go
+ * up. Every `state` in this record is a getter over the instances the row
+ * found, and `askable` is a getter over the fields the record would need to
+ * answer the question at all. Nothing here decides anything by literal.
+ */
+export const PLANNING = (() => {
+  const norm = (s) => s.replace(/\s+/g, ' ').trim();
+
+  /* ------------------------------------------------------------------ *
+   * The plan side of the round, resolved through the registers that own it
+   * ------------------------------------------------------------------ */
+
+  const planned = Q2_PROGRAMME.map((r) => r.code);
+  const groundwater = LOCATIONS.filter((l) => l.klass === 'groundwater').map((l) => l.code);
+  const sessionOf = (code) => FIELD_ROUND.current.find((s) => s.location === code) ?? null;
+  const samplesAt = (code) => EVENT_SAMPLES.filter((s) => s.location === code);
+
+  /**
+   * The three programmes in force, moved out of the drawn table.
+   *
+   * `locations` is resolved through the location register wherever the record
+   * lets it be — GW-QTR's row read *"All 7 groundwater bores"* and that
+   * sentence is now the filter rather than a number beside it. The other two
+   * name their bores, so they are named.
+   *
+   * `because` resolves through `LICENCE.conditions` or `TARP` rather than
+   * repeating a condition number as prose: a programme that cites 12(b) and a
+   * licence that holds 12(b) are one fact, and two copies of it is how they
+   * come apart.
+   */
+  const programmes = [
+    {
+      code: 'GW-QTR', frequency: 'Quarterly', anchorMonth: 'June', since: '2019-03-01', nextDue: '2026-08-14',
+      get locations() { return groundwater; },
+      locationsFrom: 'the location register, class groundwater',
+      because: { kind: 'licence', ref: '12(b)' },
+      responsible: 'A. Nakamura — Hydrogeologist',
+      endsOn: null,
+    },
+    {
+      code: 'GW-MTH', frequency: 'Monthly', anchorMonth: null, since: '2026-03-01', nextDue: '2026-06-14',
+      locations: ['MW05', 'MW07'],
+      locationsFrom: 'named on the programme record',
+      because: { kind: 'tarp', ref: 'Level 2' },
+      responsible: null,
+      endsOn: null,
+    },
+    {
+      code: 'SW-QTR', frequency: 'Quarterly', anchorMonth: null, since: '2019-03-01', nextDue: '2026-08-14',
+      locations: ['SW01'],
+      locationsFrom: 'named on the programme record',
+      because: { kind: 'licence', ref: '14' },
+      responsible: null,
+      endsOn: null,
+    },
+  ].map((p) => ({
+    ...p,
+    condition: p.because.kind === 'licence' ? LICENCE.conditions.find((c) => c.n === p.because.ref) : null,
+    tarp: p.because.kind === 'tarp' ? TARP.find((t) => t.level === p.because.ref && /Monthly sampling/.test(t.response)) : null,
+    /* The obligation register names an owner against a basis; where that basis
+     * names this programme, the owner is read from there rather than typed. */
+    get obligations() { return OBLIGATIONS.filter((o) => o.basis.includes(p.code)); },
+    get obligationOwners() { return [...new Set(this.obligations.map((o) => o.owner))]; },
+  }));
+
+  const programmeOf = (code) => programmes.find((p) => p.code === code) ?? null;
+  const gwQtr = programmeOf('GW-QTR');
+
+  /*
+   * The TARP row that put GW-MTH in force names one bore; the programme record
+   * names two. Both statements are in this record and neither is corrected —
+   * the escalation is drawn where it is asserted, and the difference is
+   * counted rather than resolved.
+   */
+  const escalationScope = (() => {
+    const p = programmeOf('GW-MTH');
+    const tarpCodes = p.tarp ? p.tarp.locations.split(',').map((s) => s.trim()) : [];
+    return {
+      programme: p.locations,
+      tarp: tarpCodes,
+      get onlyOnProgramme() { return p.locations.filter((c) => !tarpCodes.includes(c)); },
+      says: 'The TARP row that raised the frequency and the programme it raised are one act recorded twice, and the two recordings do not cover the same bores.',
+    };
+  })();
+
+  /* ------------------------------------------------------------------ *
+   * §6.2 — the ten attributes a scientist must be shown defining
+   * ------------------------------------------------------------------ */
+
+  /**
+   * The coverage of a programme is the round's own plan where the field record
+   * says which programme it ran — `FIELD_ROUND.programme` names GW-QTR, and
+   * `Q2_PROGRAMME` is that programme's coverage for this period. The other two
+   * programmes have no coverage record at all, which the attribute below
+   * counts rather than glosses.
+   */
+  const coverageOf = (p) => (p.code === FIELD_ROUND.programme ? Q2_PROGRAMME : []);
+
+  /** The DQO set states a rate where its population names one. */
+  const RATE = /\b(one|every)\b[^.;]*\bper\b|\bevery sample\b/i;
+  const dqoRates = DQO.limits.filter((l) => RATE.test(l.applies));
+  const dqoConditions = DQO.limits.filter((l) => !RATE.test(l.applies));
+  /* Nothing binds the objective set to a programme, and it is cheaper to ask
+   * the record than to assert it: every programme code, against the whole set. */
+  const dqoNamesAProgramme = programmes.filter((p) => JSON.stringify(DQO).includes(p.code));
+
+  const batchMethods = [...new Set(BATCHES.map((b) => b.method))];
+  const roundMatrices = [...new Set(EVENT_SAMPLES.map((s) => s.matrix))];
+
+  const definition = [
+    {
+      attr: 'Monitoring locations', fr: 'FR-8.1', at: 'locations',
+      parts: [{ name: 'the bores it collects from', on: (p) => (p.locations.length ? `${p.locations.length} — ${p.locations.join(', ')}` : null) }],
+      note: 'GW-QTR read “All 7 groundwater bores” as a sentence; it is the location register filtered by class now, so a bore joining the class joins the programme that reports it.',
+    },
+    {
+      attr: 'Sampling frequency', fr: 'FR-8.1', at: 'programme',
+      parts: [{ name: 'how often a round is expected', on: (p) => p.frequency }],
+      note: 'The glossary’s closed list is weekly · monthly · quarterly · biannual · annual, and both words used here are on it. GW-QTR also carries the anchor month, because a fiscal quarter is not a calendar quarter.',
+    },
+    {
+      attr: 'Matrices', fr: null, at: 'events',
+      parts: [{ name: 'the material a round collects', on: (p) => p.matrix ?? null }],
+      elsewhere: { n: roundMatrices.length, what: `${roundMatrices.join(' · ')} — on the event register, per round`, at: 'events' },
+      note: 'The event says what it collected; the programme does not say what it expects. Every round on this project collected the same one material, which is exactly the condition under which a missing field is never noticed.',
+    },
+    {
+      attr: 'Field parameters', fr: null, at: 'purge',
+      parts: [{ name: 'the parameters a visit must read', on: (p) => p.fieldParameters ?? null }],
+      elsewhere: { n: FIELD_ROUND.stabilisation.params.length, what: `${FIELD_ROUND.stabilisation.params.map((x) => x.label).join(', ')} — the stabilisation set, with a tolerance each`, at: 'purge' },
+      note: 'The stabilisation rule states which parameters must hold and within what, and it is a data quality objective rather than a programme requirement — so a programme that wanted a seventh parameter read has nowhere to say so.',
+    },
+    {
+      attr: 'Analytes and analytical suites', fr: 'FR-8.1', at: 'programme',
+      parts: [{ name: 'a suite per location', on: (p) => {
+        const rows = coverageOf(p);
+        return rows.length ? `${rows.length} rows · ${[...new Set(rows.map((r) => r.suite))].length} distinct suites` : null;
+      } }],
+      note: 'And this is the attribute the reconciliation breaks on: the suite is a **name**. Neither of the three names the coverage carries resolves to a row of the suite register, and no row of that register carries a membership — so *incomplete suite* is a question this record cannot be asked.',
+    },
+    {
+      attr: 'Laboratory methods', fr: null, at: 'batches',
+      parts: [{ name: 'the method a suite is to be run by', on: (p) => p.methods ?? null }],
+      elsewhere: { n: batchMethods.length, what: `${batchMethods.join(' · ')} — on the batch, after the analysis`, at: 'batches' },
+      note: 'A method is recorded by the laboratory that ran it and never required by the plan that ordered it, so a laboratory substituting a method is invisible to the programme.',
+    },
+    {
+      attr: 'QA/QC frequency and requirements', fr: null, at: 'qc-limits',
+      parts: [{ name: 'the controls a round must carry', on: (p) => p.qaqc ?? null }],
+      elsewhere: { n: dqoRates.length, what: `${dqoRates.length} of the ${DQO.limits.length} objective rows state a collection rate; the other ${dqoConditions.length} state an applicability condition`, at: 'qc-limits' },
+      note: `The objective set holds the requirements and is bound to no programme — ${dqoNamesAProgramme.length} of the ${programmes.length} programme codes appears anywhere in it — so the round that must carry a field blank and the rule that requires one are joined by nothing but the practitioner.`,
+    },
+    {
+      attr: 'Programme start and end dates', fr: null, at: 'programme',
+      parts: [
+        { name: 'in force since', on: (p) => p.since },
+        { name: 'in force until', on: (p) => p.endsOn },
+      ],
+      note: 'Every programme has a start and none has an end, and the one that most obviously needs one is GW-MTH: it exists because a trigger fired and it stands down on a condition rather than on a date, which the screen already draws as a refusal.',
+    },
+    {
+      attr: 'Responsible party', fr: 'FR-8.1', at: 'programme',
+      parts: [{ name: 'who is answerable for collecting it', on: (p) => p.responsible }],
+      get corroborated() { return gwQtr.obligationOwners; },
+      note: 'One of the three names one. The obligation register independently names the same person as owner of both GW-QTR rounds, which is a corroboration rather than a second source — and the other two programmes are answerable to nobody the record can name.',
+    },
+    {
+      attr: 'Applicable obligations or commitments', fr: null, at: 'licence',
+      parts: [{ name: 'the instrument that requires it', on: (p) => (p.condition ? `Licence condition ${p.condition.n}` : p.tarp ? `TARP ${p.tarp.level} — ${p.tarp.label}` : null) }],
+      note: 'All three resolve, and they resolve to a row rather than to a sentence: two open the licence condition they cite and one opens the trigger that raised it.',
+    },
+  ].map((a) => {
+    const cells = a.parts.flatMap((part) => programmes.map((p) => ({ part: part.name, programme: p.code, value: part.on(p) })));
+    const filled = cells.filter((c) => c.value !== null && c.value !== undefined);
+    return {
+      ...a,
+      cells,
+      filled,
+      /* The verdict is the arithmetic, not a word beside it: a field added to
+       * one programme moves this row without anybody editing it. */
+      get held() { return filled.length === cells.length ? 'held' : filled.length ? 'partial' : 'absent'; },
+    };
+  });
+
+  const definitionCounts = {
+    get total() { return definition.length; },
+    get held() { return definition.filter((a) => a.held === 'held').length; },
+    get partial() { return definition.filter((a) => a.held === 'partial').length; },
+    get absent() { return definition.filter((a) => a.held === 'absent').length; },
+    get required() { return definition.filter((a) => a.fr).length; },
+    get requiredHeld() { return definition.filter((a) => a.fr && a.held === 'held').length; },
+    get elsewhere() { return definition.filter((a) => a.held !== 'held' && a.elsewhere).length; },
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Can a programme carry a version honestly? Measured, not asserted.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Five fields make a version a version, and the objective set has all five.
+   *
+   * `docs/GLOSSARY.md` says a **data quality objective** carries *a version, an
+   * effective span and a source*, and that *every finding carries the rule
+   * version it was raised under*. Its **sampling program** entry carries
+   * locations, suites, frequency, a responsible party and a time zone, and no
+   * version, no span and no approver. So a programme that gained one would be
+   * gaining it against the product's own model rather than filling a field the
+   * model already has, and the honest answer to *can it carry one* is measured
+   * here rather than decided.
+   */
+  const VERSION_FIELDS = [
+    { field: 'A version identifier', why: 'so a round can name the version it was raised under, the way a finding names its rule version' },
+    { field: 'An effective span', why: 'so tightening a programme in July does not re-judge a round collected in March' },
+    { field: 'An approver', why: 'so “on whose authority” has an answer that is a name' },
+    { field: 'The moment of approval', why: 'so the authority has a date, and a round collected before it is not covered by it' },
+    { field: 'A reason the version exists', why: 'so a reader can tell a tightening from a correction' },
+  ];
+
+  const versionEvidence = [
+    {
+      object: 'The data quality objective set', at: 'qc-limits',
+      holds: [DQO.current.version, DQO.current.effective, DQO.current.by, DQO.current.approved, DQO.current.why],
+    },
+    {
+      object: 'A sampling programme', at: 'programme',
+      /* Two of the five, and they are the two that come free: a programme has
+       * a date it came into force and an instrument that put it there. The
+       * three it has nowhere are the three that make a version answerable. */
+      holds: [null, gwQtr.since, null, null, gwQtr.condition ? `Licence condition ${gwQtr.condition.n}` : null],
+    },
+    {
+      object: 'A sampling round', at: 'programme',
+      /* The consumer side of the same absence: even if a programme were
+       * versioned, nothing on a round could name the version it ran under. */
+      holds: VERSION_FIELDS.map(() => null).map((_, i) => (i === 1 ? Q2_PROGRAMME[0].due : null)),
+    },
+  ].map((e) => ({
+    ...e,
+    get n() { return e.holds.filter(Boolean).length; },
+    get missing() { return VERSION_FIELDS.filter((_, i) => !e.holds[i]); },
+  }));
+
+  const versioning = {
+    fields: VERSION_FIELDS,
+    evidence: versionEvidence,
+    get canCarryOne() { return versionEvidence.find((e) => e.object === 'A sampling programme').n === VERSION_FIELDS.length; },
+    get short() { return versionEvidence.find((e) => e.object === 'A sampling programme').missing; },
+    /* The precedent for the second half of a version's job — freezing what a
+     * record was judged under — is already in this product and on this
+     * catalogue, on a different object. */
+    precedent: {
+      what: 'The notification event freezes its window and the rule that produced it onto the event, so a licence varied next year cannot move a deadline that has already run.',
+      at: 'notification',
+    },
+  };
+
+  /* ------------------------------------------------------------------ *
+   * The three amendment kinds §6.2 closes on, each drawn or counted
+   * ------------------------------------------------------------------ */
+
+  /* An event names no programme: the field record does, for one round. */
+  const eventsNamingAProgramme = EVENTS.filter((e) => e.code === FIELD_ROUND.round);
+  const eventsWithProgrammeField = EVENTS.filter((e) => Object.prototype.hasOwnProperty.call(e, 'programme'));
+
+  const amendments = [
+    {
+      kind: 'Recurring requirements',
+      get instances() { return programmes.filter((p) => p.frequency); },
+      askable: true,
+      says: () => `All ${programmes.length} carry a cadence, and one carries the anchor month that makes a fiscal quarter different from a calendar one. This is the half of the requirement the record already meets.`,
+      at: 'programme',
+    },
+    {
+      kind: 'One-off exceptions',
+      get instances() { return []; },
+      get askable() { return eventsWithProgrammeField.length > 0; },
+      says: () => `No event on this project carries a programme, so a round outside a programme cannot be told from a round inside one. ${eventsNamingAProgramme.length} of the ${EVENTS.length} events can be tied to a programme at all, and it is tied through the field record rather than the event register. The soil investigation and the PFAS supplementary are the two that read like exceptions, and the record cannot say whether they are.`,
+      at: 'events',
+    },
+    {
+      kind: 'Temporary location changes',
+      get instances() { return []; },
+      /* A membership with a date range is what would make this askable. The
+       * programme holds a flat list of codes, so a bore is in or out and never
+       * in-until. */
+      get askable() { return programmes.some((p) => p.locations.some((l) => typeof l !== 'string')); },
+      says: () => 'A programme holds a list of codes, so a bore is on it or off it and never on it until October. The two nearest things in this record are neither: PB03 is decommissioned, which is permanent and on no monitoring programme, and MW11 was turned back at a creek and revisited the next day, which changed a date and not a network.',
+      at: 'locations',
+    },
+    {
+      kind: 'Versioned programme amendments',
+      get instances() { return []; },
+      get askable() { return versioning.canCarryOne; },
+      says: () => `Three of the five fields a version needs have nowhere to live: ${versioning.short.map((f) => f.field.toLowerCase()).join(', ')}.`,
+      at: 'programme',
+    },
+  ].map((a) => ({
+    ...a,
+    get state() { return a.instances.length ? 'drawn' : a.askable ? 'none in this record' : 'not expressible'; },
+  }));
+
+  /* ------------------------------------------------------------------ *
+   * The round state, against the glossary's own closed list
+   * ------------------------------------------------------------------ */
+
+  /**
+   * `docs/GLOSSARY.md` gives a **sampling round state** four values — `due`,
+   * `satisfied`, `overdue`, `waived` — and says what the fourth is for:
+   * *a round nobody was ever going to collect — a dry bore, a site cut off by a
+   * wet season — distinguishable from one that was missed, and it must give a
+   * reason.* That is the keep-list's "dry bore ≠ missing data" written into the
+   * product's own vocabulary, and this catalogue has never drawn it.
+   *
+   * The register's rows carry two words of their own, neither of them on that
+   * list. They are mapped rather than rewritten: the word each row holds is
+   * what the record says, and the state it maps to is what the model would
+   * call it.
+   */
+  const ROUND_STATES = [
+    { state: 'due', means: 'The period is open and the round has not been collected yet.' },
+    { state: 'satisfied', means: 'A sampling event satisfied it, and the row names which.' },
+    { state: 'overdue', means: 'The period has passed and nothing has satisfied it.' },
+    { state: 'waived', means: 'Nobody was ever going to collect it — a dry bore, a track under water — and the row must give the reason.' },
+  ];
+  const STATE_MAP = { complete: 'satisfied', overdue: 'overdue' };
+
+  const roundStates = {
+    list: ROUND_STATES,
+    get rows() {
+      return Q2_PROGRAMME.map((r) => {
+        const s = sessionOf(r.code);
+        return {
+          code: r.code,
+          register: r.state,
+          maps: STATE_MAP[r.state] ?? null,
+          disposition: s ? s.disposition : null,
+          reason: s ? s.dispositionReason : null,
+          synced: s ? Boolean(s.synced) : null,
+        };
+      });
+    },
+    get registerWords() { return [...new Set(Q2_PROGRAMME.map((r) => r.state))]; },
+    get unused() { return ROUND_STATES.filter((x) => !this.rows.some((r) => r.maps === x.state)); },
+    /* The one row the fourth word was written for, and why it cannot have it
+     * yet — read off the field record rather than argued. */
+    get waivable() {
+      return this.rows.filter((r) => r.maps === 'overdue' && r.reason && !r.synced);
+    },
+  };
+
+  /* ------------------------------------------------------------------ *
+   * §6.3 — what the plan states about an upcoming round, and what only
+   * the record holds afterwards
+   * ------------------------------------------------------------------ */
+
+  /**
+   * The coverage row is the finding before the table is read.
+   *
+   * Some of its fields are the plan and the rest are what became of it, on one
+   * row — which is why the reconciliation has never existed as an object here:
+   * the plan and the actual were already sharing a row, so there was nothing
+   * to compare. The split is derived below and rendered rather than counted
+   * here, because a sentence naming the fields is the first thing a new column
+   * makes wrong.
+   */
+  const coverageFields = Object.keys(Q2_PROGRAMME[0]);
+  const PLAN_FIELDS = ['code', 'suite', 'due'];
+  const coverageShape = {
+    fields: coverageFields,
+    get plan() { return coverageFields.filter((f) => PLAN_FIELDS.includes(f)); },
+    get outcome() { return coverageFields.filter((f) => !PLAN_FIELDS.includes(f)); },
+  };
+
+  const purgeSessions = FIELD_ROUND.sessions.filter((s) => s.purge);
+  const preservationSessions = FIELD_ROUND.sessions.filter((s) => s.preservation && s.preservation !== '—');
+  const hazardSessions = FIELD_ROUND.sessions.filter((s) => s.hazards || s.instructions);
+  const primarySamples = EVENT_SAMPLES.filter((s) => s.qc === '—');
+  const qcSamples = EVENT_SAMPLES.filter((s) => s.qc !== '—');
+  const fieldDuplicates = qcSamples.filter((s) => /duplicate/i.test(s.qc));
+  const blanks = qcSamples.filter((s) => /blank/i.test(s.qc));
+  const containersOnManifest = EVENT_SAMPLES.reduce((n, s) => n + s.containers, 0);
+  const holdingTimeRules = [
+    ...RECEIPT.checks.filter((c) => /holding time/i.test(c.what)),
+  ];
+
+  const preparation = [
+    { item: 'Required samples', at: 'events',
+      plan: () => `${Q2_PROGRAMME.length} rows, one per location, each with a due date and no sample count`,
+      record: () => `${primarySamples.length} primary and ${qcSamples.length} quality-control samples on the manifest`,
+      note: 'The plan says a sample is expected at seven bores. It does not say how many, so “two containers short” is a sentence this record cannot form before the cooler is opened.' },
+    { item: 'Analytes or suites', at: 'programme',
+      plan: () => `${[...new Set(Q2_PROGRAMME.map((r) => r.suite))].length} suite names over ${Q2_PROGRAMME.length} rows`,
+      record: () => `${EVENT_SAMPLES.reduce((n, s) => n + s.tests, 0)} tests on the manifest · ${CROSSTAB_SHAPE.analytes} analytes on the grid`,
+      note: 'The one attribute the plan genuinely states — and it states a name, not a membership, which is what §6.4’s incomplete-suite condition then breaks on.' },
+    { item: 'Field measurements', at: 'purge',
+      plan: () => null,
+      record: () => `${FIELD_ROUND.stabilisation.params.length} parameters with a tolerance each, read over ${purgeSessions.length} purges`,
+      note: 'The stabilisation set is a data quality objective. It is what the round was judged against and not what the programme asked for.' },
+    { item: 'Duplicates', at: 'qc',
+      plan: () => null,
+      record: () => `${fieldDuplicates.length} blind field duplicates — ${fieldDuplicates.map((s) => `${s.id} of ${s.parent}`).join(', ')}`,
+      note: `The objective set holds a field-duplicate limit and states no rate: its population reads “${DQO.limitFor('Field duplicate RPD').applies}”, which says when the limit applies and not how often one is collected. Two arrived against a requirement nothing in this record makes.` },
+    { item: 'Blanks and other QA samples', at: 'qc-limits',
+      plan: () => null,
+      record: () => `${blanks.length} blanks — ${blanks.map((s) => s.qc.replace(/ \(rinsate\)/, '')).join(', ')} — against an objective row that states the rate`,
+      note: `The rate is on the objective set: “${DQO.limitFor('Field / trip / equipment blank').applies}”. It is the only preparation requirement in this record that is written down before the round rather than after it, and it is written on the wrong object to reach a programme.` },
+    { item: 'Bottles or containers where applicable', at: 'ecoc',
+      plan: () => null,
+      record: () => `${containersOnManifest} containers on the manifest, ${CUSTODY_CHAIN.containers} on the chain`,
+      note: 'There is no bottle order in this record and none is drawn. Containers are counted when they are filled and again when they are opened, and never ordered.' },
+    { item: 'Preservation requirements where applicable', at: 'field-capture',
+      plan: () => null,
+      record: () => `${preservationSessions.length} sessions state what was preserved and how; the receipt verified pH on ${RECEIPT.checks.find((c) => /Preservation/.test(c.what)).found}`,
+      note: 'Recorded at the bore and verified at the bench, which is two of the three places it belongs. The third is the plan.' },
+    { item: 'Assigned laboratory', at: 'events',
+      plan: () => null,
+      record: () => `${[...new Set(EVENTS.map((e) => e.lab).filter((l) => l !== '—'))].length} laboratories across the event register; this round went to ${FIELD_ROUND.laboratory}`,
+      note: 'A laboratory is assigned to a round and to no programme, so a programme cannot say where its work goes and a change of laboratory is invisible to it.' },
+    { item: 'Holding-time considerations where applicable', at: 'receipt',
+      plan: () => null,
+      record: () => `${holdingTimeRules.length} receipt check on arrival — “${holdingTimeRules[0].found}” — and ${QUARANTINE.filter((q) => /holding-time/.test(q.rule)).length} held row afterwards`,
+      note: 'The clock is watched on arrival and enforced after analysis. Nothing warns the crew before they leave that nitrate has two days.' },
+    { item: 'Field instructions or location-specific hazards', at: 'field-capture',
+      plan: () => null,
+      record: () => (hazardSessions.length ? `${hazardSessions.length} sessions carry one` : null),
+      note: 'Nothing in this record holds a hazard or a field instruction, and none is invented here. The nearest fields are the access and condition notes, and both are observations made on arrival — the opposite of an instruction issued before departure.' },
+  ].map((x) => {
+    const plan = x.plan();
+    const record = x.record();
+    return {
+      ...x, planned: plan, recorded: record,
+      get held() { return plan && record ? 'planned and recorded' : record ? 'recorded only' : plan ? 'planned only' : 'neither'; },
+    };
+  });
+
+  /**
+   * §6.3 closes on a distinction rather than a list: *the design should
+   * distinguish programme requirements, event-specific amendments and field
+   * decisions.* Two of the three exist in this record and the middle one has
+   * no field anywhere, which is the same absence the one-off exception above
+   * runs into from the other direction.
+   */
+  const preparationAxes = [
+    {
+      axis: 'A programme requirement', at: 'programme',
+      get n() { return preparation.filter((x) => x.planned).length; },
+      of: () => `of the ${preparation.length} preparation items the plan states before the round`,
+    },
+    {
+      axis: 'An event-specific amendment', at: 'events',
+      get n() {
+        return EVENTS.filter((e) => Object.prototype.hasOwnProperty.call(e, 'amendment')).length
+          + EVENT_SAMPLES.filter((s) => Object.prototype.hasOwnProperty.call(s, 'amendment')).length;
+      },
+      of: () => 'no round and no sample on this project carries a field for one, so a round that departed from its programme could not say so',
+    },
+    {
+      axis: 'A field decision', at: 'field-capture',
+      get n() { return FIELD_ROUND.sessions.filter((x) => x.dispositionReason).length + FIELD_ROUND.preflight.byJudgement; },
+      of: () => `dispositions with a reason, plus ${FIELD_ROUND.preflight.byJudgement} purge stopped on the crew's judgement rather than on stabilisation`,
+    },
+  ];
+
+  const preparationCounts = {
+    get total() { return preparation.length; },
+    get both() { return preparation.filter((x) => x.held === 'planned and recorded').length; },
+    get recordedOnly() { return preparation.filter((x) => x.held === 'recorded only').length; },
+    get neither() { return preparation.filter((x) => x.held === 'neither').length; },
+  };
+
+  /* ------------------------------------------------------------------ *
+   * The six stages — one screen, and every count read off the register
+   * that owns that stage
+   * ------------------------------------------------------------------ */
+
+  const num = (s) => Number(String(s).match(/\d+/)?.[0] ?? NaN);
+  const receiptCheck = (re) => RECEIPT.checks.find((c) => re.test(c.what));
+  const heldRows = QUARANTINE.filter((q) => q.state === 'held');
+  const roundBatches = BATCHES.filter((b) => b.samples);
+  /*
+   * Which committed deliverable belongs to *this* round, found rather than
+   * chosen: the passing holding-time finding states the population it ran over
+   * — “229 of 231 results” — and exactly one committed result run holds that
+   * many rows. The legacy migration's 18,740 rows are a committed result run
+   * too, and picking by `state === 'committed'` alone would have swept them
+   * into a count of one quarter.
+   */
+  const htPass = QAQC.find((q) => /holding time/i.test(q.check) && q.outcome === 'pass');
+  const htOver = Number((htPass.scope.match(/of (\d+)/) ?? [])[1]);
+  const htWithin = Number((htPass.scope.match(/^(\d+)/) ?? [])[1]);
+  const roundDeliverable = IMPORTS.find((i) => i.kind === 'results' && i.state === 'committed' && i.rows === htOver) ?? null;
+
+  /**
+   * `STAGES` is the brief's own arrow sentence, and `build.mjs` compares these
+   * six words with it in order. Each stage names the register that owns it and
+   * reads its numbers off that register — nothing here re-counts what another
+   * screen already counts, so a hand-off that stops agreeing shows up as a
+   * disagreement between two registers rather than as a third opinion.
+   */
+  const stages = [
+    {
+      stage: 'Planned', at: 'programme',
+      register: 'The programme’s coverage for the period',
+      get readings() {
+        return [
+          { n: Q2_PROGRAMME.length, of: 'locations the round expects' },
+          { n: [...new Set(Q2_PROGRAMME.map((r) => r.suite))].length, of: 'distinct suite names, none of which resolves to a membership' },
+          { n: 1, of: `due date, ${Q2_PROGRAMME[0].due}, shared by every row` },
+        ];
+      },
+    },
+    {
+      stage: 'collected', at: 'field-capture',
+      register: 'The field record — one session per visit',
+      get readings() {
+        const p = FIELD_ROUND.preflight;
+        return [
+          { n: p.visits, of: `visits across ${p.planned} planned locations, ${p.revisits} of them a revisit` },
+          { n: p.sampled, of: 'locations that yielded a sample' },
+          { n: p.dry, of: 'dipped and found dry — a measurement, not a gap' },
+          { n: EVENT_SAMPLES.length, of: `samples on the manifest, ${qcSamples.length} of them quality control` },
+        ];
+      },
+    },
+    {
+      stage: 'submitted', at: 'ecoc',
+      register: 'The chain of custody',
+      get readings() {
+        return [
+          { n: CUSTODY_CHAIN.transfers.length, of: 'custody transfers, ordered by sequence rather than by time' },
+          { n: CUSTODY_CHAIN.containers, of: 'containers sealed and handed over' },
+          { n: CUSTODY_CHAIN.continues.containers, of: `container subcontracted onward to ${CUSTODY_CHAIN.continues.laboratory}, on its own chain` },
+        ];
+      },
+    },
+    {
+      stage: 'received', at: 'receipt',
+      register: 'The laboratory receipt',
+      get readings() {
+        return [
+          { n: RECEIPT.checks.length, of: `checks on arrival — ${RECEIPT.checks.filter((c) => c.outcome === 'fail').length} failed, ${RECEIPT.checks.filter((c) => c.outcome === 'warn').length} warned` },
+          { n: num(receiptCheck(/Containers received/).found), of: `containers reconciled against the chain (“${receiptCheck(/Containers received/).found}”)` },
+          { n: CUSTODY_CHAIN.continues.receipt.reconciled === '1 of 1' ? 1 : 0, of: `container received at ${CUSTODY_CHAIN.continues.laboratory}, sealed and intact` },
+        ];
+      },
+    },
+    {
+      stage: 'analysed', at: 'batches',
+      register: 'The analytical batches and the deliverables they arrived in',
+      get readings() {
+        return [
+          { n: roundBatches.length, of: `batches with a sample count, over ${[...new Set(roundBatches.map((b) => b.method))].length} methods` },
+          { n: roundBatches.reduce((n, b) => n + b.samples, 0), of: 'analytical samples across those batches — a different population from the field manifest’s' },
+          { n: roundDeliverable.rows, of: `rows in ${roundDeliverable.id}, the committed deliverable the holding-time check counted itself against` },
+        ];
+      },
+    },
+    {
+      stage: 'validated', at: 'validation',
+      register: 'The held rows and the QA/QC findings',
+      get readings() {
+        return [
+          { n: QAQC.length, of: `QA/QC findings, ${QAQC.filter((q) => q.state === 'unresolved').length} of them still owed a decision` },
+          { n: heldRows.length, of: 'rows held and taking no part in evaluation' },
+          { n: CROSSTAB_SHAPE.results, of: `cells carrying a result, of ${CROSSTAB_SHAPE.cells} on the grid` },
+        ];
+      },
+    },
+  ];
+
+  /* The hand-offs the record can actually check, each with both numbers. */
+  const handoffs = [
+    {
+      from: 'Planned', to: 'collected',
+      get left() { return { n: Q2_PROGRAMME.length, of: 'locations expected', at: 'programme' }; },
+      get arrived() { return { n: FIELD_ROUND.preflight.sampled, of: 'locations that yielded a sample', at: 'field-capture' }; },
+      accounts: () => `${FIELD_ROUND.preflight.dry} dipped and found dry, with the reason on the session`,
+    },
+    {
+      from: 'collected', to: 'submitted',
+      get left() { return { n: containersOnManifest, of: 'containers summed off the manifest', at: 'events' }; },
+      get arrived() { return { n: CUSTODY_CHAIN.containers, of: 'containers on the chain', at: 'ecoc' }; },
+      accounts: () => null,
+    },
+    {
+      from: 'submitted', to: 'received',
+      get left() { return { n: CUSTODY_CHAIN.containers, of: 'containers handed to the courier', at: 'ecoc' }; },
+      get arrived() { return { n: num(receiptCheck(/Containers received/).found), of: 'containers reconciled on arrival', at: 'receipt' }; },
+      accounts: () => `${RECEIPT.checks.filter((c) => c.outcome === 'fail').length} of them arrived damaged, which the receipt records as a failed check rather than as a shortfall`,
+    },
+    {
+      from: 'received', to: 'analysed',
+      get left() { return { n: primarySamples.length, of: 'primary samples collected in the field', at: 'events' }; },
+      get arrived() { return { n: roundBatches.reduce((n, b) => n + b.samples, 0), of: 'analytical samples in the batches', at: 'batches' }; },
+      accounts: () => 'Neither number is wrong and they do not reconcile: a batch counts analytical samples, including the duplicates and the controls that never had a location. The link that would join them — a qualifier channel per result — is measured at zero cells on the grid.',
+    },
+    {
+      from: 'analysed', to: 'validated',
+      get left() { return { n: EVENT_SAMPLES.reduce((n, s) => n + s.results, 0), of: 'results on the manifest', at: 'events' }; },
+      get arrived() { return { n: CROSSTAB_SHAPE.results, of: 'cells carrying a result on the grid', at: 'crosstab' }; },
+      accounts: () => 'The manifest counts every test on every sample including the controls; the grid holds one cell per analyte per location and no control has a column. This is the denominator disagreement below, at its widest.',
+    },
+  ].map((h) => ({
+    ...h,
+    get agrees() { return h.left.n === h.arrived.n; },
+  }));
+
+  /* ------------------------------------------------------------------ *
+   * The two disagreements — drawn, not resolved
+   * ------------------------------------------------------------------ */
+
+  const mw09Row = COMPLETENESS.rows.find((r) => r.location === 'MW09');
+  const crackedCheck = RECEIPT.checks.find((c) => c.outcome === 'fail');
+  const crackedSample = EVENT_SAMPLES.find((s) => s.id === (crackedCheck.found.match(/WDL-[\w-]+/) ?? [])[0]);
+  const sulfateHeld = QUARANTINE.find((q) => /Sulfate/.test(q.subject) && /MW09/.test(q.subject));
+  const mw09Index = CROSSTAB_COLUMNS.indexOf('MW09');
+  const sulfateCell = CROSSTAB.find((r) => /Sulfate/.test(r.analyte)).cells[mw09Index];
+  const mw09Cells = CROSSTAB.map((r) => ({ analyte: r.analyte, cell: r.cells[mw09Index] }));
+
+  /**
+   * Five registers describe one absence at MW09, and no two of them describe
+   * the same one.
+   *
+   * This is the finding the reconciliation was built to make findable, and it
+   * is not resolved here — the shape wave 15 used for the PFAS three-way and
+   * wave 19 for the period. Each reading is read off the register that holds
+   * it, so a register that changes its mind moves its own line and no other.
+   */
+  const mw09 = {
+    subject: 'One result short at MW09, on the 2026 Q2 round',
+    get readings() {
+      return [
+        {
+          register: 'The laboratory receipt', at: 'receipt',
+          says: `${crackedCheck.what} failed: “${crackedCheck.found}”. The consequence recorded beneath it names the bore and the shortfall.`,
+          holds: 'a cracked sulfate bottle',
+        },
+        {
+          register: 'The sample manifest', at: 'events',
+          says: `${crackedSample.id} carries ${crackedSample.tests} tests and ${crackedSample.results} results, and its state is ${crackedSample.state}.`,
+          holds: `${crackedSample.tests - crackedSample.results} result short, analyte unnamed`,
+        },
+        {
+          register: 'The completeness register', at: 'dqa',
+          says: `${mw09Row.received} of ${mw09Row.planned} received. The row carries a location, a count and a state and names no analyte, so which of the nine is absent cannot be read off it.`,
+          holds: `${mw09Row.planned - mw09Row.received} result short, of a planned nine`,
+        },
+        {
+          register: 'The held rows', at: 'quarantine',
+          says: `“${sulfateHeld.subject}” is ${sulfateHeld.state} — ${sulfateHeld.reason} The way out recorded is: ${sulfateHeld.wayOut}`,
+          holds: 'the sulfate, held rather than absent',
+        },
+        {
+          register: 'The results grid', at: 'crosstab',
+          says: `The sulfate cell at MW09 reads ${sulfateCell.v} and carries no hold marker, while the nitrate cell beside it does. Across the column, ${mw09Cells.filter((c) => !c.cell.empty).length} of ${mw09Cells.length} cells carry a result and the one that does not is ${mw09Cells.find((c) => c.cell.empty).analyte}.`,
+          holds: 'the sulfate, present and compliant',
+        },
+      ];
+    },
+    get distinctHoldings() { return [...new Set(this.readings.map((r) => r.holds))].length; },
+    says: 'Three registers agree that one result is short and do not agree on which. A fourth holds the sulfate rather than losing it. The fifth prints a number in the cell all four are pointing at. Nothing here is corrected: the disagreement is what the reconciliation is for, and resolving it is a decision with an author.',
+  };
+
+  /**
+   * How many results does this round have? Four registers, four answers.
+   *
+   * The data quality assessment computes its completeness percentage against
+   * one of them without saying which, and it is the one no other register
+   * agrees with.
+   */
+  const denominator = {
+    get readings() {
+      return [
+        { register: 'The completeness register', at: 'dqa', n: COMPLETENESS.planned, of: `${COMPLETENESS.rows[0].planned} per location across ${COMPLETENESS.rows.length} locations`, received: COMPLETENESS.received },
+        { register: 'The results grid', at: 'crosstab', n: CROSSTAB_SHAPE.cells, of: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations, no control sample given a column`, received: CROSSTAB_SHAPE.results },
+        { register: 'The sample manifest', at: 'events', n: EVENT_SAMPLES.reduce((n, s) => n + s.tests, 0), of: `tests across ${EVENT_SAMPLES.length} samples, controls included`, received: EVENT_SAMPLES.reduce((n, s) => n + s.results, 0) },
+        { register: 'The committed deliverable', at: 'imports', n: roundDeliverable.rows, of: `rows in ${roundDeliverable.id} — the population the holding-time check states it ran over`, received: htWithin },
+      ];
+    },
+    get spread() { const ns = this.readings.map((r) => r.n); return { low: Math.min(...ns), high: Math.max(...ns) }; },
+    get usedByDqa() { return DQA.find((d) => d.dim === 'Completeness'); },
+    says: 'Each is counting something different and each is right about the thing it counts. What no register states is which of them completeness is measured against — and the data quality assessment picks one and prints a percentage over it.',
+  };
+
+  /* ------------------------------------------------------------------ *
+   * §6.4 — the ten conditions, each instantiated or counted absent
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Which controls each objective row that states a *rate* asks for.
+   *
+   * The link is written here once and `build.mjs` closes it against the
+   * objective set in both directions, so a row that starts stating a rate
+   * cannot go unmatched and one that stops cannot linger. What is **not**
+   * written here is the answer: whether the round carries the control is a
+   * search over the batch and the manifest, so a control that disappears
+   * makes this condition bite rather than leaving a typed *satisfied* behind.
+   */
+  const qcRequirements = [
+    { check: 'Matrix spike recovery', kinds: ['Matrix spike', 'Matrix spike duplicate'] },
+    { check: 'Laboratory control sample recovery', kinds: ['Laboratory control sample'] },
+    { check: 'Surrogate recovery — PFAS', kinds: ['Surrogate (isotope-labelled)'] },
+    { check: 'Method blank', kinds: ['Method blank'] },
+    { check: 'Field / trip / equipment blank', kinds: ['Field blank', 'Trip blank', 'Equipment blank (rinsate)'] },
+  ].map((r) => {
+    const limit = DQO.limitFor(r.check);
+    const found = [
+      ...LAB_QC.filter((c) => r.kinds.includes(c.kind)).map((c) => ({ id: c.id, kind: c.kind, at: 'batches' })),
+      ...qcSamples.filter((s) => r.kinds.includes(s.qc)).map((s) => ({ id: s.id, kind: s.qc, at: 'events' })),
+    ];
+    return {
+      ...r,
+      applies: limit ? limit.applies : null,
+      found,
+      get missing() { return r.kinds.filter((k) => !found.some((f) => f.kind === k)); },
+    };
+  });
+
+  const requiredControlKinds = qcRequirements.flatMap((r) => r.kinds);
+  const unrequestedQc = qcSamples.filter((s) => !requiredControlKinds.includes(s.qc));
+
+  /** A suite here is a name and a size; nothing anywhere holds its members. */
+  const suiteNames = [...new Set(Q2_PROGRAMME.map((r) => r.suite))];
+  const suitesResolving = suiteNames.filter((n) => ANALYTE_SUITES.some((s) => s.label === n || s.code === n));
+  const suitesWithMembers = ANALYTE_SUITES.filter((s) => Array.isArray(s.members));
+  const pfasSuite = ANALYTE_SUITES.find((s) => s.code === 'pfas');
+
+  const conditions = [
+    {
+      ask: 'Missing samples', at: 'field-capture',
+      parts: [{
+        what: 'a planned location that yielded nothing and gives no reason for it',
+        askable: true,
+        get instances() { return FIELD_ROUND.current.filter((s) => s.samples.length === 0 && !s.dispositionReason); },
+      }],
+      says: () => `Every planned location has a disposition, and the one that yielded nothing gives its reason: ${FIELD_ROUND.current.find((s) => s.samples.length === 0).location} was dipped to the base of its screen and found dry. A dry bore is a measurement of the aquifer, so it is not a missing sample and this catalogue will not count it as one.`,
+    },
+    {
+      ask: 'Unsampled locations', at: 'field-capture',
+      parts: [{
+        what: 'a planned location with no sample on the manifest',
+        askable: true,
+        get instances() { return FIELD_ROUND.current.filter((s) => s.samples.length === 0); },
+      }],
+      says: () => `${FIELD_ROUND.current.filter((s) => s.samples.length === 0).map((s) => s.location).join(', ')}, over ${FIELD_ROUND.sessions.filter((s) => s.samples.length === 0).length} visits — turned back at a flooded crossing on the first and dry on the second, and both visits are kept as records because a bore attempted twice is not a bore nobody went to.`,
+    },
+    {
+      ask: 'Missing analytes', at: 'crosstab',
+      parts: [
+        {
+          what: 'a sample short of its own test count',
+          askable: true,
+          get instances() { return EVENT_SAMPLES.filter((s) => s.results < s.tests); },
+        },
+        {
+          what: 'a grid cell whose suite was never run on the sample',
+          askable: true,
+          get instances() { return CROSSTAB.flatMap((r) => r.cells.filter((c) => c.notAnalysed)); },
+        },
+      ],
+      says: () => 'Both halves bite, and the first is where five registers stop agreeing — see the disagreement below. The second is the absence wave 15 separated out: a sample exists and the suite was never run on it, which is a different fact from no sample at all and is drawn differently.',
+    },
+    {
+      ask: 'Incomplete suites', at: 'dictionary',
+      parts: [{
+        what: 'a suite delivered short of its membership',
+        get askable() { return suitesResolving.length > 0 && suitesWithMembers.length > 0; },
+        get instances() { return []; },
+      }],
+      says: () => `The sharpest absence in this half. ${suiteNames.length} suite names on the plan and ${suitesResolving.length} of them resolves to a row of the suite register; ${suitesWithMembers.length} of the ${ANALYTE_SUITES.length} rows on that register carries a membership. The register knows the PFAS suite is ${pfasSuite.n} analytes and the catalogue holds ${PFAS_COMPONENTS.length} location with ${Object.keys(PFAS_COMPONENTS[0]).filter((k) => k === 'pfos' || k === 'pfhxs').length} of them, and cannot say whether the other ${pfasSuite.n - 2} are missing or merely unheld. A size is not a membership, and only a membership can be short.`,
+    },
+    {
+      ask: 'Missing QA samples', at: 'qc-limits',
+      parts: [{
+        what: 'a control an objective row requires at a stated rate and the round does not hold',
+        askable: true,
+        get instances() { return qcRequirements.flatMap((r) => r.missing.map((k) => ({ check: r.check, kind: k }))); },
+      }],
+      says: () => `${qcRequirements.length} of the ${DQO.limits.length} objective rows state a collection rate, and every control they ask for is on the round — ${qcRequirements.reduce((n, r) => n + r.found.length, 0)} of them across the batch and the manifest. This is the one condition the record answers cleanly, and it answers it from the objective set rather than from the programme, which is the §6.2 gap seen from the other end.`,
+    },
+    {
+      ask: 'Unexpected samples or analytes', at: 'events',
+      parts: [
+        {
+          what: 'a sample the plan does not name',
+          askable: true,
+          get instances() { return qcSamples; },
+        },
+        {
+          what: 'an analyte the plan does not name',
+          get askable() { return suitesResolving.length > 0 && suitesWithMembers.length > 0; },
+          get instances() { return []; },
+        },
+      ],
+      says: () => `The plan’s rows carry a code, a suite and a due date and say nothing about control samples, so all ${qcSamples.length} are arrivals it does not account for. ${qcSamples.length - unrequestedQc.length} of them answer an objective row that states a rate; ${unrequestedQc.length} answer nothing in this record — the blind field duplicates, collected against a limit that states when it applies and never how often one is taken. The analyte half cannot be asked at all, for the reason the row above gives.`,
+    },
+    {
+      ask: 'Cancelled or deferred monitoring', at: 'events',
+      parts: [
+        {
+          what: 'a round cancelled or deferred',
+          askable: true,
+          get instances() { return EVENTS.filter((e) => /cancel|defer|waiv/i.test(e.state)); },
+        },
+        {
+          what: 'a visit deferred to a later day',
+          askable: true,
+          get instances() { return FIELD_ROUND.sessions.filter((s) => s.disposition === 'inaccessible'); },
+        },
+      ],
+      says: () => `No round on this project is cancelled or deferred — the event register’s states are ${[...new Set(EVENTS.map((e) => e.state))].join(', ')}, and none of them says so. One visit was: the crossing was running 0.4 m over the causeway and the crew turned back, which the record keeps as a session of its own rather than as a gap in the next day’s.`,
+    },
+    {
+      ask: 'Results not yet received', at: 'imports',
+      parts: [
+        {
+          what: 'a sample whose results are short of its tests',
+          askable: true,
+          get instances() { return EVENT_SAMPLES.filter((s) => s.results < s.tests); },
+        },
+        {
+          what: 'an event still awaiting results',
+          askable: true,
+          get instances() { return EVENTS.filter((e) => /partial/.test(e.state)); },
+        },
+      ],
+      says: () => `Both are instantiated and neither carries a date. No row of the event register and no row of the manifest holds a field for when a result is expected — ${EVENTS.filter((e) => Object.prototype.hasOwnProperty.call(e, 'expected')).length} of ${EVENTS.length} events and ${EVENT_SAMPLES.filter((s) => Object.prototype.hasOwnProperty.call(s, 'expected')).length} of ${EVENT_SAMPLES.length} samples — so *not yet* cannot be told from *never*, which is exactly what the MW09 disagreement below turns on.`,
+    },
+    {
+      ask: 'Results received after holding time', at: 'qc',
+      parts: [{
+        what: 'a result analysed outside its method window',
+        askable: true,
+        get instances() { return QAQC.filter((q) => /holding time/i.test(q.check) && q.outcome === 'fail'); },
+      }],
+      says: () => `The clock ran from collection rather than from receipt, which is the reading that makes this a failure at all: measured from the laboratory’s own receipt the nitrate would have been inside its window. ${QUARANTINE.filter((q) => /holding-time/.test(q.rule)).length} row is held on it and takes no part in evaluation.`,
+    },
+    {
+      ask: 'Samples that cannot be matched to the plan', at: 'ecoc',
+      parts: [{
+        what: 'a sample whose location is not a row of the plan',
+        askable: true,
+        get instances() { return EVENT_SAMPLES.filter((s) => !planned.includes(s.location)); },
+      }],
+      says: () => `${EVENT_SAMPLES.filter((s) => !planned.includes(s.location)).length} of ${EVENT_SAMPLES.length}, and each of them matches something else instead: ${EVENT_SAMPLES.filter((s) => !planned.includes(s.location)).map((s) => `${s.id} → ${s.parent}`).join(', ')}. They are unmatchable to *this* plan because the plan is a list of locations and a blank has none — which is a shape of the plan rather than a defect in the samples.`,
+    },
+  ].map((c) => ({
+    ...c,
+    get instances() { return c.parts.flatMap((p) => p.instances); },
+    get askable() { return c.parts.some((p) => p.askable); },
+    get unaskable() { return c.parts.filter((p) => !p.askable); },
+    /* Derived, in both directions: a part that starts finding instances moves
+     * this word up, and a field that makes a part askable moves it too. */
+    get state() {
+      if (c.parts.every((p) => !p.askable)) return 'not expressible';
+      if (c.parts.flatMap((p) => p.instances).length) return c.parts.some((p) => !p.askable) ? 'instantiated in part' : 'instantiated';
+      return 'none in this record';
+    },
+  }));
+
+  const conditionCounts = {
+    get total() { return conditions.length; },
+    get instantiated() { return conditions.filter((c) => c.state.startsWith('instantiated')).length; },
+    get none() { return conditions.filter((c) => c.state === 'none in this record').length; },
+    get notExpressible() { return conditions.filter((c) => c.state === 'not expressible').length; },
+    get partial() { return conditions.filter((c) => c.state === 'instantiated in part').length; },
+    get instances() { return conditions.reduce((n, c) => n + c.instances.length, 0); },
+  };
+
+  /* ------------------------------------------------------------------ *
+   * The workflow half — owners, rationale, disposition, due dates and
+   * downstream consequences, each read off a register or counted absent
+   * ------------------------------------------------------------------ */
+
+  /**
+   * §6.4's last sentence asks for an *actionable* workflow and names five
+   * things. Four of them exist scattered across this record and one does not,
+   * and the one that does not is **owners**.
+   *
+   * D7 settled where an owner would live: the work queue stays a proposal and
+   * `/` stays a project list, so a completeness item gets its owner on the
+   * workspace that owns the work rather than on the front door. What that
+   * decision cannot supply is a name, and none is invented here. The record
+   * holds an assignment in exactly two places — the obligation register's
+   * `owner`, and the one `assignedTo` on the custody discrepancy — and every
+   * item below either reaches one of those or says which register would have
+   * to hold it.
+   *
+   * Every ingredient is `{ value, from }` or `{ absent }`, and the counts at
+   * the foot are getters, so an ingredient that arrives on a register moves
+   * the tally without anybody editing a sentence.
+   */
+  const INGREDIENTS = ['Owner', 'Rationale', 'Disposition', 'Due date', 'Downstream consequence'];
+
+  const q2Obligation = OBLIGATIONS.find((o) => o.kind === 'round' && o.basis.includes(gwQtr.code) && o.state === 'overdue');
+  const unresolvedFindings = QAQC.filter((q) => q.state === 'unresolved');
+  const mw11 = FIELD_ROUND.current.find((s) => s.samples.length === 0);
+  const nitrateHeld = QUARANTINE.find((q) => /holding-time/.test(q.rule));
+  const seal = CUSTODY_CHAIN.discrepancy;
+
+  const items = [
+    {
+      id: 'CP-1', stage: 'Planned', at: 'programme',
+      what: () => `${mw11.location}’s 2026 Q2 round is open`,
+      owner: () => ({ value: gwQtr.obligationOwners.join(', '), from: 'the obligation register — owner against a basis naming this programme', at: 'obligations' }),
+      rationale: () => ({ value: `The bore was reached on the second visit and ${mw11.dispositionReason.charAt(0).toLowerCase()}${mw11.dispositionReason.slice(1)}.`, from: 'the field session', at: 'field-capture' }),
+      disposition: () => ({ value: `${mw11.disposition} — and the round reads ${roundStates.rows.find((r) => r.code === mw11.location).maps} rather than waived, because the session has not synced`, from: 'the field record, against the glossary’s four round states', at: 'field-capture' }),
+      due: () => ({ value: `${q2Obligation.dueOn} · ${Q2_OVERDUE.phrase}`, from: 'the obligation register', at: 'obligations' }),
+      consequence: () => ({ value: `The round is not marked complete while a location is outstanding, and the completeness dimension counts this bore’s ${COMPLETENESS.rows.find((r) => r.location === mw11.location).planned} planned results as never collected.`, from: 'the data quality assessment', at: 'dqa' }),
+    },
+    {
+      id: 'CP-2', stage: 'received', at: 'crosstab',
+      what: () => `One result short at ${mw09Row.location}, and five registers describe it differently`,
+      owner: () => ({ absent: 'The held-rows register carries no assignee, and neither does the receipt. A cracked container is raised by the laboratory and owned by nobody in this record.', wouldBe: 'quarantine' }),
+      rationale: () => ({ value: crackedCheck.found, from: 'the receipt’s failed check', at: 'receipt' }),
+      disposition: () => ({ value: `${sulfateHeld.state} — “${sulfateHeld.wayOut}”`, from: 'the held rows', at: 'quarantine' }),
+      due: () => ({ absent: 'Nothing carries a date by which a re-analysis is owed, and no register holds an expected-by field at all.', wouldBe: 'imports' }),
+      consequence: () => ({ value: `It is one of the ${heldRows.length} rows the completeness dimension subtracts from usable, and it is the difference between the round reading complete and reading short.`, from: 'the data quality assessment', at: 'dqa' }),
+    },
+    {
+      id: 'CP-3', stage: 'analysed', at: 'qc',
+      what: () => `${nitrateHeld.subject} was analysed outside its window`,
+      owner: () => ({ absent: 'The finding is automatic and dispositioned by a rule, so it records what happened and not whose it is now.', wouldBe: 'qc' }),
+      rationale: () => ({ value: nitrateHeld.reason, from: 'the held rows', at: 'quarantine' }),
+      disposition: () => ({ value: `${nitrateHeld.state} · ${QAQC.find((q) => q.id === 'HT-1').action}`, from: 'the QA/QC finding and its rule', at: 'qc' }),
+      due: () => ({ value: `${nitrateHeld.rule} — the window ran from collection and has already expired`, from: 'the rule the finding was raised under', at: 'qc-limits' }),
+      consequence: () => ({ value: 'The result takes no part in evaluation, so the cell it would have filled is drawn as held rather than as a number nobody may use.', from: 'the results grid', at: 'crosstab' }),
+    },
+    {
+      id: 'CP-4', stage: 'submitted', at: 'ecoc',
+      what: () => `${seal.what} — two records, two numbers`,
+      owner: () => ({ value: seal.assignedTo, from: 'the only `assignedTo` in this record', at: 'ecoc' }),
+      rationale: () => ({ value: `${seal.field} against ${seal.laboratory}. ${seal.affects}`, from: 'the chain of custody', at: 'ecoc' }),
+      disposition: () => ({ value: `${seal.state} — ${seal.ways.length} ways out recorded, and one explicitly refused`, from: 'the chain of custody', at: 'ecoc' }),
+      due: () => ({ absent: 'No date is recorded against it. A custody question has no statutory clock here, which is different from having no urgency.', wouldBe: 'obligations' }),
+      consequence: () => ({ value: 'A custody challenge attacks the likeliest reading first, so the identity of one seal is what a hearing would open on. Nothing about the containers is in doubt.', from: 'the chain of custody', at: 'ecoc' }),
+    },
+    {
+      id: 'CP-5', stage: 'validated', at: 'qc',
+      what: () => `${unresolvedFindings.length} QA/QC findings still owed a decision`,
+      owner: () => ({ absent: 'No finding in this record carries an assignee. Three name who reviewed or dispositioned them, which is who acted rather than whose it is.', wouldBe: 'qc' }),
+      rationale: () => ({ value: unresolvedFindings.map((q) => `${q.id} · ${q.check}`).join(' · '), from: 'the QA/QC register', at: 'qc' }),
+      disposition: () => ({ value: `unresolved — the round becomes ready for validation only when nothing is`, from: 'the QA/QC workflow', at: 'validation' }),
+      due: () => ({ absent: 'A decision has no due date on this record. The consequence has one, which is not the same thing.', wouldBe: 'obligations' }),
+      consequence: () => ({ value: `${unresolvedFindings.reduce((n, q) => n + (q.results ?? 0), 0)} results sit under a proposed qualifier nobody has applied, and the analysis register counts them inside its populations and says so.`, from: 'the analysis register', at: 'analysis' }),
+    },
+    {
+      id: 'CP-6', stage: 'analysed', at: 'crosstab',
+      what: () => `${CROSSTAB_SHAPE.notAnalysed} grid cells whose suite was never run`,
+      owner: () => ({ absent: 'A withdrawn cell is a settlement rather than a task, and settlements in this catalogue are recorded and not assigned.', wouldBe: 'crosstab' }),
+      rationale: () => ({ value: `The PFAS suite was asked for at ${Q2_PROGRAMME.filter((r) => /PFAS/.test(r.suite)).length} of the ${Q2_PROGRAMME.length} planned locations, and reached ${PFAS_REACH.samples} sample. The other cells carried a non-detect on analyses no certificate, batch, container or custody transfer records.`, from: 'the PFAS settlement', at: 'certificate' }),
+      disposition: () => ({ value: 'withdrawn to the second kind of absence — no analysis, drawn differently from no sample', from: 'the results grid', at: 'crosstab' }),
+      due: () => ({ absent: 'Nothing is owed: the analyses were never ordered, so there is no date by which they were expected.', wouldBe: 'programme' }),
+      consequence: () => ({ value: 'Five statutory notification obligations would have been raised on nothing had those cells been evaluated under a substitution rule, which the non-detect comparison draws in full.', from: 'the non-detect treatments', at: 'criteria' }),
+    },
+  ].map((it) => {
+    const fields = { owner: it.owner(), rationale: it.rationale(), disposition: it.disposition(), due: it.due(), consequence: it.consequence() };
+    return {
+      ...it, what: it.what(), fields,
+      get carries() { return Object.values(fields).filter((f) => f && f.value).length; },
+    };
+  });
+
+  const KEY = ['owner', 'rationale', 'disposition', 'due', 'consequence'];
+  const ingredientCounts = INGREDIENTS.map((name, i) => ({
+    ingredient: name,
+    key: KEY[i],
+    get carried() { return items.filter((it) => it.fields[KEY[i]] && it.fields[KEY[i]].value).length; },
+    get absent() { return items.filter((it) => it.fields[KEY[i]] && it.fields[KEY[i]].absent).length; },
+    get wouldBe() { return [...new Set(items.filter((it) => it.fields[KEY[i]] && it.fields[KEY[i]].absent).map((it) => it.fields[KEY[i]].wouldBe))]; },
+  }));
+
+  return {
+    source: 'VENDOR_REQUIREMENTS.md §6',
+    programmes,
+    programmeOf,
+    escalationScope,
+    coverage: Q2_PROGRAMME,
+    coverageShape,
+    definition,
+    definitionCounts,
+    versioning,
+    amendments,
+    roundStates,
+    preparation,
+    preparationAxes,
+    preparationCounts,
+    stages,
+    handoffs,
+    conditions,
+    conditionCounts,
+    qcRequirements,
+    /** The objective rows that state a *rate*, derived — the guard's other half. */
+    get qcRateRows() { return dqoRates.map((l) => l.check); },
+    items,
+    ingredients: INGREDIENTS,
+    ingredientCounts,
+    disagreements: { mw09, denominator },
+    /** The four lists `build.mjs` closes against the brief, in the brief's order. */
+    lists: {
+      get definition() { return definition.map((a) => a.attr); },
+      get preparation() { return preparation.map((x) => x.item); },
+      get conditions() { return conditions.map((c) => c.ask); },
+      get stages() { return stages.map((s) => s.stage); },
+    },
+    counts: {
+      get programmes() { return programmes.length; },
+      get handoffsChecked() { return handoffs.length; },
+      get handoffsAgreeing() { return handoffs.filter((h) => h.agrees).length; },
+      get items() { return items.length; },
+      get mw09Readings() { return mw09.readings.length; },
+      get denominators() { return denominator.readings.length; },
+    },
+  };
+})();
+
+/* ==================================================================== *
  * Wave 18 — the vendor requirements brief as the seventh enumeration.
  * 3 September 2026.
  * ==================================================================== */
@@ -14458,20 +15545,20 @@ export const VENDOR_BRIEF = (() => {
 
     { id: '6.1', title: 'Gap', verdict: 'partially',
       asks: 'Strataflow must demonstrate not only the recording of samples, but the management of the intended monitoring programme and confirmation that it was executed correctly.',
-      screens: ['programme', 'events', 'field-capture'],
-      note: 'Recording is the catalogue’s strongest ground and the round confirms itself — a completion control that refuses and names the three lines holding it. The intended programme is a record to read; nothing shows it being managed.' },
+      screens: ['programme', 'events', 'field-capture', 'completeness'],
+      note: `The row moves on its second half and not its first. **Confirmation that it was executed correctly** is a screen now: ${PLANNING.lists.stages.join(' → ')}, every count read off the register that owns that stage, with ${PLANNING.counts.handoffsAgreeing} of ${PLANNING.counts.handoffsChecked} hand-offs reconciling and the ${PLANNING.counts.handoffsChecked - PLANNING.counts.handoffsAgreeing} that do not drawn as two numbers. **Management of the intended programme** did not move and cannot on this record: ${PLANNING.definitionCounts.held} of the ${PLANNING.definitionCounts.total} §6.2 attributes are held on a programme, and a version needs ${PLANNING.versioning.short.length} fields that have nowhere to come from. What the reconciliation found is the argument for it — ${PLANNING.counts.mw09Readings} registers describing one missing result differently, invisible from any of the ${PLANNING.counts.mw09Readings} screens they live on.` },
     { id: '6.2', title: 'Monitoring programme definition', items: 10, verdict: 'partially',
       asks: 'The mockup must show recurring requirements, one-off exceptions, temporary location changes and versioned programme amendments.',
-      screens: ['programme', 'events'],
-      note: 'The programme states its locations, frequency, matrices, suites, laboratory and responsible party, and a TARP-escalated monthly programme runs beside the quarterly one. Nothing shows a programme being defined, versioned or amended, and neither the one-off exception nor the temporary location change has a record.' },
+      screens: ['programme', 'events', 'qc-limits'],
+      note: `All {items} attributes are measured against the record one row each, closed against §6.2 by the build in both directions and in order. **${PLANNING.definitionCounts.held} are held on a programme**, ${PLANNING.definitionCounts.partial} on some programmes and not others, and ${PLANNING.definitionCounts.absent} live elsewhere in this record or nowhere — ${PLANNING.definitionCounts.required} of the {items} are required by FR-8.1 and ${PLANNING.definitionCounts.requiredHeld} of those ${PLANNING.definitionCounts.required} are fully held. This note said *“the programme states its locations, frequency, matrices, suites, laboratory and responsible party”* until 3 September 2026; measured attribute by attribute, the matrices, the laboratory methods and the QA/QC requirements are on the event, the batch and the objective set, and no programme carries any of them. The row stays partial on the sentence it quotes: ${PLANNING.amendments.filter((a) => a.state === 'drawn').length} of the ${PLANNING.amendments.length} things it asks for is drawn, and a programme version is **refused rather than drawn** — ${PLANNING.versioning.short.map((f) => f.field.toLowerCase()).join(', ')} have nowhere in this record to come from, and inventing one is inventing an approver.` },
     { id: '6.3', title: 'Sampling event preparation', items: 10, verdict: 'partially',
       asks: 'For every location, the scientist must understand what is to be collected, including:',
       screens: ['events', 'field-capture', 'ecoc', 'receipt'],
-      note: 'The round’s manifest carries samples, suites, tests, containers and the QA samples, and the chain of custody carries the preservation and the seals. What is not drawn is the generation — expected work produced *from the programme* — so the distinction the requirement asks for between a programme requirement, an event amendment and a field decision is not available to be drawn.' },
+      note: `All {items} are in this record and **${PLANNING.preparationCounts.both} of them are stated by the plan** — the other ${PLANNING.preparationCounts.recordedOnly} are recorded during or after the round, and ${PLANNING.preparationCounts.neither} is nowhere at all. The field record now draws the plan beside the visit at each bore, which is the *expected work* half; what is still not drawn is generation, because there is nothing to generate from — the coverage row carries ${PLANNING.coverageShape.plan.length} plan fields and ${PLANNING.coverageShape.outcome.length} outcome fields on one row, so the expectation and the outcome were never two things that could be compared. Of the three kinds the requirement asks to be distinguished, ${PLANNING.preparationAxes.filter((a) => a.n > 0).length} exist and the middle one — an event-specific amendment — has no field on any round or sample. **No bottle order, no hazard and no field instruction is invented**: the item with neither a plan nor a record is drawn as having neither.` },
     { id: '6.4', title: 'Planned-versus-actual completeness workflow', items: 10, verdict: 'partially',
       asks: 'This must be an actionable monitoring-completeness workflow, not merely a status table.',
-      screens: ['programme', 'field-capture', 'receipt', 'imports', 'crosstab'],
-      note: 'Six stages, six sound hand-offs, six different screens, and nowhere a reconciliation: the completeness record is three columns wide and submitted, analysed and validated are absent. The exception vocabulary is fully satisfied — MW11 dry with two visits kept as two records, and a nitrate clock that runs from collection where a holding time measured from receipt would have called it compliant.' },
+      screens: ['completeness', 'programme', 'field-capture', 'receipt', 'imports', 'crosstab'],
+      note: `The reconciliation exists in one view. All six stages are drawn with every count read off the register that owns it, the six words closed against the brief's own arrow sentence in order, and all {items} conditions instantiated or counted absent: **${PLANNING.conditionCounts.instantiated} instantiated** from ${PLANNING.conditionCounts.instances} instances, ${PLANNING.conditionCounts.none} with no instance and the reason, and ${PLANNING.conditionCounts.notExpressible} the record cannot be asked at all — *incomplete suites*, because a suite here is a name and a size and only a membership can be short. This note said *“the completeness record is three columns wide and submitted, analysed and validated are absent”* until 3 September 2026. The row stays partial on the word **actionable**: of the five ingredients §6.4 names over the ${PLANNING.counts.items} items this round raises, ${PLANNING.ingredientCounts.filter((g) => g.carried === PLANNING.counts.items).length} are carried by every item and ${PLANNING.ingredientCounts.filter((g) => g.carried < PLANNING.counts.items).map((g) => g.ingredient.toLowerCase()).join(' and ')} are carried by ${PLANNING.ingredientCounts.filter((g) => g.carried < PLANNING.counts.items).map((g) => String(g.carried)).join(' and ')} of them — and no name and no date is invented to fill either.` },
 
     { id: '7.1', title: 'Gap', verdict: 'partially',
       asks: 'the mockup must demonstrate how organisations manage different laboratories, historical consultant files and changing EDD formats.',

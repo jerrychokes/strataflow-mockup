@@ -87,6 +87,14 @@ import {
   // depends on the answer. Read by `#analysis`, `#hydrochem`, `#statistics`,
   // `#background`, `#report-figures` and the lineage chain.
   ANALYSES,
+  // Wave 22 — the plan side of the round, and the six-stage reconciliation
+  // that existed on six screens and nowhere. `Q2_PROGRAMME` is the same array
+  // `screens.mjs` held until this wave, moved because three screens read it
+  // now; `PLANNING` is the programme's definition measured against §6.2, the
+  // preparation against §6.3, and the ten conditions of §6.4 each instantiated
+  // from a register or counted absent. Read by `#programme`, `#completeness`,
+  // `#events`, `#field-capture`, `#dqa` and `#coverage`.
+  PLANNING, Q2_PROGRAMME,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, OUTCOME_LABEL, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -1637,6 +1645,44 @@ const fieldCapture = () => {
       label: 'Round summary by location',
       rows: summaryRows,
     }) +
+    /*
+     * Wave 22 — the expected work, beside the recorded work.
+     *
+     * This screen has always read the round's own sessions and never the plan
+     * they were made against, so *what were we supposed to collect here* was a
+     * question a crew had to answer from another screen. The plan side is the
+     * programme's coverage for the period and the record side is the sessions
+     * already on this page; the round-level reconciliation is not repeated
+     * here and is one link away.
+     */
+    (() => {
+      const P22 = PLANNING;
+      return panel(
+        'What the plan asked for at each bore, beside what the visit produced',
+        table({
+          caption: 'The plan side is the programme’s coverage for this period; the record side is the sessions above. Nothing here is counted twice — the round-level reconciliation is on its own screen.',
+          head: ['Location', 'The plan asked for', 'Due', 'The visit produced', 'Round state'],
+          scroll: true,
+          label: 'Expected work against recorded work',
+          rows: P22.coverage.map((r) => {
+            const sn = FIELD_ROUND.current.find((x) => x.location === r.code);
+            const st = P22.roundStates.rows.find((x) => x.code === r.code);
+            const d = sn ? FIELD_ROUND.disposition(sn.disposition) : null;
+            return [
+              loc(r.code),
+              cell(`<em>${esc(r.suite)}</em><small>a name; the suite register holds no membership for it</small>`),
+              `<span class="sf-instant">${esc(r.due)}</span>`,
+              sn
+                ? cell(`<span class="mk-dispo mk-dispo--${d.tone}"><span class="mk-dispo__glyph" aria-hidden="true">${esc(d.glyph)}</span>${esc(d.label)}</span> · <span class="mk-num${sn.samples.length ? '' : ' mk-num--nil'}">${sn.samples.length}</span> sample${sn.samples.length === 1 ? '' : 's'}`)
+                : '<span class="mk-num mk-num--nil">— no session</span>',
+              st.maps ? C.status(st.maps, st.maps === 'satisfied' ? 'good' : 'bad') : '<span class="mk-num mk-num--nil">—</span>',
+            ];
+          }),
+        }) +
+          `<p class="mk-tight">The plan asks for a <em>suite</em> at each bore and nothing else — no sample count, no container, no preservation, no instruction. So a crew standing at a bore can see what was asked for and cannot see what to carry, and “two containers short” is a sentence this record cannot form before the cooler is opened. <a class="mk-ref" href="#events">The ${P22.preparationCounts.both} of ${P22.preparationCounts.total} preparation items the plan states</a> is the measurement.</p>` +
+          `<p class="mk-tight mk-muted">${esc(P22.roundStates.waivable.map((r) => r.code).join(', '))} is the row this whole screen decides: its round reads <strong>${esc(P22.roundStates.waivable.map((r) => r.maps).join(', '))}</strong> and would read <strong>waived</strong> — the state a round nobody was ever going to collect is given, with its reason — the moment ${esc(String(P.pendingRecords))} records leave this device. <a class="mk-ref" href="#completeness">The reconciliation</a> counts the rest of the round.</p>`,
+      );
+    })() +
     (() => {
       /*
        * The containers add up, and the two that do not belong to a bore are
@@ -5578,27 +5624,6 @@ const obligations = () =>
   notice('default', 'A monitoring period is resolved in the site’s own timezone, never the server’s.',
     `A quarterly round at a Pilbara bore begins at 16:00 UTC on 31 December. A sample collected at 08:00 on 1 April local time belongs to the June quarter — get it wrong and the round it was meant to satisfy reads as missed while a spurious extra one reads as satisfied. Both projects on this register resolve in ${esc(PROJECT.timezone)}; a register spanning two zones would resolve each row in its own site’s, never in one chosen for the board.`);
 
-/**
- * What the 2026 Q2 round expected at each bore — hoisted so it can be read
- * rather than described (wave 15).
- *
- * It was a literal inside `programme()`, and the PFAS settlement needed the one
- * fact it holds that no other register does: **which bores the suite was ever
- * asked for at.** Only MW05's row says *Full + PFAS*, which is the programme
- * side of the same finding the manifest and the custody chain make from the
- * material side — so the decision record counts these rows instead of asserting
- * what they say, and the two surfaces cannot come apart on it.
- */
-const Q2_PROGRAMME = [
-  { code: 'MW01A', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
-  { code: 'MW03B', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-12', received: '2026-05-21', state: 'complete' },
-  { code: 'MW05', suite: 'Full + PFAS', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
-  { code: 'MW07', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-13', received: '2026-05-21', state: 'complete' },
-  { code: 'MW09', suite: 'Full groundwater', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
-  { code: 'MW11', suite: 'Full groundwater', due: '2026-05-14', collected: '—', received: '—', state: 'overdue' },
-  { code: 'MW12', suite: 'Reduced — background', due: '2026-05-14', collected: '2026-05-14', received: '2026-05-21', state: 'complete' },
-];
-
 const programme = () =>
   head('Sampling programme — GW-QTR', 'What each round expects, and what it got.', {
     route: '/projects/:projectId/programme',
@@ -5658,6 +5683,118 @@ const programme = () =>
       cancel: 'Review the TARP',
       reversible: 'The control is present and refuses, rather than absent. An operator who cannot see what would release them from a monitoring burden cannot plan against it.',
     }),
+  ) +
+
+  /* ---------------------------------------------------------------- *
+   * Wave 22 — §6.2: what a programme is, measured against this record
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">What a scientist would be defining</h2>' +
+  `<p class="sf-lede mk-tight">§6.2 of the acquisition brief names ten attributes a monitoring programme must carry. <strong>${PLANNING.definitionCounts.held} of the ${PLANNING.definitionCounts.total} are held on a programme here</strong>, ${PLANNING.definitionCounts.partial} are held on some programmes and not others, and ${PLANNING.definitionCounts.absent} live somewhere else in this record or nowhere. The verdict in each row is the arithmetic of the cells beside it — a field added to one programme moves it without anybody editing a word.</p>` +
+  table({
+    caption: `One row per attribute, in the brief’s own order, closed against §6.2 by the build. ${PLANNING.definitionCounts.required} of the ten are required by FR-8.1; the other ${PLANNING.definitionCounts.total - PLANNING.definitionCounts.required} are the brief’s own addition and no requirement in this product asks for them.`,
+    head: ['Attribute', 'Required by', 'Verdict', 'What each programme holds', 'Where it lives instead'],
+    kind: 'matrix',
+    label: '§6.2 — the ten programme attributes',
+    rows: PLANNING.definition.map((a) => [
+      cell(`<strong>${esc(a.attr)}</strong><small>${md(a.note)}</small>`),
+      a.fr ? `<code>${esc(a.fr)}</code>` : '<span class="mk-num mk-num--nil">—</span>',
+      C.status(a.held, a.held === 'held' ? 'good' : a.held === 'partial' ? 'warn' : 'bad'),
+      cell(a.cells.map((c) => `<strong>${esc(c.programme)}</strong> ${c.value === null || c.value === undefined ? '<span class="mk-num mk-num--nil">— not held</span>' : esc(String(c.value))}${a.parts.length > 1 ? ` <span class="mk-muted">(${esc(c.part)})</span>` : ''}`).join('<br>')),
+      a.elsewhere
+        ? cell(`<a class="mk-ref" href="#${esc(a.elsewhere.at)}"><span class="mk-num">${esc(String(a.elsewhere.n))}</span></a> ${esc(a.elsewhere.what)}`)
+        : a.held === 'held' ? '<span class="mk-muted">on the programme</span>' : '<span class="mk-muted">nowhere</span>',
+    ]),
+  }) +
+  `<p class="mk-tight mk-muted">The responsible party is the one attribute with a second reading, and the two agree: ${esc(PLANNING.programmeOf('GW-QTR').code)} names <strong>${esc(PLANNING.programmeOf('GW-QTR').responsible)}</strong> and <a class="mk-ref" href="#obligations">the obligation register</a> independently names ${PLANNING.definition.find((a) => a.attr === 'Responsible party').corroborated.map((o) => `<strong>${esc(o)}</strong>`).join(', ')} as owner of its rounds. The other ${PLANNING.counts.programmes - 1} programmes are answerable to nobody this record can name.</p>` +
+
+  /* ---------------------------------------------------------------- *
+   * Can it carry a version?
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">Can a programme carry a version honestly?</h2>' +
+  cols(
+    panel(
+      `Five fields make a version a version, and a programme holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling programme').n}`,
+      `<p class="mk-tight">Criteria sets, objective sets, formats, templates and derivation rules are all versioned here with an effective span. A programme is not — it simply exists since a date. The question is not whether one <em>could</em> be drawn but whether this record could fill the fields, and it is answered by asking the record rather than by deciding.</p>` +
+        table({
+          caption: 'The same five fields, asked of three objects.',
+          head: ['Field', ...PLANNING.versioning.evidence.map((e) => e.object)],
+          kind: 'matrix',
+          label: 'What each object holds of a version',
+          rows: PLANNING.versioning.fields.map((f, i) => [
+            cell(`<strong>${esc(f.field)}</strong><small>${esc(f.why)}</small>`),
+            ...PLANNING.versioning.evidence.map((e) => (e.holds[i]
+              ? `<span class="mk-tag mk-tag--good">${esc(String(e.holds[i]).slice(0, 40))}</span>`
+              : '<span class="mk-num mk-num--nil">— nothing holds it</span>')),
+          ]),
+        }),
+    ),
+    C.card({
+      tone: 'warn',
+      head: '<span class="mk-queue__kind">Not drawn, and this is the reason</span>',
+      body:
+        `<p class="mk-tight"><strong>A programme version is not drawn here, because inventing one is inventing an approver.</strong> ${PLANNING.versioning.short.length} of the five fields have nowhere in this record to come from: ${PLANNING.versioning.short.map((f) => `<em>${esc(f.field.toLowerCase())}</em>`).join(', ')}. A version identifier with no approver and no moment of approval is a number, and a number is not an authority.</p>` +
+        `<p class="mk-tight">What it would take is the shape the objective set already has, plus the rule that set states: <em>every finding carries the rule version it was raised under</em>. The programme’s equivalent is that <strong>a round carries the programme version it was raised under</strong> — and a round here holds ${PLANNING.versioning.evidence.find((e) => e.object === 'A sampling round').n} of the five, so the consumer side is as empty as the producer side.</p>` +
+        `<p class="mk-tight mk-muted">The freezing half of a version’s job is already in this product on a different object: <a class="mk-ref" href="#${esc(PLANNING.versioning.precedent.at)}">${esc(PLANNING.versioning.precedent.what)}</a></p>`,
+      foot:
+        C.btn('Amend the programme') +
+        '<span class="mk-muted">The control is present and does nothing, which is the honest state: there is no version for an amendment to create.</span>',
+    }),
+    '3fr 2fr',
+  ) +
+
+  /* ---------------------------------------------------------------- *
+   * The three amendment kinds §6.2 closes on
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">Recurring, one-off, temporary — and versioned</h2>' +
+  `<p class="sf-lede mk-tight">§6.2 closes on four things the mockup must show. One is drawn. The other ${PLANNING.amendments.filter((a) => a.state !== 'drawn').length} cannot be asked of this record, and each says which field is missing rather than being drawn as though it could.</p>` +
+  table({
+    caption: 'Each kind, and whether the record can express it at all.',
+    head: ['Kind', 'State', 'What the record says'],
+    kind: 'matrix',
+    label: 'The four amendment kinds',
+    rows: PLANNING.amendments.map((a) => [
+      cell(`<strong>${esc(a.kind)}</strong>`),
+      C.status(a.state, a.state === 'drawn' ? 'good' : a.state === 'not expressible' ? 'bad' : 'warn'),
+      cell(`${md(a.says())} <a class="mk-ref" href="#${esc(a.at)}">${esc(a.at)}</a>`),
+    ]),
+  }) +
+  notice(
+    'default',
+    'One escalation, recorded twice, and the two recordings do not cover the same bores.',
+    `The TARP row that raised the frequency names <strong>${PLANNING.escalationScope.tarp.join(', ')}</strong>; the programme it raised names <strong>${PLANNING.escalationScope.programme.join(', ')}</strong>. ${PLANNING.escalationScope.onlyOnProgramme.map((c) => esc(c)).join(', ')} is on the monthly programme and not on the trigger that created it. Both statements are in this record and neither is corrected here — ${esc(PLANNING.escalationScope.says)}`,
+  ) +
+
+  /* ---------------------------------------------------------------- *
+   * The round state, against the glossary's own closed list
+   * ---------------------------------------------------------------- */
+  '<h2 class="mk-h2" style="margin-top:1.4rem">A round has four states, and this register uses two of them</h2>' +
+  cols(
+    panel(
+      `The four the model carries, and the ${PLANNING.roundStates.unused.length} with no row`,
+      `<p class="mk-tight">A <strong>sampling round state</strong> is a closed list in the product’s own vocabulary — ${PLANNING.roundStates.list.map((x) => `<code>${esc(x.state)}</code>`).join(' · ')} — and the register above carries two words of its own, ${PLANNING.roundStates.registerWords.map((w) => `<em>${esc(w)}</em>`).join(' and ')}. They are mapped below rather than rewritten: what the row holds is what the record says.</p>` +
+        table({
+          caption: 'One row per planned location, with the word the register holds and the state it maps to.',
+          head: ['Location', 'The register’s word', 'The state it maps to', 'Field disposition'],
+          rows: PLANNING.roundStates.rows.map((r) => [
+            loc(r.code),
+            `<em>${esc(r.register)}</em>`,
+            r.maps ? C.status(r.maps, r.maps === 'satisfied' ? 'good' : 'bad') : '<span class="mk-num mk-num--nil">—</span>',
+            r.disposition
+              ? `${esc(r.disposition)}${r.synced === false ? '<small>not synced</small>' : ''}`
+              : '<span class="mk-num mk-num--nil">—</span>',
+          ]),
+        }),
+    ),
+    C.card({
+      tone: 'bad',
+      head: `<span class="mk-queue__kind">The word this round needs and cannot use</span><span class="mk-queue__age">${esc(PLANNING.roundStates.waivable.map((r) => r.code).join(', '))}</span>`,
+      body:
+        `<p class="mk-tight"><strong>waived</strong> exists for exactly this: a round nobody was ever going to collect — a dry bore, a site cut off by a wet season — kept distinguishable from one that was missed, and required to give a reason. ${PLANNING.roundStates.waivable.map((r) => esc(r.code)).join(', ')} has the reason: <em>${esc(PLANNING.roundStates.waivable.map((r) => r.reason).join('; '))}</em></p>` +
+        `<p class="mk-tight">It reads <strong>${esc(PLANNING.roundStates.waivable.map((r) => r.maps).join(', '))}</strong> instead, and the countdown is still running, because the session that would justify the waiver <strong>has not left the tablet</strong>. That is the right answer rather than a defect: a round waived on a fact nobody has received is a round waived on a rumour.</p>` +
+        `<p class="mk-tight mk-muted">${PLANNING.roundStates.unused.map((u) => `<code>${esc(u.state)}</code> — ${esc(u.means)}`).join('<br>')}</p>`,
+      foot: `<a class="mk-btn mk-btn--sm mk-btn--primary" href="#completeness">Reconcile the round</a><a class="mk-btn mk-btn--sm" href="#field-capture">Open the field record</a>`,
+    }),
+    '3fr 2fr',
   );
 
 const notification = () =>
@@ -10013,7 +10150,16 @@ const dataQuality = () => {
           ...((r) => [
             ['Accuracy — zinc', cell(`${r.results} zinc results would be qualified ${esc(r.means)} — <strong>and none of them is yet</strong>. The propagation basis is the open decision on <a class="mk-ref" href="#qc">${esc(METALS_BATCH.id)}</a>: the certificate carries no result-level qualifier and DQO ${esc(DQO.used.version)} states no consequence for the failed spike, so a hydrogeologist has to say how far it reaches. Its origin would be <strong>${esc(r.wouldBe)}</strong> whichever way out is taken — <a class="mk-ref" href="#qualifiers">the register says why</a> — so the code could never cross into a laboratory field, and the assessment would carry it rather than the file. The MW05 exceedance stands and is understated either way; no result is corrected.`)],
           ])(QUALIFIERS.byId('MS-1')),
-          [`Completeness — ${usablePct}%`, cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is a result short on a cracked container. The round is reported as incomplete rather than as a clean ${COMPLETENESS.planned}, and the dry bore is reported as attempted rather than missed.`)],
+          /*
+           * Wave 22. This row ended at a percentage, and a percentage is
+           * where a completeness dimension stops being useful: it says the
+           * round is short and not what is short, whose it is, or what would
+           * close it. It reaches the reconciliation now — and it states the
+           * denominator it is computed over, because the round has
+           * `PLANNING.counts.denominators` of them and this row silently
+           * picked one.
+           */
+          [`Completeness — ${usablePct}%`, cell(`Below the 95% objective. ${esc(Q2_OVERDUE.location)} yielded nothing — the crew reached it and found it <strong>dry</strong>, which is a measurement of the aquifer rather than a gap — and MW09 is a result short on a cracked container. The round is reported as incomplete rather than as a clean ${COMPLETENESS.planned}, and the dry bore is reported as attempted rather than missed. <strong>The denominator is this register’s own ${COMPLETENESS.planned}</strong>, and it is one of ${PLANNING.counts.denominators} answers this record gives to <em>how many results does this round have</em> — they run from ${PLANNING.disagreements.denominator.spread.low} to ${PLANNING.disagreements.denominator.spread.high} and none of them is named as the one completeness is measured against. <a class="mk-ref" href="#completeness">The reconciliation</a> draws all ${PLANNING.counts.denominators}, and the ${PLANNING.counts.mw09Readings} registers that describe MW09’s one missing result differently.`)],
         ],
       }),
     ),
@@ -10028,6 +10174,203 @@ const dataQuality = () => {
         }),
     ),
   )
+  );
+};
+
+/**
+ * Round completeness — the reconciliation that existed on six screens and
+ * nowhere (§6.4).
+ *
+ * ## What this screen is, and what it refuses to be
+ *
+ * Six stages, one view, and **every count read off the register that owns that
+ * stage**. Nothing here re-counts what another screen already counts, which is
+ * the discipline that makes the interesting thing visible: where two registers
+ * describe the same absence differently, the difference shows up as a
+ * disagreement between them rather than as a third opinion invented here.
+ *
+ * There are two such disagreements in this record and neither is resolved.
+ * One of them — five registers describing one missing result at MW09, four of
+ * them naming a different thing — is what this screen was built to find, and it
+ * was not visible from any of the six screens the stages live on.
+ *
+ * ## Why it is not a status table
+ *
+ * The brief's own words: *this must be an actionable monitoring-completeness
+ * workflow, not merely a status table*, with owners, rationale, disposition,
+ * due dates and downstream consequences. Four of those five exist scattered
+ * across this record and **owners do not**, and no name is invented to fill the
+ * column. Each item states the register its owner would have to come from, and
+ * the tally at the foot is a getter, so an assignment that arrives on a
+ * register moves the count without anybody editing a sentence.
+ */
+const roundCompleteness = () => {
+  const P = PLANNING;
+  const conditionTone = { instantiated: 'warn', 'instantiated in part': 'warn', 'none in this record': 'good', 'not expressible': 'bad' };
+  const owner = P.ingredientCounts.find((g) => g.key === 'owner');
+  const due = P.ingredientCounts.find((g) => g.key === 'due');
+
+  return (
+    head('Round completeness', 'Planned against actual, in one view — and the four places this record disagrees with itself.', {
+      route: '/projects/:projectId/rounds/:roundId/completeness — a proposal',
+      toolbar: C.exportMenu() + C.segmented({ options: ['2026 Q2 · GW-QTR', '2026 Q1 · GW-QTR', '2026 M05 · GW-MTH'], value: '2026 Q2 · GW-QTR', label: 'Round' }),
+    }) +
+    stats([
+      stat(`${P.counts.handoffsAgreeing} / ${P.counts.handoffsChecked}`, 'hand-offs that reconcile', P.counts.handoffsAgreeing === P.counts.handoffsChecked ? 'good' : 'warn'),
+      stat(String(P.conditionCounts.instantiated), `of ${P.conditionCounts.total} conditions instantiated`, 'warn'),
+      stat(String(P.conditionCounts.notExpressible), 'the record cannot be asked', 'bad'),
+      stat(String(P.counts.mw09Readings), 'registers describing one absence', 'bad'),
+      stat(String(P.counts.denominators), 'answers to how big this round is', 'bad'),
+      stat(`${owner.carried} / ${P.counts.items}`, 'items with an owner', owner.carried === P.counts.items ? 'good' : 'warn'),
+    ]) +
+    `<p class="sf-lede mk-tight">The six stages are the brief’s own sentence — <strong>${P.lists.stages.join(' → ')}</strong> — and the build compares these six words with §6.4 in order, so a stage the brief renames cannot go undrawn. Each stage below names the register that owns it and reads its numbers off that register. <a class="mk-ref" href="#programme">The programme</a> is the plan side; everything after it is what became of it.</p>` +
+
+    /* ---------------------------------------------------------------- *
+     * The six stages
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Six stages, six registers</h2>' +
+    table({
+      caption: 'One row per stage. Every number is read off the register named beside it — no count on this screen is taken twice.',
+      head: ['Stage', 'The register that owns it', 'What that register counts'],
+      kind: 'matrix',
+      label: 'The six stages of the round',
+      rows: P.stages.map((s) => [
+        cell(`<strong>${esc(s.stage)}</strong>`),
+        cell(`<a class="mk-ref" href="#${esc(s.at)}">${esc(s.register)}</a>`),
+        cell(s.readings.map((r) => `<span class="mk-num">${esc(String(r.n))}</span> ${esc(r.of)}`).join('<br>')),
+      ]),
+    }) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The hand-offs, both numbers each</h2>' +
+    `<p class="sf-lede mk-tight">A hand-off reconciles when the register at each end reports the same quantity. <strong>${P.counts.handoffsAgreeing} of ${P.counts.handoffsChecked} do.</strong> The ${P.counts.handoffsChecked - P.counts.handoffsAgreeing} that do not are drawn as two numbers with what accounts for the difference — or, where nothing does, with the statement that nothing does.</p>` +
+    table({
+      caption: 'Each hand-off, with the register at both ends and the count each reports.',
+      head: ['Hand-off', 'Left', 'Arrived', 'Reconciles', 'What accounts for it'],
+      kind: 'matrix',
+      label: 'Stage hand-offs',
+      rows: P.handoffs.map((h) => [
+        cell(`<strong>${esc(h.from)} → ${esc(h.to)}</strong>`),
+        cell(`<a class="mk-ref" href="#${esc(h.left.at)}"><span class="mk-num">${esc(String(h.left.n))}</span></a> ${esc(h.left.of)}`),
+        cell(`<a class="mk-ref" href="#${esc(h.arrived.at)}"><span class="mk-num">${esc(String(h.arrived.n))}</span></a> ${esc(h.arrived.of)}`),
+        h.agrees ? tag('reconciles', 'good') : tag(`${h.left.n > h.arrived.n ? '−' : '+'}${Math.abs(h.left.n - h.arrived.n)}`, 'bad'),
+        h.accounts() ? cell(esc(h.accounts())) : (h.agrees ? '<span class="mk-muted">nothing to account for</span>' : '<span class="mk-num mk-num--nil">— nothing accounts for it</span>'),
+      ]),
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * The two disagreements
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Where this record disagrees with itself</h2>' +
+    cols(
+      panel(
+        `${esc(P.disagreements.mw09.subject)} — ${P.counts.mw09Readings} registers, ${P.disagreements.mw09.distinctHoldings} answers`,
+        `<p class="mk-tight">${esc(P.disagreements.mw09.says)}</p>` +
+          table({
+            caption: 'One row per register, each read off the register itself.',
+            head: ['Register', 'What it holds', 'In its own words'],
+            kind: 'matrix',
+            label: 'Five registers on one absence at MW09',
+            rows: P.disagreements.mw09.readings.map((r) => [
+              cell(`<a class="mk-ref" href="#${esc(r.at)}"><strong>${esc(r.register)}</strong></a>`),
+              cell(`<em>${esc(r.holds)}</em>`),
+              cell(esc(r.says)),
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">Nothing on this screen chooses between them, and that is the rule rather than a hedge: three of the five would have to be rewritten to make the other two right, and rewriting a register to agree with another is the act every one of them exists to make impossible. What a reconciliation owes is that the disagreement is <em>visible</em> — it was not, from any of the five screens these live on.</p>`,
+      ),
+      panel(
+        `How many results does this round have? ${P.counts.denominators} answers, from ${P.disagreements.denominator.spread.low} to ${P.disagreements.denominator.spread.high}`,
+        table({
+          caption: 'Each register counts something different, and each is right about what it counts.',
+          head: ['Register', 'Expected', 'Held'],
+          scroll: true,
+          label: 'Four denominators for one round',
+          rows: P.disagreements.denominator.readings.map((r) => [
+            cell(`<a class="mk-ref" href="#${esc(r.at)}"><strong>${esc(r.register)}</strong></a><small>${esc(r.of)}</small>`),
+            `<span class="mk-num">${esc(String(r.n))}</span>`,
+            r.received === null ? '<span class="mk-num mk-num--nil">—</span>' : `<span class="mk-num">${esc(String(r.received))}</span>`,
+          ]),
+        }) +
+          `<p class="mk-tight">${esc(P.disagreements.denominator.says)}</p>` +
+          `<p class="mk-tight"><a class="mk-ref" href="#dqa">The completeness dimension</a> reads <strong>${esc(P.disagreements.denominator.usedByDqa.achieved)}</strong> and its verdict is <em>${esc(P.disagreements.denominator.usedByDqa.verdict)}</em>. The percentage is arithmetic over the first row of this table, and the objective it fails — ${esc(P.disagreements.denominator.usedByDqa.objective)} — names no denominator either.</p>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    /* ---------------------------------------------------------------- *
+     * §6.4's ten conditions
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The ten conditions, each instantiated or counted absent</h2>' +
+    `<p class="sf-lede mk-tight">§6.4 names ten things a scientist must be able to identify and act on. The build closes this list against the brief in both directions and in order. <strong>${P.conditionCounts.instantiated} are instantiated</strong> from ${P.conditionCounts.instances} instances in the record, ${P.conditionCounts.none} have no instance here and say why, and ${P.conditionCounts.notExpressible} cannot be asked of this record at all. Each verdict is the arithmetic of the instances beside it — an instance arriving moves the word without anybody editing it.</p>` +
+    table({
+      caption: 'One row per condition, in the brief’s own order. “Not expressible” means the record has no field the question could be asked against, and the row says which field.',
+      head: ['Condition', 'State', 'Instances', 'What the record says'],
+      kind: 'matrix',
+      label: '§6.4 — the ten completeness conditions',
+      rows: P.conditions.map((c) => [
+        cell(`<strong>${esc(c.ask)}</strong>`),
+        C.status(c.state, conditionTone[c.state] ?? 'neutral'),
+        cell(c.parts.map((p) => `<span class="mk-num${p.instances.length ? ' mk-num--warn' : ''}">${esc(String(p.instances.length))}</span> ${esc(p.what)}${p.askable ? '' : ' <span class="mk-tag mk-tag--bad">cannot be asked</span>'}`).join('<br>')),
+        cell(`${md(c.says())} <a class="mk-ref" href="#${esc(c.at)}">${esc(c.at)}</a>`),
+      ]),
+    }) +
+    C.card({
+      tone: 'bad',
+      head: '<span class="mk-queue__kind">The one with no machinery, and it is the sharpest of the ten</span>',
+      body:
+        `<p class="mk-queue__headline">${esc(P.conditions.find((c) => c.ask === 'Unexpected samples or analytes').ask)} — the sample half is answerable and the analyte half is not.</p>` +
+        `<p class="mk-queue__context"><a class="mk-ref" href="#import-review">The exception review</a> reconciles an arriving row against the location register and the analyte dictionary, so a row naming a bore or a substance this project does not hold is caught. <strong>Nothing reconciles an arriving row against the plan.</strong> A sample that arrived and was never expected is not an exception to any rule this record states — it is simply a sample, and the only reason all ${esc(String(P.conditions.find((c) => c.ask === 'Unexpected samples or analytes').parts[0].instances.length))} of this round’s are accountable is that ${esc(String(P.qcRequirements.length))} objective rows happen to require most of them.</p>`,
+      foot:
+        `<a class="mk-btn mk-btn--sm" href="#import-review">See what is reconciled today</a>` +
+        `<span class="mk-muted">Making the plan the third register an arriving row is matched against is the change this condition needs, and it needs a suite that holds members before it can reach the analyte half.</span>`,
+    }) +
+
+    /* ---------------------------------------------------------------- *
+     * The workflow half
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Actionable, or a status table with better manners</h2>' +
+    `<p class="sf-lede mk-tight">The brief names five things that separate a workflow from a table. Measured over the ${P.counts.items} items this round raises: ${P.ingredientCounts.map((g) => `<strong>${g.carried} of ${P.counts.items}</strong> carry ${/^[aeiou]/i.test(g.ingredient) ? 'an' : 'a'} ${g.ingredient.toLowerCase()}`).join(', ')}. The two that fall short are the two nothing in this record assigns — and no name and no date is invented to fill either.</p>` +
+    table({
+      caption: 'One row per item. Every cell is read off a register, or states the register that would have to hold it.',
+      head: ['Item', 'Stage', 'Owner', 'Rationale', 'Disposition', 'Due', 'Downstream consequence'],
+      kind: 'matrix',
+      label: 'The round’s completeness items',
+      rows: P.items.map((it) => {
+        const f = (k) => {
+          const v = it.fields[k];
+          if (v && v.value) return cell(`${esc(v.value)}<small>${esc(v.from)}${v.at ? '' : ''}</small>`);
+          return cell(`<span class="mk-num mk-num--nil">— not recorded</span><small>${esc(v.absent)} It would live on <a class="mk-ref" href="#${esc(v.wouldBe)}">${esc(v.wouldBe)}</a>.</small>`);
+        };
+        return [
+          cell(`<code class="mk-file mk-file--id">${esc(it.id)}</code> <a class="mk-ref" href="#${esc(it.at)}"><strong>${esc(it.what)}</strong></a>`),
+          C.status(it.stage, 'neutral'),
+          f('owner'),
+          f('rationale'),
+          f('disposition'),
+          f('due'),
+          f('consequence'),
+        ];
+      }),
+    }) +
+    cols(
+      panel(
+        `Owners — ${owner.carried} of ${P.counts.items}, and D7 is why the column is here`,
+        `<p class="mk-tight">This record holds an assignment in exactly two places: <a class="mk-ref" href="#obligations">the obligation register’s owner</a>, and the one <code>assignedTo</code> on <a class="mk-ref" href="#ecoc">the custody discrepancy</a>. Everything else records <em>who acted</em> — who dispositioned a finding, who raised a receipt — which is a different fact and cannot stand in for it.</p>` +
+          `<p class="mk-tight"><strong>D7, 3 September 2026:</strong> the work queue stays a proposal and <code>/</code> stays a project list, so completeness items get their owner on the workspace that owns the work rather than on the front door. That decision settles <em>where</em>; it cannot supply a name, and none is invented — the ${owner.absent} items with no owner name the register that would have to hold one: ${owner.wouldBe.map((w) => `<a class="mk-ref" href="#${esc(w)}">${esc(w)}</a>`).join(', ')}.</p>` +
+          `<p class="mk-tight mk-muted">The same is true of dates. ${due.carried} of the ${P.counts.items} items carry one, both from registers that hold a clock for their own reasons — an obligation’s due date and a holding-time window that has already expired. A decision on a QA/QC finding has no due date anywhere in this record, which is not the same as having no urgency.</p>`,
+      ),
+      C.card({
+        tone: 'warn',
+        head: '<span class="mk-queue__kind">What a reconciliation is for</span>',
+        body:
+          `<p class="mk-tight">Every hand-off on this screen was already sound. The chain of custody balances against the receipt, the field record accounts for every planned bore, the objective set’s controls are all present, and the holding-time clock runs from collection rather than from the bench — which is the harder and the right reading.</p>` +
+          `<p class="mk-tight"><strong>What no screen could say before this one is whether the round is finished.</strong> Six sound hand-offs on six screens do not make a reconciliation, because the questions that matter fall between them: how big is this round, which result is the missing one, and whose is it now. Two of those three have more than one answer in this record and the third has none.</p>`,
+        foot:
+          `<a class="mk-btn mk-btn--sm mk-btn--primary" href="#programme">Back to the programme</a>` +
+          `<a class="mk-btn mk-btn--sm" href="#dqa">The completeness dimension</a>`,
+      }),
+      '3fr 2fr',
+    )
   );
 };
 
@@ -10151,7 +10494,17 @@ const workQueue = () => {
             + (r.why ? `<small>${esc(r.why)}</small>` : ''),
         ]),
       }),
-    foot: `<a class="mk-btn mk-btn--sm" href="#programme">Open the programme</a>`,
+    /*
+     * Wave 22, and D7 is the reason this card gains a link rather than a
+     * column. The queue stays a proposal and `/` stays a project list, so a
+     * completeness item's owner lives on the workspace that owns the work.
+     * What the card can honestly say is who the obligation register names and
+     * when the round was owed, both read from that register.
+     */
+    foot: `<a class="mk-btn mk-btn--sm mk-btn--primary" href="#completeness">Reconcile the round</a>` +
+      `<a class="mk-btn mk-btn--sm" href="#programme">Open the programme</a>` +
+      ((o) => `<span class="mk-muted">Owed to ${esc(o.to)} on ${esc(o.dueOn)} · owner ${esc(o.owner)}, from the obligation register. ${PLANNING.ingredientCounts.find((g) => g.key === 'owner').carried} of the ${PLANNING.counts.items} items this round raises have an owner anywhere in this record.</span>`)(
+        OBLIGATIONS.find((x) => x.kind === 'round' && x.state === 'overdue')),
   });
 
   return (
@@ -11106,6 +11459,53 @@ const samplingEvents = () => (
            * one stopped being true the day a soil round was drawn.
            */
           `<p class="mk-tight mk-muted"><strong>No composites on this round</strong>, and that is still true of every row above — each one is a discrete grab from a bore. <em>Written 1 September 2026:</em> “drawing a composite here would be drawing a matrix the slice does not carry.” <em>Corrected 2 September 2026:</em> the ${esc(SOIL.label.toLowerCase())} below carries ${SOIL.counts.composites} of them, drawn as a proposal — additional matrices remain S8 widening in the PRD’s own sequencing, and drawing one does not move it.</p>`,
+      )
+    );
+  })() +
+
+  /* ================================================================ *
+   * Wave 22 — §6.3: the round as something prepared, not only recorded.
+   * ================================================================ */
+  (() => {
+    const P = PLANNING;
+    const heldTone = { 'planned and recorded': 'good', 'recorded only': 'warn', 'planned only': 'warn', neither: 'bad' };
+    return (
+      '<h2 class="mk-h2" style="margin-top:1.6rem">What a crew would be told before it leaves</h2>' +
+      `<p class="sf-lede mk-tight">§6.3 of the acquisition brief lists ten things a scientist must understand for every location on an upcoming round. Every one of them is in this record and <strong>${P.preparationCounts.both} of the ${P.preparationCounts.total} are stated by the plan</strong> — the rest are recorded during or after the round, and ${P.preparationCounts.neither} is nowhere at all. That is the difference between a system that records fieldwork and one that prepares it, and it is a measurement rather than a complaint: the list is closed against §6.3 by the build in both directions and in order.</p>` +
+      table({
+        caption: 'One row per item, in the brief’s own order. The plan column reads the programme’s coverage; the record column reads whichever register holds it afterwards.',
+        head: ['What the crew must understand', 'What the plan states', 'What the record holds afterwards', 'Verdict'],
+        kind: 'matrix',
+        label: '§6.3 — the ten preparation items',
+        rows: P.preparation.map((x) => [
+          cell(`<strong>${esc(x.item)}</strong><small>${esc(x.note)}</small>`),
+          x.planned ? cell(esc(x.planned)) : '<span class="mk-num mk-num--nil">— the plan is silent</span>',
+          x.recorded ? cell(`<a class="mk-ref" href="#${esc(x.at)}">${esc(x.recorded)}</a>`) : '<span class="mk-num mk-num--nil">— nothing holds it</span>',
+          C.status(x.held, heldTone[x.held] ?? 'neutral'),
+        ]),
+      }) +
+      cols(
+        panel(
+          'The plan and the outcome are sharing a row, and that is why there was nothing to reconcile',
+          `<p class="mk-tight">The coverage record carries ${P.coverageShape.fields.length} fields per location: <strong>${P.coverageShape.plan.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are the plan, and <strong>${P.coverageShape.outcome.map((f) => `<code>${esc(f)}</code>`).join(', ')}</strong> are what became of it. One row, two claims — so *what was expected* and *what happened* were never two things that could be compared, only two halves of a sentence.</p>` +
+            `<p class="mk-tight">That is the shape <a class="mk-ref" href="#completeness">the reconciliation</a> separates, and separating it is what made the ${P.counts.mw09Readings}-register disagreement about ${esc(P.disagreements.mw09.subject.replace('One result short at ', '').replace(', and five registers describe it differently', ''))} visible. It was in the record the whole time and no screen was standing anywhere it could be seen from.</p>`,
+        ),
+        panel(
+          'Three kinds of instruction, and the middle one has no field',
+          `<p class="mk-tight">§6.3 asks the design to distinguish a programme requirement, an event-specific amendment and a field decision. Counted over this round:</p>` +
+            table({
+              head: ['Kind', 'In this record', 'Where'],
+              scroll: true,
+              label: 'Programme requirement, event amendment, field decision',
+              rows: P.preparationAxes.map((a) => [
+                cell(`<strong>${esc(a.axis)}</strong>`),
+                `<span class="mk-num${a.n ? '' : ' mk-num--nil'}">${esc(String(a.n))}</span>`,
+                cell(`${esc(a.of())} · <a class="mk-ref" href="#${esc(a.at)}">${esc(a.at)}</a>`),
+              ]),
+            }) +
+            `<p class="mk-tight mk-muted">A hazard or a field instruction is the one preparation item this record holds nowhere, and none is invented here. The nearest fields are the access and condition notes on each session, and both are observations made <em>on arrival</em> — the opposite of an instruction issued before departure.</p>`,
+        ),
+        '3fr 2fr',
       )
     );
   })() +
@@ -13768,6 +14168,33 @@ export const JOBS = [
        */
       { id: 'exchange', label: 'Exchange formats', body: exchangeFormats, now: 'proposed', added: '2026-09-02' },
       { id: 'field-capture', label: 'Field capture', body: fieldCapture, state: 'proposed', now: 'proposed' },
+      /*
+       * Wave 22, and the `state`-less rule a ninth time: this screen did not
+       * exist on 23 August, so it carries `added` and no fabricated state.
+       *
+       * **The New-Screen Test, answered on the register entry.** (1) A distinct
+       * user decision: *is this round finished, and if not, what is outstanding
+       * and whose is it* — the question asked once per period, before a report
+       * is assembled and after the laboratory has answered, and the question
+       * §6.4 makes mandatory. (2) No existing screen owns it, and six own a
+       * stage each: `programme` the plan, `field-capture` the visits, `ecoc`
+       * the custody, `receipt` the arrival, `batches` the analysis and
+       * `validation` the state afterwards. Every one of those hand-offs is
+       * sound and not one of them can see the next but one, which is where the
+       * five-register disagreement about MW09 had been sitting unseen. (3) It
+       * needs its own state: the six stages with the register each count comes
+       * from, the hand-off arithmetic, the ten conditions with their instances,
+       * and the items with an owner, a rationale, a disposition, a due date and
+       * a consequence are a workspace and not a panel on something else.
+       * (4) It improves the graph rather than the count — it is the join
+       * between the plan and the six registers that describe what became of it,
+       * and it is the only screen that reaches all six.
+       *
+       * `proposed`, and it stays that way: FR-8.1 requires a programme with
+       * due and overdue tracking and no requirement covers a planned-versus-
+       * actual reconciliation, so the screen argues for itself.
+       */
+      { id: 'completeness', label: 'Round completeness', body: roundCompleteness, now: 'proposed', added: '2026-09-03' },
     ] },
   { id: 'j2', n: 'J2', title: 'Know the data is right', who: 'U1 · U2',
     note: 'Nine validation modules, every one tested, none of them reachable from a browser.',
@@ -14060,7 +14487,9 @@ export const RELATED = {
   facility: ['locations', 'programme', 'criteria', 'project-settings'],
   // Wave 9: the round reaches the composite collected inside it, which is the
   // one sample on its manifest that no other screen can open.
-  events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme', 'composite'],
+  // Wave 22: the round reaches the reconciliation that says whether it is
+  // finished, which is the question the register itself cannot answer.
+  events: ['location', 'field-capture', 'ecoc', 'receipt', 'imports', 'programme', 'composite', 'completeness'],
   imports: ['import-review', 'quarantine', 'migration', 'certificate', 'formats', 'logger-series'],
   'import-review': ['import-commit', 'quarantine', 'qc', 'dictionary', 'mapping-profiles'],
   'import-commit': ['crosstab', 'quarantine', 'exceedances', 'audit'],
@@ -14082,7 +14511,18 @@ export const RELATED = {
   // records reach `quarantine`, `logger-series` and `water` by inline href
   // from the register itself, which the dead-href check holds to the same bar.
   exchange: ['formats', 'mapping-profiles', 'migration', 'imports', 'crosstab', 'events', 'alerts', 'submissions', 'qualifiers'],
-  'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events'],
+  'field-capture': ['purge', 'ecoc', 'programme', 'location', 'events', 'completeness'],
+  /*
+   * Wave 22 — the reconciliation. Its exits are the six registers whose counts
+   * it reads and never restates (the plan, the field record, the custody
+   * chain, the receipt, the batches, the validation state), the two registers
+   * the disagreements resolve through (the held rows and the grid), the
+   * deliverable the analysed stage counts, the review that reconciles an
+   * arriving row against two registers and not against the plan, the
+   * assessment whose completeness dimension it links out of, and the
+   * obligation register the one recorded owner comes from.
+   */
+  completeness: ['programme', 'events', 'field-capture', 'ecoc', 'receipt', 'batches', 'validation', 'quarantine', 'crosstab', 'imports', 'import-review', 'dqa', 'obligations'],
   // The chain is raised in the field and closed at the laboratory, so it sits
   // between the two screens that own those ends rather than beside either.
   ecoc: ['receipt', 'events', 'field-capture', 'imports', 'batches', 'lineage'],
@@ -14102,7 +14542,9 @@ export const RELATED = {
   qc: ['batches', 'qc-limits', 'consistency', 'qualifiers', 'validation', 'dqa'],
   batches: ['qc', 'qc-limits', 'receipt', 'result-detail'],
   'qc-limits': ['qc', 'batches', 'criteria', 'dqa'],
-  dqa: ['qc', 'qc-limits', 'indeterminate', 'report'],
+  // Wave 22: the completeness dimension stops terminating in a percentage and
+  // reaches the reconciliation the percentage is computed over.
+  dqa: ['qc', 'qc-limits', 'indeterminate', 'report', 'completeness'],
   consistency: ['qc', 'crosstab', 'hydrochem'],
   validation: ['qualifiers', 'signoff', 'audit'],
   // Wave 17: the register carries scheme and origin now, and the screen that
@@ -14159,7 +14601,7 @@ export const RELATED = {
   // own workspace, with nothing pointing back at the portfolio it belongs to.
   // Journey 9's first hop is Portfolio → Project issue, and this is that hop.
   obligations: ['projects', 'project-home', 'licence', 'programme', 'notification', 'signoff', 'alerts', 'water'],
-  programme: ['obligations', 'field-capture', 'events', 'location'],
+  programme: ['obligations', 'field-capture', 'events', 'location', 'completeness'],
   licence: ['obligations', 'criteria', 'locations', 'submissions', 'water'],
   // The take is read against the licence that permits it and drawn at the
   // bores it is taken from, so it exits to both — and to the obligation it

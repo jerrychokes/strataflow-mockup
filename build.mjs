@@ -35,7 +35,7 @@ import { CHROME_CSS } from './chrome.mjs';
 import { JOBS, RELATED } from './screens.mjs';
 import { HATCH_SPRITE, esc } from './ui.mjs';
 import { slideOver } from './controls.mjs';
-import { ANALYSES, EXPLORER, LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
+import { ANALYSES, EXPLORER, LINEAGE, PLANNING, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Inside the app repo (as design/mockup/) the product stylesheet is read live,
@@ -107,7 +107,7 @@ const SECTION_VIEW = [
   // follow-up clock — belongs to the occasion the material was collected on
   // rather than to any one place. Two of its nine increments have no place on
   // the register at all, which settles it.
-  { label: 'Sampling events', lede: 'Step 2 — each round of collection, and the field record around it', ids: ['events', 'programme', 'purge', 'ecoc', 'receipt', 'field-capture', 'composite'] },
+  { label: 'Sampling events', lede: 'Step 2 — each round of collection, the field record around it, and whether the round is finished', ids: ['events', 'programme', 'completeness', 'purge', 'ecoc', 'receipt', 'field-capture', 'composite'] },
   // Wave 10 files the exchange register here, and the lede gains a clause for
   // it. Every screen in this group faced inward — a deliverable arriving and
   // what it rests on — and the one register that holds *both* directions
@@ -1105,6 +1105,48 @@ ${palette()}
     inOrder('§9.4 statistical measures', bulletsIn('9.4'), ANALYSES.MEASURES.map(norm));
 
     /*
+     * Wave 22 — §6's three lists and its arrow sentence, closed the same way.
+     *
+     * Everything on `#programme`'s definition half and everything on
+     * `#completeness` is built on one of these four enumerations: §6.2's ten
+     * programme attributes, §6.3's ten preparation items, §6.4's ten
+     * completeness conditions, and the six stages the brief writes as one
+     * arrow sentence. Wave 20's audit made the finding this exists to answer —
+     * **a guard that covers some of a wave's lists is a guard whose gap is the
+     * interesting one** — so all four are compared with the brief's own words,
+     * in sequence, in both directions. A condition the brief adds cannot go
+     * undrawn, one it drops cannot linger as a row this catalogue answers for
+     * nobody, and a stage renamed cannot be silently reordered into a
+     * different reading of the pipeline.
+     */
+    inOrder('§6.2 programme attributes', bulletsIn('6.2'), PLANNING.lists.definition.map(norm));
+    inOrder('§6.3 preparation items', bulletsIn('6.3'), PLANNING.lists.preparation.map(norm));
+    inOrder('§6.4 completeness conditions', bulletsIn('6.4'), PLANNING.lists.conditions.map(norm));
+
+    /*
+     * The six stages are a blockquote rather than a list, so they close the
+     * way §4.3's scenario does: by splitting the brief's own arrow sentence,
+     * which is where the six words came from in the first place.
+     */
+    const stageSentence = linesIn('6.4').find((l) => l.includes('→'));
+    if (!stageSentence) {
+      offences.push('§6.4: the brief no longer carries an arrow-separated reconciliation, and the six stages are built on one');
+    } else {
+      const stages = norm(stageSentence.replace(/^>\s*\*\*|\*\*$/g, '')).split('→').map((t) => norm(t));
+      inOrder('§6.4 stages', stages, PLANNING.lists.stages.map(norm));
+    }
+
+    /*
+     * The one link on `#completeness` that is written rather than found: which
+     * controls each objective row that states a *rate* asks for. The rate rows
+     * themselves are derived from the objective set, so a row that starts
+     * stating a rate cannot go unmatched and one that stops cannot linger —
+     * and whether the round *holds* the control stays a search over the batch
+     * and the manifest, which is the half a typed answer would have hidden.
+     */
+    compare('§6.4 quality-control requirements', PLANNING.qcRateRows, PLANNING.qcRequirements.map((r) => r.check));
+
+    /*
      * W20-A-1. §4.2 and §4.4 were closed against the brief and §4.3's terms
      * were not, so deleting a term from the scenario left the build green and
      * every derived count re-read without a murmur — including the wave's own
@@ -1163,6 +1205,7 @@ ${palette()}
     process.exit(1);
   }
   console.log(`vendor brief: ${VENDOR_BRIEF.rows.length} rows closed against ${VENDOR_BRIEF.source}`);
+  console.log(`sampling plan: ${PLANNING.definitionCounts.held} of ${PLANNING.definitionCounts.total} §6.2 attributes held on a programme, ${PLANNING.conditionCounts.instantiated} of ${PLANNING.conditionCounts.total} §6.4 conditions instantiated, ${PLANNING.counts.handoffsAgreeing} of ${PLANNING.counts.handoffsChecked} hand-offs reconciling`);
 }
 
 writeFileSync(OUT, html, 'utf8');
