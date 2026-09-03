@@ -1358,7 +1358,9 @@ if (dangling.length || noExit.length || orphans.length || deadHrefs.length) {
   const text = html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ')
     .replace(/<[^>]+>/g, ' ');
-  const stray = [...text.matchAll(/\*[A-Za-z][^*\n]{2,60}\*/g)].map((m) => m[0]);
+  /* W23-5: `{2,60}` needed three characters inside the asterisks, so `*no*`
+   * evaded the check while `*not*` was caught. One character is emphasis too. */
+  const stray = [...text.matchAll(/\*[A-Za-z][^*\n]{0,60}\*/g)].map((m) => m[0]);
   if (stray.length) {
     console.error(
       `unrendered markdown emphasis reaching the page: ${stray.length} — ` +

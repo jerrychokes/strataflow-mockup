@@ -199,10 +199,27 @@ for (const width of widths) {
   await page.goto(url);
   await page.waitForTimeout(400);
   const named = await page.evaluate(() => {
-    const WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-      'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
-    const NUM = Object.fromEntries(WORDS.map((w, i) => [w, i + 1]));
-    const RE = new RegExp('\\b[Tt]he (\\d{1,3}|' + WORDS.join('|') + ') ([a-z][a-z-]*)');
+    /*
+     * W23-4. The word list stopped at twenty and the noun had to be lowercase,
+     * so a table named "The twenty-four …" or "The 24 Sample rows" slipped the
+     * check silently. Neither limit was exercised by the catalogue, which is
+     * exactly the condition under which a guard's gap goes unnoticed until the
+     * wave that crosses it. The list runs to a hundred by composition and the
+     * noun may be capitalised.
+     */
+    const ONES = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const TENS = ['twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    const NUM = {};
+    ONES.forEach((w, i) => { NUM[w] = i + 1; });
+    TENS.forEach((t, i) => {
+      NUM[t] = (i + 2) * 10;
+      ONES.slice(0, 9).forEach((o, j) => { NUM[`${t}-${o}`] = (i + 2) * 10 + j + 1; });
+    });
+    NUM['a hundred'] = 100;
+    /* Longest first, so "twenty-four" is not matched as "twenty". */
+    const WORDS = Object.keys(NUM).sort((a, b) => b.length - a.length);
+    const RE = new RegExp('\\b[Tt]he (\\d{1,3}|' + WORDS.join('|') + ') ([A-Za-z][A-Za-z-]*)');
     const bad = [];
     let seen = 0;
     for (const sec of document.querySelectorAll('section.mk-screen')) {

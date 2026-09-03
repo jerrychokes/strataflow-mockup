@@ -15954,15 +15954,54 @@ export const SPATIAL = (() => {
     .filter((x) => x.cell.censored);
   const cadmiumLimit = Number(INDETERMINATE[0].lor.replace(/[^\d.]/g, ''));
   const cadmiumCriterion = Number(INDETERMINATE[0].criterion.replace(/[^\d.]/g, ''));
+  /*
+   * W23-1. `reads` was a typed word on all four rules and the comparisons were
+   * typed prose — *"0.5 is below 0.54"* — so moving the cadmium criterion to
+   * 0.3 left the page asserting "0.5 is below 0.3" beside a `compliant` badge
+   * that should have read `exceedance`, with the build green. The numbers were
+   * live and the verdict they were supposed to decide was not: the tenth
+   * instance of the shape this pipeline has been finding since wave 18, and
+   * the same one field over as W21-A-12.
+   *
+   * A substitution rule is a value and a comparison, so both are here. Only
+   * *exclusion* has no substitute: it produces no mark at all, which is a
+   * structural outcome rather than an arithmetic one, and it says so.
+   */
+  const compare = (v) => (v > cadmiumCriterion ? 'above' : v < cadmiumCriterion ? 'below' : 'exactly at');
+  const verdictFor = (v) => (v > cadmiumCriterion ? 'exceedance' : 'compliant');
   const nonDetectRules = [
-    { rule: 'Left as reported', reads: 'indeterminate', n: censoredCadmium.length, tone: 'good',
-      says: `What the record says. The value is a limit and not a measurement, and the limit is above the criterion — so nothing can be asserted, and the mark is the hatched one the grid already uses.` },
-    { rule: `Substituted at the limit of reporting (${cadmiumLimit})`, reads: 'exceedance', n: censoredCadmium.length, tone: 'bad',
-      says: `${cadmiumLimit} is above ${cadmiumCriterion}, so every one of these bores would be coloured as an exceedance nobody measured.` },
-    { rule: `Substituted at half the limit (${cadmiumLimit / 2})`, reads: 'compliant', n: censoredCadmium.length, tone: 'bad',
-      says: `${cadmiumLimit / 2} is below ${cadmiumCriterion}, so the same six bores would be coloured as compliant — the opposite answer from the same data and a different arbitrary rule.` },
-    { rule: 'Excluded from the layer', reads: 'absent', n: censoredCadmium.length, tone: 'bad',
-      says: 'The six disappear from the map. A compliance-boundary bore that vanishes because its result was a non-detect is the reading a network map can least afford, and it is the same argument the dry bore is drawn under.' },
+    {
+      rule: 'Left as reported', substitute: null, n: censoredCadmium.length,
+      /* A limit above the criterion asserts nothing. A limit *below* it would
+       * make the non-detect conclusively compliant, which is a different map —
+       * so even this verdict is a comparison rather than a constant. */
+      get reads() { return cadmiumLimit > cadmiumCriterion ? 'indeterminate' : 'compliant'; },
+      get tone() { return this.reads === 'indeterminate' ? 'good' : 'warn'; },
+      get says() {
+        return cadmiumLimit > cadmiumCriterion
+          ? `What the record says. The value is a limit and not a measurement, and the limit ${cadmiumLimit} is ${compare(cadmiumLimit)} the criterion ${cadmiumCriterion} — so nothing can be asserted, and the mark is the hatched one the grid already uses.`
+          : `What the record says. The limit ${cadmiumLimit} is ${compare(cadmiumLimit)} the criterion ${cadmiumCriterion}, so a non-detect is conclusively compliant here and the hatched mark would be overstating the doubt.`;
+      },
+    },
+    {
+      rule: `Substituted at the limit of reporting (${cadmiumLimit})`, substitute: cadmiumLimit, n: censoredCadmium.length, tone: 'bad',
+      get reads() { return verdictFor(cadmiumLimit); },
+      get says() {
+        return `${cadmiumLimit} is ${compare(cadmiumLimit)} ${cadmiumCriterion}, so every one of these bores would be coloured as ${this.reads === 'exceedance' ? 'an exceedance nobody measured' : 'compliant on a value nobody measured'}.`;
+      },
+    },
+    {
+      rule: `Substituted at half the limit (${cadmiumLimit / 2})`, substitute: cadmiumLimit / 2, n: censoredCadmium.length, tone: 'bad',
+      get reads() { return verdictFor(cadmiumLimit / 2); },
+      get says() {
+        const other = verdictFor(cadmiumLimit);
+        return `${cadmiumLimit / 2} is ${compare(cadmiumLimit / 2)} ${cadmiumCriterion}, so the same ${censoredCadmium.length} bores would be coloured as ${this.reads}${this.reads === other ? ' — the same answer as the rule above, which is what happens when the criterion sits outside the range the two substitutions span' : ' — the opposite answer from the same data and a different arbitrary rule'}.`;
+      },
+    },
+    {
+      rule: 'Excluded from the layer', substitute: null, reads: 'absent', n: censoredCadmium.length, tone: 'bad',
+      says: `The ${censoredCadmium.length} disappear from the map. A compliance-boundary bore that vanishes because its result was a non-detect is the reading a network map can least afford, and it is the same argument the dry bore is drawn under.`,
+    },
   ];
 
   const dials = [
