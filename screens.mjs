@@ -10661,7 +10661,7 @@ const dataQuality = () => {
       table({
         head: ['Not met', 'Consequence for the assessment'],
         rows: [
-          ['Sensitivity — cadmium', cell('Cadmium cannot be assessed at any location. Seven results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits ${CADMIUM_ASSESSABILITY.word} the criterion and the comparison is arithmetic.')],
+          ['Sensitivity — cadmium', cell(`Cadmium ${CADMIUM_ASSESSABILITY.unassessable ? 'cannot be assessed' : 'is assessable'} at any location. ${INDETERMINATE.length} results are reported as unassessable rather than compliant, and the recommendation is a method change from Q3. Settled automatically: the reporting limit sits ${CADMIUM_ASSESSABILITY.word} the criterion and the comparison is arithmetic.`)],
           /*
            * Wave 17: the count and the meaning are read from the qualifier
            * register rather than typed in words beside it, and the sentence

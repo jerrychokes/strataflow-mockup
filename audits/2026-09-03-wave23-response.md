@@ -51,6 +51,29 @@ careful, reading *"1.0 µg/L sits above the ANZG 2018 criterion"* as a claim tha
 1 exceeds 2018. That is recorded rather than hidden, because a guard's first
 false positive is the most useful thing it will ever tell you about itself.
 
+## A defect I shipped while writing this, and what it found
+
+**Correction, 3 September 2026.** The commit that closed this wave (`e94df0b`)
+was pushed with `verify.mjs` red. I put `${CADMIUM_ASSESSABILITY.word}` inside a
+**single-quoted** string on `#dqa`, so thirty characters of source code printed
+on the page and pushed the screen 29 px over its width at 375 px. I ran verify
+after the push rather than before it, which is the one order the gate exists to
+prevent. Fixed in the next commit.
+
+Two things came out of it, and both are worth more than the mistake cost:
+
+1. **`build.mjs` now fails on a template placeholder reaching the page**, in
+   markup as well as text — the first mutation of that check put one in an
+   `aria-label`, where a tag-stripped scan cannot see it and a screen reader
+   would have read the source aloud. Verify caught my instance as an *overflow*,
+   which is luck rather than coverage: a shorter expression in a roomier cell
+   would have printed silently.
+2. **Fixing it found a false count that had been on the page since wave 6.**
+   The same sentence read *"Seven results are reported as unassessable"*.
+   `INDETERMINATE` holds **six** — one cadmium result per bore that returned
+   water. Deriving it was what surfaced the falsehood, which is the argument for
+   deriving, made by accident.
+
 ## One thing deliberately not derived
 
 `#result-detail` carries a comment by a named person at a stated time saying the

@@ -1439,6 +1439,33 @@ if (dangling.length || noExit.length || orphans.length || deadHrefs.length) {
     .replace(/<[^>]+>/g, ' ');
   /* W23-5: `{2,60}` needed three characters inside the asterisks, so `*no*`
    * evaded the check while `*not*` was caught. One character is emphasis too. */
+  /*
+   * A template placeholder that reached the page.
+   *
+   * Written immediately after doing it: I put `${CADMIUM_ASSESSABILITY.word}`
+   * inside a single-quoted string, so thirty characters of source code printed
+   * on `#dqa` and pushed the screen 29px over its width. `verify.mjs` caught it
+   * as an overflow — which is luck, not coverage: a shorter expression in a
+   * roomier cell would have printed silently and nothing would have said so.
+   *
+   * The same pairing defect as the emphasis check below — a string written for
+   * one renderer drawn through another — and the built page is again the only
+   * place that can see it.
+   */
+  /* Attributes count: the first mutation of this check put a placeholder in an
+   * `aria-label`, where the tag-stripped text above cannot see it — a screen
+   * reader would have read the source out loud. Scripts are excluded because a
+   * template literal is legitimate inside one. */
+  const markup = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, ' ');
+  const placeholders = [...markup.matchAll(/\$\{[A-Za-z_$][^}\n]{0,80}\}/g)].map((m) => m[0]);
+  if (placeholders.length) {
+    console.error(
+      `template placeholders reaching the page: ${placeholders.length} — ` +
+        `${[...new Set(placeholders)].slice(0, 6).join(' · ')}. A single-quoted string is not a template literal.`,
+    );
+    process.exit(1);
+  }
+
   const stray = [...text.matchAll(/\*[A-Za-z][^*\n]{0,60}\*/g)].map((m) => m[0]);
   if (stray.length) {
     console.error(
