@@ -35,7 +35,7 @@ import { CHROME_CSS } from './chrome.mjs';
 import { JOBS, RELATED } from './screens.mjs';
 import { HATCH_SPRITE, esc } from './ui.mjs';
 import { slideOver } from './controls.mjs';
-import { LINEAGE, PRINCIPAL, PROJECT, PROJECTS } from './seed.mjs';
+import { LINEAGE, PRINCIPAL, PROJECT, PROJECTS, VENDOR_BRIEF } from './seed.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Inside the app repo (as design/mockup/) the product stylesheet is read live,
@@ -846,6 +846,123 @@ ${palette()}
     for (const o of offences) console.error(o);
     process.exit(1);
   }
+}
+
+/*
+ * Wave 18 — the seventh enumeration, checked against the document it enumerates.
+ *
+ * `#coverage` claims the vendor requirements brief is reconciled row by row.
+ * That claim is worth exactly as much as the check behind it, and the other six
+ * enumerations are checked by hand against documents this repository does not
+ * hold. This one is different: the brief is committed here (decision D12), so
+ * the build reads it and fails on drift in either direction.
+ *
+ * Five things are checked, and each of them is a way the table could quietly
+ * stop being closed:
+ *
+ *   1. Every `### N.M` heading from §4.2 to §14.4 has exactly one row, and
+ *      every such row has a heading — with the heading's own title on it.
+ *   2. Every `### Scenario X` heading has exactly one row.
+ *   3. §15's, §17's and §20's bullet lists are the lineage, state and
+ *      completion rows, in order and word for word.
+ *   4. Every row's quoted `asks` appears verbatim in the brief. A paraphrase
+ *      that drifted would otherwise read as the brief's own words.
+ *   5. Every `items` count is the number of bullets that subsection actually
+ *      lists, and §3's priority table is the priority map.
+ *
+ * Normalisation strips markdown emphasis, folds the apostrophe this catalogue
+ * types to the one the brief types, and collapses whitespace. Nothing else:
+ * a check that normalised harder would start passing paraphrases.
+ */
+{
+  const BRIEF = [resolve(here, 'VENDOR_REQUIREMENTS.md'), resolve(here, '../../VENDOR_REQUIREMENTS.md')].find(existsSync);
+  const offences = [];
+  if (!BRIEF) {
+    offences.push('VENDOR_REQUIREMENTS.md is not readable, so the seventh enumeration cannot be checked against its source');
+  } else {
+    const md = readFileSync(BRIEF, 'utf8');
+    const norm = (v) => String(v).replace(/\*\*/g, '').replace(/’/g, "'").replace(/\s+/g, ' ').trim();
+    const flat = norm(md);
+
+    /* Heading and bullet inventory, taken from the file rather than described. */
+    const lines = md.split('\n');
+    const subsections = [];
+    let cur = null;
+    for (const line of lines) {
+      const h = line.match(/^### (.+)$/);
+      if (h) { cur = { heading: h[1].trim(), bullets: 0 }; subsections.push(cur); continue; }
+      if (/^## /.test(line)) cur = null;
+      if (cur && /^- /.test(line)) cur.bullets += 1;
+    }
+    const numbered = subsections.filter((x) => /^\d+\.\d+ /.test(x.heading)).map((x) => ({
+      id: x.heading.slice(0, x.heading.indexOf(' ')),
+      title: x.heading.slice(x.heading.indexOf(' ') + 1),
+      bullets: x.bullets,
+    }));
+    const scenarios = subsections.filter((x) => x.heading.startsWith('Scenario '));
+
+    /* Bullet lists that are rows in their own right. */
+    const bulletsOf = (from, to) => {
+      const start = lines.findIndex((l) => l.startsWith(from));
+      const end = lines.findIndex((l, i) => i > start && l.startsWith(to));
+      return lines.slice(start, end).filter((l) => /^- /.test(l)).map((l) => norm(l.slice(2)));
+    };
+
+    const expectedRequirement = numbered.filter((x) => x.id !== '4.1');
+    const rows = VENDOR_BRIEF.rows;
+    const of = (g) => rows.filter((r) => r.group === g);
+
+    const compare = (what, expected, actual) => {
+      const missing = expected.filter((x) => !actual.includes(x));
+      const extra = actual.filter((x) => !expected.includes(x));
+      if (missing.length) offences.push(`${what}: no row for ${missing.join(', ')}`);
+      if (extra.length) offences.push(`${what}: row with no source for ${extra.join(', ')}`);
+    };
+
+    compare('brief subsections', expectedRequirement.map((x) => x.id), of('requirement').map((r) => r.id));
+    compare('brief scenarios', scenarios.map((x) => x.heading), of('scenario').map((r) => r.title));
+
+    for (const r of of('requirement')) {
+      const src = numbered.find((x) => x.id === r.id);
+      if (!src) continue;
+      if (src.title !== r.title) offences.push(`§${r.id}: title reads “${r.title}”, the brief’s heading reads “${src.title}”`);
+      if ((r.items ?? 0) !== src.bullets) offences.push(`§${r.id}: enumerates ${src.bullets} items in the brief, the row says ${r.items ?? 0}`);
+    }
+
+    const listRows = [
+      ['§15 lineage questions', bulletsOf('## 15.', '## 16.'), of('lineage')],
+      ['§17 screen states', bulletsOf('## 17.', '## 18.'), of('state')],
+      ['§20 completion criteria', bulletsOf('## 20.', '## 21.'), of('completion')],
+    ];
+    for (const [what, bullets, list] of listRows) {
+      if (bullets.length !== list.length) offences.push(`${what}: the brief lists ${bullets.length}, the enumeration holds ${list.length}`);
+      bullets.forEach((b, i) => {
+        if (list[i] && norm(list[i].asks) !== b) offences.push(`${what} #${i + 1}: row reads “${norm(list[i].asks)}”, the brief reads “${b}”`);
+      });
+    }
+
+    for (const r of rows) {
+      if (!flat.includes(norm(r.asks))) offences.push(`row ${r.id}: its quoted words are not in the brief — “${norm(r.asks)}”`);
+      /* A note that kept its placeholder is a denominator that never arrived. */
+      if (r.note.includes('{items}')) offences.push(`row ${r.id}: its note still carries an unfilled {items} placeholder`);
+    }
+
+    /* §3's ranking table, against the priority map the rows are keyed on. */
+    const ranked = [...md.matchAll(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*(P0|P1|P2|P1\/P2|Strategic)\s*\|/gm)];
+    if (ranked.length !== Object.keys(VENDOR_BRIEF.PRIORITY).length) {
+      offences.push(`§3 ranks ${ranked.length} capability areas, the priority map holds ${Object.keys(VENDOR_BRIEF.PRIORITY).length}`);
+    }
+    for (const [, rank, area, priority] of ranked) {
+      const section = Number(rank) + 3;
+      if (VENDOR_BRIEF.PRIORITY[section] !== priority) offences.push(`§${section}: the brief ranks it ${priority}, the enumeration says ${VENDOR_BRIEF.PRIORITY[section]}`);
+      if (VENDOR_BRIEF.AREAS[section] !== area) offences.push(`§${section}: the brief calls it “${area}”, the enumeration says “${VENDOR_BRIEF.AREAS[section]}”`);
+    }
+  }
+  if (offences.length) {
+    for (const o of offences) console.error(o);
+    process.exit(1);
+  }
+  console.log(`vendor brief: ${VENDOR_BRIEF.rows.length} rows closed against ${VENDOR_BRIEF.source}`);
 }
 
 writeFileSync(OUT, html, 'utf8');

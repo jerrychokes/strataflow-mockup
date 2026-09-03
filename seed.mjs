@@ -4312,14 +4312,379 @@ export const BUNDLE = {
   initiator: 'You. Strataflow cannot generate this remotely and has no path into this instance.',
 };
 
-/** Column sets a returning user recalls rather than rebuilds (§6.1, EX-24). */
-export const SAVED_VIEW_LIST = [
-  { name: 'Compliance boundary — Table 4', owner: 'Project', by: 'R. Whitmore', locations: 'MW09, MW11', analytes: 'Licence Table 4 suite (12)', period: 'Rolling 4 quarters', criteria: 'Licence Table 4 only', used: '2026-08-19', shared: true },
-  { name: 'TSF downgradient — metals', owner: 'Project', by: 'A. Nakamura', locations: 'MW05, MW07', analytes: 'Dissolved metals (8)', period: 'Rolling 8 quarters', criteria: 'ANZG 95% + site-specific', used: '2026-08-22', shared: true },
-  { name: 'PFAS — everything', owner: 'Project', by: 'A. Nakamura', locations: 'All groundwater', analytes: 'PFAS suite (14) + derived sum', period: 'All time', criteria: 'ANZG 95%', used: '2026-08-23', shared: true },
-  { name: 'My quick check', owner: 'Private', by: 'A. Nakamura', locations: 'MW05', analytes: 'Arsenic, zinc, copper', period: 'Rolling 4 quarters', criteria: 'ANZG 95%', used: '2026-08-23', shared: false },
+/**
+ * The analyte suites this project selects by name, and their sizes.
+ *
+ * Wave 18. Each count below was typed twice — once in the results grid's suite
+ * selector and once inside a saved view's `analytes` string, in the same words
+ * (`Dissolved metals (8)` on both). Two records agreeing independently is what
+ * made the grid's number *evidence* when the drawn view disagreed with it
+ * (`SAVED_VIEWS` below), and it is also the one-source-read-twice shape this
+ * file keeps collapsing. So the counts live here and both surfaces render them.
+ *
+ * **What the record holds is a suite's size, not its membership.** Nothing here
+ * and nothing else in this seed says which eight analytes the dissolved-metals
+ * suite contains. The 2026 Q2 grid draws five filtered metals, which is that
+ * round's manifest rather than the project's suite; the two are not in conflict
+ * and neither derives from the other. The size is stated because two records
+ * state it. The membership is not invented because none does.
+ *
+ * The licence suite is the exception and it is derived rather than stated: the
+ * criteria library already records how many analytes Table 4 governs, and it
+ * records it per version — so this follows the set in force rather than the
+ * number that was true when somebody typed it.
+ */
+export const ANALYTE_SUITES = [
+  { code: 'metals-dissolved', label: 'Dissolved metals', n: 8 },
+  { code: 'nutrients', label: 'Nutrients', n: 4 },
+  { code: 'pfas', label: 'PFAS', n: 14 },
+  { code: 'field-parameters', label: 'Field parameters', n: 5 },
+  {
+    code: 'licence-t4',
+    label: 'Licence Table 4',
+    get n() {
+      return CRITERIA_LIBRARY.find((c) => c.set.endsWith('Table 4') && c.state === 'active').analytes;
+    },
+  },
 ];
 
+/**
+ * The saved views — **one record, read by three surfaces** (§6.1, EX-24).
+ *
+ * ## The defect, and how it was found
+ *
+ * Four assessments were run against the vendor requirements brief on
+ * 3 September 2026, and one of them turned up a defect that had nothing to do
+ * with the brief: `#saved-views` held **four typed literal rows** in
+ * `screens.mjs` while this file held a different four-row list for the same
+ * objects, rendered on `#crosstab`. Only one name was common — *TSF
+ * downgradient — metals* — and the two disagreed about what it selects, when it
+ * last ran, and which figures it feeds. `#report-figures` was a third answer
+ * again: two of its items name that view as their source, and neither of them
+ * is among the three the drawn screen claimed. Three surfaces, three answers,
+ * about the object the brief's §4.5 asks to be *governed*.
+ *
+ * ## What is settled by measurement, and what is not
+ *
+ * **The downstream is derived, not typed.** A view's `feeds` is the report items
+ * whose `source` names it — a filter over `REPORT_ITEMS`, so the figure numbers
+ * follow the numbering rather than restating it. The drawn screen's *Figures
+ * 4.2, 4.6, 4.7* was wrong three ways at once, and the third is the one worth
+ * keeping: **§4 carries six figures and there is no Figure 4.7 at all.**
+ *
+ * **The analyte count is corroborated.** The grid's own suite selector carries
+ * `Dissolved metals (8)` and this record carried the same 8, independently. The
+ * drawn screen's *6 metals* is the drift, and it is corrected to the number two
+ * records state — which `ANALYTE_SUITES` above now holds once.
+ *
+ * **The period is not settled, and this record does not settle it.** The seed
+ * said *Rolling 8 quarters*; the drawn screen said *rolling 3 years*. Those are
+ * two years and three, and there is no third record of this view's period
+ * anywhere. Measuring what *is* there does not choose between them — it
+ * undercuts both: the two figures this view feeds draw 41 monthly water levels
+ * and 14 quarterly arsenic values, spanning 2023-01 to 2026-05, which is longer
+ * than either reading. So the disagreement is drawn as a disagreement, with both
+ * readings, the record each came from, and the measurement that fits neither —
+ * the shape wave 15 used for the PFAS three-way, and the trade waves 14, 15 and
+ * 16 each refused: inventing a resolution the record does not support.
+ *
+ * ## One claim in the assessment that did not survive re-measurement
+ *
+ * The assessment recorded that the two records disagree *"about its owner"*.
+ * They do not. The drawn row's third column is **Used by**, it read
+ * `A. Nakamura`, and this record's `by` reads `A. Nakamura` — the one field of
+ * the four that agreed. Three values moved on that row, not four, and saying so
+ * is cheaper than leaving a fourth in a settlement note where a later reader
+ * would look for it and find nothing.
+ *
+ * ## What a view selects, where the record can say it
+ *
+ * Two of the four views select exactly the members of a **location group** —
+ * the glossary's named set of locations assessed together, which
+ * `INSTRUMENTS.groups` already holds because FR-3.10 defines barometric
+ * compensation per group. `MW05, MW07` and `MW09, MW11` were typed here and
+ * named there, identically. They read from the group now, so a bore joining the
+ * compliance boundary joins the view that reports it, and `matchesGroup` below
+ * records that the two lists agreed before either moved.
+ */
+export const SAVED_VIEWS = (() => {
+  const suiteOf = (code) => ANALYTE_SUITES.find((s) => s.code === code);
+  const suiteText = (code, plus) => {
+    const s = suiteOf(code);
+    return `${s.label} (${s.n})${plus ? ` + ${plus}` : ''}`;
+  };
+  const groupOf = (name) => INSTRUMENTS.groups.find((g) => g.name === name);
+
+  /**
+   * Every value the three surfaces held before this wave, typed once.
+   *
+   * A before is a historical fact and it is written down exactly once; every
+   * *now* beside it is counted off the record as it stands. The four rows are
+   * the drawn screen's own table, verbatim, because a settlement about three
+   * surfaces disagreeing is unreadable without the one that was wrong.
+   */
+  const was = {
+    drawnRows: [
+      { view: 'Compliance boundary — quarterly', selects: 'MW09, MW11 · licence suite · current quarter', usedBy: 'A. Nakamura', lastRun: '2026-05-21', feeds: 'Report §4, Figure 4.1' },
+      { view: 'TSF downgradient — metals', selects: 'MW05, MW07 · 6 metals · rolling 3 years', usedBy: 'A. Nakamura', lastRun: '2026-05-21', feeds: 'Figures 4.2, 4.6, 4.7' },
+      { view: 'Everything above a criterion', selects: 'All locations · all analytes · exceedance only', usedBy: 'R. Whitmore', lastRun: '2026-05-22', feeds: 'Exceedance register' },
+      { view: 'PFAS watch', selects: 'All locations · PFOS, PFHxS, sum · all time', usedBy: 'D. Okafor', lastRun: '2026-05-22', feeds: 'Alert rule · TARP Level 3' },
+    ],
+    /* The one row both lists named, field by field. */
+    tsf: { analytes: '6 metals', period: 'rolling 3 years', lastRun: '2026-05-21', usedBy: 'A. Nakamura', feeds: 'Figures 4.2, 4.6, 4.7' },
+    /* The strings this file itself carried, before the suite and the group. */
+    seedAnalytes: { 'licence-quarterly': 'Licence Table 4 suite (12)', 'pfas-everything': 'PFAS suite (14) + derived sum', 'quick-check': 'Arsenic, zinc, copper' },
+    seedLocations: { 'licence-quarterly': 'MW09, MW11', 'tsf-metals': 'MW05, MW07' },
+    namesInCommon: 1,
+    drawnFigures: 3,
+    /* The one chip the grid used to state its edits with. */
+    crosstabChip: '1 — “added zinc”',
+  };
+
+  /**
+   * The four views.
+   *
+   * Order is load-bearing in one place and it is recorded where it is relied
+   * on: `SAVED_VIEW_LIST[2].used` is one of the six literals the wave-13 note
+   * lists as still sitting on the administration clock, so the third row stays
+   * the third row.
+   */
+  const views = [
+    {
+      id: 'licence-quarterly',
+      name: 'Compliance boundary — Table 4',
+      owner: 'Project', by: 'R. Whitmore', shared: true,
+      group: 'Compliance boundary',
+      get locations() { return groupOf(this.group).members.join(', '); },
+      suite: 'licence-t4',
+      get analytes() { return suiteText(this.suite); },
+      period: 'Rolling 4 quarters',
+      criteria: 'Licence Table 4 only',
+      used: '2026-08-19',
+      purpose: 'The licence numbers, at the two bores condition 12 is assessed at. Run before every quarterly return.',
+    },
+    {
+      id: 'tsf-metals',
+      name: 'TSF downgradient — metals',
+      owner: 'Project', by: 'A. Nakamura', shared: true,
+      group: 'TSF downgradient compliance',
+      get locations() { return groupOf(this.group).members.join(', '); },
+      suite: 'metals-dissolved',
+      get analytes() { return suiteText(this.suite); },
+      /* Null is the whole finding, not a missing value: two records disagree
+       * about this one field and nothing in the record chooses. Every surface
+       * that renders it renders the disagreement. */
+      period: null,
+      criteria: 'ANZG 95% + site-specific',
+      used: '2026-08-22',
+      purpose: 'The seepage question: the dissolved metals at the two bores downgradient of the tailings storage facility.',
+    },
+    {
+      id: 'pfas-everything',
+      name: 'PFAS — everything',
+      owner: 'Project', by: 'A. Nakamura', shared: true,
+      group: null,
+      locations: 'All groundwater',
+      suite: 'pfas',
+      get analytes() { return suiteText(this.suite, 'derived sum'); },
+      period: 'All time',
+      criteria: 'ANZG 95%',
+      used: '2026-08-23',
+      purpose: 'Everything ever measured, because the PFAS question is whether a plume is arriving rather than what this quarter did.',
+    },
+    {
+      id: 'quick-check',
+      name: 'My quick check',
+      owner: 'Private', by: 'A. Nakamura', shared: false,
+      group: null,
+      locations: 'MW05',
+      analyteNames: ['Arsenic (filtered)', 'Zinc (filtered)', 'Copper (filtered)'],
+      get analytes() { return this.analyteNames.join(', '); },
+      period: 'Rolling 4 quarters',
+      criteria: 'ANZG 95%',
+      used: '2026-08-23',
+      purpose: 'One bore, three metals, no ceremony. Private, and the only one of the four that is.',
+    },
+  ];
+
+  /**
+   * The downstream, computed.
+   *
+   * A report item names its source in the caption a reader sees, so the string
+   * stays what it is; what changes is that it now *resolves*. A source of the
+   * form `Saved view · <name>` is matched against the record, and a source that
+   * matches nothing is drawn as an orphan rather than dropped — a citation
+   * pointing at a view that does not exist is the defect this settlement is
+   * about, arriving from the other end.
+   */
+  const PREFIX = 'Saved view · ';
+  const cited = (source) => (source.startsWith(PREFIX) ? source.slice(PREFIX.length) : null);
+  const viewFor = (source) => {
+    const name = cited(source);
+    return name ? views.find((v) => v.name.startsWith(name)) ?? null : null;
+  };
+  const feedsOf = (view) => REPORT_ITEMS.items.filter((it) => viewFor(it.source) === view);
+  for (const v of views) Object.defineProperty(v, 'feeds', { get() { return feedsOf(this); }, enumerable: true });
+
+  const of = (id) => views.find((v) => v.id === id);
+  const tsf = of('tsf-metals');
+
+  /**
+   * The period, unsettled — both readings, and the measurement that fits neither.
+   *
+   * Two records, two answers, no third. What follows the readings is not a
+   * tie-break: it is the only other thing in the record that bears on the
+   * question, and it is *longer than both*, so it rules neither in.
+   */
+  const period = {
+    question: 'Over what period does this view select?',
+    unsettled: true,
+    readings: [
+      { says: 'Rolling 8 quarters', quarters: 8, record: 'The seed’s own view list, since it was written', at: 'crosstab', restsOn: 'The record the results grid has always rendered — two years of quarterly rounds.' },
+      { says: 'Rolling 3 years', quarters: 12, record: 'The four literal rows drawn on the saved-views screen', at: 'saved-views', restsOn: 'A typed table in the screen module, whose three other rows name views this record does not hold at all.' },
+    ],
+    /* The third measurement — computed, and it is not a tie-break. */
+    get evidence() {
+      const q = ARSENIC_MW05.length;
+      return {
+        figures: tsf.feeds.map((f) => f.n).join(' and '),
+        months: WATER_LEVELS.months.length,
+        from: WATER_LEVELS.months[0],
+        to: WATER_LEVELS.months.at(-1),
+        quarters: q,
+        longerThan: period.readings.filter((r) => r.quarters < q).length,
+      };
+    },
+    get consequence() {
+      return `${this.readings.map((r) => r.quarters).join(' quarters against ')} are different populations, and this view feeds a figure in a report that has been issued. ` +
+        'Choosing one here would put a number in the record that nothing in the record supports — the trade this catalogue has refused four times, over the licence trigger line, the PFAS reach, the custody chain and the soil limit.';
+    },
+    settledBy:
+      'One record of this view being run: a saved definition carrying its own period, or a figure whose population states the window it was drawn over. That is a field on an object the product does not have yet, so the honest place for this to close is the wave that builds one.',
+  };
+
+  /**
+   * The grid's own state against the view it says it is on.
+   *
+   * `#crosstab` names this view in its filter bar and marks itself *edited*.
+   * What it did not say is *how* edited: the bar's four selections are compared
+   * with the view's own here, so the chips state the differences rather than
+   * asserting one. The period row is why this matters — the grid is on a single
+   * quarter, which is an edit, and therefore no evidence about the
+   * disagreement above.
+   */
+  const onCrosstab = {
+    get view() { return tsf; },
+    /* `grid: null` on the locations row is filled by `#crosstab` as it renders:
+     * that option is counted off the location register there, and counting it
+     * a second time here is the defect this whole record is about. */
+    dimensions: [
+      { dimension: 'Locations', grid: null, get view() { return tsf.locations; } },
+      { dimension: 'Analyte suite', grid: 'Everything in the round', get view() { return tsf.analytes; } },
+      { dimension: 'Period', grid: '2026 Q2', get view() { return tsf.period ?? 'unsettled — two readings'; } },
+      { dimension: 'Criteria sets', grid: 'Both sets', get view() { return tsf.criteria; } },
+    ],
+    against(locationsOnGrid) {
+      return this.dimensions.map((d) => ({ dimension: d.dimension, grid: d.grid ?? locationsOnGrid, view: d.view }));
+    },
+    differing(locationsOnGrid) {
+      return this.against(locationsOnGrid).filter((d) => d.grid !== d.view);
+    },
+    note:
+      'The grid is on this view with unsaved changes. A view is a shared object, so an edit nobody saved is one person’s question rather than the project’s — which is the whole reason the bar names the view it started from.',
+  };
+
+  /**
+   * The three figure numbers the drawn screen claimed, checked one by one.
+   *
+   * Not "the list was wrong" but *which* of the three were, and how. A number
+   * this document does not carry at all is a different defect from a number it
+   * carries against a figure this view does not feed, and the second is the
+   * one a reader would never catch by proofreading.
+   */
+  const phantom = () => {
+    const claimed = (was.tsf.feeds.match(/\d+\.\d+/g) ?? []).map((n) => `Figure ${n}`);
+    const exists = REPORT_ITEMS.items.map((it) => it.n);
+    const fed = tsf.feeds.map((f) => f.n);
+    return {
+      claimed,
+      absent: claimed.filter((n) => !exists.includes(n)),
+      elsewhere: claimed.filter((n) => exists.includes(n) && !fed.includes(n)),
+      right: claimed.filter((n) => fed.includes(n)),
+      missed: fed.filter((n) => !claimed.includes(n)),
+      inSection: REPORT_ITEMS.items.filter((it) => it.kind === 'Figure' && it.section === '4').length,
+      section: '4',
+    };
+  };
+
+  return {
+    views, of, was, period, onCrosstab, viewFor,
+    get phantom() { return phantom(); },
+    /** Report items citing a saved view no record holds — zero, and checked. */
+    get orphanCitations() { return REPORT_ITEMS.items.filter((it) => cited(it.source) && !viewFor(it.source)); },
+    /** What each of the three surfaces said, and what it says now. */
+    get readings() {
+      return [
+        {
+          reading: 'The saved-views screen',
+          at: 'saved-views',
+          said: `${was.drawnRows.length} typed rows, ${was.namesInCommon} of which names a view this record holds`,
+          restsOn: 'Four literals in the screen module. Nothing derived them and nothing checked them against the record the grid was already drawing.',
+          now: `${views.length} views, read from the record`,
+          verdict: 'corrected',
+        },
+        {
+          reading: 'The results grid',
+          at: 'crosstab',
+          said: `${views.length} views, and a suite count the drawn screen contradicted`,
+          restsOn: 'This record, rendered as a table, beside a suite selector that independently carried the same 8.',
+          now: 'unchanged in substance — it was right',
+          verdict: 'stands',
+        },
+        {
+          reading: 'The figure register',
+          at: 'report-figures',
+          said: `${tsf.feeds.length} items sourced from “${PREFIX}TSF downgradient”, as text`,
+          restsOn: 'A string in each item’s source field, matching no record and linking nowhere.',
+          now: `${tsf.feeds.length} items, resolved against the record and linked`,
+          verdict: 'stands, and now resolves',
+        },
+      ];
+    },
+    /** Every value this settlement moved, with what it was. */
+    get moved() {
+      return [
+        { what: 'TSF downgradient · analytes', was: was.tsf.analytes, now: tsf.analytes, at: 'saved-views', why: 'The grid’s suite selector and the seed both said 8, independently. Six had no source.' },
+        { what: 'TSF downgradient · period', was: was.tsf.period, now: 'unsettled — both readings drawn', at: 'saved-views', why: 'No third record. Stated as a disagreement rather than decided.' },
+        { what: 'TSF downgradient · last run', was: was.tsf.lastRun, now: tsf.used, at: 'saved-views', why: 'The drawn date was three months behind the record, and nothing derived it.' },
+        { what: 'TSF downgradient · feeds', was: was.tsf.feeds, now: tsf.feeds.map((f) => f.n).join(', '), at: 'report-figures', why: `Derived from the report items that name the view. Of the ${phantom().claimed.length} it claimed, ${phantom().right.length} was right, ${phantom().elsewhere.length} names a figure this view does not feed, and ${phantom().absent.length} does not exist.` },
+        { what: 'TSF downgradient · used by', was: was.tsf.usedBy, now: tsf.by, at: 'saved-views', why: 'Unchanged — the assessment recorded an owner disagreement that re-measurement did not find.' },
+        { what: 'Views the screen draws', was: `${was.drawnRows.length} typed rows`, now: `${views.length} from the record`, at: 'saved-views', why: 'Three of the four typed names existed on no other surface.' },
+        { what: 'Compliance boundary · analytes', was: was.seedAnalytes['licence-quarterly'], now: of('licence-quarterly').analytes, at: 'crosstab', why: 'The count follows the licence set in force rather than the number that was true when it was typed.' },
+        { what: 'PFAS — everything · analytes', was: was.seedAnalytes['pfas-everything'], now: of('pfas-everything').analytes, at: 'crosstab', why: 'One suite record, rendered the same way in the filter and in the view.' },
+        { what: 'My quick check · analytes', was: was.seedAnalytes['quick-check'], now: of('quick-check').analytes, at: 'crosstab', why: 'The three analytes as the dictionary names them, fraction included — a metals view that does not say filtered is two questions.' },
+        { what: 'Results grid · the edits its chips name', was: was.crosstabChip, now: `${onCrosstab.dimensions.length} dimensions compared, one chip per difference`, at: 'crosstab', why: 'The bar said “edited” and then named a single edit, while four of its own selections differed from the view it says it is on — and that edit matched nothing anywhere else in the catalogue.' },
+      ];
+    },
+    /** The two location lists, checked against the groups rather than assumed. */
+    get matchesGroup() {
+      return views.filter((v) => v.group).map((v) => ({
+        view: v.name, group: v.group, members: v.locations,
+        was: was.seedLocations[v.id], agreed: v.locations === was.seedLocations[v.id],
+      }));
+    },
+    /* The counts the surfaces render, so none of them is typed. */
+    get shared() { return views.filter((v) => v.shared).length; },
+    get fed() { return views.filter((v) => v.feeds.length > 0).length; },
+    get feedsTotal() { return views.reduce((n, v) => n + v.feeds.length, 0); },
+    get fromGroup() { return views.filter((v) => v.group).length; },
+    get unsettledCount() { return views.filter((v) => v.period === null).length; },
+    settledOn: '2026-09-03',
+  };
+})();
+
+/** Column sets a returning user recalls rather than rebuilds (§6.1, EX-24). */
+export const SAVED_VIEW_LIST = SAVED_VIEWS.views;
 /** The keyboard contract, stated once and shown on demand (G-EXP-9). */
 export const SHORTCUTS = [
   { group: 'Anywhere', keys: [
@@ -11492,5 +11857,494 @@ export const ESTATE = (() => {
       bundleCategories: BUNDLE_CONTENTS.counts.categories,
       scheduled: rows.filter((r) => r.scheduled !== null).length,
     },
+  };
+})();
+
+/* ==================================================================== *
+ * Wave 18 — the vendor requirements brief as the seventh enumeration.
+ * 3 September 2026.
+ * ==================================================================== */
+
+/**
+ * `VENDOR_REQUIREMENTS.md`, row by row.
+ *
+ * ## Why it is a closed list and not a summary
+ *
+ * The brief is an independent acquisition advisor's, it was committed to this
+ * repository on decision D12, and its §19 asks for *"a traceability matrix
+ * mapping every requirement section to screens, states and end-to-end
+ * scenarios"*. `#coverage` already reconciles six closed enumerations and
+ * already refuses to claim a screen for a behaviour-shaped requirement, so the
+ * brief becomes the seventh rather than a second matrix beside it.
+ *
+ * **The rows are taken from the brief's own structure, not from a reading of
+ * it**: every numbered subsection from §4.2 through §14.4, §15's six lineage
+ * questions, §16's five scenarios, §17's ten screen states and §20's ten
+ * completion criteria. `build.mjs` reads `VENDOR_REQUIREMENTS.md` on every run
+ * and fails if a heading has no row, a row has no heading, a row's quoted
+ * words are not in the file, or a bullet count moves. A closed list that is
+ * only asserted to be closed is the artefact this project has twice recorded
+ * rotting.
+ *
+ * ## The three verdicts, and why they are the register's words
+ *
+ * The wave plan named them `covered` / `partially` / `not`. The other six
+ * enumerations on this screen have used `covered` / `partially` / `missing`
+ * since 1 September, `STATUS_TONE` is keyed on those words, and QB-9 is
+ * explicit that a second vocabulary for one concept is the defect. So the
+ * third word is `missing`, and this note is why.
+ *
+ * A verdict is judged at **the brief's own §2 standard**, which is stricter
+ * than a screen existing: *a requirement is not satisfied merely by adding a
+ * navigation item, dashboard card, table, modal or standalone screen.*
+ *
+ *   - `covered`    — the workflow, the information the decision needs, the
+ *                    actions, the states, the exceptions and the links to
+ *                    upstream evidence and downstream use are all drawn.
+ *   - `partially`  — some of what the section asks is drawn and some is not,
+ *                    and the note says which half is which.
+ *   - `missing`    — nothing in this catalogue answers it at that standard.
+ *
+ * ## The cross-check that makes it honest
+ *
+ * A verdict resting on a screen the register calls a **proposal** is not the
+ * same claim as one resting on a route the product serves, and until this wave
+ * no enumeration here said which it was. Every screen a row cites is resolved
+ * against the register in `screens.mjs` as the page is assembled — the
+ * resolution lives there because that is where the register lives, and a
+ * second copy of it here would be the defect this wave's other half is about.
+ *
+ * ## Where the brief and the product's own requirements disagree
+ *
+ * Four disagreements were recorded in the response memo and all four are
+ * answered decisions. They are **section-wide** rather than row-shaped — D1 is
+ * about the whole of §4, D4 about the whole of §5, D5 about the whole of §14 —
+ * so the decision is carried on every row it governs rather than on one row
+ * per decision. Four decisions, and the number of rows citing one is counted
+ * rather than stated.
+ */
+export const VENDOR_BRIEF = (() => {
+  /** §3's own ranking, section by section. `build.mjs` checks it against §3. */
+  const PRIORITY = {
+    4: 'P0', 5: 'P0', 6: 'P0', 7: 'P1', 8: 'P1', 9: 'P1',
+    10: 'P1', 11: 'P1', 12: 'P1/P2', 13: 'P2', 14: 'Strategic',
+  };
+
+  /** What each capability area is called in §3, for the group headings. */
+  const AREAS = {
+    4: 'Environmental Data Explorer and Query Builder',
+    5: 'GIS and spatial environmental workspace',
+    6: 'Sampling and Analysis Planning',
+    7: 'Laboratory/EDD configuration and onboarding',
+    8: 'QA/QC rule catalogue and validation',
+    9: 'Hydrogeological and environmental analysis',
+    10: 'Portfolio environmental operations',
+    11: 'Configuration governance',
+    12: 'Interpretation and reporting',
+    13: 'Regulatory criteria management',
+    14: 'Multi-domain environmental monitoring',
+  };
+
+  /*
+   * The rows. `items` is the number of things the subsection enumerates and it
+   * is checked against the file rather than counted by eye; `asks` is quoted
+   * from the brief verbatim and checked the same way.
+   */
+  const requirement = [
+    { id: '4.2', title: 'Query dimensions', items: 43, verdict: 'partially', decision: 'D1',
+      asks: 'The vendor shall show users constructing queries through combinations of the following dimensions.',
+      screens: ['crosstab', 'locations', 'exceedances', 'search'],
+      note: 'A facet exists on some screen for roughly a third of the {items} — the results grid alone carries six — and no facet composes with one on another screen. Nothing constructs a query; the nearest thing is a filter bar whose selections do not survive leaving the screen.' },
+    { id: '4.3', title: 'Query interaction', verdict: 'missing', decision: 'D1',
+      asks: 'The mockup must demonstrate progressive query construction and show how the resulting population changes as filters are applied.',
+      screens: [],
+      note: `The worked scenario cannot be expressed at all: six of its eight terms have no facet anywhere, and neither manganese nor a Unit C exists in this seed. The population readout it asks for exists once, as a static line on the grid — ${CROSSTAB_SHAPE.results} results, ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing, ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run.` },
+    { id: '4.4', title: 'Result representations', items: 6, verdict: 'partially', decision: 'D1',
+      asks: 'Without rebuilding the query, users must be able to move between:',
+      screens: ['crosstab', 'hydrograph', 'statistics', 'map', 'exceedances'],
+      note: 'Five of the {items} exist as screens; the sixth, summary statistics, is a link pointing at a screen that holds trend tests and no summary statistics. None of the five shares a population with another, so moving between them is rebuilding the question — which is the half the requirement is about.' },
+    { id: '4.5', title: 'Saved queries and governed datasets', items: 7, verdict: 'partially', decision: 'D1',
+      asks: 'A saved query or dataset used by an analysis, figure, interpretation or report must retain lineage to the exact query definition and relevant version.',
+      screens: ['saved-views', 'crosstab', 'report-figures'],
+      note: 'Wave 18 made the view one record read by three surfaces: named, owned, shared or private, its selection inspectable, and its downstream computed from the report items that cite it. Four of the {items} asks are drawn. Reopen-and-modify, save-a-variant and the draft/shared/approved/superseded lifecycle are not — and there is no version for the lineage to be held to.' },
+
+    { id: '5.1', title: 'Gap', verdict: 'missing', decision: 'D4',
+      asks: 'Mapping must become a scientific investigation workspace, not simply another way of displaying monitoring locations.',
+      screens: ['map'],
+      note: 'Two static plates. No layer list, no toggle, no symbology control, no time control and no selection. D4 accepts the workspace and restates NG4 as “no GIS authoring” — the map consumes layers and never authors them — and wave 23 builds it.' },
+    { id: '5.2', title: 'Required environmental layers', items: 14, verdict: 'partially', decision: 'D4',
+      asks: 'The interface must clearly identify active layers, legends, source, date or version where relevant, and whether a layer is project-supplied, derived or authoritative.',
+      screens: ['map', 'locations'],
+      note: 'Three of the {items} are drawn and exactly one meets the standard: the fitted potentiometric surface states its method, its control set, its largest residual and the confined bore it excludes. There is no layer list, so nothing else states a source, a date, or whether it is project-supplied, derived or authoritative.' },
+    { id: '5.3', title: 'Environmental symbology', items: 7, verdict: 'missing', decision: 'D4',
+      asks: 'Users must be able to colour or symbolise locations by:',
+      screens: ['map'],
+      note: 'One fixed symbology, no control, none of the seven dimensions selectable. The second sentence — how the analyte, criterion, period, units, non-detect treatment and classification method change the map — has nowhere to be asked.' },
+    { id: '5.4', title: 'Temporal analysis', verdict: 'missing', decision: 'D4',
+      asks: 'The user must not need to rebuild the map for each period.',
+      screens: ['map'],
+      note: 'One period, drawn once, with no round control. The vocabulary for the harder half exists elsewhere and is good — on the grid an unsampled bore is a column carrying a disposition and a glyph rather than a blank — so what wave 23 has to move is the control, not the concept.' },
+    { id: '5.5', title: 'Location investigation', items: 9, verdict: 'partially', decision: 'D4',
+      asks: 'Selecting a bore or location must expose relevant scientific context without unnecessarily leaving the spatial investigation:',
+      screens: ['location', 'map', 'hydrograph', 'documents'],
+      note: 'Every one of the {items} exists, and the bore record is one of the strongest screens here — construction, screened interval read vertically as a nest, elevation, recent samples, exceedances, hydrograph, QA/QC state, attachments. Reaching any of them leaves the map, which is the clause the requirement turns on.' },
+    { id: '5.6', title: 'Spatial selection and hand-off', verdict: 'missing', decision: 'D4',
+      asks: 'The relationship between Map ↔ Data Explorer ↔ Analysis is mandatory.',
+      screens: ['map', 'crosstab'],
+      note: 'The map has no selection, so the hand-off has no subject — and two of the three workspaces the relationship names do not exist. Scenario D breaks precisely here.' },
+
+    { id: '6.1', title: 'Gap', verdict: 'partially',
+      asks: 'Strataflow must demonstrate not only the recording of samples, but the management of the intended monitoring programme and confirmation that it was executed correctly.',
+      screens: ['programme', 'events', 'field-capture'],
+      note: 'Recording is the catalogue’s strongest ground and the round confirms itself — a completion control that refuses and names the three lines holding it. The intended programme is a record to read; nothing shows it being managed.' },
+    { id: '6.2', title: 'Monitoring programme definition', items: 10, verdict: 'partially',
+      asks: 'The mockup must show recurring requirements, one-off exceptions, temporary location changes and versioned programme amendments.',
+      screens: ['programme', 'events'],
+      note: 'The programme states its locations, frequency, matrices, suites, laboratory and responsible party, and a TARP-escalated monthly programme runs beside the quarterly one. Nothing shows a programme being defined, versioned or amended, and neither the one-off exception nor the temporary location change has a record.' },
+    { id: '6.3', title: 'Sampling event preparation', items: 10, verdict: 'partially',
+      asks: 'For every location, the scientist must understand what is to be collected, including:',
+      screens: ['events', 'field-capture', 'ecoc', 'receipt'],
+      note: 'The round’s manifest carries samples, suites, tests, containers and the QA samples, and the chain of custody carries the preservation and the seals. What is not drawn is the generation — expected work produced *from the programme* — so the distinction the requirement asks for between a programme requirement, an event amendment and a field decision is not available to be drawn.' },
+    { id: '6.4', title: 'Planned-versus-actual completeness workflow', items: 10, verdict: 'partially',
+      asks: 'This must be an actionable monitoring-completeness workflow, not merely a status table.',
+      screens: ['programme', 'field-capture', 'receipt', 'imports', 'crosstab'],
+      note: 'Six stages, six sound hand-offs, six different screens, and nowhere a reconciliation: the completeness record is three columns wide and submitted, analysed and validated are absent. The exception vocabulary is fully satisfied — MW11 dry with two visits kept as two records, and a nitrate clock that runs from collection where a holding time measured from receipt would have called it compliant.' },
+
+    { id: '7.1', title: 'Gap', verdict: 'partially',
+      asks: 'the mockup must demonstrate how organisations manage different laboratories, historical consultant files and changing EDD formats.',
+      screens: ['formats', 'mapping-profiles', 'imports', 'migration'],
+      note: 'The historical consultant file is drawn end to end, with the reconciliation that proves it landed. There is no laboratory object at all — a laboratory is a string on a format, a batch and a certificate — so “manage different laboratories” has no subject to manage.' },
+    { id: '7.2', title: 'Required onboarding workflow', verdict: 'missing',
+      asks: 'New laboratory or format → define/import structure → map fields → validate → preview → resolve issues → test → review → save reusable format',
+      screens: ['formats', 'import-review'],
+      note: 'Nine steps. The format screen holds definitions in force rather than authoring: no structure import, no test run, no preview, no review, no save-as-reusable. Two of the nine are drawn well and for the wrong object — mapping and resolving happen on a run, not on a format being onboarded.' },
+    { id: '7.3', title: 'Environmental field mapping', items: 15, verdict: 'partially',
+      asks: 'The user must be able to see the source field, mapped Strataflow field, transformation or reference-data mapping, validation state and example value.',
+      screens: ['mapping-profiles', 'import-review', 'formats'],
+      note: 'The learned entries carry source, target, kind, who learned it, its own version and its use count; the exception review carries the row, the file, the confidence and the proposal. The five properties are spread across two screens and no row carries all five.' },
+    { id: '7.4', title: 'Problem and exception handling', items: 9, verdict: 'partially',
+      asks: 'The system must not imply that scientifically material transformations occur silently.',
+      screens: ['import-review', 'quarantine', 'imports'],
+      note: 'Two measurements and both are real. The *resolution* meets §2 outright — confidence per question, rows at stake summing to the header count, “if you accept” stating the downstream, a held row where the screen refuses to offer an accept control, and an “applied without asking — and why” table naming the basis and row count for each. Of the {items} problem types the brief asks to be deliberately included, four are demonstrated and five are not.' },
+    { id: '7.5', title: 'Mapping-profile governance', items: 7, verdict: 'partially',
+      asks: 'The mockup must show which mapping version was used for a particular import and which transformations affected a selected result.',
+      screens: ['mapping-profiles', 'imports', 'lineage'],
+      note: 'The second half is answered and answered from the bore: lineage names the transformation that reached a value. The first is not. A profile has a laboratory and a state and no name, no description, no profile version and no approver — and no import run names the version it ran under.' },
+
+    { id: '8.1', title: 'Gap and design constraint', verdict: 'partially',
+      asks: 'The vendor must not redesign its fundamental model.',
+      screens: ['qc', 'qc-limits'],
+      note: 'The constraint is honoured: the decision layer is untouched, and waves 16 and 17 extended it — a matrix dimension on the objectives, a scheme and an origin on the qualifiers — rather than replacing anything. The second half, that the model accommodates the breadth of practice, is §8.2’s measurement and it stands at 13 of the 22 rules §8.2 lists.' },
+    { id: '8.2', title: 'Rule catalogue coverage', items: 22, verdict: 'partially',
+      asks: 'The design objective is a coherent catalogue and configuration model capable of representing this breadth.',
+      screens: ['qc', 'qc-limits', 'batches', 'consistency', 'dqa', 'purge', 'quarantine'],
+      note: '13 of the {items} are governed by a rule with a version, an acceptance limit and now a matrix. Holding time and preservation — the two with the sharpest consequences, and both drawn as findings — sit outside the governed set, so the catalogue judges them without configuring them.' },
+    { id: '8.3', title: 'Rule context', items: 10, verdict: 'partially',
+      asks: 'A rule must visibly identify:',
+      screens: ['qc-limits', 'qc'],
+      note: 'Four are declared: what it evaluates, its acceptance range, its applicable matrix and its version, each with an effective date. Severity, analyte group, method, and whether automatic disposition is permitted are read off an absence rather than stated — which is the difference between a rule that says what it is and one a reader infers.' },
+    { id: '8.4', title: 'Professional judgement workflow', verdict: 'covered',
+      asks: 'Automated finding → evidence → scientist review → disposition → qualifier → rationale → downstream consequence',
+      screens: ['qc', 'qualifiers', 'result-detail', 'lineage'],
+      note: 'The workflow §2’s standard was written for. Each finding carries the question in a hydrogeologist’s words, the evidence, and an options table stating the propagation basis, what each option writes and whether it is available on this evidence — two options refused with the reason, plus an explicitly refused course — and wave 17 added which vocabulary each qualifier is drawn from and who asserted it.' },
+
+    { id: '9.1', title: 'Gap', verdict: 'missing',
+      asks: 'The mockup must demonstrate a coherent Analysis workspace.',
+      screens: [],
+      note: 'There is no analysis object, so §9.5’s chain has no first link and §12.2’s interpretation has nothing of the kind to cite. Wave 21 builds it, after the dataset it stands on.' },
+    { id: '9.2', title: 'Groundwater-level analysis', items: 8, verdict: 'covered',
+      asks: 'The design must expose datum, units, bore reference elevation, measurement status, temporal alignment and relevant exclusions.',
+      screens: ['hydrograph', 'map', 'logger-series', 'location'],
+      note: 'All {items}, at the standard: elevation derived through the survey in force at each measurement date, the resurvey drawn as a ruled and named step, the gradient by planar fit with its residual printed and its exclusion argued, and a dry bore drawn as a break rather than as a line through it.' },
+    { id: '9.3', title: 'Hydrochemistry', items: 7, verdict: 'partially',
+      asks: 'The user must be able to inspect the input population, excluded records, unit conversions, charge-balance result and grouping or symbolisation logic.',
+      screens: ['hydrochem', 'consistency'],
+      note: 'Piper, Stiff and Schoeller are drawn, and the ionic balance is computed from the ions rather than stated. Durov is approved (D2) and gated on the print test (D13) with every other figure family. The second sentence is where this fails: no population, no exclusions, no unit conversions and no table view — the screen renders a tenth of what the hydrograph does.' },
+    { id: '9.4', title: 'Trend and statistical analysis', items: 10, verdict: 'partially',
+      asks: 'A graph without an inspectable underlying population is inconsistent with Strataflow’s defensibility proposition.',
+      screens: ['statistics', 'background'],
+      note: 'Five of the {items} are drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all, and the population behind the trend is described rather than inspectable.' },
+    { id: '9.5', title: 'Analysis lineage', verdict: 'missing',
+      asks: 'Query → included observations/results → QA/QC state → analytical settings → output',
+      screens: ['lineage'],
+      note: 'The catalogue runs the other chain — bore, sample, result, figure, report — and runs it well. This one has neither of its first two links, and where an output supports a figure the relationship is drawn from the figure’s side only.' },
+
+    { id: '10.1', title: 'Gap', verdict: 'partially',
+      asks: 'The mockup must demonstrate how a senior environmental manager works across many projects and sites, rather than one dataset at a time.',
+      screens: ['obligations', 'projects', 'project-home'],
+      note: 'Two projects, and the oldest thing owed on the estate belongs to the one whose workspace is deliberately not drawn — which is what a portfolio actually looks like and is drawn as such rather than smoothed over.' },
+    { id: '10.2', title: 'Portfolio context', items: 6, verdict: 'partially',
+      asks: 'The hierarchy and current filter context must be apparent.',
+      screens: ['projects', 'obligations', 'project-home'],
+      note: 'Four of the {items} — projects, sites, programmes and rounds. There is no organisation or client tier and that is a deployment fact rather than a missing screen: the instance is single-tenant by DR-1, and D8 answers it as a client label on a project rather than as a tier. Environmental domain as a portfolio dimension does not exist.' },
+    { id: '10.3', title: 'Environmental work queue', items: 19, verdict: 'partially',
+      asks: 'What environmental work requires attention today, why, and what happens if it is not resolved?',
+      screens: ['home', 'obligations', 'qc', 'import-review', 'exceedances'],
+      note: 'All nine kinds of work are identifiable and the queue answers the question in the requirement’s own words, with assignment as a thread hanging off the exceedance. Seven of the ten filters have no data behind them — a row carries kind, urgency, headline, context, project, age, target and action and nothing else — reassignment has no target picker and dependency is prose. D7 promotes the queue to its own screen in wave 30 and keeps “/” a project list.' },
+
+    { id: '11.1', title: 'Gap', verdict: 'partially',
+      asks: 'Environmental configuration must have explicit scope, inheritance and lifecycle.',
+      screens: ['criteria', 'qc-limits', 'project-settings', 'package'],
+      note: 'Scope and version are explicit on every configuration object, and the package screen carries them between deployments. Inheritance does not exist here as a concept at all.' },
+    { id: '11.2', title: 'Configuration hierarchy', items: 7, verdict: 'partially',
+      asks: 'The user must be able to distinguish an inherited value, an overridden value and a locally created value, and understand the consequence of a proposed change.',
+      screens: ['criteria', 'qc-limits', 'project-settings', 'mapping-profiles', 'package', 'programme', 'exceedances'],
+      note: 'The second clause is the best thing the catalogue does with configuration: seven screens compute what a proposed change would reach before the control that makes it — results re-derived, evaluations recomputed, issued reports flagged stale and not rewritten, historical evaluations untouched, and reversibility stated either way. The first clause has nothing behind it: no organisation → client → project → programme chain, and no value marked inherited, overridden or local.' },
+    { id: '11.3', title: 'Configuration lifecycle', items: 9, verdict: 'partially',
+      asks: 'Draft → Review → Approved → Effective → Superseded',
+      screens: ['criteria', 'qc-limits', 'licence', 'submissions', 'package'],
+      note: 'Effective, superseded and historically applicable are drawn to the byte — the window and the criterion in force at each round frozen onto the outcome, and version diffs that draw identical items rather than dropping them. Review, rejected and returned-for-revision exist on no configuration item anywhere; draft does, and a future-effective version is a draft with a date.' },
+
+    { id: '12.1', title: 'Gap and design intent', verdict: 'covered',
+      asks: 'The existing Interpretation Editor is strategically strong and must be expanded rather than replaced with generic word-processing functionality.',
+      screens: ['narrative'],
+      note: 'Honoured. The editor was rebuilt to a practitioner’s finding — evidence for the inference rather than evidence for the citations — and carries no word processor: the software does not score the inference, does not rewrite the prose, and does not flag a sentence for a change a reader could not see. The same practitioner has not seen what replaced it.' },
+    { id: '12.2', title: 'Interpretation object', items: 10, verdict: 'partially',
+      asks: 'The interface must distinguish evidence, the scientist’s interpretation, uncertainty, limitations and recommended action.',
+      screens: ['narrative', 'lineage', 'report-figures', 'exceedances'],
+      note: 'Eight of the {items} can be referenced. Saved queries and statistics or analyses cannot, because neither object exists yet. Evidence, interpretation and uncertainty are distinguished and each tile says what it does *not* settle; recommended action has no object and there is no recommendations register.' },
+    { id: '12.3', title: 'Managed figures and tables', items: 9, verdict: 'covered',
+      asks: 'The user must be able to inspect how a figure or table was generated and identify whether it is current, stale or affected by changed evidence.',
+      screens: ['report-figures', 'narrative', 'snapshot'],
+      note: 'All {items}, plus the distinction that carries them: a figure being out of date and a figure having changed under an author are two findings on two screens. Numbering computed from position and scoped to the template version, every cross-reference resolved with dangling detection, and — since this wave — a source naming a saved view that resolves to it.' },
+    { id: '12.4', title: 'Review and publication workflow', verdict: 'partially',
+      asks: 'Reviewers must be able to comment on specific interpretations, evidence links, figures and findings.',
+      screens: ['signoff', 'snapshot', 'supersession', 'narrative'],
+      note: 'Draft, approval and publication are drawn with three signing capacities, a digest and exactly what each signature covered; and the change-impact half is answered outright — the cascade withdraws an exceedance and a trigger state, flags the report section, and the snapshot reports the difference value by value. Technical review and revisions are not drawn: there is no comment machinery anywhere in this catalogue and no interpretation review state.' },
+
+    { id: '13.1', title: 'Gap', verdict: 'partially',
+      asks: 'Criteria must be treated as governed environmental information, not simply threshold numbers.',
+      screens: ['criteria', 'hardness', 'background'],
+      note: 'The *set* is governed to the standard — version, effective span, matrix, applicability, and a change whose reach is computed before it is made. The criterion is not an object here, so the governance stops one level above the thing the requirement names.' },
+    { id: '13.2', title: 'Criterion information model', items: 13, verdict: 'partially',
+      asks: 'A criterion must contain:',
+      screens: ['criteria', 'hardness', 'qualifiers'],
+      note: `The library is a register of sets: jurisdiction, issuing authority, source document and criterion type are fields nowhere, value and unit live on the results grid rather than on a criterion, and the ${CRITERIA_LIBRARY.find((x) => x.set.startsWith('ANZG 2018') && x.state === 'active').analytes} analytes inside the active ANZG 2018 set cannot be browsed. The second sentence is answered better than it asks — the hardness dependency shows its relationship, its cap, what the cap costs and a cross-check against calcium and magnesium.` },
+    { id: '13.3', title: 'Project application', items: 6, verdict: 'partially',
+      asks: 'Which criteria apply here, to which data, and why?',
+      screens: ['criteria', 'licence', 'background', 'tarp', 'exceedances'],
+      note: 'Five of the {items} kinds have a screen that owns them, and the question is answered per set, per matrix and per location class, with concurrent outcomes kept apart rather than merged into one. A conflict between two potentially applicable criteria has no surface — this catalogue draws concurrency instead, deliberately, and says so.' },
+    { id: '13.4', title: 'Historical defensibility', verdict: 'partially',
+      asks: 'The original and current assessments must remain distinguishable and traceable.',
+      screens: ['snapshot', 'supersession', 'criteria', 'exceedances'],
+      note: 'Answered in one direction and unanswered in the other. That a change never reaches backwards is enforced rather than promised — the criterion in force frozen onto the outcome, a locked period refusing the write, an issued report flagged stale and not rewritten. There is no surface for asking the second question on purpose: under the current criterion, how would this have been assessed?' },
+
+    { id: '14.1', title: 'Objective', verdict: 'partially', decision: 'D5',
+      asks: 'The mockup must demonstrate that its product concept can evolve into a broader environmental monitoring and evidence-management platform without creating a disconnected application for every discipline.',
+      screens: ['locations', 'composite', 'logger-series', 'stygofauna', 'water'],
+      note: 'Five domains beyond groundwater chemistry are drawn on the catalogue’s own screens rather than in modules of their own, and every one is labelled S8 widening — which is what keeps a drawing from reading as a schedule.' },
+    { id: '14.2', title: 'Domains to demonstrate', items: 37, verdict: 'partially', decision: 'D5 · D6',
+      asks: 'At minimum, the information architecture must visibly accommodate:',
+      screens: ['locations', 'location', 'composite', 'crosstab', 'logger-series', 'hydrograph'],
+      note: 'Groundwater is complete. Soil and sediment are drawn and cannot be *evaluated*: no set in the library carries a soil or sediment matrix, which needs a source rather than a design, and D3 supplies NEPM 2013 at commercial/industrial land use for wave 25. Surface water is a round and a location with no detail state. Air, dust, noise and meteorology have no record — rainfall exists only as an overlay with no location and no lineage. Noise is the one domain with no PRD warrant: NG5 refuses noise *modelling*, and D6 draws monitoring while saying so on the screen.' },
+    { id: '14.3', title: 'Common environmental model', verdict: 'missing', decision: 'D5',
+      asks: 'The mockup must communicate that these domains are governed variations of a common conceptual model:',
+      screens: [],
+      note: 'The chain is honoured screen by screen and stated on none of them. What the requirement asks for is the statement itself, and that is a screen this catalogue does not have. Wave 24a, under D9’s constraint: one criterion object at different settings, with a finding always rendering which kind of assertion produced it.' },
+    { id: '14.4', title: 'Domain-specific scientific context', items: 6, verdict: 'partially', decision: 'D5',
+      asks: 'common governance with domain-specific scientific behaviour',
+      screens: ['location', 'composite', 'crosstab'],
+      note: 'Where a domain has a record the specialist context is better than the requirement asks: bore construction and screened intervals read vertically as a nest, soil depth intervals with a composite’s increment positions both ways, and a sediment sample refused a soil background because the comparison would cross matrices. Three of the {items} examples name domains with no record at all.' },
+  ];
+
+  const lineage = [
+    { id: 'L1', verdict: 'covered', screens: ['lineage', 'result-detail', 'certificate', 'imports'],
+      asks: 'Where did this information come from?',
+      note: 'The chain begins at the bore rather than at the deliverable — a practitioner’s correction, answered — and runs through the sample, the container, the file, the row and the certificate.' },
+    { id: 'L2', verdict: 'covered', screens: ['hardness', 'qc', 'criteria', 'consistency'],
+      asks: 'What transformation or scientific decision produced it?',
+      note: 'The hardness-modified criterion shows its equation, its cap and what the cap costs; the non-detect rule shows four treatments over the same rows; no value is derived, converted or censored without the rule travelling with it.' },
+    { id: 'L3', verdict: 'covered', screens: ['criteria', 'qc-limits', 'snapshot', 'exceedances'],
+      asks: 'Which version, rule or criterion applied?',
+      note: 'Frozen onto the outcome at evaluation, and recorded on the snapshot the document regenerates under — so a report lodged in 2025 comes back numbered and assessed as it was lodged.' },
+    { id: 'L4', verdict: 'covered', screens: ['audit', 'signoff', 'qc', 'qualifiers'],
+      asks: 'Who made or approved the decision?',
+      note: 'Attribution is a property of the write rather than a field somebody fills, three signing capacities are kept apart, and wave 17 made the asserter of a qualifier explicit — the same letter from two asserters with two different fates.' },
+    { id: 'L5', verdict: 'covered', screens: ['qc', 'narrative', 'documents', 'quarantine'],
+      asks: 'What rationale and evidence supported it?',
+      note: 'The rationale is a field on the decision rather than a comment beside it: the option table records what each choice writes, and the refused options record why they were refused.' },
+    { id: 'L6', verdict: 'partially', screens: ['supersession', 'snapshot', 'report-figures', 'lineage'],
+      asks: 'Which downstream outputs depend on it?',
+      note: 'Forward from a result to the issued document is drawn and computed. Three hops of §15’s own chain run one way only — result→query, query→analysis and analysis→figure all break on the way back — and two are missing entirely: a sampling plan for groundwater, and interpretation→obligation.' },
+  ];
+
+  const scenario = [
+    { id: 'A', title: 'Scenario A — Routine groundwater monitoring', verdict: 'partially', hops: 10,
+      asks: 'Programme → planned round → field collection → laboratory receipt → QA/QC → validated dataset → hydrograph → exceedance → interpretation → report',
+      screens: ['programme', 'events', 'field-capture', 'receipt', 'qc', 'validation', 'hydrograph', 'exceedances', 'narrative', 'report'],
+      note: 'Walks, in ten hops. It strains where §6.4 does — planned-versus-actual is three columns wide, and submitted, analysed and validated are absent — and the results grid has no edge to the hydrograph, so the reader takes the long way round.' },
+    { id: 'B', title: 'Scenario B — Problematic laboratory batch', verdict: 'covered', hops: 10,
+      asks: 'EDD received → validation problem → mapping issue → QA/QC failures → scientist review → qualification → affected results → affected figures and interpretation',
+      screens: ['imports', 'import-review', 'quarantine', 'qc', 'qualifiers', 'crosstab', 'report-figures', 'narrative'],
+      note: 'The catalogue’s best scenario and the one that meets §2 outright, end to end in ten hops, with more than one exception type and each decision’s downstream effect drawn. What it does not carry is the reviewer’s side: the interpretation flags a sentence and offers no comment and no return-for-revision.' },
+    { id: 'C', title: 'Scenario C — Historical investigation', verdict: 'partially',
+      asks: 'Report → interpretation → figure/table → analytical population → validated result → QA/QC → laboratory result → sample → monitoring event → location',
+      screens: ['submissions', 'snapshot', 'report-figures', 'lineage', 'result-detail', 'qc', 'certificate', 'events', 'location'],
+      note: 'From the figure downward it is excellent and exposes the versions, decisions and actors the scenario asks for. It breaks at the top, twice: there is no route from an issued report to the result rows it stands on, and the figure register’s source cell was text — half of which this wave fixed, for the items that name a saved view. Wave 31 closes the rest.' },
+    { id: 'D', title: 'Scenario D — Emerging groundwater issue', verdict: 'partially',
+      asks: 'The scientist must maintain project, time, spatial and analyte context as they move between workspaces.',
+      screens: ['obligations', 'exceedances', 'location', 'map', 'crosstab', 'statistics', 'hydrograph', 'narrative', 'tarp'],
+      note: 'Both ends work and the middle carries no context. The map has no selection, so “surrounding bores → Data Explorer” cannot be expressed at all, and the interpretation reaches no obligation surface. Wave 23 gives the map a selection and wave 29 the interpretation→obligation hop; the walk needs both.' },
+    { id: 'E', title: 'Scenario E — Multi-domain investigation', verdict: 'missing',
+      asks: 'Elevated groundwater concentration + nearby surface-water monitoring + rainfall event',
+      screens: ['locations', 'crosstab', 'hydrograph'],
+      note: 'Not walkable. It breaks at the first cross-domain hop: the surface-water location has no detail state, its round is a row with no manifest, and rainfall is a panel on a hydrograph with no record, no location and no lineage. Wave 24a makes it walkable with two domain records rather than four.' },
+  ];
+
+  const state = [
+    { id: 'S1', verdict: 'covered', screens: ['data-states', 'quarantine', 'exceedances'],
+      asks: 'Initial or empty state',
+      note: 'Two kinds of empty, drawn as two: a finished queue and an unstarted register are different sentences and the catalogue refuses to write one for both.' },
+    { id: 'S2', verdict: 'covered', screens: ['crosstab', 'locations', 'exceedances', 'imports'],
+      asks: 'Populated working state',
+      note: 'Grid-dense, on the product’s own tokens — the state every register here is drawn in first.' },
+    { id: 'S3', verdict: 'partially', screens: ['crosstab', 'locations', 'qc'],
+      asks: 'Filtered or selected state',
+      note: 'Drawn as states rather than performed: a filter bar with its chips and the view it started from, and a selection bar whose every action names its scope. The catalogue is static by construction, so what §4.3 asks to be demonstrated is a sequence of drawn states, and this row says so rather than implying an interaction.' },
+    { id: 'S4', verdict: 'covered', screens: ['data-states', 'imports', 'documents'],
+      asks: 'Loading or processing state where user understanding depends on it',
+      note: 'Determinate, with bytes and a time. An indeterminate spinner cannot be told from a dead connection on a site link, which is the condition this product is used in.' },
+    { id: 'S5', verdict: 'covered', screens: ['import-review', 'validation', 'consistency'],
+      asks: 'Warning and validation state',
+      note: 'Every warning names the rule it came from and what happens if it is cleared by scrolling past it.' },
+    { id: 'S6', verdict: 'covered', screens: ['quarantine', 'indeterminate', 'composite'],
+      asks: 'Scientific or data exception state',
+      note: 'The states neither incumbent has: a result that could not be assessed because the reporting limit sits above the criterion, and an absence that says which kind of absence it is.' },
+    { id: 'S7', verdict: 'partially', screens: ['qc', 'validation', 'signoff'],
+      asks: 'Review state',
+      note: 'A data review state is drawn and is the catalogue’s strongest surface. An *interpretation* review state is not, and there is no comment machinery for one to hang on.' },
+    { id: 'S8', verdict: 'covered', screens: ['signoff', 'import-commit', 'programme'],
+      asks: 'Approval or completion state',
+      note: 'Signatures carry capacity, digest and exactly what was covered; and a completion control that cannot honestly complete refuses and names the lines holding it.' },
+    { id: 'S9', verdict: 'covered', screens: ['supersession', 'certificate', 'snapshot', 'criteria'],
+      asks: 'Superseded or historically applicable state where relevant',
+      note: 'A superseded reading keeps its old value struck through beside the new one, and a locked period refuses a write rather than warning about it.' },
+    { id: 'S10', verdict: 'partially', screens: ['lineage', 'supersession', 'snapshot'],
+      asks: 'Upstream evidence and downstream dependency views',
+      note: 'Drawn for a result and for a certificate, in both directions. Absent for a population and for an analysis, because neither object exists — which is §9.5 arriving from the other end.' },
+  ];
+
+  const completion = [
+    { id: 'C1', derive: (rs) => rs.filter((r) => r.group === 'requirement'), screens: ['coverage'],
+      asks: 'Every in-scope requirement is mapped to an inspectable screen and state.',
+      note: 'Derived from the rows above rather than judged: this reads covered only when every requirement row does.' },
+    { id: 'C2', derive: (rs) => rs.filter((r) => r.group === 'scenario'), screens: ['coverage'],
+      asks: 'Scenarios A–E can be followed without relying on verbal explanation from the vendor.',
+      note: 'Derived from the five scenario rows. One walks end to end today.' },
+    { id: 'C3', verdict: 'partially', screens: ['import-review', 'qc', 'crosstab'],
+      asks: 'Complex scientific queries and exceptions are demonstrated with realistic environmental data.',
+      note: 'The exceptions are, on a coherent single dataset with laboratory certificates, custody chains and real censoring. The queries are not: §4.3’s worked scenario cannot be expressed and two of its analytes do not exist here.' },
+    { id: 'C4', verdict: 'partially', screens: ['qc', 'import-review', 'field-capture', 'signoff'],
+      asks: 'The mockup shows what the user knows, decides and records at each important step.',
+      note: 'Wherever a workflow is drawn this is the thing the catalogue does best — the decision, its evidence, what each option writes, and the options that are refused. Where a workflow is absent there is no step to show it at.' },
+    { id: 'C5', verdict: 'covered', screens: ['qc', 'audit', 'signoff', 'narrative'],
+      asks: 'Professional judgement is attributable and supported by evidence and rationale.',
+      note: 'Attribution is enforced at the write rather than promised in prose, and the rationale is a field on the decision. The one thing the catalogue will not do is score the judgement, which is stated on the screen as a rule.' },
+    { id: 'C6', verdict: 'covered', screens: ['criteria', 'snapshot', 'supersession', 'qc-limits'],
+      asks: 'Historical versions remain distinguishable from current configurations and assessments.',
+      note: 'Distinguishable and traceable in the direction that matters most: nothing already decided moves. What §13.4 asks for beyond this — asking the counterfactual on purpose — is a different requirement and is its own row.' },
+    { id: 'C7', verdict: 'missing', screens: ['crosstab', 'map', 'qc', 'narrative', 'obligations', 'report'],
+      asks: 'Context persists appropriately between Data Explorer, Map, Analysis, QA/QC, Interpretation, Obligations and Reporting.',
+      note: 'Three of the seven workspaces named do not exist, and no context object persists between any two of the four that do. This is the keystone the response memo identifies: seven requirements across the brief collapse onto one artefact — a population that can be named, versioned, carried and cited years later at the version used.' },
+    { id: 'C8', verdict: 'partially', screens: ['lineage', 'supersession', 'snapshot', 'certificate'],
+      asks: 'Upstream evidence and downstream dependencies are visible wherever relevant.',
+      note: 'Visible and computed for a result, a certificate and an issued document. Three hops run one way only and two are missing, which §15’s own row counts.' },
+    { id: 'C9', derive: (rs) => rs.filter((r) => r.section === 14), screens: ['coverage'],
+      asks: 'Multi-domain capability is demonstrated through a common model with domain-specific scientific behaviour.',
+      note: 'Derived from §14’s four rows. The domain-specific half is ahead of the common-model half, which is the opposite of the usual failure and is why 24a states the model before it draws another domain.' },
+    { id: 'C10', verdict: 'covered', screens: ['coverage'],
+      asks: 'No requirement is claimed as complete solely because a menu item, dashboard tile or isolated screen has been added.',
+      note: 'The discipline this screen already implements, and this enumeration is an instance of it: rows resting on a proposal are counted separately, four rows are marked n/a with a reason rather than counted, and no screen is claimed for a behaviour-shaped requirement.' },
+  ];
+
+  /**
+   * `{items}` in a note is the number of things that subsection enumerates.
+   *
+   * The numerator in a sentence like *five of the ten* is a judgement and
+   * stays written down; the denominator is the brief's own list and is not
+   * anybody's judgement, so it is substituted from the row's own `items` —
+   * which `build.mjs` has already checked against the document. One
+   * substitution point, so a note that grew a placeholder it cannot fill
+   * fails the build rather than rendering the token.
+   */
+  const fill = (r) => (r.note.includes('{items}')
+    ? { ...r, note: r.note.replace(/\{items\}/g, String(r.items)) }
+    : r);
+
+  const rows = [
+    ...requirement.map(fill).map((r) => ({ ...r, group: 'requirement', section: Number(r.id.split('.')[0]) })),
+    ...lineage.map((r) => ({ ...r, group: 'lineage', title: r.asks })),
+    ...scenario.map((r) => ({ ...r, group: 'scenario' })),
+    ...state.map((r) => ({ ...r, group: 'state', title: r.asks })),
+    ...completion.map((r) => ({ ...r, group: 'completion', title: r.asks })),
+  ];
+  for (const r of rows) r.priority = PRIORITY[r.section] ?? '—';
+
+  /**
+   * A derived verdict, for the completion criteria that are claims about the
+   * other rows.
+   *
+   * §20's first, second and ninth criteria are not independent judgements —
+   * they are statements *about* the rows above, and typing a verdict for one
+   * of them would be the defect this enumeration exists to catch. They are
+   * computed: covered when every row in their scope is covered, missing when
+   * none is, partially otherwise.
+   */
+  const rollUp = (list) =>
+    list.every((r) => r.verdict === 'covered') ? 'covered'
+      : list.every((r) => r.verdict === 'missing') ? 'missing'
+        : 'partially';
+  for (const r of rows) {
+    if (r.derive) { r.verdict = rollUp(r.derive(rows)); r.derived = true; }
+  }
+
+  const count = (list, verdict) => list.filter((r) => r.verdict === verdict).length;
+  const group = (name) => rows.filter((r) => r.group === name);
+  const sections = [...new Set(requirement.map((r) => Number(r.id.split('.')[0])))];
+
+  return {
+    rows, sections, AREAS, PRIORITY,
+    /* Every count this screen renders, computed here so no face types one. */
+    get counts() {
+      return {
+        rows: rows.length,
+        covered: count(rows, 'covered'),
+        partially: count(rows, 'partially'),
+        missing: count(rows, 'missing'),
+        requirement: group('requirement').length,
+        lineage: group('lineage').length,
+        scenario: group('scenario').length,
+        state: group('state').length,
+        completion: group('completion').length,
+        scenariosWalking: count(group('scenario'), 'covered'),
+        withDecision: rows.filter((r) => r.decision).length,
+        decisions: [...new Set(rows.flatMap((r) => (r.decision ? r.decision.split(' · ') : [])))].sort(),
+        noScreen: rows.filter((r) => r.screens.length === 0).length,
+        /* The brief's own enumerations, summed off the rows that carry one. */
+        items: rows.reduce((n, r) => n + (r.items ?? 0), 0),
+      };
+    },
+    byPriority() {
+      const order = ['P0', 'P1', 'P1/P2', 'P2', 'Strategic'];
+      return order.map((p) => {
+        const list = rows.filter((r) => r.priority === p);
+        return { priority: p, n: list.length, covered: count(list, 'covered'), partially: count(list, 'partially'), missing: count(list, 'missing') };
+      }).filter((x) => x.n > 0);
+    },
+    bySection() {
+      return sections.map((s) => {
+        const list = rows.filter((r) => r.section === s);
+        return {
+          section: s, area: AREAS[s], priority: PRIORITY[s], n: list.length,
+          covered: count(list, 'covered'), partially: count(list, 'partially'), missing: count(list, 'missing'),
+          decision: [...new Set(list.flatMap((r) => (r.decision ? r.decision.split(' · ') : [])))].join(' · '),
+        };
+      });
+    },
+    group,
+    /** The record the whole enumeration is taken from, named on the screen. */
+    source: 'VENDOR_REQUIREMENTS.md',
+    standard: 'A requirement is not satisfied merely by adding a navigation item, dashboard card, table, modal or standalone screen.',
+    enumeratedOn: '2026-09-03',
   };
 })();

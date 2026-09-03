@@ -343,8 +343,17 @@ holds **four typed literal rows** in `screens.mjs`; the seed holds a different
 four-row list for the same objects. Only one name is common, *TSF downgradient —
 metals*, and the two disagree about what it selects — *6 metals over a rolling 3
 years* on the screen, *dissolved metals (8) over a rolling 8 quarters* in the seed —
-with different owners and dates. Its claimed figures do not match what
-`#report-figures` cites. Three surfaces, three answers, about the object §4.5 asks
+and different last-run dates. Its claimed figures do not match what
+`#report-figures` cites.
+
+**Corrected 3 September 2026, in wave 18.** This paragraph said the two records
+also disagreed *about its owner*. They do not, and the wave that fixed the defect
+found it by re-measuring rather than accepting the finding: the drawn table's third
+column is **Used by** and reads `A. Nakamura`; the seed's `by` reads `A. Nakamura`.
+The seed's `owner` field holds `Project`, which is a sharing class and not a person,
+and this document conflated the two. **Three values moved on that row, not four**,
+and the unchanged one is kept in the settlement's own moved-values table so the
+claim cannot be re-asserted. Three surfaces, three answers, about the object §4.5 asks
 to be governed. Fixed as Wave 18's rider.
 
 **Not upheld — `#coverage` journey 9.** An assessment recorded the matrix as

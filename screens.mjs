@@ -74,6 +74,10 @@ import {
   // whether the export may write it. Read by `#qc`, `#qualifiers`, `#lineage`,
   // `#result-detail` and the exchange screen.
   QUALIFIERS,
+  // Wave 18 — the analyte suites as one record of sizes, and the saved views
+  // as one record read by `#saved-views`, `#crosstab` and `#report-figures`.
+  // `VENDOR_BRIEF` is the seventh enumeration on `#coverage`.
+  ANALYTE_SUITES, SAVED_VIEWS, VENDOR_BRIEF,
 } from './seed.mjs';
 import {
   criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
@@ -2573,11 +2577,22 @@ const crosstab = () => {
       label: 'Exceedance register',
     }) +
     C.filterBar({
-      onView: 'TSF downgradient — metals',
+      onView: SAVED_VIEWS.onCrosstab.view.name,
       saved: false,
       controls: [
         C.field({ label: 'Locations', control: C.select({ options: locationOptions, value: locationOptions[0] }) }),
-        C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', 'Dissolved metals (8)', 'Nutrients (4)', 'PFAS (14)', 'Field parameters (5)'], value: 'Everything in the round' }) }),
+        /*
+         * Wave 18 — the suite counts, counted once.
+         *
+         * These four options carried `(8)`, `(4)`, `(14)` and `(5)` as typed
+         * characters, and one of them — `Dissolved metals (8)` — was the same
+         * number a saved view typed independently in the seed. Two records
+         * agreeing is what made this one evidence when the drawn saved-views
+         * screen said six; a third surface typing it again is how that stops
+         * being true. They read `ANALYTE_SUITES` now, in the `MATRICES` shape
+         * below: the label and its size, composed rather than written out.
+         */
+        C.field({ label: 'Analyte suite', control: C.select({ options: ['Everything in the round', ...ANALYTE_SUITES.filter((x) => x.code !== 'licence-t4').map((x) => `${x.label} (${x.n})`)], value: 'Everything in the round' }) }),
         C.field({ label: 'Period', control: C.dateRange({ from: '2026-04-01', to: '2026-06-30' }) }),
         /*
          * Wave 9 — the matrix filter, honestly backed.
@@ -2593,10 +2608,20 @@ const crosstab = () => {
         C.field({ label: 'Criteria sets', control: C.select({ options: ['Both sets', 'ANZG 2018 95% only', 'Licence Table 4 only'], value: 'Both sets' }) }),
         C.field({ label: 'Show', control: C.select({ options: ['Every result', 'Exceedances only', 'Indeterminate only', 'Censored only'], value: 'Every result' }) }),
       ],
+      /*
+       * Wave 18 — the edits are computed against the view the bar names.
+       *
+       * The bar said `edited` and then named one edit, `added zinc`, while
+       * four of its own selections differed from the view it says it is on.
+       * A chip that states one difference on a bar showing four is the same
+       * defect as a count typed beside a record: it reads as measured and it
+       * is not. Each differing dimension gets its own chip now, compared with
+       * the record — and the locations option is passed in rather than
+       * restated, because it is counted off the register a few lines above.
+       */
       chips: [
-        C.chip('2026 Q2', { prefix: 'period' }),
         C.chip(MATRICES[0].m, { prefix: 'matrix' }),
-        C.chip('added zinc', { prefix: 'edited', tone: 'new' }),
+        ...SAVED_VIEWS.onCrosstab.differing(locationOptions[0]).map((d) => C.chip(`${d.dimension}: ${d.grid}`, { prefix: 'edited', tone: 'new' })),
       ],
       count: `${CROSSTAB_SHAPE.analytes} analytes × ${CROSSTAB_SHAPE.locations} locations · ${CROSSTAB_SHAPE.results} results (was ${PFAS_REACH.was.results}) · ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing · ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run`,
     }) +
@@ -2786,17 +2811,29 @@ const crosstab = () => {
       panel(
         'The column set is a saved view, not a rebuild',
         `<p class="mk-tight">The monthly review is a recall. Which locations, which analytes, which period, which criteria sets — the whole question, named and shared, so two people asking for “the compliance boundary numbers” get the same rows.</p>` +
+          /*
+           * Wave 18 — the same record this grid always read, with two columns
+           * it could not previously carry: what each view feeds, computed from
+           * the report items that name it, and a period that says *unsettled*
+           * where two records disagree rather than picking one of them.
+           */
           table({
-            head: ['View', 'Owner', 'Locations', 'Analytes', 'Period', 'Last used'],
+            head: ['View', 'Owner', 'Locations', 'Analytes', 'Period', 'Last used', 'Feeds'],
+            scroll: true,
+            label: 'Saved views on this project',
             rows: SAVED_VIEW_LIST.map((v) => [
               `<a class="mk-ref" href="#saved-views">${esc(v.name)}</a>`,
               v.shared ? tag('Project', 'good') : tag('Private', 'neutral'),
               esc(v.locations),
               esc(v.analytes),
-              esc(v.period),
+              v.period ? esc(v.period) : tag('two readings', 'warn'),
               `<span class="sf-instant">${esc(v.used)}</span>`,
+              v.feeds.length
+                ? v.feeds.map((f) => `<a class="mk-ref" href="#report-figures">${esc(f.n)}</a>`).join(' · ')
+                : '<span class="mk-num mk-num--nil">—</span>',
             ]),
           }) +
+          `<p class="mk-tight mk-muted">One view’s period reads <strong>two readings</strong>: this record says <em>${esc(SAVED_VIEWS.period.readings[0].says)}</em> and <a class="mk-ref" href="#saved-views">the saved-views screen</a> said <em>${esc(SAVED_VIEWS.period.readings[1].says)}</em>, and nothing else in the catalogue holds a third. It is drawn as a disagreement rather than settled, and the period on this bar is an edit, so this grid is not a third reading.</p>` +
           opsClock('The last-used column is on it, and it is the only column on this grid that is — every result, criterion and period here is on the project clock.') +
           `<p class="mk-tight">A browser preference would not do. If the view lives on this machine then two people comparing numbers are comparing two questions, and the product has reintroduced the disagreement it exists to end.</p>`,
       ),
@@ -3296,22 +3333,141 @@ const mapScreen = () =>
     '1fr 1fr',
   );
 
-const savedViews = () =>
-  head('Saved views', 'A question you ask every quarter, kept as an object.', { route: 'a proposal — not in the product' }) +
-  notice('warning', 'Proposed. No FR covers saved queries.',
-    'FR-6.6 persists a <em>chart</em> configuration. Nothing persists the question that selected the data — which locations, which analytes, which period, which criteria sets. Every incumbent has this and it is most of what a returning user does.') +
-  table({
-    caption: 'Views on this project.',
-    head: ['View', 'Selects', 'Used by', 'Last run', 'Feeds'],
-    rows: [
-      ['Compliance boundary — quarterly', 'MW09, MW11 · licence suite · current quarter', 'A. Nakamura', '2026-05-21', 'Report §4, Figure 4.1'],
-      ['TSF downgradient — metals', 'MW05, MW07 · 6 metals · rolling 3 years', 'A. Nakamura', '2026-05-21', 'Figures 4.2, 4.6, 4.7'],
-      ['Everything above a criterion', 'All locations · all analytes · exceedance only', 'R. Whitmore', '2026-05-22', 'Exceedance register'],
-      ['PFAS watch', 'All locations · PFOS, PFHxS, sum · all time', 'D. Okafor', '2026-05-22', 'Alert rule · TARP Level 3'],
-    ],
-  }) +
-  notice('default', 'A view is shared, not personal.',
-    'Two people asking “the compliance boundary numbers” must get the same rows, or the product has reintroduced the disagreement it exists to end. A view is a project object with an owner and an audit trail, not a browser preference.');
+/**
+ * Saved views — rebuilt from the record (wave 18).
+ *
+ * This screen held four typed literal rows and the seed held four different
+ * ones for the same objects. It reads the record now, and the two things it
+ * used to assert without a source — what the TSF view selects, and which
+ * figures it feeds — are respectively corrected against a corroborating
+ * record and computed from the report items that name it.
+ *
+ * The period is the one field the record does not settle, and the screen says
+ * so rather than choosing: both readings, the record each came from, and the
+ * only other measurement that bears on it, which fits neither.
+ */
+const savedViews = () => {
+  const V = SAVED_VIEWS;
+  const P = V.period;
+  const feedsCell = (v) =>
+    v.feeds.length
+      ? v.feeds.map((f) => `<a class="mk-ref" href="#report-figures">${esc(f.n)}</a>`).join(' · ')
+      : '<span class="mk-num mk-num--nil">— nothing cites it</span>';
+  const periodCell = (v) =>
+    v.period
+      ? esc(v.period)
+      : `${tag('two readings', 'warn')}<small>${esc(P.readings.map((r) => r.says).join(' · '))}</small>`;
+
+  return (
+    head('Saved views', 'A question you ask every quarter, kept as an object.', { route: 'a proposal — not in the product' }) +
+    notice('warning', 'Proposed. No FR covers saved queries.',
+      'FR-6.6 persists a <em>chart</em> configuration. Nothing persists the question that selected the data — which locations, which analytes, which period, which criteria sets. Every incumbent has this and it is most of what a returning user does. ' +
+      '<strong>Decision D1 (3 September 2026) accepted the capability and the PRD amendment that carries it</strong>, so the sentence above is a record of the gap this screen found rather than an argument that is still open — and the screen stays a proposal until the amendment lands and something routes to it.') +
+    stats([
+      stat(String(V.views.length), 'views on this project'),
+      stat(String(V.shared), 'shared with the project', 'good'),
+      stat(`${V.fed} / ${V.views.length}`, 'cited by a report item'),
+      stat(String(V.fromGroup), 'select a location group'),
+      stat(String(V.unsettledCount), V.unsettledCount === 1 ? 'field the record does not settle' : 'fields the record does not settle', 'warn'),
+    ]) +
+    table({
+      caption: 'Views on this project. What each selects is read from the record — the location group, the analyte suite and its size, the criteria sets — and what each feeds is the report items that name it.',
+      head: ['View', 'Owner', 'Locations', 'Analytes', 'Period', 'Criteria', 'Last run', 'Feeds'],
+      kind: 'matrix',
+      label: 'Saved views on this project',
+      rows: V.views.map((v) => [
+        `<strong>${esc(v.name)}</strong><small>${esc(v.by)}</small>`,
+        v.shared ? tag('Project', 'good') : tag('Private', 'neutral'),
+        v.group
+          ? `${esc(v.locations)}<small>group · ${esc(v.group)}</small>`
+          : esc(v.locations),
+        esc(v.analytes),
+        periodCell(v),
+        esc(v.criteria),
+        `<span class="sf-instant">${esc(v.used)}</span>`,
+        feedsCell(v),
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted">${esc(String(V.fromGroup))} of the ${esc(String(V.views.length))} select a <strong>location group</strong> — the glossary’s named set of locations assessed together — so a bore joining the compliance boundary joins the view that reports it. The other two name their locations, because no group holds that set.</p>` +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Three surfaces, three answers — settled 3 September 2026</h2>' +
+    notice('default', 'This screen was one of the three, and it was the wrong one.',
+      `Four assessments were run against the vendor requirements brief and one of them found this: <strong>${esc(String(V.was.drawnRows.length))} typed rows here, a different ${esc(String(V.was.drawnRows.length))} in the seed, and a third answer again on the figure register</strong>. ` +
+      `Only <strong>${esc(String(V.was.namesInCommon))}</strong> name was common to the first two. The rows this screen used to draw are kept below rather than deleted, because a table that quietly loses four rows cannot be checked against the one that replaced it.`) +
+    cols(
+      table({
+        caption: 'What each surface said, what it rested on, and what it says now.',
+        head: ['Surface', 'It said', 'Resting on', 'Now'],
+        scroll: true,
+        label: 'The three surfaces',
+        rows: V.readings.map((r) => [
+          `<a class="mk-ref" href="#${r.at}">${esc(r.reading)}</a>`,
+          cell(`${esc(r.said)} ${tag(r.verdict, r.verdict === 'corrected' ? 'warn' : 'good')}`),
+          cell(esc(r.restsOn)),
+          cell(esc(r.now)),
+        ]),
+      }),
+      panel(
+        'The four rows this screen drew until today',
+        table({
+          head: ['View', 'Selects', 'Used by', 'Last run', 'Feeds'],
+          scroll: true,
+          label: 'The four typed rows, kept as the before they are',
+          rows: V.was.drawnRows.map((r) => [
+            esc(r.view), esc(r.selects), esc(r.usedBy), esc(r.lastRun), esc(r.feeds),
+          ]),
+        }) +
+          `<p class="mk-tight"><strong>${esc(String(V.was.drawnRows.length - V.was.namesInCommon))} of the ${esc(String(V.was.drawnRows.length))} names exist on no other surface</strong> — not in the seed, not on the grid, not on the figure register. The remaining one is what both lists held, and it is the row every correction below is about.</p>` +
+          ((f) => `<p class="mk-tight mk-muted">The <em>Feeds</em> column is the sharpest of them, and it was wrong ${esc(String([f.elsewhere.length, f.absent.length, f.missed.length].filter(Boolean).length))} different ways at once. It claimed <code>${esc(V.was.tsf.feeds)}</code>: <strong>${esc(f.right.join(', '))}</strong> is right, <strong>${esc(f.elsewhere.join(', '))}</strong> exists and is drawn from the statistics worker rather than from this view, and <strong>${esc(f.absent.join(', '))}</strong> does not exist — §${esc(f.section)} carries ${esc(String(f.inSection))} figures. It also missed <strong>${esc(f.missed.join(', '))}</strong>, which this view does feed.</p>`)(V.phantom),
+      ),
+    ) +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Every value this moved, with what it was</h2>' +
+    table({
+      caption: 'Each before is written down once, in the seed; each now is counted off the record as it stands. A row whose before and now agree is here because a claim about it was checked and did not hold.',
+      head: ['Value', 'Was', 'Now', 'Where', 'Why'],
+      kind: 'matrix',
+      label: 'Values this settlement moved',
+      rows: V.moved.map((m) => [
+        esc(m.what),
+        `<span class="mk-num mk-num--warn">${esc(m.was)}</span>`,
+        `<span class="mk-num">${esc(m.now)}</span>`,
+        `<a class="mk-ref" href="#${m.at}">${esc(m.at)}</a>`,
+        esc(m.why),
+      ]),
+    }) +
+    cols(
+      panel(
+        `The period: ${esc(P.readings.length)} readings, and the record settles neither`,
+        `<p class="mk-tight">${esc(P.question)} Two records answer and they disagree by a year. There is no third record of this view’s period anywhere in the catalogue, so it is drawn as a disagreement rather than decided — the shape the PFAS three-way, the custody chain and the soil limit each settled into.</p>` +
+          table({
+            head: ['Reading', 'Quarters', 'Which record', 'Resting on'],
+            scroll: true,
+            label: 'The two readings of the period',
+            rows: P.readings.map((r) => [
+              `<strong>${esc(r.says)}</strong>`,
+              `<span class="mk-num">${esc(r.quarters)}</span>`,
+              cell(`<a class="mk-ref" href="#${r.at}">${esc(r.record)}</a>`),
+              cell(esc(r.restsOn)),
+            ]),
+          }) +
+          ((e) => `<p class="mk-tight"><strong>What measuring adds, and it is not a tie-break.</strong> The plates this view feeds — ${esc(P.evidence.figures)} — draw <span class="mk-num">${esc(e.months)}</span> monthly water levels and <span class="mk-num">${esc(e.quarters)}</span> quarterly arsenic values, spanning ${esc(e.from)} to ${esc(e.to)} — <strong>longer than ${esc(e.longerThan === P.readings.length ? 'both' : 'one')}</strong> of the readings above. It corroborates neither and rules out neither.</p>`)(P.evidence) +
+          `<p class="mk-tight">${esc(P.consequence)}</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">What would settle it</span>',
+            body: `<p class="mk-tight">${esc(P.settledBy)}</p>`,
+          }),
+      ),
+      panel(
+        'The grid is on this view, edited',
+        `<p class="mk-tight">${esc(V.onCrosstab.note)}</p>` +
+          `<p class="mk-tight mk-muted">Which dimensions differ is computed on <a class="mk-ref" href="#crosstab">the grid itself</a>, where the location option is counted off the register — counting it a second time here is the defect this whole page is about.</p>` +
+          `<p class="mk-tight"><strong>And it is why the grid cannot settle the period.</strong> It is on a single quarter, which is an <em>edit</em> rather than the view’s own window. A third surface showing a third period is not a third reading.</p>`,
+      ),
+    ) +
+    notice('default', 'A view is shared, not personal.',
+      'Two people asking “the compliance boundary numbers” must get the same rows, or the product has reintroduced the disagreement it exists to end. A view is a project object with an owner and an audit trail, not a browser preference. <strong>That is exactly what failed here</strong> — not between two people, but between three of this catalogue’s own surfaces.')
+  );
+};
 
 /* ================================================================== *
  * J5 — Produce the submission
@@ -3498,6 +3654,25 @@ const reportBuilder = () => {
 const reportFigures = () => {
   const I = REPORT_ITEMS;
   const ins = I.insert;
+  /*
+   * Wave 18 — a source that names a saved view resolves to it.
+   *
+   * The Source cell was text on every row, and on two of them the text names
+   * an object this catalogue holds. Resolving it is half of the rider this
+   * wave carried: the drawn saved-views screen claimed three figures, two of
+   * which it does not feed and one of which does not exist, and the way that
+   * stops being possible is for the citation to *be* the link rather than to
+   * describe one. The other rows stay text, because the things they name —
+   * a validation run, a planar fit, the statistics worker — have no record to
+   * resolve to; saying so is the honest half of the same change.
+   */
+  const sourceCell = (item) => {
+    const view = SAVED_VIEWS.viewFor(item.source);
+    return view
+      ? `<a class="mk-ref" href="#saved-views">${esc(item.source)}</a>`
+      : `<span class="mk-muted">${esc(item.source)}</span>`;
+  };
+  const resolved = I.items.filter((x) => SAVED_VIEWS.viewFor(x.source));
   return (
     head('Figures and tables', 'What goes in, in what order, numbered as the document numbers them.', {
       route: '/projects/:projectId/figures',
@@ -3518,12 +3693,13 @@ const reportFigures = () => {
       rows: I.items.map((x) => [
         `<code class="mk-file mk-file--id">${esc(x.n)}</code>`,
         esc(x.title),
-        `<span class="mk-muted">${esc(x.source)}</span>`,
+        sourceCell(x),
         x.cites.length ? `<span class="mk-muted">${esc(x.cites.join(', '))}</span>` : '<span class="mk-num mk-num--nil">— not cited</span>',
         x.prose ? C.status('authored prose', 'warn') : C.status('live', 'good'),
         x.state === 'current' ? tag('current', 'good') : tag(x.state, 'warn'),
       ]),
     }) +
+    `<p class="mk-tight"><strong>${esc(String(resolved.length))} of the ${esc(String(I.items.length))} sources resolve to a record</strong> — both of them to <a class="mk-ref" href="#saved-views">a saved view</a>, and both to the same one. The rest name a run, a fit or a worker, and stay text because there is nothing to open — and <strong>${SAVED_VIEWS.orphanCitations.length === 0 ? 'none' : esc(String(SAVED_VIEWS.orphanCitations.length))}</strong> of them ${SAVED_VIEWS.orphanCitations.length === 1 ? 'cites' : 'cite'} a view no record holds, which is the failure this resolution makes visible rather than the one it assumes away. A citation that resolves is what stops a figure list being asserted from two directions at once: the view now states which items it feeds, computed from these rows, and until 3 September 2026 it stated ${esc(String(SAVED_VIEWS.phantom.claimed.length))}, ${esc(String(SAVED_VIEWS.phantom.absent.length))} of which was a figure number this document does not carry.</p>` +
     cols(
       panel(
         'Two items are stale, and each says what made it stale',
@@ -11660,8 +11836,114 @@ const coverage = () => {
   const added = SURFACES.filter((s) => s[3] === 'new').length;
   const answered = FINDINGS.filter((f) => !f[3].startsWith('n/a')).length;
 
+  /* ------------------------------------------------------------------ *
+   * The seventh enumeration, and the cross-check that is the new part
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Every screen a brief row cites, resolved against the register.
+   *
+   * This is the half of the wave that could not live in `seed.mjs`: the
+   * register is here, and a second copy of it beside the verdicts would be the
+   * exact defect this wave's other half spent itself fixing. `JOBS` is in
+   * scope because screen bodies run at assembly, long after this module has
+   * evaluated — the same reason `stateSentence()` above can count dots.
+   *
+   * **A proposal is read from the register's own fields, never assigned here.**
+   * `now` is the 1 September re-derivation and `state` the 23 August record;
+   * the current reading is `now ?? state`, and the two readings that mean *the
+   * product does not route to this* are `proposed` and `not built`. The second
+   * is empty today and the panel below says so rather than implying a category
+   * that has members.
+   */
+  const VB = VENDOR_BRIEF;
+  const vbCounts = VB.counts;
+  const REGISTER = Object.fromEntries(JOBS.flatMap((j) => j.screens).map((s) => [s.id, s]));
+  const readingOf = (id) => {
+    const s = REGISTER[id];
+    return s ? (s.now ?? s.state) : null;
+  };
+  const NOT_ROUTED = ['proposed', 'not built'];
+  const isProposal = (id) => NOT_ROUTED.includes(readingOf(id));
+  const resolved = VB.rows.map((row) => {
+    const proposals = row.screens.filter(isProposal);
+    return {
+      row,
+      proposals,
+      routed: row.screens.filter((id) => !isProposal(id)),
+      klass: row.screens.length === 0 ? 'none'
+        : proposals.length === 0 ? 'routed'
+          : proposals.length === row.screens.length ? 'proposal' : 'mixed',
+    };
+  });
+  const claimed = resolved.filter((x) => x.row.verdict !== 'missing');
+  const claimedOnProposal = claimed.filter((x) => x.proposals.length > 0);
+  const claimedWhollyProposal = claimed.filter((x) => x.klass === 'proposal');
+  const proposalsCarrying = [...new Set(claimed.flatMap((x) => x.proposals))].sort();
+  const screensCited = [...new Set(VB.rows.flatMap((r) => r.screens))];
+  const registerProposals = Object.values(REGISTER).filter((s) => (s.now ?? s.state) === 'proposed');
+  const wasNotBuilt = Object.values(REGISTER).filter((s) => s.state === 'not built');
+  const nowNotBuilt = Object.values(REGISTER).filter((s) => (s.now ?? s.state) === 'not built');
+  const rowsWithDecision = VB.rows.filter((r) => r.decision);
+  const itemsOf = (id) => VB.rows.find((r) => r.id === id).items;
+
+  /**
+   * The four decided conflicts, named where they are cited.
+   *
+   * The verdicts are Jerry's, recorded in `audits/2026-09-03-open-decisions.md`
+   * on 3 September 2026. What is written here is what each decision settles,
+   * because a row citing `D4` and nothing else would send a reader to a
+   * document they may not have — and the count beside each is derived from the
+   * rows rather than restated.
+   */
+  const DECISIONS = [
+    { id: 'D1', says: 'The ad-hoc query capability is accepted as scope and the PRD is amended to carry it. Nothing in the PRD required one; §4 is the brief’s largest theme and seven of its requirements collapse onto the same object.' },
+    { id: 'D4', says: 'The map workspace is accepted and NG4 is restated as “no GIS authoring” — the map consumes layers and never authors them, digitises nothing and does no geoprocessing.' },
+    { id: 'D5', says: 'The common model, surface water and meteorology are drawn, everything labelled S8 widening. Drawing a deferred domain demonstrates the architecture and does not reschedule it.' },
+    { id: 'D6', says: 'Noise and dust are both drawn as period-aggregated proofs. NG5 refuses noise modelling — monitoring is not modelling, and the screen says so rather than passing over it.' },
+  ];
+
+  const verdictTone = { covered: 'good', partially: 'warn', missing: 'bad' };
+  const briefScreens = (x) =>
+    x.row.screens.length === 0
+      ? '<span class="mk-muted">no screen claimed</span>'
+      : x.row.screens
+        .map((id) => (isProposal(id)
+          ? `<a class="mk-ref" href="#${id}">${esc(id)}</a><small>${esc(readingOf(id))}</small>`
+          : `<a class="mk-ref" href="#${id}">${esc(id)}</a>`))
+        .join(' · ');
+  /* The word, not the colour: a reader photocopying this page still gets it. */
+  const registerCell = (x) => {
+    if (x.klass === 'none') return '<span class="mk-muted">nothing claimed</span>';
+    if (x.klass === 'routed') return `<span class="mk-muted">${esc(String(x.routed.length))} routed</span>`;
+    if (x.klass === 'proposal') return tag(x.proposals.length === 1 ? 'by a proposal' : `by ${x.proposals.length} proposals`, 'new');
+    return tag(`${x.proposals.length} of ${x.row.screens.length} a proposal`, 'new');
+  };
+  const briefTable = (group, caption, label) => {
+    const list = resolved.filter((x) => x.row.group === group);
+    return (
+      `<h3 class="mk-h3">${esc(label)} — ${esc(String(list.length))} rows</h3>` +
+      `<p class="mk-tight mk-muted">${caption}</p>` +
+      '<div class="mk-table-wrap"><table class="mk-cover"><thead><tr>' +
+      '<th>Ref</th><th>What it asks</th><th>Verdict</th><th>Answered on</th><th>Register</th><th>Note</th>' +
+      `</tr></thead><tbody>${list
+        .map((x) => {
+          const r = x.row;
+          return `<tr><td class="mk-cover__id">${esc(r.group === 'requirement' ? `§${r.id}` : r.id)}</td>` +
+            `<td><strong>${esc(r.title)}</strong>${r.items ? `<small>${esc(String(r.items))} listed</small>` : ''}${r.hops ? `<small>${esc(String(r.hops))} hops walked</small>` : ''}` +
+            `${r.group === 'requirement' && r.title !== r.asks ? `<small>“${esc(r.asks)}”</small>` : ''}</td>` +
+            `<td>${tag(r.verdict, verdictTone[r.verdict])}${r.derived ? '<small>computed from the rows above</small>' : ''}` +
+            `${r.decision ? `<small>${esc(r.decision)}</small>` : ''}</td>` +
+            `<td>${briefScreens(x)}</td>` +
+            `<td>${registerCell(x)}</td>` +
+            `<td>${esc(r.note)}</td></tr>`;
+        })
+        .join('')}</tbody></table></div>`
+    );
+  };
+
   return (
-    head('Coverage', 'The six enumerations this catalogue is exhaustive against, and the screen that answers each row.', {
+    head('Coverage', 'The seven enumerations this catalogue is exhaustive against, and the screen that answers each row.', {
       route: 'The viewer’s own audit — not a product screen',
       toolbar: C.exportMenu(),
     }) +
@@ -11674,12 +11956,13 @@ const coverage = () => {
       stat(`${prdCovered} / ${PRD.length}`, 'PRD rows drawn', 'warn'),
       stat(String(BASELINE.length), 'incumbent rows answered', 'good'),
       stat(`${journeysOwned} / ${JOURNEYS_WALK.length}`, 'journeys fully owned', 'warn'),
+      stat(`${vbCounts.covered} / ${vbCounts.rows}`, 'vendor-brief rows covered', 'warn'),
     ]) +
     `<p class="mk-tight mk-muted">Twenty screens were added in this pass and ${added} of them are register surfaces. The other three are J10 — the data states, the keyboard contract and this page — which answer cross-cutting expectations rather than owning a section. Two numbers, two denominators, and they are not the same claim.</p>` +
     notice(
       'warning',
-      'Exhaustive relative to six closed lists, and no further.',
-      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8 — and it has a hole the moment any of those grows. <strong>It grew twice on 2 September 2026</strong>: the brief’s deferred telemetry journey is walked below as a tenth row, so the journeys table is now measured against ten rather than nine — and the PRD register gained <code class="mk-file">OD-2</code>, which is not a requirement but a resolved open decision from that document’s §14, so its denominator moved by one as well. A list that grows is the honest outcome; a denominator that moves without saying so is not. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
+      'Exhaustive relative to seven closed lists, and no further.',
+      'Absolute exhaustiveness is unfalsifiable. This is complete against the fourteen global expectations, the register’s own section list, the twenty-seven findings of the 22–23 August audit — and, since 1 September, the PRD requirement register, the incumbent capability baseline and the nine journeys of EXPANSION_BRIEF.md §8, and since 3 September the vendor requirements brief — and it has a hole the moment any of those grows. <strong>It grew twice on 2 September 2026</strong>: the brief’s deferred telemetry journey is walked below as a tenth row, so the journeys table is now measured against ten rather than nine — and the PRD register gained <code class="mk-file">OD-2</code>, which is not a requirement but a resolved open decision from that document’s §14, so its denominator moved by one as well. A list that grows is the honest outcome; a denominator that moves without saying so is not. <strong>It grew a third time on 3 September 2026</strong>, and this one is different in kind: the vendor requirements brief was committed to this repository as <code class="mk-file">VENDOR_REQUIREMENTS.md</code> on decision D12, so it is the first enumeration whose source document the build can read — and does, on every run, refusing to write this page if a section has no row or a row quotes words the brief does not contain. Six of the seven are still checked by a person against a document that lives somewhere else. Four findings are marked <code class="mk-file">n/a</code> rather than claimed: three are properties of a running application that a single static document does not have, and one is a development-server defect with no design content. Marking them covered would have been the easier lie.',
     ) +
     '<h2 class="mk-h2">Global expectations — every screen, no exceptions</h2>' +
     `<div class="mk-table-wrap"><table class="mk-cover"><thead><tr><th>Ref</th><th>Expectation</th><th>Drawn on</th><th>How</th></tr></thead><tbody>${GLOBAL.map(
@@ -11761,12 +12044,110 @@ const coverage = () => {
           .join(' <span class="mk-muted">→</span> ')}</td>` +
         `<td>${note ? esc(note) : '<span class="mk-muted">—</span>'}</td></tr>`,
     ).join('')}</tbody></table></div>` +
+    /* ---------------------------------------------------------------- *
+     * The seventh enumeration — the vendor requirements brief (wave 18)
+     * ---------------------------------------------------------------- */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The vendor requirements brief — every section, and the register resolved behind each verdict (added 3 Sep 2026)</h2>' +
+    notice(
+      'default',
+      `Judged at the brief’s own standard, which is stricter than a screen existing.`,
+      `<em>“${esc(VB.standard)}”</em> — <code class="mk-file">${esc(VB.source)}</code> §2. So a row reads <code class="mk-file">covered</code> only when the workflow, the information the decision needs, the actions, the states, the exceptions and the links to upstream evidence and downstream use are all drawn. ` +
+      `The rows are the brief’s own structure rather than a reading of it: every numbered subsection from §4.2 to §14.4, §15’s ${esc(String(vbCounts.lineage))} lineage questions, §16’s ${esc(String(vbCounts.scenario))} scenarios, §17’s ${esc(String(vbCounts.state))} screen states and §20’s ${esc(String(vbCounts.completion))} completion criteria — <strong>${esc(String(vbCounts.rows))} rows</strong>, closed by <code class="mk-file">build.mjs</code>, which reads the brief on every run and fails if a heading has no row, a row has no heading, a bullet count moves, or a row’s quoted words are not in the document. The wave plan called the third verdict <code class="mk-file">not</code>; it is <code class="mk-file">missing</code> here, because that is the word the six enumerations above already use and a second vocabulary for one concept is the thing QB-9 refuses.`,
+    ) +
+    stats([
+      stat(String(vbCounts.rows), 'rows in the brief'),
+      stat(String(vbCounts.covered), 'covered', 'good'),
+      stat(String(vbCounts.partially), 'partially', 'warn'),
+      stat(String(vbCounts.missing), 'missing', 'bad'),
+      stat(String(claimedOnProposal.length), 'of those rest on a proposal', 'warn'),
+      stat(`${vbCounts.scenariosWalking} / ${vbCounts.scenario}`, 'scenarios that walk', 'warn'),
+      stat(String(vbCounts.decisions.length), 'decided conflicts cited'),
+    ]) +
+    `<p class="mk-tight">The brief enumerates <strong>${esc(String(vbCounts.items))}</strong> individual things across the sections that list any — dimensions, layers, rules, fields, domains — and that number is counted out of the document rather than off this page. Two of its lists were reported at the wrong size in the assessment memo this enumeration was built from, and both are corrected here by measurement: §4.2 lists <strong>${esc(String(itemsOf('4.2')))}</strong> query dimensions where the memo said about 35, and §5.2 lists <strong>${esc(String(itemsOf('5.2')))}</strong> layers where it said thirteen.</p>` +
+    table({
+      caption: 'The eleven capability areas, at the brief’s own ranking. Each row counts its own subsections; a decision is named where this brief and the product’s own requirements disagree.',
+      head: ['§', 'Capability area', 'Priority', 'Rows', 'Covered', 'Partially', 'Missing', 'Decision'],
+      kind: 'matrix',
+      label: 'The brief’s capability areas',
+      rows: VB.bySection().map((s) => [
+        `<span class="mk-cover__id">§${esc(String(s.section))}</span>`,
+        esc(s.area),
+        `<span class="mk-cover__id">${esc(s.priority)}</span>`,
+        `<span class="mk-num">${esc(String(s.n))}</span>`,
+        s.covered ? `<span class="mk-num">${esc(String(s.covered))}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+        s.partially ? `<span class="mk-num mk-num--warn">${esc(String(s.partially))}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+        s.missing ? `<span class="mk-num mk-num--bad">${esc(String(s.missing))}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+        s.decision ? `<a class="mk-ref" href="#coverage">${esc(s.decision)}</a>` : '<span class="mk-muted">—</span>',
+      ]),
+    }) +
+    cols(
+      panel(
+        `The cross-check: ${claimedOnProposal.length} of the ${claimed.length} claimed rows rest on a proposal`,
+        `<p class="mk-tight">A verdict resting on a screen the register calls a <strong>proposal</strong> is not the same claim as one resting on a route the product serves, and until this wave no enumeration on this page said which it was. Every screen a row cites is resolved against the register in <code class="mk-file">screens.mjs</code> as this page is assembled — <strong>never classified by hand</strong> — and the column beside each row says what came back.</p>` +
+          table({
+            head: ['What was resolved', 'Count'],
+            scroll: true,
+            label: 'The register cross-check',
+            rows: [
+              ['Rows citing at least one screen', `<span class="mk-num">${esc(String(resolved.filter((x) => x.row.screens.length).length))}</span>`],
+              ['Rows claiming coverage, whole or partial', `<span class="mk-num">${esc(String(claimed.length))}</span>`],
+              ['… of those, resting on at least one proposal', `<span class="mk-num mk-num--warn">${esc(String(claimedOnProposal.length))}</span>`],
+              ['… of those, resting on <em>nothing but</em> proposals', `<span class="mk-num mk-num--warn">${esc(String(claimedWhollyProposal.length))}</span>`],
+              ['Distinct proposals carrying a claimed verdict', `<span class="mk-num">${esc(String(proposalsCarrying.length))} of ${esc(String(registerProposals.length))}</span>`],
+              ['Distinct screens this enumeration reaches', `<span class="mk-num">${esc(String(screensCited.length))} of ${esc(String(Object.keys(REGISTER).length))}</span>`],
+            ],
+          }) +
+          `<p class="mk-tight">The ${esc(String(proposalsCarrying.length))} proposals carrying a verdict are ${proposalsCarrying.map((id) => `<a class="mk-ref" href="#${id}">${esc(id)}</a>`).join(' · ')} — and the response memo this enumeration was built from expected eight of them. It is ${esc(String(proposalsCarrying.length))}, counted.</p>` +
+          `<p class="mk-tight mk-muted"><strong>The class the wave plan named is half empty, and that is a measurement too.</strong> It asked for rows resting on a <code class="mk-file">proposed</code> <em>or</em> <code class="mk-file">not built</code> screen. The register holds ${esc(String(wasNotBuilt.length))} screens that read <code class="mk-file">not built</code> on 23 August and <strong>${esc(String(nowNotBuilt.length))}</strong> that read it in the 1 September derivation: ${esc(String(wasNotBuilt.length - registerProposals.filter((s) => s.state === 'not built').length))} of them re-derived to <code class="mk-file">shipped</code> and the rest to <code class="mk-file">proposed</code>. So the cross-check turns entirely on the first word, and it is drawn that way rather than carrying a category with nothing in it.</p>`,
+      ),
+      panel(
+        'Where this brief and the product disagree — and who settled it',
+        `<p class="mk-tight">${esc(String(vbCounts.decisions.length))} disagreements, every one of them answered on 3 September 2026, each cited on <strong>every</strong> row it governs rather than on one row apiece: they are section-wide arguments, and a reader on §5.4 needs the same decision a reader on §5.1 does. ${esc(String(vbCounts.decisions.length))} decisions, ${esc(String(rowsWithDecision.length))} rows.</p>` +
+          table({
+            head: ['ID', 'What it settles', 'Rows'],
+            scroll: true,
+            label: 'The four decided conflicts',
+            rows: DECISIONS.map((d) => [
+              `<span class="mk-cover__id">${esc(d.id)}</span>`,
+              cell(esc(d.says)),
+              `<span class="mk-num">${esc(String(rowsWithDecision.filter((r) => r.decision.split(' · ').includes(d.id)).length))}</span>`,
+            ]),
+          }) +
+          '<p class="mk-tight mk-muted">A verdict on one of those rows is drawn <em>under</em> its decision rather than in defiance of a non-goal: the map workspace is here because NG4 was restated as “no GIS authoring”, not because a brief outranked the PRD. The authority order is unchanged and Jerry arbitrated.</p>',
+      ),
+    ) +
+    briefTable(
+      'requirement',
+      'The requirement sections, §4.2 to §14.4. Every row carries the brief’s own section number, its own words, and the register reading of every screen the verdict rests on.',
+      'The vendor brief’s requirement sections',
+    ) +
+    briefTable(
+      'lineage',
+      '§15 — the questions every new screen and workflow must answer. The brief calls this non-negotiable and gives it no rank.',
+      'The brief’s lineage questions',
+    ) +
+    briefTable(
+      'scenario',
+      '§16 — the scenarios, walked in the rendered page by real navigation rather than asserted. A hop count is on the two walks that were counted; the others record where the walk stopped, which is what the walk measured.',
+      'The brief’s end-to-end scenarios',
+    ) +
+    briefTable(
+      'state',
+      '§17 — the linked states each required workflow must demonstrate.',
+      'The brief’s required screen states',
+    ) +
+    briefTable(
+      'completion',
+      '§20 — the completion criteria. Three of them are claims about the rows above rather than judgements of their own, and those three are computed from those rows rather than typed.',
+      'The brief’s completion criteria',
+    ) +
     cols(
       panel(
         'What a green row here does not mean',
         '<p class="mk-tight">It means the expectation has been <em>drawn</em>. It does not mean it is built, and it does not mean it is right.</p>' +
           '<p class="mk-tight">Both design oracles this catalogue is drawn to were self-approved and neither has been printed. <strong>A practitioner has now looked at four of these screens</strong> — a senior hydrogeologist reviewed the field-capture grid, the QA/QC workspace, the lineage panel and the interpretation editor on 1 September 2026, the four with the most invention in them, and returned four P0 design changes and a binding keep-list. <strong>All four are answered here</strong>: field capture rebuilt around the bore session, QA/QC around the decision layer, provenance beginning at the bore rather than at the deliverable, and the interpretation editor carrying evidence for the inference rather than for its citations. What that does <em>not</em> mean is that the answers are right — the same practitioner has not seen them, and the redesigned screens now carry more invention than the ones the review corrected, not less.</p>' +
           '<p class="mk-tight">The lesson of that review is the one worth keeping past it: the drawn version of both screens was internally consistent, carefully argued and <em>wrong on an axis</em>, and no amount of re-reading would have found it. Five minutes of a practitioner’s attention was worth more than the day of drawing that produced them.</p>' +
+          `<p class="mk-tight"><strong>And a green row may rest on a screen the product does not route to.</strong> The vendor-brief enumeration is the first here to resolve that rather than leave it to a reader: of its ${esc(String(claimed.length))} rows claiming coverage whole or partial, <strong>${esc(String(claimedOnProposal.length))}</strong> rest on at least one screen the register calls a proposal and <strong>${esc(String(claimedWhollyProposal.length))}</strong> rest on nothing else — ${esc(String(proposalsCarrying.length))} distinct proposals of the ${esc(String(registerProposals.length))} in the register are carrying a verdict. Those rows say so in their own Register column and are counted apart, because <em>drawn on a proposal</em> and <em>drawn on a route</em> are two different claims and a table that sums them is a table that flatters itself. The six enumerations above this one do not make that distinction yet.</p>` +
           '<p class="mk-tight">A catalogue is easy to make look complete while the judgements inside it are wrong, and this table measures completeness only.</p>',
       ),
       panel(
@@ -11783,6 +12164,7 @@ const coverage = () => {
               ['PRD register', 'docs/PRD.md §7–§9, §12, §14 (app repo)', 'Every FR, QB, OM and DR id appears exactly once above — and OD-2, the one open decision this catalogue has drawn'],
               ['Incumbent baseline', 'docs/reference/incumbent-baseline.md', 'Every §2–§5 capability row appears once above'],
               ['Journeys', 'EXPANSION_BRIEF.md §8', 'Every step renders as a link, or is flagged unowned'],
+              ['Vendor requirements brief', 'VENDOR_REQUIREMENTS.md, in this repository', 'The build re-runs it: every §4.2–§14.4 heading, every scenario, lineage question, screen state and completion criterion has exactly one row, each row quotes the brief verbatim, and each item count is the bullets the brief actually lists'],
             ],
           }) +
           stateSentence(),
