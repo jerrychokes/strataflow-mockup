@@ -219,7 +219,9 @@ for (const width of widths) {
     NUM['a hundred'] = 100;
     /* Longest first, so "twenty-four" is not matched as "twenty". */
     const WORDS = Object.keys(NUM).sort((a, b) => b.length - a.length);
-    const RE = new RegExp('\\b[Tt]he (\\d{1,3}|' + WORDS.join('|') + ') ([A-Za-z][A-Za-z-]*)');
+    /* W23-R2-4: case-folded on `The` but not on the number word, so
+     * "The Twenty-Two layers" dropped out of scope rather than being flagged. */
+    const RE = new RegExp('\\bthe (\\d{1,3}|' + WORDS.join('|') + ') ([A-Za-z][A-Za-z-]*)', 'i');
     const bad = [];
     let seen = 0;
     for (const sec of document.querySelectorAll('section.mk-screen')) {
@@ -231,7 +233,7 @@ for (const width of widths) {
         const m = name.match(RE);
         if (!m) continue;
         seen += 1;
-        const claimed = /^[0-9]+$/.test(m[1]) ? Number(m[1]) : NUM[m[1]];
+        const claimed = /^[0-9]+$/.test(m[1]) ? Number(m[1]) : NUM[m[1].toLowerCase()];
         const rows = table.querySelectorAll('tbody tr').length;
         if (claimed !== rows) bad.push(`#${sec.id} · “${name}” names ${claimed} ${m[2]} and the table has ${rows} rows`);
       }

@@ -6336,7 +6336,13 @@ export const RECEIPT = {
       // question lives on the chain — this row must say so, or two surfaces
       // disagree about custody, which is the exact failure claim B5 documents.
       note: 'Integrity passed. One seal number is in question — not the seal — and the question is held on the chain of custody.' },
-    { what: 'Containers received against the chain of custody', found: '38 of 38', limit: 'all', outcome: 'pass' },
+    /*
+     * W23-R2-5. `'38 of 38'` was typed and agreed with `CUSTODY_CHAIN.containers`
+     * by authorship rather than by construction, with a comment asserting the two
+     * were meant to match and nothing enforcing it. The check is a reconciliation
+     * between two registers, so it reads both.
+     */
+    { what: 'Containers received against the chain of custody', get found() { return `${CUSTODY_CHAIN.containers} of ${CUSTODY_CHAIN.containers}`; }, limit: 'all', outcome: 'pass' },
     { what: 'Preservation — nitric acid, dissolved metals', found: 'pH < 2 verified on 7 of 7', limit: 'pH < 2', outcome: 'pass' },
     { what: 'Headspace — VOC vials', found: 'n/a — no VOCs in this suite', limit: '—', outcome: 'n/a' },
     { what: 'Container integrity', found: '1 sulfate bottle cracked — WDL-26Q2-006', limit: 'none damaged', outcome: 'fail' },
@@ -7044,14 +7050,47 @@ export const HARDNESS = {
  * trigger values from a reference distribution, the data model already labels
  * MW12 background and MW01A/MW03B upgradient, and no screen did the comparison.
  */
+/*
+ * W23-R2-5. Each row's `mw05` was a typed string that happened to equal the
+ * grid's own MW05 cell — agreement by careful authoring rather than by
+ * construction, found when an auditor picked ten numbers off ten screens at
+ * random and traced them. The reference statistics (`bg`, `p80`) genuinely are
+ * hand-authored: they summarise fourteen quarterly rounds of reference data
+ * this seed does not hold as a series, and inventing that series to derive
+ * them would be manufacturing a record. The *subject* value is different — it
+ * is this round's own result, and this catalogue holds it.
+ *
+ * So `mw05` is read off the grid and the multiple is arithmetic over it, while
+ * the reference half stays declared. A row whose analyte the grid does not
+ * carry says so rather than printing a number from nowhere.
+ */
+const mw05Cell = (analyte) => {
+  const row = CROSSTAB.find((r) => r.analyte === analyte);
+  const at = CROSSTAB_COLUMNS.indexOf('MW05');
+  const cell = row && at >= 0 ? row.cells[at] : null;
+  return cell && cell.v ? Number(String(cell.v).replace(/[^\d.]/g, '')) : null;
+};
+
 export const BACKGROUND = {
   reference: 'MW12 (background) and MW01A, MW03B (upgradient) · 14 quarterly rounds each · 2023-01 to 2026-05',
   method: 'ANZG 2018 §3.1.4 — site-specific trigger value as the 80th percentile of the reference distribution, applied where a default guideline value is absent or demonstrably unrepresentative.',
   rows: [
-    { analyte: 'Sulfate as SO₄', bg: '112 mg/L', p80: '148 mg/L', dg: 'none — no ANZG DGV', stv: '148 mg/L', mw05: '918 mg/L', verdict: '6.2× the site-specific trigger', basis: 'Derived — no default exists' },
-    { analyte: 'Electrical conductivity', bg: '890 µS/cm', p80: '1,140 µS/cm', dg: 'Licence ≤ 2500 µS/cm', stv: '1,140 µS/cm', mw05: '3,410 µS/cm', verdict: '3.0× background, 1.4× the licence limit', basis: 'Both apply; the licence governs compliance' },
-    { analyte: 'Arsenic (filtered)', bg: '2.1 µg/L', p80: '3.4 µg/L', dg: 'ANZG 13 µg/L', stv: 'not adopted', mw05: '28.4 µg/L', verdict: '8.4× background, 2.2× the DGV', basis: 'DGV applies — a default exists and is representative' },
-    { analyte: 'Total hardness', bg: '128 mg/L', p80: '166 mg/L', dg: '—', stv: 'not a criterion', mw05: '412 mg/L', verdict: '2.5× background', basis: 'Context for the hardness-modified values' },
+    { analyte: 'Sulfate as SO₄', bg: '112 mg/L', p80: '148 mg/L', dg: 'none — no ANZG DGV', stv: '148 mg/L',
+      get mw05() { const v = mw05Cell('Sulfate as SO₄'); return v === null ? 'not in this round’s grid' : `${v.toLocaleString('en-AU')} mg/L`; },
+      get verdict() { const v = mw05Cell('Sulfate as SO₄'); return v === null ? 'no value to compare' : `${(v / 148).toFixed(1)}× the site-specific trigger`; },
+      basis: 'Derived — no default exists' },
+    { analyte: 'Electrical conductivity', bg: '890 µS/cm', p80: '1,140 µS/cm', dg: 'Licence ≤ 2500 µS/cm', stv: '1,140 µS/cm',
+      get mw05() { const v = mw05Cell('Electrical conductivity'); return v === null ? 'not in this round’s grid' : `${v.toLocaleString('en-AU')} µS/cm`; },
+      get verdict() { const v = mw05Cell('Electrical conductivity'); return v === null ? 'no value to compare' : `${(v / 1140).toFixed(1)}× background, ${(v / 2500).toFixed(1)}× the licence limit`; },
+      basis: 'Both apply; the licence governs compliance' },
+    { analyte: 'Arsenic (filtered)', bg: '2.1 µg/L', p80: '3.4 µg/L', dg: 'ANZG 13 µg/L', stv: 'not adopted',
+      get mw05() { const v = mw05Cell('Arsenic (filtered)'); return v === null ? 'not in this round’s grid' : `${v} µg/L`; },
+      get verdict() { const v = mw05Cell('Arsenic (filtered)'); return v === null ? 'no value to compare' : `${(v / 3.4).toFixed(1)}× background, ${(v / 13).toFixed(1)}× the DGV`; },
+      basis: 'DGV applies — a default exists and is representative' },
+    { analyte: 'Total hardness', gridName: 'Total hardness as CaCO₃', bg: '128 mg/L', p80: '166 mg/L', dg: '—', stv: 'not a criterion',
+      get mw05() { const v = mw05Cell('Total hardness as CaCO₃'); return v === null ? 'not in this round’s grid' : `${v} mg/L`; },
+      get verdict() { const v = mw05Cell('Total hardness as CaCO₃'); return v === null ? 'no value to compare' : `${(v / 166).toFixed(1)}× background`; },
+      basis: 'Context for the hardness-modified values' },
   ],
   inference:
     'Every parameter elevated at MW05 is elevated against background as well as against a guideline, and the signature — sulfate, EC and hardness together — is TSF seepage rather than natural variation. Two bores upgradient in the same unit show none of it.',
@@ -14963,7 +15002,7 @@ export const ANALYSES = (() => {
         const st = this.strengthClaim;
         return [
           {
-            plate: 'Piper', figure: '4.3',
+            plate: 'Piper', fn: 'piper', figure: '4.3',
             desc: 'MW05 plots as a distinctly sulfate-dominated water separate from the Ca-HCO3 background of every other bore',
             claims: 'that the other five are calcium-bicarbonate waters',
             measured: `the largest cation is not calcium at ${m.notCalcium.length} of the ${m.bores}, and only ${m.anionMajority} hold a majority anion at all`,
@@ -14982,7 +15021,7 @@ export const ANALYSES = (() => {
             get refuted() { return m.notCalcium.length > 0 || m.anionMajority < m.bores; },
           },
           {
-            plate: 'Stiff', figure: '4.4',
+            plate: 'Stiff', fn: 'stiff', figure: '4.4',
             desc: 'MW05 is roughly four times the ionic strength of every other bore',
             claims: 'a factor of about four against every one of the other five',
             /* W21-A-16. `the mean is 2.73×` sat between the two extremes and read
@@ -14994,7 +15033,7 @@ export const ANALYSES = (() => {
             get refuted() { return st.highest.times < 3.5; },
           },
           {
-            plate: 'Schoeller', figure: '4.5',
+            plate: 'Schoeller', fn: 'schoeller', figure: '4.5',
             desc: 'Every bore shares a parallel Ca-Mg-HCO3 signature except MW05, whose sulfate limb is an order of magnitude above the rest',
             claims: 'a shared calcium-magnesium-bicarbonate signature, and a sulfate limb ten times the rest',
             measured: `the signature fails on the same ${m.notCalcium.length} bores, and the sulfate limb is ${sulfateNearest.toFixed(2)}× the next bore — an order of magnitude above *the rest* requires the nearest, not the furthest`,
@@ -15686,6 +15725,36 @@ export const SPATIAL = (() => {
   const otherSampling = LOCATIONS.filter((l) => l.klass !== 'groundwater' && l.klass !== 'surface_water');
   const units = [...new Set(LOCATIONS.map((l) => l.unit))].filter((u) => u !== '—');
   const cadmium = CROSSTAB.find((r) => /^Cadmium/.test(r.analyte));
+
+  const censoredCadmium = CROSSTAB_COLUMNS
+    .map((code, i) => ({ code, cell: cadmium.cells[i] }))
+    .filter((x) => x.cell.censored);
+  const cadmiumLimit = Number(INDETERMINATE[0].lor.replace(/[^\d.]/g, ''));
+  const cadmiumCriterion = Number(INDETERMINATE[0].criterion.replace(/[^\d.]/g, ''));
+  /*
+   * W23-1. `reads` was a typed word on all four rules and the comparisons were
+   * typed prose — *"0.5 is below 0.54"* — so moving the cadmium criterion to
+   * 0.3 left the page asserting "0.5 is below 0.3" beside a `compliant` badge
+   * that should have read `exceedance`, with the build green. The numbers were
+   * live and the verdict they were supposed to decide was not: the tenth
+   * instance of the shape this pipeline has been finding since wave 18, and
+   * the same one field over as W21-A-12.
+   *
+   * A substitution rule is a value and a comparison, so both are here. Only
+   * *exclusion* has no substitute: it produces no mark at all, which is a
+   * structural outcome rather than an arithmetic one, and it says so.
+   */
+  /*
+   * W23-R2-1. Deriving the verdict inside `nonDetectRules` fixed one table and
+   * left three prose sites stating the same relationship as a typed *"sits
+   * above the criterion"* — including `#map`'s own lede, three sentences from
+   * the fixed table, which under a moved criterion contradicted it about the
+   * same two numbers. The blast radius of a derivation is every sentence that
+   * says the same thing, not the one that was reported.
+   */
+  const compare = (v) => (v > cadmiumCriterion ? 'above' : v < cadmiumCriterion ? 'below' : 'exactly at');
+  const verdictFor = (v) => (v > cadmiumCriterion ? 'exceedance' : 'compliant');
+
   const arsenic = CROSSTAB.find((r) => /^Arsenic/.test(r.analyte));
   const nitrate = CROSSTAB.find((r) => /^Nitrate/.test(r.analyte));
   const pfas = CROSSTAB.find((r) => /^PFOS/.test(r.analyte));
@@ -15779,7 +15848,7 @@ export const SPATIAL = (() => {
       name: LAYERS[9], state: 'counted', legend: null,
       source: null, dated: null, supply: null,
       says: `An interpolation, and a decision about censored values before it runs. This round holds ${bores.filter((b) => b.unit === units[0]).length} superficial bores, one of them dry.`,
-      needs: `A control network and a stated non-detect rule. ${cadmium.cells.filter((c) => c.censored).length} of the ${CROSSTAB_COLUMNS.length} cadmium cells are non-detects whose limit of reporting sits above the criterion — contours through those are a picture of a substitution rule rather than of a plume.`,
+      needs: `A control network and a stated non-detect rule. ${cadmium.cells.filter((c) => c.censored).length} of the ${CROSSTAB_COLUMNS.length} cadmium cells are non-detects whose limit of reporting sits ${compare(cadmiumLimit)} the criterion — contours through those are a picture of a substitution rule rather than of a plume.`,
     },
     {
       name: LAYERS[10], state: 'counted', legend: null,
@@ -15949,26 +16018,6 @@ export const SPATIAL = (() => {
    * it were a measurement is the grid's four-absence defect in a second
    * medium, and this is the arithmetic that shows it.
    */
-  const censoredCadmium = CROSSTAB_COLUMNS
-    .map((code, i) => ({ code, cell: cadmium.cells[i] }))
-    .filter((x) => x.cell.censored);
-  const cadmiumLimit = Number(INDETERMINATE[0].lor.replace(/[^\d.]/g, ''));
-  const cadmiumCriterion = Number(INDETERMINATE[0].criterion.replace(/[^\d.]/g, ''));
-  /*
-   * W23-1. `reads` was a typed word on all four rules and the comparisons were
-   * typed prose — *"0.5 is below 0.54"* — so moving the cadmium criterion to
-   * 0.3 left the page asserting "0.5 is below 0.3" beside a `compliant` badge
-   * that should have read `exceedance`, with the build green. The numbers were
-   * live and the verdict they were supposed to decide was not: the tenth
-   * instance of the shape this pipeline has been finding since wave 18, and
-   * the same one field over as W21-A-12.
-   *
-   * A substitution rule is a value and a comparison, so both are here. Only
-   * *exclusion* has no substitute: it produces no mark at all, which is a
-   * structural outcome rather than an arithmetic one, and it says so.
-   */
-  const compare = (v) => (v > cadmiumCriterion ? 'above' : v < cadmiumCriterion ? 'below' : 'exactly at');
-  const verdictFor = (v) => (v > cadmiumCriterion ? 'exceedance' : 'compliant');
   const nonDetectRules = [
     {
       rule: 'Left as reported', substitute: null, n: censoredCadmium.length,
@@ -15984,14 +16033,19 @@ export const SPATIAL = (() => {
       },
     },
     {
-      rule: `Substituted at the limit of reporting (${cadmiumLimit})`, substitute: cadmiumLimit, n: censoredCadmium.length, tone: 'bad',
+      rule: `Substituted at the limit of reporting (${cadmiumLimit})`, substitute: cadmiumLimit, n: censoredCadmium.length,
+      /* W23-R2-2: a substitution is a bad answer whichever way it lands, but the
+       * badge must not print `compliant` in the styling reserved for a failure.
+       * The response claimed only *excluded* kept a literal; it kept two. */
+      get tone() { return this.reads === 'exceedance' ? 'bad' : 'warn'; },
       get reads() { return verdictFor(cadmiumLimit); },
       get says() {
         return `${cadmiumLimit} is ${compare(cadmiumLimit)} ${cadmiumCriterion}, so every one of these bores would be coloured as ${this.reads === 'exceedance' ? 'an exceedance nobody measured' : 'compliant on a value nobody measured'}.`;
       },
     },
     {
-      rule: `Substituted at half the limit (${cadmiumLimit / 2})`, substitute: cadmiumLimit / 2, n: censoredCadmium.length, tone: 'bad',
+      rule: `Substituted at half the limit (${cadmiumLimit / 2})`, substitute: cadmiumLimit / 2, n: censoredCadmium.length,
+      get tone() { return this.reads === 'exceedance' ? 'bad' : 'warn'; },
       get reads() { return verdictFor(cadmiumLimit / 2); },
       get says() {
         const other = verdictFor(cadmiumLimit);
@@ -16167,6 +16221,9 @@ export const SPATIAL = (() => {
     LAYERS, SYMBOLOGY, INVESTIGATION, DIALS, SUPPLY, GOVERNANCE, HAND_OFF, REFERENCE,
     layers, layerOf, dials, time,
     nonDetectRules, censoredCadmium, cadmiumLimit, cadmiumCriterion, classed, classDisagree, CLASSES,
+    /* One expression for the relationship every surface describes (W23-R2-1). */
+    get limitVsCriterion() { return compare(cadmiumLimit); },
+    get nonDetectVerdicts() { return [...new Set(nonDetectRules.map((r) => r.reads))]; },
     counts, against,
     drawnOn: '2026-09-03',
   };
@@ -16228,7 +16285,7 @@ export const VENDOR_BRIEF = (() => {
     { id: '5.3', title: 'Environmental symbology', items: 7, verdict: 'partially', decision: 'D4',
       asks: 'Users must be able to colour or symbolise locations by:',
       screens: ['map', 'crosstab', 'indeterminate'],
-      note: `All {items} are measured against the record one row each and closed against §5.3 by the build. The count on each row is how many of the ${LOCATIONS.length} locations the record can give a value for, which is the question a symbology control has to answer before it is offered — and **trend is the one it cannot**: a trend map needs a series at every location and this record has a concentration series at one. The second sentence is the harder half and it is answered with arithmetic: ${SPATIAL.counts.dials} settings, each with what it moves over this round's own cells. **The non-detect treatment is the one that must not be skipped and is not**: ${SPATIAL.censoredCadmium.length} cadmium cells are non-detects reported at a limit above the criterion, and the same six bores read *exceedance*, *compliant*, *absent* or *indeterminate* on four rules that all ship — so the rule is a control and its state is printed. The row stays partial because the plate is not redrawn under the bar: *figures.mjs* is fenced by D13. This note said *“one fixed symbology, no control, none of the seven dimensions selectable”* until 3 September 2026.` },
+      note: `All {items} are measured against the record one row each and closed against §5.3 by the build. The count on each row is how many of the ${LOCATIONS.length} locations the record can give a value for, which is the question a symbology control has to answer before it is offered — and **trend is the one it cannot**: a trend map needs a series at every location and this record has a concentration series at one. The second sentence is the harder half and it is answered with arithmetic: ${SPATIAL.counts.dials} settings, each with what it moves over this round's own cells. **The non-detect treatment is the one that must not be skipped and is not**: ${SPATIAL.censoredCadmium.length} cadmium cells are non-detects reported at a limit ${SPATIAL.limitVsCriterion} the criterion, and the same ${SPATIAL.censoredCadmium.length} bores read ${SPATIAL.nonDetectVerdicts.map((v) => `*${v}*`).join(', ')} on ${SPATIAL.nonDetectRules.length} rules that all ship — so the rule is a control and its state is printed. The row stays partial because the plate is not redrawn under the bar: *figures.mjs* is fenced by D13. This note said *“one fixed symbology, no control, none of the seven dimensions selectable”* until 3 September 2026.` },
     { id: '5.4', title: 'Temporal analysis', verdict: 'missing', decision: 'D4',
       asks: 'The user must not need to rebuild the map for each period.',
       screens: ['map'],

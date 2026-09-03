@@ -3991,7 +3991,7 @@ const mapScreen = () => {
     cols(
       panel(
         `Non-detects — one analyte, ${esc(String(S.censoredCadmium.length))} censored cells, four maps`,
-        `<p class="mk-tight"><strong>${esc(CROSSTAB.find((r) => /^Cadmium/.test(r.analyte)).analyte)} is the case this record already holds.</strong> ${esc(String(S.censoredCadmium.length))} of the ${esc(String(CROSSTAB_COLUMNS.length))} cells are non-detects reported at <span class="mk-num">${esc(String(S.cadmiumLimit))}</span> µg/L against a criterion of <span class="mk-num">${esc(String(S.cadmiumCriterion))}</span> µg/L — the limit of reporting sits <em>above</em> the thing it is being judged against. Four rules ship in this industry and all four are below.</p>` +
+        `<p class="mk-tight"><strong>${esc(CROSSTAB.find((r) => /^Cadmium/.test(r.analyte)).analyte)} is the case this record already holds.</strong> ${esc(String(S.censoredCadmium.length))} of the ${esc(String(CROSSTAB_COLUMNS.length))} cells are non-detects reported at <span class="mk-num">${esc(String(S.cadmiumLimit))}</span> µg/L against a criterion of <span class="mk-num">${esc(String(S.cadmiumCriterion))}</span> µg/L — the limit of reporting sits <em>${esc(S.limitVsCriterion)}</em> the thing it is being judged against. ${esc(String(S.nonDetectRules.length))} rules ship in this industry and all ${esc(String(S.nonDetectRules.length))} are below.</p>` +
           table({
             head: ['Rule', 'What the map would read', 'At'],
             scroll: true,
@@ -12283,8 +12283,10 @@ const quarantine = () => (
     toolbar: C.exportMenu() + C.btn('Re-run the map stage'),
   }) +
   stats([
-    stat('3', 'held right now', 'warn'),
-    stat('1', 'resolved this week', 'good'),
+    /* W23-R2-5: both were typed and both were right, which is the shape that
+     * cannot be caught tomorrow. QUARANTINE is the register that owns them. */
+    stat(String(QUARANTINE.filter((q) => q.state === 'held').length), 'held right now', 'warn'),
+    stat(String(QUARANTINE.filter((q) => q.state === 'resolved').length), 'resolved this week', 'good'),
     stat('112', 'held in the migration'),
     stat('0', 'silently dropped', 'good'),
   ]) +
@@ -13052,12 +13054,27 @@ const documents = () => (
     route: '/projects/:projectId/documents',
     toolbar: C.exportMenu() + C.btn('Attach a document', 'primary'),
   }) +
-  stats([
-    stat('34', 'documents on this project'),
-    stat('11', 'laboratory certificates'),
-    stat('1.4 GB', 'in tenancy object storage'),
-    stat('0', 'referenced but missing', 'good'),
-  ]) +
+  /*
+   * W23-R2-5. These four read 34 documents, 11 certificates and 1.4 GB, and
+   * `DOCUMENTS` holds 6 rows and 2 certificates totalling 9.5 MB. Not a typed
+   * count that had drifted — a typed count the register could not support even
+   * by hand, on a face, which is the falsehood class this catalogue exists to
+   * refuse. It was found by an auditor picking ten numbers at random from ten
+   * screens and tracing each to its source: 5 of the 10 were literals, 2 of
+   * those unfounded, and this was the worse of the two.
+   *
+   * Every one derives now. The size is summed from the rows' own `size`
+   * strings rather than restated, so a document added anywhere moves all four.
+   */
+  ((D) => stats([
+    stat(String(D.length), D.length === 1 ? 'document on this project' : 'documents on this project'),
+    stat(String(D.filter((d) => d.kind === 'Laboratory certificate').length), 'laboratory certificates'),
+    stat(
+      `${(D.reduce((n, d) => n + (/KB/.test(d.size) ? parseFloat(d.size) / 1024 : parseFloat(d.size)), 0)).toFixed(1)} MB`,
+      'in tenancy object storage',
+    ),
+    stat(String(D.filter((d) => d.state === 'missing').length), 'referenced but missing', 'good'),
+  ]))(DOCUMENTS) +
   C.filterBar({
     controls: [
       C.field({ label: 'Attached to', control: C.select({ options: ['Anything', 'A location', 'A sampling event', 'A sample', 'An import run', 'A notification'], value: 'Anything' }) }),
@@ -13184,11 +13201,19 @@ const projectSettings = () => (
           C.blastRadius({
             lede: 'Binding ANZG 99% would change:',
             rows: [
-              { what: 'Results gaining a third mark', n: '2,841' },
-              { what: 'New exceedances at the stricter set', n: '38' },
+              /*
+               * W23-R2-5. `2,841` and `38` were typed, and no register in this
+               * catalogue models a project-wide result population — the record
+               * holds one round. So the number was not a derivation that had
+               * drifted, it was a figure with nowhere to come from, on a
+               * consequence panel a reader would act on. Both read the round
+               * the record actually holds, and the row says which.
+               */
+              { what: `Results gaining a third mark (this round's grid)`, n: String(CROSSTAB_SHAPE.results) },
+              { what: 'New exceedances at the stricter set', n: 'not computed — no evaluation of this record against ANZG 99% exists' },
               { what: 'Historical evaluations rewritten', n: '0' },
               { what: 'Reports already issued', n: '0' },
-              { what: 'Crosstab columns per result', n: '2 → 3' },
+              { what: 'Crosstab columns per result', n: `${CRITERIA.length} → ${CRITERIA.length + 1}` },
             ],
             action: 'Bind ANZG 99%',
             reversible: 'Reversible. Binding a set evaluates forward and re-evaluates on demand; it never rewrites an outcome that has been reported.',
@@ -13710,8 +13735,8 @@ const dataStates = () => {
         'The skeleton reserves the real grid',
         'Seven columns because the crosstab fills seven, at the row height it will use. A grid that jumps after four seconds reads as broken even when it is correct.',
         C.stateBlock('loading', {
-          headline: 'Reading 2,841 results…',
-          detail: 'Evaluating against 2 criteria sets. On a site link this takes about 9 seconds.',
+          headline: `Reading ${CROSSTAB_SHAPE.results} results…`,
+          detail: `Evaluating against ${CRITERIA.length} criteria sets. On a site link this takes about 9 seconds.`,
           rows: 6,
         }),
       ),
@@ -13720,8 +13745,8 @@ const dataStates = () => {
         'Anything that can exceed about a second shows determinate progress. An indeterminate spinner cannot be told from a dead connection.',
         C.progress({
           pct: 68,
-          label: 'Evaluating 2,841 results against 2 criteria sets',
-          detail: '1,932 of 2,841 · about 4 seconds left · you can leave this page and it continues',
+          label: `Evaluating ${CROSSTAB_SHAPE.results} results against ${CRITERIA.length} criteria sets`,
+          detail: `${Math.round(CROSSTAB_SHAPE.results * 0.68)} of ${CROSSTAB_SHAPE.results} · about 4 seconds left · you can leave this page and it continues`,
         }) +
           C.progress({
             pct: 23,

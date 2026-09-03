@@ -291,10 +291,34 @@ const SECTION_REGISTER = {
    */
   {
     const figures = readFileSync(resolve(here, 'figures.mjs'), 'utf8');
-    const stale = ANALYSES.ions.plateClaims.filter((c) => !figures.includes(c.desc));
+    /*
+     * W23-R2-3. The check was `figures.includes(c.desc)`, which proves a string
+     * exists *somewhere* in the file — so swapping the Piper's and the Stiff's
+     * descriptions between them passed clean, and the screen would have quoted
+     * each plate the other one's words. The claim being made is that this plate
+     * says this, so the search is scoped to the plate's own function body. It
+     * sits directly in front of D13's print test, which is the thing most
+     * likely to move a `<desc>`.
+     */
+    const bodyOf = (fn) => {
+      const at = figures.indexOf(`export function ${fn}(`);
+      if (at < 0) return null;
+      const next = figures.indexOf('\nexport ', at + 1);
+      return figures.slice(at, next < 0 ? figures.length : next);
+    };
+    const stale = ANALYSES.ions.plateClaims.filter((c) => {
+      const body = bodyOf(c.fn);
+      return !body || !body.includes(c.desc);
+    });
     if (stale.length) {
       for (const c of stale) {
-        console.error(`plate claim “${c.plate}”: figures.mjs no longer carries the description this screen quotes — “${c.desc}”`);
+        const body = bodyOf(c.fn);
+        console.error(
+          !body
+            ? `plate claim “${c.plate}”: figures.mjs has no function ${c.fn}()`
+            : `plate claim “${c.plate}”: ${c.fn}() in figures.mjs no longer carries the description this screen quotes — “${c.desc}”` +
+              (figures.includes(c.desc) ? ' (the string is still in the file, on another plate)' : ''),
+        );
       }
       process.exit(1);
     }
