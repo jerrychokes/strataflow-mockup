@@ -3548,13 +3548,22 @@ const hydrochem = () => {
             head: '<span class="mk-queue__kind">The plates still say it</span>',
             body:
               `<p class="mk-tight"><strong>${esc(String(pc.count.refuted))} of the ${esc(String(pc.count.total))} plates on this screen</strong> carry the withdrawn claim in their own accessible descriptions, which render here — so a reader meets the refutation and the claim on one page. The count is read off the record below rather than written down: round 1 named the two it was handed and said “two of the three”, and round 2 found the third saying the same thing, which made a typed count on the screen built to stop typed counts (W21-A-6).</p>` +
+              /*
+               * W22-M-1. The wave-21 response claimed each verdict's threshold
+               * was "printed on the face so a reader can disagree with the
+               * threshold rather than with a hidden one". It was not: `test`
+               * lived in the record and nothing rendered it, so the one thing
+               * a reader would need in order to disagree was the one thing
+               * only a reader of the source could see. Same shape as W21-A-11,
+               * inside the fix for W21-A-12.
+               */
               table({
-                caption: 'Each plate’s own description, the claim it makes about every other bore, and the arithmetic from the table above that decides it.',
-                head: ['Plate', 'What its description says', 'What the ion table measures'],
+                caption: 'Each plate’s own description, the reading its qualitative words are tested at, and the arithmetic from the table above that decides it. A claim like “roughly four times” cannot be refuted until somebody says what it is read as, so the threshold is stated rather than assumed — disagree with it here and the verdict is yours to move.',
+                head: ['Plate', 'What its description says, and what it is read as', 'What the ion table measures'],
                 rows: pc.claims.map((c) => [
                   `Figure ${esc(c.figure)} · ${esc(c.plate)}`,
-                  `<span class="mk-muted">“${esc(c.desc)}”</span>`,
-                  md(c.measured),
+                  cell(`<span class="mk-muted">“${esc(c.desc)}”</span><small><strong>Read as:</strong> ${esc(c.test)}</small>`),
+                  cell(`${md(c.measured)}<small>${c.refuted ? C.status('refuted', 'bad') : C.status('stands', 'good')}</small>`),
                 ]),
               }) +
               `<p class="mk-tight">None is changed here. All three live in <code class="mk-file">figures.mjs</code>, which is fenced until the print test (D13) — and an approved plate’s description is part of what that test is for. Named rather than corrected, and counted rather than asserted.</p>`,
@@ -3687,8 +3696,8 @@ const summaryStatistics = () => {
       panel(
         `${esc(String(S.rows.length))} statistics, and what each survives`,
         table({
-          caption: `Every measure is an order statistic or a count, so each is exact arithmetic on the population and none needs a distributional assumption. The last column asks the question the record forces: <strong>if two of these ${S.n} are non-detects, which of these numbers still means what it says?</strong>`,
-          head: ['§9.4 measure', 'Statistic', 'Value', 'If 2 of the 14 are non-detects', 'How it is computed'],
+          caption: `Every measure is an order statistic or a count, so each is exact arithmetic on the population and none needs a distributional assumption. The last column asks the question the record forces: <strong>if ${TREND.censored} of these ${S.n} are non-detects, which of these numbers still means what it says?</strong>`,
+          head: ['§9.4 measure', 'Statistic', 'Value', `If ${TREND.censored} of the ${TREND.n} are non-detects`, 'How it is computed'],
           kind: 'matrix',
           label: 'Summary statistics over the arsenic population at MW05',
           rows: S.rows.map((r) => [
@@ -3699,7 +3708,11 @@ const summaryStatistics = () => {
             cell(md(r.how)),
           ]),
         }) +
-        `<p class="mk-tight"><strong>Detection frequency appeared nowhere in this repository before 3 September 2026</strong>, and it is the measure that makes the disagreement impossible to read past: over the exported series it is ${esc(S.rows.find((r) => r.measure === 'Detection frequency').value)}, and the trend record beside it says two of the fourteen are non-detects.</p>` +
+        /*
+           * W22-M-3. This paragraph said *nowhere* one line under a table row
+           * that said *twice*, on the same panel. Both read the record now.
+           */
+          `<p class="mk-tight"><strong>${esc(ANALYSES.detectionFrequency.measure)} ${esc(ANALYSES.detectionFrequency.sentence)}</strong>, and it is the measure that makes the disagreement impossible to read past: over the exported series it is ${esc(S.rows.find((r) => r.measure === 'Detection frequency').value)}, and the trend record beside it says ${esc(String(TREND.censored))} of the ${esc(String(TREND.n))} are non-detects.</p>` +
         `<p class="mk-tight mk-muted"><strong>Exceedance frequency is not the exceedance count.</strong> ${esc(S.rows.find((r) => r.measure === 'Exceedance frequency').value)} of this series is above the ${esc(String(S.criterion))} ${esc(S.unit)} guideline value, which is a rate over a period; <a class="mk-ref" href="#exceedances">the register</a> counts a <em>consecutive run</em>, and it is the run the licence condition turns on. Two measures, two questions, and only one of them was drawn.</p>`,
       ),
       panel(
@@ -10230,7 +10243,16 @@ const roundCompleteness = () => {
      * ---------------------------------------------------------------- */
     `<h2 class="mk-h2" style="margin-top:1.4rem">${P.lists.stages.length} stages, ${P.lists.stages.length} registers</h2>` +
     table({
-      caption: 'One row per stage. Every number is read off the register named beside it — no count on this screen is taken twice.',
+      /*
+       * W22-M-4. The caption read *"no count on this screen is taken twice"*,
+       * which is true of these six rows — nineteen distinct expressions, no two
+       * alike — and false of the screen, because 7 of the 10 hand-off endpoints
+       * below deliberately re-display a stage's own number. That is the point of
+       * a hand-off, and the caption now says so rather than overclaiming: what
+       * matters is that nothing is computed a second way, not that nothing
+       * appears twice.
+       */
+      caption: `One row per stage, and every number read off the register named beside it — ${P.counts.stageReadings} readings, no two from the same expression. A hand-off below re-shows a stage’s own number rather than recomputing it: a second computation of one quantity is the drift this screen exists to find.`,
       head: ['Stage', 'The register that owns it', 'What that register counts'],
       kind: 'matrix',
       label: `The ${P.lists.stages.length} stages of the round`,
