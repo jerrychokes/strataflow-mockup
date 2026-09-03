@@ -3578,6 +3578,7 @@ const savedViews = () => {
               cell(esc(c.what)),
             ]),
           }) +
+          `<p class="mk-tight mk-muted"><strong>${esc(S.channels.find((c) => c.unexercised).channel)} has never fired.</strong> ${esc(S.channels.find((c) => c.unexercised).unexercised)}</p>` +
           `<p class="mk-tight mk-muted">Both read <strong>${esc(String(S.channels.reduce((n, c) => n + c.n, 0)))}</strong> today and that is a measurement rather than an omission: no dataset has ever moved to a second version, and of the ${esc(String(S.staleItems.length))} stale items on <a class="mk-ref" href="#report-figures">the figure register</a>, <strong>${esc(String(S.staleNotCiting.length))}</strong> resolve to no dataset at all — they are stale by evidence, on sources that name a validation run and an evaluation.</p>` +
           C.card({
             tone: 'warn',
@@ -3591,7 +3592,7 @@ const savedViews = () => {
     ) +
 
     '<h2 class="mk-h2" style="margin-top:1.4rem">A citation resolves. Does it agree with what it resolved to?</h2>' +
-    `<p class="mk-tight">Wave 18 made a source string <em>become</em> the record it names. Nothing compared the two ends of it. The first time that comparison is run, <strong>${esc(String(F.disagreeing))} of the ${esc(String(F.checked))}</strong> citations disagrees with the definition it cites — on both axes at once. Both checks are computed off the item’s own title: the location codes it names against the codes the dataset selects, and whether its subject is an analyte in the dictionary at all.</p>` +
+    `<p class="mk-tight">Wave 18 made a source string <em>become</em> the record it names. Nothing compared the two ends of it. The first time that comparison is run, <strong>${esc(String(F.disagreeing))} of the ${esc(String(F.checked))}</strong> citations disagrees with the definition it cites. The check is computed off the item’s own title: the location codes it names against the codes the dataset selects. A second axis — whether the subject is an analyte in the dictionary — is reported beside it and <strong>not counted against the citation</strong>: ${esc(String(F.analyteUncheckable))} of the ${esc(String(F.checked))} name none, because a plate that draws water levels names no analyte by nature. Folding the two together made a question this kind of item cannot be asked look like a fault it could not clear, which is what correcting the drawn defect and watching the count stay at 1 exposed (W19-A-1, 3 September 2026).</p>` +
     table({
       caption: 'The disagreement, measured. Nothing here is judged and nothing is corrected — a figure’s title is what a report says and a dataset’s definition is what the record says.',
       head: ['Item', 'It draws', 'The dataset selects', 'Outside the definition', 'Its subject'],

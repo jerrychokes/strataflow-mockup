@@ -4976,7 +4976,17 @@ export const SAVED_VIEWS = (() => {
         staleByDefinition: version !== 1,
         staleByEvidence: item.state !== 'current',
         names, outside, analytes,
-        agrees: outside.length === 0 && analytes.length > 0,
+        /*
+         * W19-A-1. `agrees` folded two grounds into one, so a plate that draws
+         * water levels — which names no analyte by nature — could never agree
+         * however its locations read. Correcting the drawn defect would not
+         * have cleared it, which is a check that cannot be satisfied rather
+         * than one that is failing. The location test is the disagreement; the
+         * analyte test is a question this item kind cannot be asked, and it is
+         * reported as unanswerable rather than as a fault.
+         */
+        agrees: outside.length === 0,
+        analyteCheckable: analytes.length > 0,
       };
     });
   };
@@ -5074,6 +5084,8 @@ export const SAVED_VIEWS = (() => {
           channel: 'by definition', n: allCitations().filter((c) => c.staleByDefinition).length,
           what: 'The dataset moved to a later version and this citation names an earlier one.',
           newIn: 'wave 19',
+          /* W19-A-3: said on the face rather than only in a comment. */
+          unexercised: 'Every dataset here is at v1, so this limb has never fired. It is argued, not demonstrated — and it cannot be demonstrated without a version history no recorded act supports.',
         },
         {
           channel: 'by evidence', n: allCitations().filter((c) => c.staleByEvidence).length,
@@ -5133,10 +5145,14 @@ export const SAVED_VIEWS = (() => {
     return {
       checked: all.length,
       disagreeing: bad.length,
+      /* The second axis, reported separately since W19-A-1: an item naming no
+       * analyte is not a disagreement, it is a question this kind of plate
+       * cannot be asked. */
+      analyteUncheckable: all.filter((c) => !c.analyteCheckable).length,
       rows: bad.map((c) => ({
         item: c.item.n, title: c.item.title, dataset: c.dataset.name,
         outside: c.outside, selects: locationCodes(c.dataset),
-        subject: c.analytes.length ? c.analytes.join(', ') : 'no analyte in the dictionary — the item draws water levels',
+        subject: c.analytes.length ? c.analytes.join(', ') : 'no analyte in the dictionary — the item draws water levels, so this axis cannot be checked and is not counted against it',
       })),
       readings: [
         {
