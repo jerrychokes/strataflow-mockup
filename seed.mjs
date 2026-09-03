@@ -4439,6 +4439,24 @@ export const SAVED_VIEWS = (() => {
     drawnFigures: 3,
     /* The one chip the grid used to state its edits with. */
     crosstabChip: '1 — “added zinc”',
+    /* ---------------------------------------------------------------- *
+     * Wave 19's own befores. Each is a historical fact, typed once here.
+     * ---------------------------------------------------------------- */
+    /** The field that held the sharing class, under a name that promised an owner. */
+    sharingField: 'owner',
+    /** And the column head the results grid gave the same value. */
+    crosstabSharingHead: 'Owner',
+    /** How the one person's name was drawn, and what the record calls the field. */
+    personAs: 'an attribution under the dataset’s name, unlabelled',
+    personHeader: 'Used by',
+    /** The purpose: in the record since wave 18, rendered on nothing. */
+    purposeDrawn: 'in the record, on no face',
+    /** What the figure register did with a citation once it resolved. */
+    citationCheck: 'resolved, and never checked against the definition it names',
+    /** What the definition was, as a reader met it. */
+    definitionAs: 'four prose cells in one row',
+    /** What the register offered about a dataset’s state. */
+    lifecycleAs: 'a Project/Private tag, and nothing else',
   };
 
   /**
@@ -4453,7 +4471,7 @@ export const SAVED_VIEWS = (() => {
     {
       id: 'licence-quarterly',
       name: 'Compliance boundary — Table 4',
-      owner: 'Project', by: 'R. Whitmore', shared: true,
+      sharing: 'Project', by: 'R. Whitmore', shared: true,
       group: 'Compliance boundary',
       get locations() { return groupOf(this.group).members.join(', '); },
       suite: 'licence-t4',
@@ -4466,7 +4484,7 @@ export const SAVED_VIEWS = (() => {
     {
       id: 'tsf-metals',
       name: 'TSF downgradient — metals',
-      owner: 'Project', by: 'A. Nakamura', shared: true,
+      sharing: 'Project', by: 'A. Nakamura', shared: true,
       group: 'TSF downgradient compliance',
       get locations() { return groupOf(this.group).members.join(', '); },
       suite: 'metals-dissolved',
@@ -4482,10 +4500,18 @@ export const SAVED_VIEWS = (() => {
     {
       id: 'pfas-everything',
       name: 'PFAS — everything',
-      owner: 'Project', by: 'A. Nakamura', shared: true,
+      sharing: 'Project', by: 'A. Nakamura', shared: true,
       group: null,
+      /* No group holds this set, so the dimension resolves through the
+       * location register's own class instead — and `locations` stays the
+       * sentence it always was rather than becoming a list of seven codes. */
+      klass: 'groundwater',
       locations: 'All groundwater',
       suite: 'pfas',
+      /* The `+ derived sum` in the analyte string is a row on the grid, and
+       * which row is counted rather than named here: it is the only one whose
+       * cells carry `derived`. */
+      includesDerived: true,
       get analytes() { return suiteText(this.suite, 'derived sum'); },
       period: 'All time',
       criteria: 'ANZG 95%',
@@ -4495,7 +4521,7 @@ export const SAVED_VIEWS = (() => {
     {
       id: 'quick-check',
       name: 'My quick check',
-      owner: 'Private', by: 'A. Nakamura', shared: false,
+      sharing: 'Private', by: 'A. Nakamura', shared: false,
       group: null,
       locations: 'MW05',
       analyteNames: ['Arsenic (filtered)', 'Zinc (filtered)', 'Copper (filtered)'],
@@ -4577,13 +4603,18 @@ export const SAVED_VIEWS = (() => {
     get view() { return tsf; },
     /* `grid: null` on the locations row is filled by `#crosstab` as it renders:
      * that option is counted off the location register there, and counting it
-     * a second time here is the defect this whole record is about. */
-    dimensions: [
-      { dimension: 'Locations', grid: null, get view() { return tsf.locations; } },
-      { dimension: 'Analyte suite', grid: 'Everything in the round', get view() { return tsf.analytes; } },
-      { dimension: 'Period', grid: '2026 Q2', get view() { return tsf.period ?? 'unsettled — two readings'; } },
-      { dimension: 'Criteria sets', grid: 'Both sets', get view() { return tsf.criteria; } },
-    ],
+     * a second time here is the defect this whole record is about.
+     *
+     * Wave 19: the *view* side of each row is no longer restated here either.
+     * `dimensionsOf` below is the one place a dataset's dimension is composed,
+     * and this bar compares the grid's selections against it — so a definition
+     * the register draws and a definition the grid compares itself with cannot
+     * become two descriptions of one thing. The four labels and the four grid
+     * selections are unchanged. */
+    grid: { Locations: null, 'Analyte suite': 'Everything in the round', Period: '2026 Q2', 'Criteria sets': 'Both sets' },
+    get dimensions() {
+      return dimensionsOf(tsf).map((d) => ({ dimension: d.dimension, grid: this.grid[d.dimension], view: d.value }));
+    },
     against(locationsOnGrid) {
       return this.dimensions.map((d) => ({ dimension: d.dimension, grid: d.grid ?? locationsOnGrid, view: d.view }));
     },
@@ -4614,6 +4645,515 @@ export const SAVED_VIEWS = (() => {
       missed: fed.filter((n) => !claimed.includes(n)),
       inSection: REPORT_ITEMS.items.filter((it) => it.kind === 'Figure' && it.section === '4').length,
       section: '4',
+    };
+  };
+
+  /* ================================================================ *
+   * Wave 19 — the same record, promoted to the object §4.5 asks for
+   *
+   * D1 accepted the query capability on 3 September 2026 and the PRD
+   * amendment that carries it, so this stops being a remembered column set
+   * and becomes a **population that can be named, versioned, owned, carried
+   * between workspaces and cited years later at the version used**. Seven
+   * requirements across the vendor brief — §4.3, §4.4, §4.5, §5.6, §6.4, §9.5
+   * and §12.2 — are each asking for this one object from a different
+   * direction, which is why it is built here rather than beside here.
+   *
+   * **Nothing new is declared next to this record.** The four datasets gain
+   * the fields the requirement names, and every one of them is either read
+   * off a record that already exists or drawn as a gap with what would close
+   * it. The export keeps its wave-18 name so that settlement stays greppable:
+   * the object is a *dataset*, the export is `SAVED_VIEWS`, and the screen id
+   * is still `saved-views` because a route is not a noun.
+   *
+   * **On the word.** `docs/GLOSSARY.md` carries neither *saved view* nor
+   * *dataset* as a term. The brief's §4.5 heading is "Saved queries and
+   * governed datasets" and `docs/PRD.md` uses *dataset* in prose four times,
+   * so the word is the requirement's and the product's rather than this
+   * catalogue's invention — and the glossary entry is part of the amendment
+   * D1 accepted, which has not landed. Stated on the screen, not assumed.
+   * ================================================================ */
+
+  /** The analyte rows this catalogue holds a derived total for — counted, not named. */
+  const derivedRows = () => CROSSTAB.filter((r) => r.cells.some((c) => c.derived)).map((r) => r.analyte);
+
+  /** The locations a dataset selects, resolved through the record that holds them. */
+  const locationCodes = (v) =>
+    v.group ? groupOf(v.group).members
+      : v.klass ? LOCATIONS.filter((l) => l.klass === v.klass).map((l) => l.code)
+        : v.locations.split(', ');
+
+  /** The analyte rows it selects that this catalogue can actually resolve to a row. */
+  const analyteRows = (v) =>
+    [...(v.analyteNames ?? []), ...(v.includesDerived ? derivedRows() : [])]
+      .filter((name) => CROSSTAB.some((r) => r.analyte === name));
+
+  /**
+   * A suite whose size follows another record rather than sitting still.
+   *
+   * Detected rather than listed: `ANALYTE_SUITES` holds the licence suite's
+   * size as a getter onto the criteria set in force, and the other four as
+   * numbers. So the question "does this dimension move when nobody edits the
+   * dataset" is answered by the shape of the record, which is the only place
+   * the answer is actually kept.
+   */
+  const suiteFollows = (code) => typeof Object.getOwnPropertyDescriptor(suiteOf(code), 'n')?.get === 'function';
+
+  /**
+   * The definition, as four inspectable dimensions rather than four prose cells.
+   *
+   * The same four the grid's filter bar carries, in the same order, because
+   * `onCrosstab` compares them one against the other and a fifth here would be
+   * a comparison with nothing on the other side. `through` is the record the
+   * dimension resolves against and `resolves` says whether this catalogue can
+   * turn it into rows — which is the honest half: **a suite is a size here and
+   * never a membership**, so a dataset that names one has an analyte dimension
+   * nothing can expand, and the population readout says so rather than
+   * guessing eight analytes out of eleven.
+   */
+  const dimensionsOf = (v) => [
+    {
+      dimension: 'Locations', value: v.locations, resolves: true,
+      through: v.group ? `location group · ${v.group}`
+        : v.klass ? `location register · every location of class ${v.klass}`
+          : 'named on the dataset itself',
+      live: Boolean(v.group || v.klass), at: v.group ? 'locations' : 'locations',
+    },
+    {
+      dimension: 'Analyte suite', value: v.analytes, resolves: analyteRows(v).length > 0,
+      through: v.suite ? `analyte suite · ${suiteOf(v.suite).label} — the record holds its size, never its membership`
+        : 'named on the dataset itself, analyte by analyte',
+      live: Boolean(v.suite), at: 'dictionary',
+    },
+    {
+      dimension: 'Period', value: v.period ?? 'unsettled — two readings', resolves: v.period !== null,
+      through: v.period ? 'named on the dataset itself' : 'two records answer and nothing holds a third',
+      live: false, at: v.period ? 'programme' : 'saved-views',
+    },
+    {
+      dimension: 'Criteria sets', value: v.criteria, resolves: true,
+      through: 'named on the dataset itself', live: false, at: 'criteria',
+    },
+  ];
+
+  /**
+   * The population, resolved against the grid the dataset selects from — and
+   * **what it excludes, counted per kind**.
+   *
+   * This is the trap this catalogue is uniquely exposed to. The grid's most
+   * careful work is that *dry*, *not analysed*, *composited* and *not
+   * evaluated* are four different absences and none of them is a pass. A
+   * population that filtered to "validated results only" and quietly dropped
+   * those cells would destroy the distinction the whole grammar rests on. So
+   * the readout counts them by kind, off the same cells `#crosstab` draws, and
+   * the two cannot disagree because there is one array.
+   *
+   * `dryColumns` is counted at the location axis rather than the cell axis on
+   * purpose: a dataset whose analyte dimension names a suite resolves to no
+   * rows at all, and *one of the two bores I select returned nothing* is still
+   * true and still worth saying when the cells cannot be counted.
+   */
+  const populationOf = (v) => {
+    const codes = locationCodes(v);
+    const columns = codes.filter((c) => CROSSTAB_COLUMNS.includes(c));
+    const rows = analyteRows(v);
+    const cells = rows.flatMap((name) => {
+      const row = CROSSTAB.find((r) => r.analyte === name);
+      return columns.map((code) => ({ analyte: name, location: code, cell: row.cells[CROSSTAB_COLUMNS.indexOf(code)] }));
+    });
+    const included = cells.filter((x) => !x.cell.empty);
+    const emptyBy = (word) => cells.filter((x) => x.cell.empty && x.cell.word === word);
+    const allNot = (x) => x.cell.o.every((o) => o === 'not_evaluated');
+    return {
+      locations: codes,
+      columns,
+      offGrid: codes.filter((c) => !CROSSTAB_COLUMNS.includes(c)),
+      dryColumns: columns.filter((c) => CROSSTAB_SHAPE.isEmpty(c)),
+      rows,
+      byName: v.analyteNames?.length ?? 0,
+      bySuite: v.suite ? suiteOf(v.suite).n : 0,
+      resolves: rows.length > 0,
+      cells,
+      included,
+      excluded: cells.filter((x) => x.cell.empty),
+      dry: emptyBy('dry'),
+      notAnalysed: emptyBy('not analysed'),
+      nothingAsserted: included.filter(allNot),
+      partlyAsserted: included.filter((x) => x.cell.o.some((o) => o === 'not_evaluated') && !allNot(x)),
+    };
+  };
+
+  /**
+   * The four absences, catalogue-wide, and the one thing that is **not** one.
+   *
+   * Each kind renders from a cell that actually holds it, so the glyph, the
+   * word and the sentence a screen reader gets are the ones the grid already
+   * draws rather than a second description of them. The fourth kind has no
+   * empty cell — a result exists and nothing was asserted about it — so it
+   * carries its outcome key and the screen renders the dashed mark and
+   * `OUTCOME_TEXT` for it, from `ui.mjs`, where that vocabulary lives.
+   */
+  const absences = () => {
+    const water = CROSSTAB.flatMap((r) => r.cells);
+    const soil = SOIL.grid.flatMap((r) => r.cells);
+    const emptyOf = (cells, word) => cells.filter((c) => c.empty && c.word === word);
+    const results = (cells) => cells.filter((c) => !c.empty);
+    const nothing = (cells) => results(cells).filter((c) => c.o.every((o) => o === 'not_evaluated'));
+    const partly = (cells) => results(cells).filter((c) => c.o.some((o) => o === 'not_evaluated')).length - nothing(cells).length;
+    const dry = emptyOf(water, 'dry');
+    const notAnalysed = emptyOf(water, 'not analysed');
+    const composited = emptyOf(soil, 'composited');
+    const unassessed = [...nothing(water), ...nothing(soil)];
+    return [
+      {
+        key: 'dry', absenceOf: 'material', n: dry.length, sample: dry[0], at: 'crosstab',
+        where: `the ${CROSSTAB_SHAPE.emptyColumns.join(', ')} column, on the ${ROUND.code} water grid`,
+        says: 'The bore was reached and dipped and held no water, so no sample exists and nothing could have been measured. The round is satisfied as attempted.',
+        ifDropped: 'The column disappears, and a reader compares this quarter with last across a narrower grid than the programme asked for.',
+      },
+      {
+        key: 'not analysed', absenceOf: 'analysis', n: notAnalysed.length, sample: notAnalysed[0], at: 'batches',
+        where: `${PFAS_REACH.analyte} at ${PFAS_REACH.withdrawnLocations.join(', ')} — sampled, sealed, reconciled, never run`,
+        says: 'The sample exists and this suite was never run on it. A censored value here would assert that a laboratory reported a non-detect, and none did.',
+        ifDropped: 'The suite reads as though it reached the whole network, which is the claim wave 15 withdrew five cells to stop making.',
+      },
+      {
+        key: 'composited', absenceOf: 'a result of its own', n: composited.length, sample: composited[0], at: 'composite',
+        where: `${SOIL.gridShape.emptyColumns.length} increment columns on the soil grid`,
+        says: 'The material was combined into a composite before analysis, so no number was ever produced for this position — and it is retained, so it can still be bought rather than derived.',
+        ifDropped: 'The increments stop existing, and the composite reads as a sample from one place rather than a combination of four.',
+      },
+      {
+        key: 'not evaluated', absenceOf: 'an assessment', n: unassessed.length, outcome: 'not_evaluated', at: 'criteria',
+        where: `${nothing(soil).length} soil and sediment results no set in the library carries a matrix for, and ${nothing(water).length} water results that are an input to a criterion rather than a subject of one`,
+        says: 'A result exists and no criterion was selectable for it, so nothing is asserted about the number in either direction. A further ' +
+          `${partly(water)} water results are assessed against one set and not the other, and stay inside with one mark each.`,
+        ifDropped: 'Not evaluated becomes compliant, which is the single substitution this catalogue exists to refuse.',
+      },
+    ];
+  };
+
+  /**
+   * The kind that is **inside**, decided rather than measured (D10).
+   *
+   * Nine zinc results carry a proposed and unapplied `L`; the register holds a
+   * second proposal beside it. Jerry's verdict on 3 September 2026 is that a
+   * proposed-but-unapplied qualifier is *inside* the population and the plate
+   * says so — excluding them would be the product taking a decision the
+   * practitioner has not.
+   *
+   * The count is the register's and not the grid's, and that difference is
+   * stated rather than smoothed: `QUALIFIERS` counts results in an analytical
+   * batch and the grid counts cells in a round, so the ten below are not ten
+   * of the sixty-one. Reporting them as if they were would be the same
+   * conflation the matrix filter was fixed to stop making.
+   */
+  const insideAnyway = () => ({
+    decision: 'D10',
+    verdict: 'A proposed-but-unapplied qualifier is inside the population, and the plate says so.',
+    assertions: QUALIFIERS.proposed.length,
+    results: QUALIFIERS.counts.proposedResults,
+    codes: QUALIFIERS.proposed.map((r) => `${r.code} — ${r.finding.check.toLowerCase()}, ${r.results} result${r.results === 1 ? '' : 's'}`),
+    counted: 'results in an analytical batch, which is not the same population as cells in a round',
+    says:
+      'The qualifier is proposed and the basis has not been chosen, so nothing has been written. A population that dropped these would be asserting the decision; one that included them silently would be hiding it. They are in, and every surface that draws the population says which of its members are in this state.',
+  });
+
+  /* ---------------------------------------------------------------- *
+   * Versions, and the acts that would make one
+   * ---------------------------------------------------------------- */
+
+  /**
+   * Every act recorded against a dataset in this instance — **none**.
+   *
+   * Two kinds of act would make a version: a definition change committed to
+   * the dataset, and a supersession. A third, an approval, moves the lifecycle
+   * without moving the definition. The record holds none of the three for any
+   * of the four datasets, which is why every one of them reads v1 and reads
+   * *draft*: both are counted off this list rather than defaulted. A dataset
+   * numbered v3 in a catalogue holding no record of two changes would be a
+   * version typed to look governed, which is the trade this file has refused
+   * five times.
+   */
+  const acts = [];
+  const actsFor = (v) => acts.filter((a) => a.dataset === v.id);
+  const versionOf = (v) => actsFor(v).filter((a) => a.makesVersion).length + 1;
+  const approvalsOf = (v) => actsFor(v).filter((a) => a.kind === 'approved');
+  const supersessionOf = (v) => actsFor(v).find((a) => a.kind === 'superseded') ?? null;
+  const lifecycleOf = (v) => (supersessionOf(v) ? 'superseded' : approvalsOf(v).length ? 'approved' : 'draft');
+
+  /**
+   * The brief lists four states on one line and they are **two axes**.
+   *
+   * *Draft*, *approved* and *superseded* are a lifecycle: a dataset occupies
+   * exactly one of them and moves between them by an act. *Shared* is a
+   * visibility: an approved dataset is surely also shared, and drawing the
+   * four as one strip would make those two mutually exclusive. So the axes are
+   * drawn apart and each dataset carries a position on both — the same
+   * discipline `#crosstab` applies to the two roads that reach *not
+   * evaluated*, one requirement over.
+   */
+  const AXES = {
+    lifecycle: {
+      axis: 'Lifecycle', of: 'the definition',
+      states: ['draft', 'approved', 'superseded'],
+      get says() {
+        return `One of three, moved between by an act that is recorded. Nothing here has been approved and nothing superseded, so all ${views.length} read draft — derived from the absence of an approval act, in the same shape the report template models a version that exists and is not effective.`;
+      },
+    },
+    visibility: {
+      axis: 'Visibility', of: 'who can read it',
+      states: ['private', 'shared with the project'],
+      says: 'A different question from the lifecycle, and the one the record actually holds. A view that lives on one machine puts two people asking for the compliance boundary numbers back on two questions, which is the disagreement the product exists to end.',
+    },
+  };
+
+  /**
+   * Creator and current owner — **the refusal, and it is this wave's**.
+   *
+   * §4.5 asks the dataset to identify its creator *and* its current owner, and
+   * this record names **one person** per dataset. The only header that field
+   * ever carried is `Used by`, on the four rows `#saved-views` withdrew in
+   * wave 18 and keeps drawn as the before they are; wave 18's own settlement
+   * table names that row *used by* as well. So the strongest reading of the
+   * record is *who last ran it*, paired with the date beside it — and neither
+   * a creator nor an owner is recorded anywhere for any of the four.
+   *
+   * Filling both from that one name would answer §4.5 for free by assuming
+   * the thing it asks to be shown. Both fields are drawn and neither is
+   * filled, in the shape wave 15's PFAS three-way and wave 18's period
+   * disagreement each settled into.
+   */
+  const roles = {
+    question: 'Who created this dataset, and who owns it now?',
+    unsettled: true,
+    holds: 'One person per dataset, in one capacity.',
+    capacity: 'ran it',
+    evidence: `The one header the record ever gave the field is “${was.personHeader}”, on the four rows this screen withdrew — and wave 18’s settlement names that row “used by” as well. It is paired with a date, which is what a last-run field looks like.`,
+    drawnAs: was.personAs,
+    consequence:
+      'A creator is who to ask what a dataset was for; a current owner is who may change it and who answers for what it feeds. Naming one person as both would put an accountability in the record that nobody wrote down — and the two figures this catalogue’s most-cited dataset feeds are in a report.',
+    settledBy:
+      'Two writes the product would make and this instance has not: an attribution on the act that created the dataset, which the audit trigger would record without anybody choosing to, and an ownership transfer record — the same shape a sign-off already has, because “who answers for this now” is the question a capacity answers.',
+  };
+
+  /* ---------------------------------------------------------------- *
+   * Citations — a figure cites a dataset at a version, and it is checked
+   * ---------------------------------------------------------------- */
+
+  /**
+   * One citation, with the two questions nobody had asked of it.
+   *
+   * Wave 18 made a citation *resolve* — the source string stopped being text
+   * and became the record it names. What it did not do is check whether the
+   * definition it resolves to describes the figure that cites it, and the
+   * first time this is measured, half of them do not.
+   *
+   * Both checks are derived off the item's own title against registers this
+   * file already holds: the location codes it names, against the codes the
+   * dataset selects; and whether the subject is an analyte in the dictionary
+   * at all. Nothing is typed and nothing is judged.
+   *
+   * **The binding is derived, and the derivation names its own limit.** With
+   * exactly one version recorded there is no other version a citation could
+   * have been bound to, so `bound` follows `versionOf`. The moment a dataset
+   * gains a second, that stops being derivable and the binding becomes a fact
+   * the citation itself has to carry — which is the field §4.5's last sentence
+   * is asking for and the field this instance does not yet need.
+   */
+  const citationsOf = (v) => {
+    const selects = locationCodes(v);
+    const version = versionOf(v);
+    return v.feeds.map((item) => {
+      const names = LOCATIONS.filter((l) => item.title.includes(l.code)).map((l) => l.code);
+      const outside = names.filter((c) => !selects.includes(c));
+      const analytes = ANALYTES.filter((a) => item.title.includes(a.name.split(' (')[0])).map((a) => a.name);
+      return {
+        item, dataset: v,
+        bound: version === 1 ? 1 : null,
+        current: version,
+        boundDerived: version === 1,
+        staleByDefinition: version !== 1,
+        staleByEvidence: item.state !== 'current',
+        names, outside, analytes,
+        agrees: outside.length === 0 && analytes.length > 0,
+      };
+    });
+  };
+
+  const allCitations = () => views.flatMap(citationsOf);
+
+  /**
+   * Which populations one value is a member of — the lineage hop, from the
+   * result's end.
+   *
+   * §15's chain runs *Validated Result → Query → Analysis → Figure* and must be
+   * traversable **in both directions**. The forward direction is what a
+   * dataset's own population readout answers; this is the other one, and it
+   * has three answers rather than two. A dataset that selects the bore and
+   * names the analyte contains it; one that does not select the bore does not;
+   * and one that selects the bore and names a *suite* cannot be resolved at
+   * all, because the record holds a suite's size and never its membership.
+   * The third answer is the honest one and it is the reason this is computed
+   * rather than listed.
+   */
+  const membershipOf = ({ location, analyte }) => views.map((v) => {
+    const codes = locationCodes(v);
+    const rows = analyteRows(v);
+    if (!codes.includes(location)) {
+      return { view: v, verdict: 'out', why: `Its location dimension does not select ${location} — it selects ${codes.join(', ')}.` };
+    }
+    if (rows.includes(analyte)) {
+      return { view: v, verdict: 'in', why: `${location} is in ${v.group ? `the ${v.group} group` : 'the locations it selects'}, and ${analyte} is a row it names.` };
+    }
+    if (v.suite && rows.length === 0) {
+      return {
+        view: v, verdict: 'unresolved',
+        why: `It selects ${location}, and its analyte dimension names ${suiteOf(v.suite).label} by size — ${suiteOf(v.suite).n} analytes, membership unrecorded. Whether ${analyte} is inside cannot be resolved, and guessing which of the ${suiteOf(v.suite).n} they are would be inventing a population.`,
+      };
+    }
+    return { view: v, verdict: 'out', why: `It selects ${location} and names ${rows.length} analyte${rows.length === 1 ? '' : 's'} by name, and ${analyte} is not among them.` };
+  });
+
+  /* ---------------------------------------------------------------- *
+   * The seam: what is live, what a citation freezes, and the act between
+   * ---------------------------------------------------------------- */
+
+  /**
+   * A live definition and a frozen citation are opposite things, and both
+   * failure modes are already named by this catalogue's own arguments.
+   *
+   * Build the population as session state and two people asking for the
+   * compliance boundary numbers get two questions — the disagreement
+   * `#saved-views` says the product exists to end. Build it as a snapshot and
+   * it diverges silently, and a stale figure becomes undetectable — which is
+   * exactly what `#report-figures` catches today for certificates and would
+   * lose for populations.
+   *
+   * So the seam is drawn rather than chosen. A dataset **being refined** is
+   * live: its dimensions resolve through the records that own them, and a bore
+   * joining a location group joins the dataset that reports it without anybody
+   * editing the dataset. A dataset **a figure cites** is frozen at a version.
+   * The transition is an act with a record — not a save button — and the act
+   * is what creates the next version.
+   *
+   * `live` is counted rather than asserted: a dimension is live when it
+   * resolves through another record, which `dimensionsOf` already knows,
+   * and one of them is live twice over — the licence dataset's analyte count
+   * follows the criteria set in force, so a licence variation moves that
+   * dataset's definition with nobody touching either.
+   */
+  const seam = () => {
+    const v = tsf;
+    const version = versionOf(v);
+    const cites = citationsOf(v);
+    /* All four, and the locations row differs because the grid is on the whole
+     * network and this dataset names two bores — which is why passing `null`
+     * for the grid's location label is safe here and would not be on a face. */
+    const differing = onCrosstab.differing(null);
+    const liveDims = views.flatMap((x) => dimensionsOf(x).filter((d) => d.live).map((d) => ({ dataset: x.name, ...d })));
+    const twoHop = views.filter((x) => x.suite && suiteFollows(x.suite));
+    return {
+      version,
+      live: liveDims,
+      twoHop: twoHop.map((x) => ({
+        dataset: x.name, suite: suiteOf(x.suite).label, n: suiteOf(x.suite).n,
+        follows: CRITERIA_LIBRARY.find((c) => c.set.endsWith('Table 4') && c.state === 'active').set,
+        at: CRITERIA_LIBRARY.find((c) => c.set.endsWith('Table 4') && c.state === 'active').version,
+      })),
+      frozen: [
+        { what: 'The dimensions, as they resolved', why: 'A version that stored a pointer to a group would go on moving after the citation, and “the exact query definition” would name a thing that had changed.' },
+        { what: 'The criteria sets in force at the version', why: 'The same rule an outcome already follows: frozen at evaluation, and a licence varied next year moves nothing already decided.' },
+        { what: 'Nothing about the results themselves', why: 'A dataset is a question. What the answer was on the day is the snapshot’s job, and a report already has one.' },
+      ],
+      /* Counted over every citation in the instance rather than this
+       * dataset's, so the channel means what it says on both faces that
+       * render it — and today the two sets happen to be the same. */
+      channels: [
+        {
+          channel: 'by definition', n: allCitations().filter((c) => c.staleByDefinition).length,
+          what: 'The dataset moved to a later version and this citation names an earlier one.',
+          newIn: 'wave 19',
+        },
+        {
+          channel: 'by evidence', n: allCitations().filter((c) => c.staleByEvidence).length,
+          what: 'The definition is unchanged and the data under it moved — a certificate amended, a result superseded.',
+          newIn: 'already drawn, for certificates',
+        },
+      ],
+      /** What saving the grid's edits into this dataset would cost, before anybody does it. */
+      radius: [
+        { what: 'Dimensions that would change', n: `${differing.length} — ${differing.map((d) => d.dimension.toLowerCase()).join(', ')}` },
+        { what: 'The dataset’s version', n: `v${version} → v${version + 1}` },
+        { what: 'Citations bound to the version before it', n: `${cites.length} — ${cites.map((c) => c.item.n).join(', ')}` },
+        { what: 'Figures regenerated', n: '0 — a citation goes stale rather than being redrawn under an author' },
+        { what: 'Issued documents affected', n: '0 — a snapshot holds the definition it was issued under, as it holds every other input' },
+        { what: 'Other datasets reached', n: `0 of ${views.length - 1} — a version is a fact about one dataset` },
+      ],
+      /* The register's stale items that resolve to no dataset at all — the
+       * reason both channels can read zero while the register shows two. */
+      staleItems: REPORT_ITEMS.items.filter((it) => it.state !== 'current'),
+      staleNotCiting: REPORT_ITEMS.items.filter((it) => it.state !== 'current' && !allCitations().some((c) => c.item === it)),
+      reader:
+        'The plate itself does not move. It keeps drawing the population of the version it names, because a figure that changes underneath a paragraph somebody has already written is how a report comes to contradict itself. What changes is the register beside it: the item reads stale, the reason names the version rather than the certificate, and the difference between the two versions is a link rather than a claim.',
+      act: {
+        into: {
+          label: 'Save into this dataset',
+          makes: `v${version + 1}`,
+          costs: `${cites.length} citation${cites.length === 1 ? '' : 's'} go stale, named`,
+          reversible: 'Reversible. A version is added rather than overwritten, so the citations bound to the earlier one keep resolving; discarding the new version restores the register without touching a figure.',
+        },
+        variant: {
+          label: 'Save as a variant',
+          makes: 'A new dataset, at v1, naming this one as its parent',
+          costs: `0 — the original stays at v${version} and its ${cites.length} citations do not move`,
+          reversible: 'Reversible, and it writes nothing to the original. A variant is the answer to “I want to ask this slightly differently” that does not make one person’s question the project’s.',
+        },
+      },
+      /** The one thing the record does not settle, and it is the seam itself. */
+      unrecorded: {
+        question: 'Was v1’s membership frozen when the figure cited it, or is it still resolving live?',
+        why: 'No dataset here has been cited and then changed, so no version has ever had to freeze. Both readings are consistent with the record and they differ in exactly the case below.',
+        shownBy: 'The disagreement on Figure 4.1, which is the first thing a version would have settled.',
+      },
+    };
+  };
+
+  /**
+   * The citation check's finding, stated where it is measured.
+   *
+   * Half of the resolved citations disagree with the definition they name, and
+   * the disagreement is on both axes at once: the item draws a bore the
+   * dataset does not select, and its subject is not an analyte at all. Two
+   * readings are consistent with the record and this file chooses neither.
+   */
+  const citationFinding = () => {
+    const bad = allCitations().filter((c) => !c.agrees);
+    const all = allCitations();
+    return {
+      checked: all.length,
+      disagreeing: bad.length,
+      rows: bad.map((c) => ({
+        item: c.item.n, title: c.item.title, dataset: c.dataset.name,
+        outside: c.outside, selects: locationCodes(c.dataset),
+        subject: c.analytes.length ? c.analytes.join(', ') : 'no analyte in the dictionary — the item draws water levels',
+      })),
+      readings: [
+        {
+          says: 'The citation is wider than the dataset',
+          means: 'The figure was drawn over a population this dataset does not describe, and the source line names it anyway. The citation is the thing that is wrong.',
+          consequence: 'Whoever regenerates the figure from the dataset gets a different plate from the one in the report, and nothing warns them.',
+        },
+        {
+          says: 'The dataset has narrowed since the figure was made',
+          means: 'The definition was wider when the figure was drawn and has since been edited down, and there is no version record to show it.',
+          consequence: 'The figure is right, the dataset is right, and the pair is unreadable — which is precisely the state §4.5’s last sentence exists to prevent.',
+        },
+      ],
+      settledBy:
+        'A version that froze its resolved membership, and a citation carrying the version it was bound at. Neither exists here, and the second reading is only possible because they do not — which is the strongest argument this wave can make for building them.',
+      refuses:
+        'Correcting the figure’s title, or narrowing the dataset to fit it. Both would put a number in the record that nothing in the record supports, and one of the two would quietly rewrite what a report already says.',
     };
   };
 
@@ -4664,6 +5204,17 @@ export const SAVED_VIEWS = (() => {
         { what: 'PFAS — everything · analytes', was: was.seedAnalytes['pfas-everything'], now: of('pfas-everything').analytes, at: 'crosstab', why: 'One suite record, rendered the same way in the filter and in the view.' },
         { what: 'My quick check · analytes', was: was.seedAnalytes['quick-check'], now: of('quick-check').analytes, at: 'crosstab', why: 'The three analytes as the dictionary names them, fraction included — a metals view that does not say filtered is two questions.' },
         { what: 'Results grid · the edits its chips name', was: was.crosstabChip, now: `${onCrosstab.dimensions.length} dimensions compared, one chip per difference`, at: 'crosstab', why: 'The bar said “edited” and then named a single edit, while four of its own selections differed from the view it says it is on — and that edit matched nothing anywhere else in the catalogue.' },
+        /* -------------------------------------------------------------- *
+         * Wave 19. Five more, and none of them is a number that changed:
+         * they are fields that meant something other than their name, a
+         * record that reached no face, and a check nobody had run.
+         * -------------------------------------------------------------- */
+        { what: 'The field holding the sharing class', was: was.sharingField, now: 'sharing', at: 'saved-views', why: 'It never held an owner. Wave 18 measured that and wrote it in a note, and the field kept the name for a wave — with §4.5 asking for an owner by name, a field called `owner` that means something else is the next drift waiting to happen.' },
+        { what: 'The results grid’s column head for that value', was: was.crosstabSharingHead, now: 'Visibility', at: 'crosstab', why: 'The same word on a face rather than in a field. It printed Project or Private under a head that said Owner, which is the reading §4.5 would otherwise have had answered for it.' },
+        { what: 'What the one person’s name means', was: was.personAs, now: `who last ran it — the capacity the record’s own “${was.personHeader}” header gives it`, at: 'saved-views', why: 'Read as an attribution it answers §4.5’s creator-and-owner ask for free, by assuming the thing the requirement asks to be shown. The header is the only evidence and it says something else.' },
+        { what: 'The stated purpose', was: was.purposeDrawn, now: `rendered on ${views.length} of ${views.length}`, at: 'saved-views', why: 'It has been in this record since wave 18 and no surface drew it, which is the quieter half of the same defect: a field nobody reads cannot be checked against anything.' },
+        { what: 'The definition, as a reader meets it', was: was.definitionAs, now: `${onCrosstab.dimensions.length} dimensions, each with the record it resolves through`, at: 'saved-views', why: '§4.5 asks for the filtering logic to be inspectable. Prose in a cell is legible and not inspectable, and it cannot say that a suite is a size here and never a membership.' },
+        { what: 'A resolved citation, checked against the definition it names', was: was.citationCheck, now: `${citationFinding().disagreeing} of ${citationFinding().checked} disagree`, at: 'report-figures', why: 'Wave 18 made a citation resolve and nothing compared the two ends of it. The first measurement finds a figure drawing a bore its dataset does not select, and the disagreement is drawn rather than resolved.' },
       ];
     },
     /** The two location lists, checked against the groups rather than assumed. */
@@ -4672,6 +5223,35 @@ export const SAVED_VIEWS = (() => {
         view: v.name, group: v.group, members: v.locations,
         was: was.seedLocations[v.id], agreed: v.locations === was.seedLocations[v.id],
       }));
+    },
+    /* ---------------------------------------------------------------- *
+     * Wave 19's surface, one accessor per question the object answers.
+     * ---------------------------------------------------------------- */
+    dimensionsOf, populationOf, citationsOf, locationCodes, membershipOf,
+    versionOf, lifecycleOf, roles, AXES,
+    get absences() { return absences(); },
+    get insideAnyway() { return insideAnyway(); },
+    get citations() { return allCitations(); },
+    get citationFinding() { return citationFinding(); },
+    get seam() { return seam(); },
+    /** Every dataset with the fields §4.5 names, composed once. */
+    get governed() {
+      return views.map((v) => ({
+        view: v,
+        version: versionOf(v),
+        lifecycle: lifecycleOf(v),
+        visibility: v.shared ? 'shared with the project' : 'private',
+        dimensions: dimensionsOf(v),
+        population: populationOf(v),
+        citations: citationsOf(v),
+      }));
+    },
+    /** The vocabulary this object is named in, and where each word comes from. */
+    vocabulary: {
+      word: 'dataset',
+      inGlossary: false,
+      says:
+        'The brief’s §4.5 is headed “Saved queries and governed datasets” and `docs/PRD.md` uses *dataset* in prose; `docs/GLOSSARY.md` carries neither that word nor *saved view* as a term. So the object is named in the requirement’s own words rather than in one this catalogue invented, and the glossary entry is part of the PRD amendment D1 accepted and that has not landed. The screen keeps its id and its label, because a route is not a noun.',
     },
     /* The counts the surfaces render, so none of them is typed. */
     get shared() { return views.filter((v) => v.shared).length; },
@@ -6728,7 +7308,60 @@ export const PROVENANCE = (() => {
     },
   ];
 
-  const chain = [...upstream, ...LINEAGE.chain];
+  /**
+   * Wave 19 — the hop the chain did not have, at the end rather than in the
+   * middle.
+   *
+   * §9.5 asks every analysis to be traceable *Query → included
+   * observations/results → QA/QC state → analytical settings → output*, and
+   * this chain ran from the deliverable to the consequence with **no query or
+   * dataset node in it at all** — which is why that requirement's first link
+   * had nothing to attach to. It is appended after the consequence rather than
+   * spliced before it, deliberately: the TARP level and the statutory
+   * notification follow from the *evaluation*, and a hop inserted between them
+   * would draw a causal link that does not exist. What follows the consequence
+   * is the other thing this value went on to be — a member of populations, and
+   * whatever those populations are cited by.
+   *
+   * `LINEAGE.chain` itself is untouched. It is the slide-over panel's array as
+   * well as this page's, the panel's subtitle counts it in words, and this hop
+   * belongs to the page that draws the whole provenance rather than to the
+   * panel that answers one number in place.
+   *
+   * Every count in it is computed by `SAVED_VIEWS.membershipOf`, which returns
+   * three answers rather than two: in, out, and **cannot be resolved**.
+   */
+  const datasetHop = (() => {
+    const subject = { location: LINEAGE.location, analyte: LINEAGE.analyte };
+    const membership = SAVED_VIEWS.membershipOf(subject);
+    const inside = membership.filter((m) => m.verdict === 'in');
+    const unresolved = membership.filter((m) => m.verdict === 'unresolved');
+    /* `feeds` resolves through `REPORT_ITEMS`, which is declared below this
+     * object, so everything that reads it is a getter — the same reason the
+     * dataset record's own `feeds` is one. */
+    return {
+      step: 'Populations that carry it forward',
+      subject, membership, inside, unresolved,
+      get cited() { return inside.flatMap((m) => m.view.feeds); },
+      get what() {
+        return `A member of ${inside.length} of ${membership.length} datasets · ${unresolved.length} cannot be resolved · ${this.cited.length} report items cite the one that does`;
+      },
+      get detail() {
+        const cited = this.cited;
+        return `${inside.map((m) => m.view.name).join(', ')} selects ${subject.location} and names ${subject.analyte}, and this value is in it at v${SAVED_VIEWS.versionOf(inside[0].view)}. ` +
+          `${unresolved.map((m) => m.view.name).join(', ')} selects the same bore and names an analyte suite by size, so whether this value is inside it cannot be resolved from the record — which is stated rather than assumed in either direction. ` +
+          (cited.length === 0
+            ? 'Nothing cites the dataset that does contain it, so §15’s chain runs Result → Query here and stops: the next link is a figure, and no figure is drawn on this population.'
+            : `${cited.length} report items cite it, each bound to the version it named.`);
+      },
+      kind: 'population',
+      at: 'saved-views',
+      get node() { return `${inside.length} of ${membership.length} datasets`; },
+      get nodeSub() { return `${unresolved.length} unresolvable · ${this.cited.length} cited`; },
+    };
+  })();
+
+  const chain = [...upstream, ...LINEAGE.chain, datasetHop];
 
   /**
    * The review's own question list, each answered from the chain by link.
@@ -6776,6 +7409,10 @@ export const PROVENANCE = (() => {
       { label: 'TARP Level 3', sub: 'in force since 2026-05-22', at: 'tarp', kind: 'consequence', step: 'Consequence' },
       { label: 'DWER-N-2026-11842', sub: 'notification lodged', at: 'notification', kind: 'consequence', step: 'Consequence' },
       { label: 'Report §5', sub: 'exceedance register, Table 5.1', at: 'report', kind: 'consequence', step: 'Consequence' },
+      /* Wave 19 — the same hop the narrative gained, composed from the same
+       * object rather than described a second time, so it cannot appear in
+       * one reading of the chain and not the other. */
+      { get label() { return datasetHop.node; }, get sub() { return datasetHop.nodeSub; }, at: datasetHop.at, kind: datasetHop.kind, step: datasetHop.step },
     ],
   };
 
@@ -6788,7 +7425,8 @@ export const PROVENANCE = (() => {
     certificate: sub.certificate,
     chain,
     upstream,
-    downstream: LINEAGE.chain,
+    downstream: [...LINEAGE.chain, datasetHop],
+    datasetHop,
     questions,
     trace,
     /*
@@ -11955,10 +12593,10 @@ export const VENDOR_BRIEF = (() => {
       asks: 'The vendor shall show users constructing queries through combinations of the following dimensions.',
       screens: ['crosstab', 'locations', 'exceedances', 'search'],
       note: 'A facet exists on some screen for roughly a third of the {items} — the results grid alone carries six — and no facet composes with one on another screen. Nothing constructs a query; the nearest thing is a filter bar whose selections do not survive leaving the screen.' },
-    { id: '4.3', title: 'Query interaction', verdict: 'missing', decision: 'D1',
+    { id: '4.3', title: 'Query interaction', verdict: 'partially', decision: 'D1',
       asks: 'The mockup must demonstrate progressive query construction and show how the resulting population changes as filters are applied.',
-      screens: [],
-      note: `The worked scenario cannot be expressed at all: six of its eight terms have no facet anywhere, and neither manganese nor a Unit C exists in this seed. The population readout it asks for exists once, as a static line on the grid — ${CROSSTAB_SHAPE.results} results, ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing, ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run.` },
+      screens: ['saved-views', 'crosstab'],
+      note: `The first clause is still missing and the second landed on 3 September 2026. Nothing constructs a query progressively, and the worked scenario cannot be expressed at all: six of its eight terms have no facet anywhere, and neither manganese nor a Unit C exists in this seed. What wave 19 answered is the sentence about understanding *exactly why each record is included or excluded* — every dataset now resolves its population against the grid and counts what it leaves out per kind, keeping the four absences apart. Until that wave the readout was one static line on the grid: ${CROSSTAB_SHAPE.results} results, ${CROSSTAB_SHAPE.notSampled} cells at a bore that returned nothing, ${CROSSTAB_SHAPE.notAnalysed} where the suite was never run.` },
     { id: '4.4', title: 'Result representations', items: 6, verdict: 'partially', decision: 'D1',
       asks: 'Without rebuilding the query, users must be able to move between:',
       screens: ['crosstab', 'hydrograph', 'statistics', 'map', 'exceedances'],
@@ -11966,7 +12604,7 @@ export const VENDOR_BRIEF = (() => {
     { id: '4.5', title: 'Saved queries and governed datasets', items: 7, verdict: 'partially', decision: 'D1',
       asks: 'A saved query or dataset used by an analysis, figure, interpretation or report must retain lineage to the exact query definition and relevant version.',
       screens: ['saved-views', 'crosstab', 'report-figures'],
-      note: 'Wave 18 made the view one record read by three surfaces: named, owned, shared or private, its selection inspectable, and its downstream computed from the report items that cite it. Four of the {items} asks are drawn. Reopen-and-modify, save-a-variant and the draft/shared/approved/superseded lifecycle are not — and there is no version for the lineage to be held to.' },
+      note: 'Wave 19 promoted the view into the object: a purpose that had been in the record and on no face, the definition as four inspectable dimensions each naming the record it resolves through, a version and a lifecycle counted off the acts recorded against each dataset rather than typed, a variant that names its parent and costs the original nothing, and a citation bound to a version with the derivation naming its own limit. Six of the {items} are drawn. The seventh is refused: the record names one person per dataset in one capacity — *used by*, which is the only header that field ever carried — and neither a creator nor a current owner is recorded anywhere, so both are drawn as fields and neither is filled from the other. The brief’s four states are also two axes, and the screen draws them apart rather than as one strip.' },
 
     { id: '5.1', title: 'Gap', verdict: 'missing', decision: 'D4',
       asks: 'Mapping must become a scientific investigation workspace, not simply another way of displaying monitoring locations.',
@@ -12051,7 +12689,7 @@ export const VENDOR_BRIEF = (() => {
     { id: '9.1', title: 'Gap', verdict: 'missing',
       asks: 'The mockup must demonstrate a coherent Analysis workspace.',
       screens: [],
-      note: 'There is no analysis object, so §9.5’s chain has no first link and §12.2’s interpretation has nothing of the kind to cite. Wave 21 builds it, after the dataset it stands on.' },
+      note: 'There is no analysis workspace, so §12.2’s interpretation has nothing of the kind to cite and §9.5’s chain has no analytical-settings link. This note read “so §9.5’s chain has no first link” until 3 September 2026, when wave 19 built the dataset that link attaches to. Wave 21 builds the analysis on it.' },
     { id: '9.2', title: 'Groundwater-level analysis', items: 8, verdict: 'covered',
       asks: 'The design must expose datum, units, bore reference elevation, measurement status, temporal alignment and relevant exclusions.',
       screens: ['hydrograph', 'map', 'logger-series', 'location'],
@@ -12064,10 +12702,10 @@ export const VENDOR_BRIEF = (() => {
       asks: 'A graph without an inspectable underlying population is inconsistent with Strataflow’s defensibility proposition.',
       screens: ['statistics', 'background'],
       note: 'Five of the {items} are drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all, and the population behind the trend is described rather than inspectable.' },
-    { id: '9.5', title: 'Analysis lineage', verdict: 'missing',
+    { id: '9.5', title: 'Analysis lineage', verdict: 'partially',
       asks: 'Query → included observations/results → QA/QC state → analytical settings → output',
-      screens: ['lineage'],
-      note: 'The catalogue runs the other chain — bore, sample, result, figure, report — and runs it well. This one has neither of its first two links, and where an output supports a figure the relationship is drawn from the figure’s side only.' },
+      screens: ['lineage', 'saved-views', 'report-figures'],
+      note: 'The first two links landed on 3 September 2026 and this row read *missing* until then. The provenance chain gained a dataset hop, so a result names the populations it is a member of — with three answers rather than two, because a dataset naming an analyte suite cannot be resolved at all — and a dataset names what cites it, at the version cited. Analytical settings have nowhere to live until wave 21 builds the analysis object, and the QA/QC-state link runs through the qualifier register rather than through the population.' },
 
     { id: '10.1', title: 'Gap', verdict: 'partially',
       asks: 'The mockup must demonstrate how a senior environmental manager works across many projects and sites, rather than one dataset at a time.',
@@ -12102,11 +12740,11 @@ export const VENDOR_BRIEF = (() => {
     { id: '12.2', title: 'Interpretation object', items: 10, verdict: 'partially',
       asks: 'The interface must distinguish evidence, the scientist’s interpretation, uncertainty, limitations and recommended action.',
       screens: ['narrative', 'lineage', 'report-figures', 'exceedances'],
-      note: 'Eight of the {items} can be referenced. Saved queries and statistics or analyses cannot, because neither object exists yet. Evidence, interpretation and uncertainty are distinguished and each tile says what it does *not* settle; recommended action has no object and there is no recommendations register.' },
+      note: 'Eight of the {items} can be referenced. The clause “because neither object exists yet” stood until 3 September 2026: the governed dataset exists now, and the count does not move, because no interpretation tile cites one — an object existing and an interpretation being able to reference it are two things and only the first has been built. Statistics and analyses still have no object at all. Evidence, interpretation and uncertainty are distinguished and each tile says what it does *not* settle; recommended action has no object and there is no recommendations register.' },
     { id: '12.3', title: 'Managed figures and tables', items: 9, verdict: 'covered',
       asks: 'The user must be able to inspect how a figure or table was generated and identify whether it is current, stale or affected by changed evidence.',
       screens: ['report-figures', 'narrative', 'snapshot'],
-      note: 'All {items}, plus the distinction that carries them: a figure being out of date and a figure having changed under an author are two findings on two screens. Numbering computed from position and scoped to the template version, every cross-reference resolved with dangling detection, and — since this wave — a source naming a saved view that resolves to it.' },
+      note: 'All {items}, plus the distinction that carries them: a figure being out of date and a figure having changed under an author are two findings on two screens. Numbering computed from position and scoped to the template version, every cross-reference resolved with dangling detection, a source naming a dataset that resolves to it, and — since wave 19 — that source bound to a version, a second staleness channel that reads zero because no dataset has moved, and the citation checked against the definition it names rather than trusted for resolving.' },
     { id: '12.4', title: 'Review and publication workflow', verdict: 'partially',
       asks: 'Reviewers must be able to comment on specific interpretations, evidence links, figures and findings.',
       screens: ['signoff', 'snapshot', 'supersession', 'narrative'],
@@ -12163,9 +12801,9 @@ export const VENDOR_BRIEF = (() => {
     { id: 'L5', verdict: 'covered', screens: ['qc', 'narrative', 'documents', 'quarantine'],
       asks: 'What rationale and evidence supported it?',
       note: 'The rationale is a field on the decision rather than a comment beside it: the option table records what each choice writes, and the refused options record why they were refused.' },
-    { id: 'L6', verdict: 'partially', screens: ['supersession', 'snapshot', 'report-figures', 'lineage'],
+    { id: 'L6', verdict: 'partially', screens: ['supersession', 'snapshot', 'report-figures', 'lineage', 'saved-views'],
       asks: 'Which downstream outputs depend on it?',
-      note: 'Forward from a result to the issued document is drawn and computed. Three hops of §15’s own chain run one way only — result→query, query→analysis and analysis→figure all break on the way back — and two are missing entirely: a sampling plan for groundwater, and interpretation→obligation.' },
+      note: 'Forward from a result to the issued document is drawn and computed. Result→query now runs both ways — wave 19’s dataset hop names the populations a value is in, and each population names what cites it — which leaves two of the three one-way hops this note counted until 3 September 2026: query→analysis and analysis→figure, both waiting on the analysis object. Two are still missing entirely: a sampling plan for groundwater, and interpretation→obligation.' },
   ];
 
   const scenario = [
@@ -12219,9 +12857,9 @@ export const VENDOR_BRIEF = (() => {
     { id: 'S9', verdict: 'covered', screens: ['supersession', 'certificate', 'snapshot', 'criteria'],
       asks: 'Superseded or historically applicable state where relevant',
       note: 'A superseded reading keeps its old value struck through beside the new one, and a locked period refuses a write rather than warning about it.' },
-    { id: 'S10', verdict: 'partially', screens: ['lineage', 'supersession', 'snapshot'],
+    { id: 'S10', verdict: 'partially', screens: ['lineage', 'supersession', 'snapshot', 'saved-views'],
       asks: 'Upstream evidence and downstream dependency views',
-      note: 'Drawn for a result and for a certificate, in both directions. Absent for a population and for an analysis, because neither object exists — which is §9.5 arriving from the other end.' },
+      note: 'Drawn for a result, for a certificate and — since wave 19 — for a population: a dataset states the records its dimensions resolve through upstream and the citations bound to its version downstream. This note read “absent for a population and for an analysis, because neither object exists” until 3 September 2026. The analysis half is still absent, which is §9.5 arriving from the other end.' },
   ];
 
   const completion = [
@@ -12245,10 +12883,10 @@ export const VENDOR_BRIEF = (() => {
       note: 'Distinguishable and traceable in the direction that matters most: nothing already decided moves. What §13.4 asks for beyond this — asking the counterfactual on purpose — is a different requirement and is its own row.' },
     { id: 'C7', verdict: 'missing', screens: ['crosstab', 'map', 'qc', 'narrative', 'obligations', 'report'],
       asks: 'Context persists appropriately between Data Explorer, Map, Analysis, QA/QC, Interpretation, Obligations and Reporting.',
-      note: 'Three of the seven workspaces named do not exist, and no context object persists between any two of the four that do. This is the keystone the response memo identifies: seven requirements across the brief collapse onto one artefact — a population that can be named, versioned, carried and cited years later at the version used.' },
+      note: 'Three of the seven workspaces the requirement names — Data Explorer, Map as a workspace, Analysis — still do not exist, so no pair it names is connected and the verdict holds. What changed on 3 September 2026 is that the artefact exists: the keystone this note identified, a population that can be named, versioned, carried and cited years later at the version used, is built and read by the grid, the figure register and the provenance chain. A context object with nowhere to be carried is not context persisting, and this row will not move until the workspaces do.' },
     { id: 'C8', verdict: 'partially', screens: ['lineage', 'supersession', 'snapshot', 'certificate'],
       asks: 'Upstream evidence and downstream dependencies are visible wherever relevant.',
-      note: 'Visible and computed for a result, a certificate and an issued document. Three hops run one way only and two are missing, which §15’s own row counts.' },
+      note: 'Visible and computed for a result, a certificate, an issued document and — since wave 19 — a population. Two hops run one way only and two are missing, which §15’s own row counts; it counted three one-way hops until 3 September 2026, and result→query now runs in both directions.' },
     { id: 'C9', derive: (rs) => rs.filter((r) => r.section === 14), screens: ['coverage'],
       asks: 'Multi-domain capability is demonstrated through a common model with domain-specific scientific behaviour.',
       note: 'Derived from §14’s four rows. The domain-specific half is ahead of the common-model half, which is the opposite of the usual failure and is why 24a states the model before it draws another domain.' },

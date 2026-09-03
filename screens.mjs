@@ -80,7 +80,7 @@ import {
   ANALYTE_SUITES, SAVED_VIEWS, VENDOR_BRIEF,
 } from './seed.mjs';
 import {
-  criteriaLegend, esc, facts, figure, loc, mark, notice, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
+  criteriaLegend, esc, facts, figure, loc, mark, notice, OUTCOME_LABEL, outcomeLegend, panel, ref, resultValue, table, tag, toneFor,
 } from './ui.mjs';
 import * as F from './figures.mjs';
 /**
@@ -2809,8 +2809,21 @@ const crosstab = () => {
       'A superseded reading keeps its old value struck through beside the new one. A quarantined reading stays visible in brackets on a hatched ground rather than vanishing. A non-detect keeps the laboratory’s own <code>&lt;LOR</code> notation and is never rendered as a substituted number.') +
     cols(
       panel(
-        'The column set is a saved view, not a rebuild',
+        'The column set is a dataset, not a rebuild',
         `<p class="mk-tight">The monthly review is a recall. Which locations, which analytes, which period, which criteria sets — the whole question, named and shared, so two people asking for “the compliance boundary numbers” get the same rows.</p>` +
+          /*
+           * Wave 19 — the bar's chips stop being a state and become an act.
+           *
+           * The bar has said `edited` since wave 18 and computed which four
+           * dimensions differ. What it could not say is what to *do* with
+           * them, and the two things a practitioner would do are not the same
+           * act: a variant is a new dataset naming this one as its parent and
+           * costs the original nothing; a save is a new version and reaches
+           * every citation bound to the one before it. Both counts are
+           * computed on the dataset record, so this panel and the register
+           * cannot disagree about what a save would cost.
+           */
+          ((S) => `<p class="mk-tight"><strong>The ${esc(String(S.radius[0].n.split(' — ')[0]))} edits above are an act, not a state.</strong> Keeping them has two shapes and they are not the same one. <em>${esc(S.act.variant.label)}</em> makes ${esc(S.act.variant.makes.toLowerCase())} and costs ${esc(S.act.variant.costs)}. <em>${esc(S.act.into.label)}</em> makes ${esc(S.act.into.makes)} — and ${esc(S.act.into.costs)}, because a citation is bound to the version it named and a figure is never redrawn under an author. <a class="mk-ref" href="#saved-views">The register states the whole radius before the act</a>.</p>`)(SAVED_VIEWS.seam) +
           /*
            * Wave 18 — the same record this grid always read, with two columns
            * it could not previously carry: what each view feeds, computed from
@@ -2818,7 +2831,7 @@ const crosstab = () => {
            * where two records disagree rather than picking one of them.
            */
           table({
-            head: ['View', 'Owner', 'Locations', 'Analytes', 'Period', 'Last used', 'Feeds'],
+            head: ['Dataset', 'Visibility', 'Locations', 'Analytes', 'Period', 'Last used', 'Feeds'],
             scroll: true,
             label: 'Saved views on this project',
             rows: SAVED_VIEW_LIST.map((v) => [
@@ -2833,7 +2846,13 @@ const crosstab = () => {
                 : '<span class="mk-num mk-num--nil">—</span>',
             ]),
           }) +
-          `<p class="mk-tight mk-muted">One view’s period reads <strong>two readings</strong>: this record says <em>${esc(SAVED_VIEWS.period.readings[0].says)}</em> and <a class="mk-ref" href="#saved-views">the saved-views screen</a> said <em>${esc(SAVED_VIEWS.period.readings[1].says)}</em>, and nothing else in the catalogue holds a third. It is drawn as a disagreement rather than settled, and the period on this bar is an edit, so this grid is not a third reading.</p>` +
+          `<p class="mk-tight mk-muted">One dataset’s period reads <strong>two readings</strong>: this record says <em>${esc(SAVED_VIEWS.period.readings[0].says)}</em> and <a class="mk-ref" href="#saved-views">the saved-views screen</a> said <em>${esc(SAVED_VIEWS.period.readings[1].says)}</em>, and nothing else in the catalogue holds a third. It is drawn as a disagreement rather than settled, and the period on this bar is an edit, so this grid is not a third reading.</p>` +
+          /*
+           * Wave 19 — what each of these datasets excludes, counted off the
+           * same cells this grid draws. The numbers are the population
+           * readout's, not a second count of them: one array, one answer.
+           */
+          ((V) => `<p class="mk-tight"><strong>A dataset is a population, and a population has to say what it leaves out.</strong> This grid holds ${esc(String(CROSSTAB_SHAPE.results))} results, ${esc(String(CROSSTAB_SHAPE.notSampled))} cells at a bore that returned nothing and ${esc(String(CROSSTAB_SHAPE.notAnalysed))} where the suite was never run — and those are the ${esc(String([...new Set(CROSSTAB.flatMap((r) => r.cells).filter((c) => c.empty).map((c) => c.word))].length))} of the ${esc(String(V.absences.length))} absences that appear on this grid as empty cells. A third is on results that <em>are</em> here and carry no verdict, and the fourth is on the soil grid below. None of the four is a pass. <a class="mk-ref" href="#saved-views">The register counts them per dataset</a>: <em>${esc(V.governed.find((g) => g.view.id === 'pfas-everything').view.name)}</em> resolves to ${esc(String(V.governed.find((g) => g.view.id === 'pfas-everything').population.cells.length))} cells of which <strong>${esc(String(V.governed.find((g) => g.view.id === 'pfas-everything').population.included.length))}</strong> is a result, and the two whose analyte dimension names a suite cannot be counted at all, because the record holds a suite’s size and never its membership.</p>`)(SAVED_VIEWS) +
           opsClock('The last-used column is on it, and it is the only column on this grid that is — every result, criterion and period here is on the project clock.') +
           `<p class="mk-tight">A browser preference would not do. If the view lives on this machine then two people comparing numbers are comparing two questions, and the product has reintroduced the disagreement it exists to end.</p>`,
       ),
@@ -3334,61 +3353,307 @@ const mapScreen = () =>
   );
 
 /**
- * Saved views — rebuilt from the record (wave 18).
+ * The dataset register — the saved view, promoted to the object §4.5 asks for
+ * (wave 19).
  *
- * This screen held four typed literal rows and the seed held four different
- * ones for the same objects. It reads the record now, and the two things it
- * used to assert without a source — what the TSF view selects, and which
- * figures it feeds — are respectively corrected against a corroborating
- * record and computed from the report items that name it.
+ * Wave 18 made this one record read by three surfaces. D1 accepted the query
+ * capability on 3 September 2026, so the record becomes a **governed
+ * dataset**: a population that can be named, given a purpose, inspected
+ * dimension by dimension, versioned, owned, varied without overwriting, and
+ * cited by a figure at the version used.
  *
- * The period is the one field the record does not settle, and the screen says
- * so rather than choosing: both readings, the record each came from, and the
- * only other measurement that bears on it, which fits neither.
+ * Three things on this page are the wave's real work and none of them is the
+ * register table. **The population readout counts what it excludes and why,
+ * per kind**, because a dataset that filtered to "validated results only" and
+ * quietly dropped the dry, unanalysed, composited and unevaluated cells would
+ * destroy the distinction the whole grid grammar rests on. **The live/frozen
+ * seam is drawn as an act with a record**, because a live query and a frozen
+ * dataset are opposite things and both failure modes are already named by this
+ * catalogue's own arguments. And **a citation is checked against the
+ * definition it names** for the first time, which is where the wave's finding
+ * came from.
+ *
+ * The screen keeps its id and its label. The object is a dataset; the route is
+ * still `saved-views`, because a route is not a noun.
  */
 const savedViews = () => {
   const V = SAVED_VIEWS;
   const P = V.period;
+  const G = V.governed;
+  const S = V.seam;
+  const F = V.citationFinding;
+  const inside = V.insideAnyway;
   const feedsCell = (v) =>
     v.feeds.length
       ? v.feeds.map((f) => `<a class="mk-ref" href="#report-figures">${esc(f.n)}</a>`).join(' · ')
       : '<span class="mk-num mk-num--nil">— nothing cites it</span>';
-  const periodCell = (v) =>
-    v.period
-      ? esc(v.period)
-      : `${tag('two readings', 'warn')}<small>${esc(P.readings.map((r) => r.says).join(' · '))}</small>`;
+  const periodValue = (value, unsettled) =>
+    unsettled
+      ? `${tag('two readings', 'warn')}<small>${esc(P.readings.map((r) => r.says).join(' · '))}</small>`
+      : esc(value);
+  /* The excluded cells of one population, as glyph + word + count, read off
+   * the cells themselves so the mark here and the mark on the grid are one. */
+  const excludedCell = (pop) => {
+    const kinds = [
+      { word: 'dry', list: pop.dry },
+      { word: 'not analysed', list: pop.notAnalysed },
+    ].filter((k) => k.list.length);
+    if (!pop.resolves) return '<span class="mk-muted">not countable — the analyte dimension does not resolve</span>';
+    if (!kinds.length) return '<span class="mk-num mk-num--nil">0 — nothing is excluded</span>';
+    return kinds
+      .map((k) => `<span class="mk-num mk-num--warn">${esc(String(k.list.length))}</span> <span aria-hidden="true">${esc(k.list[0].cell.glyph)}</span> ${esc(k.word)}`)
+      .join('<br>');
+  };
 
   return (
-    head('Saved views', 'A question you ask every quarter, kept as an object.', { route: 'a proposal — not in the product' }) +
+    head('Saved views', 'A named population: what it selects, what it leaves out and why, who owns it, which version, and what depends on it.', { route: 'a proposal — not in the product' }) +
     notice('warning', 'Proposed. No FR covers saved queries.',
       'FR-6.6 persists a <em>chart</em> configuration. Nothing persists the question that selected the data — which locations, which analytes, which period, which criteria sets. Every incumbent has this and it is most of what a returning user does. ' +
       '<strong>Decision D1 (3 September 2026) accepted the capability and the PRD amendment that carries it</strong>, so the sentence above is a record of the gap this screen found rather than an argument that is still open — and the screen stays a proposal until the amendment lands and something routes to it.') +
+    `<p class="mk-tight mk-muted"><strong>On the word — this object is called a <em>${esc(V.vocabulary.word)}</em>, and <code>docs/GLOSSARY.md</code> carries neither that word nor <em>saved view</em> as a term.</strong> ${esc(V.vocabulary.says)}</p>` +
     stats([
-      stat(String(V.views.length), 'views on this project'),
+      stat(String(V.views.length), 'datasets on this project'),
       stat(String(V.shared), 'shared with the project', 'good'),
       stat(`${V.fed} / ${V.views.length}`, 'cited by a report item'),
-      stat(String(V.fromGroup), 'select a location group'),
-      stat(String(V.unsettledCount), V.unsettledCount === 1 ? 'field the record does not settle' : 'fields the record does not settle', 'warn'),
+      stat(`v${S.version}`, 'the version every one of them reads'),
+      stat(String(S.live.length), 'dimensions that move on their own', 'warn'),
+      stat(String(V.unsettledCount), V.unsettledCount === 1 ? 'dataset whose period the record does not settle' : 'datasets whose period the record does not settle', 'warn'),
     ]) +
     table({
-      caption: 'Views on this project. What each selects is read from the record — the location group, the analyte suite and its size, the criteria sets — and what each feeds is the report items that name it.',
-      head: ['View', 'Owner', 'Locations', 'Analytes', 'Period', 'Criteria', 'Last run', 'Feeds'],
+      caption: 'One row per dataset. Purpose has been in the record since wave 18 and reached no face until today; version and lifecycle are counted off the acts recorded against each dataset, which is none, so both are measurements rather than defaults.',
+      head: ['Dataset', 'Purpose', 'Visibility', 'Lifecycle', 'Version', 'Last run', 'Cited by'],
       kind: 'matrix',
-      label: 'Saved views on this project',
-      rows: V.views.map((v) => [
-        `<strong>${esc(v.name)}</strong><small>${esc(v.by)}</small>`,
-        v.shared ? tag('Project', 'good') : tag('Private', 'neutral'),
-        v.group
-          ? `${esc(v.locations)}<small>group · ${esc(v.group)}</small>`
-          : esc(v.locations),
-        esc(v.analytes),
-        periodCell(v),
-        esc(v.criteria),
-        `<span class="sf-instant">${esc(v.used)}</span>`,
-        feedsCell(v),
+      label: 'Datasets on this project',
+      rows: G.map((g) => [
+        `<strong>${esc(g.view.name)}</strong>`,
+        cell(esc(g.view.purpose)),
+        g.view.shared ? tag('shared with the project', 'good') : tag('private', 'neutral'),
+        tag(g.lifecycle, 'neutral'),
+        `<span class="mk-num">v${esc(String(g.version))}</span>`,
+        `<span class="sf-instant">${esc(g.view.used)}</span><small>${esc(g.view.by)}</small>`,
+        feedsCell(g.view),
       ]),
     }) +
-    `<p class="mk-tight mk-muted">${esc(String(V.fromGroup))} of the ${esc(String(V.views.length))} select a <strong>location group</strong> — the glossary’s named set of locations assessed together — so a bore joining the compliance boundary joins the view that reports it. The other two name their locations, because no group holds that set.</p>` +
+    `<p class="mk-tight mk-muted">The <em>Last run</em> column carries a date and a person, and that pairing is the whole of what the record says about who is involved — see <a class="mk-ref" href="#saved-views">creator and current owner</a> below, where §4.5 asks for two roles this record does not hold.</p>` +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The definition, dimension by dimension</h2>' +
+    `<p class="mk-tight">§4.5 asks for the filtering logic to be <strong>inspectable</strong>. Until today it was ${esc(V.was.definitionAs)} — legible, and not the same thing. Each dimension below states the record it resolves through, and whether this catalogue can turn it into rows.</p>` +
+    table({
+      caption: 'The four dimensions the grid’s filter bar also carries, in the same order, because the grid compares its own selections against these. “Expands to” is the honest column: a suite is a size here and never a membership.',
+      head: ['Dataset', 'Dimension', 'Selects', 'Resolved through', 'Expands to'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'Every dataset’s definition, dimension by dimension',
+      rows: G.flatMap((g) => g.dimensions.map((d, i) => [
+        i === 0 ? `<strong>${esc(g.view.name)}</strong>` : '<span class="mk-muted">↳</span>',
+        esc(d.dimension),
+        d.dimension === 'Period' ? periodValue(d.value, !d.resolves) : esc(d.value),
+        cell(`${esc(d.through)}${d.live ? ` ${tag('live', 'new')}` : ''}`),
+        d.resolves
+          ? (d.dimension === 'Analyte suite'
+            ? `<span class="mk-num">${esc(String(g.population.rows.length))}</span> row${g.population.rows.length === 1 ? '' : 's'}`
+            : d.dimension === 'Locations'
+              ? `<span class="mk-num">${esc(String(g.population.columns.length))}</span> of ${esc(String(g.population.locations.length))} on the grid`
+              : '<span class="mk-muted">a value, not a set</span>')
+          : `<span class="mk-num mk-num--nil">—</span> <span class="mk-muted">${d.dimension === 'Analyte suite' ? 'membership unrecorded' : 'not settled'}</span>`,
+      ])),
+    }) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">The population, and what it leaves out</h2>' +
+    `<p class="mk-tight"><strong>A population is not a row set.</strong> The results grid’s most careful work is that <em>dry</em>, <em>not analysed</em>, <em>composited</em> and <em>not evaluated</em> are four different absences and none of them is a pass. A dataset that filtered to “validated results only” and dropped those cells would throw the distinction away. So every readout below counts what it excludes and why, <strong>off the same cells <a class="mk-ref" href="#crosstab">the grid</a> draws</strong> — one array, so the two cannot disagree.</p>` +
+    table({
+      caption: 'Resolved against the 2026 Q2 water grid. Where an analyte dimension names a suite, the cells cannot be counted at all and the row says so rather than estimating — but the location axis still resolves, so a dataset half of whose bores returned nothing still says that.',
+      head: ['Dataset', 'Locations', 'Analytes', 'Cells resolved', 'In the population', 'Excluded, by kind', 'Not resolvable'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'Each dataset’s population and its exclusions',
+      rows: G.map((g) => {
+        const pop = g.population;
+        return [
+          `<strong>${esc(g.view.name)}</strong>`,
+          cell(`<span class="mk-num">${esc(String(pop.columns.length))}</span> selected${pop.dryColumns.length ? ` · <span class="mk-num mk-num--warn">${esc(String(pop.dryColumns.length))}</span> returned nothing (${esc(pop.dryColumns.join(', '))})` : ''}`),
+          cell(pop.byName
+            ? `<span class="mk-num">${esc(String(pop.byName))}</span> named`
+            : `<span class="mk-num">${esc(String(pop.bySuite))}</span> by suite${pop.rows.length ? ` + <span class="mk-num">${esc(String(pop.rows.length))}</span> derived` : ''}`),
+          pop.resolves ? `<span class="mk-num">${esc(String(pop.cells.length))}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+          pop.resolves ? `<span class="mk-num">${esc(String(pop.included.length))}</span>` : '<span class="mk-num mk-num--nil">—</span>',
+          cell(excludedCell(pop)),
+          cell(pop.bySuite && !pop.rows.length
+            ? `<span class="mk-num mk-num--warn">${esc(String(pop.bySuite))}</span> analytes named by size only`
+            : pop.bySuite
+              ? `<span class="mk-num mk-num--warn">${esc(String(pop.bySuite))}</span> of the suite; the derived total resolves`
+              : '<span class="mk-num mk-num--nil">0</span>'),
+        ];
+      }),
+    }) +
+    ((g) => `<p class="mk-tight"><strong>Read the ${esc(g.view.name)} row.</strong> It selects ${esc(String(g.population.columns.length))} bores and one row this catalogue can resolve — the derived total, which is the only row on the grid whose cells carry <em>derived</em>. Of its ${esc(String(g.population.cells.length))} cells, <strong>${esc(String(g.population.included.length))}</strong> is a result: ${esc(String(g.population.dry.length))} is a bore that returned nothing and <strong>${esc(String(g.population.notAnalysed.length))}</strong> are samples the suite was never run on. A population that reported “${esc(String(g.population.included.length))} result” and stopped would be describing a plume question answered at one bore out of ${esc(String(g.population.columns.length))} as though the network had been measured.</p>`)(G.find((x) => x.view.id === 'pfas-everything')) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Four absences, and one thing that is not one</h2>' +
+    table({
+      caption: 'Every count is taken off the cells that hold it, so the glyph and the word here are the ones the grid draws rather than a second description of them. None of the four is a pass, and each one says what would be lost by dropping it.',
+      head: ['Absence', 'An absence of', 'Where', 'Cells', 'If a population dropped it'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'The four absences a population has to keep apart',
+      rows: V.absences.map((a) => [
+        cell(a.sample
+          ? `<span class="mk-atom" aria-hidden="true">${esc(a.sample.glyph)}</span> <strong>${esc(a.sample.word)}</strong>`
+          : `${mark('not_evaluated', CRITERIA[0].name)} <strong>${esc(OUTCOME_LABEL.not_evaluated)}</strong>`),
+        esc(a.absenceOf),
+        cell(`${esc(a.where)} — <a class="mk-ref" href="#${esc(a.at)}">the record that holds it</a>`),
+        `<span class="mk-num">${esc(String(a.n))}</span>`,
+        cell(esc(a.ifDropped)),
+      ]),
+    }) +
+    `<p class="mk-tight mk-muted"><strong>The kind, not the cell.</strong> ${V.absences.map((a) => esc(a.says)).join(' ')} Every cell also carries its own sentence — the one a screen reader gets, naming the bore, the sample or the increment it is about — and that sentence is on the cell rather than restated here.</p>` +
+    cols(
+      C.card({
+        tone: 'warn',
+        head: `<span class="mk-queue__kind">Inside the population, and decided rather than measured — ${esc(inside.decision)}</span><span class="mk-queue__age">3 September 2026</span>`,
+        body:
+          `<p class="mk-tight"><strong>${esc(inside.verdict)}</strong></p>` +
+          `<p class="mk-tight">${esc(String(inside.assertions))} assertions are in that state, over ${esc(String(inside.results))} results: ${esc(inside.codes.join(' · '))}. ${esc(inside.says)}</p>` +
+          `<p class="mk-tight mk-muted"><strong>And the count is the register’s, not the grid’s.</strong> ${esc(inside.results)} counts ${esc(inside.counted)}, so these are not ${esc(inside.results)} of the ${esc(String(CROSSTAB_SHAPE.results))} cells above. Reporting them as though they were would be the conflation the matrix filter was fixed to stop making.</p>`,
+        foot: `<a class="mk-btn mk-btn--sm" href="#qualifiers">The register, all ${QUALIFIERS.counts.assertions} of them</a><a class="mk-btn mk-btn--sm" href="#qc">The two open decisions</a>`,
+      }),
+      panel(
+        'Why the fourth one is different from the other three',
+        '<p class="mk-tight">Three of them are cells with no result in them at all — no material, no analysis, no number of their own. The fourth is a <strong>result that exists</strong> and about which nothing was asserted, because no criterion was selectable for it.</p>' +
+          `<p class="mk-tight">So it is not excluded from the population: it is <em>in</em> it, carrying a dashed mark and no verdict. ${esc(String(V.absences.find((a) => a.key === 'not evaluated').n))} results are in that state across both matrices, and a population that reported them as compliant would be making the one substitution this catalogue exists to refuse.</p>` +
+          `<div class="mk-actions"><a class="mk-btn mk-btn--sm" href="#criteria">Why nothing applies</a><a class="mk-btn mk-btn--sm" href="#data-states">Where the pattern is set out</a></div>`,
+      ),
+      '3fr 2fr',
+    ) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Live and frozen — the seam, and the act between them</h2>' +
+    `<p class="mk-tight">A live query and a frozen dataset are opposite things, and both failure modes are already named by this catalogue’s own arguments. Hold the population in session state and two people asking for the compliance boundary numbers get two questions — the disagreement this screen exists to end. Hold it as a snapshot and it diverges silently, and a stale figure becomes undetectable — which is exactly what <a class="mk-ref" href="#report-figures">the figure register</a> catches today for certificates and would lose for populations.</p>` +
+    `<p class="mk-tight"><strong>So the seam is drawn rather than chosen.</strong> A dataset being refined is <em>live</em>. A dataset a figure cites is <em>frozen at a version</em>. The transition is an act with a record, not a save button.</p>` +
+    cols(
+      panel(
+        `Live — ${esc(String(S.live.length))} dimensions move without anybody editing a dataset`,
+        table({
+          head: ['Dataset', 'Dimension', 'Follows'],
+          scroll: true,
+          label: 'Dimensions that resolve through another record',
+          rows: S.live.map((d) => [esc(d.dataset), esc(d.dimension), cell(`<a class="mk-ref" href="#${esc(d.at)}">${esc(d.through)}</a>`)]),
+        }) +
+          S.twoHop.map((t) => `<p class="mk-tight"><strong>One of them is live twice over.</strong> ${esc(t.dataset)} names <em>${esc(t.suite)}</em>, whose size is not a number anybody typed — it follows <a class="mk-ref" href="#criteria">${esc(t.follows)}</a>, version ${esc(t.at)}, the set in force. So a licence variation moves that dataset’s definition with nobody touching either of them, which is the strongest case on this page for a version being an act rather than a timestamp.</p>`).join('') +
+          '<p class="mk-tight mk-muted">A bore joining the compliance boundary joins the dataset that reports it. That is the behaviour a returning user wants and it is exactly what a citation must not inherit.</p>',
+      ),
+      panel(
+        'Frozen — what a version holds, and what it does not',
+        facts(S.frozen.map((f) => [esc(f.what), esc(f.why)])) +
+          `<p class="mk-tight">A version that stored a <em>pointer</em> to a location group would go on moving after the citation, and “the exact query definition” would name something that had changed. So a version freezes the dimensions <strong>as they resolved</strong> — the same rule an outcome already follows, frozen at evaluation, with a licence varied next year moving nothing already decided.</p>`,
+      ),
+    ) +
+    cols(
+      panel(
+        `The act, stated before it is taken — ${esc(String(V.onCrosstab.dimensions.length))} edits are sitting on the grid right now`,
+        `<p class="mk-tight"><a class="mk-ref" href="#crosstab">The results grid</a> is on <strong>${esc(V.onCrosstab.view.name)}</strong> with unsaved changes on every one of its ${esc(String(V.onCrosstab.dimensions.length))} dimensions. There are two ways to keep them and they are not the same act.</p>` +
+          C.blastRadius({
+            lede: `${esc(S.act.into.label)} — “${esc(S.act.into.makes)}” — would:`,
+            rows: S.radius,
+            action: S.act.into.label,
+            cancel: 'Leave the edits unsaved',
+            reversible: S.act.into.reversible,
+          }) +
+          C.card({
+            tone: 'neutral',
+            head: `<span class="mk-queue__kind">${esc(S.act.variant.label)}</span>`,
+            body:
+              `<p class="mk-tight"><strong>${esc(S.act.variant.makes)}.</strong> Costs ${esc(S.act.variant.costs)}.</p>` +
+              `<p class="mk-tight mk-muted">${esc(S.act.variant.reversible)}</p>`,
+          }),
+      ),
+      panel(
+        'What a reader of a stale citation sees',
+        `<p class="mk-tight">${esc(S.reader)}</p>` +
+          table({
+            head: ['Staleness', 'Cited items in it', 'What it means'],
+            scroll: true,
+            label: 'The two channels a citation goes stale through',
+            rows: S.channels.map((c) => [
+              cell(`<strong>${esc(c.channel)}</strong><small>${esc(c.newIn)}</small>`),
+              `<span class="mk-num${c.n ? ' mk-num--warn' : ' mk-num--nil'}">${esc(String(c.n))}</span>`,
+              cell(esc(c.what)),
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">Both read <strong>${esc(String(S.channels.reduce((n, c) => n + c.n, 0)))}</strong> today and that is a measurement rather than an omission: no dataset has ever moved to a second version, and of the ${esc(String(S.staleItems.length))} stale items on <a class="mk-ref" href="#report-figures">the figure register</a>, <strong>${esc(String(S.staleNotCiting.length))}</strong> resolve to no dataset at all — they are stale by evidence, on sources that name a validation run and an evaluation.</p>` +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">And the seam itself has one thing the record does not settle</span>',
+            body:
+              `<p class="mk-tight"><strong>${esc(S.unrecorded.question)}</strong></p>` +
+              `<p class="mk-tight">${esc(S.unrecorded.why)}</p>` +
+              `<p class="mk-tight mk-muted">${esc(S.unrecorded.shownBy)}</p>`,
+          }),
+      ),
+    ) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A citation resolves. Does it agree with what it resolved to?</h2>' +
+    `<p class="mk-tight">Wave 18 made a source string <em>become</em> the record it names. Nothing compared the two ends of it. The first time that comparison is run, <strong>${esc(String(F.disagreeing))} of the ${esc(String(F.checked))}</strong> citations disagrees with the definition it cites — on both axes at once. Both checks are computed off the item’s own title: the location codes it names against the codes the dataset selects, and whether its subject is an analyte in the dictionary at all.</p>` +
+    table({
+      caption: 'The disagreement, measured. Nothing here is judged and nothing is corrected — a figure’s title is what a report says and a dataset’s definition is what the record says.',
+      head: ['Item', 'It draws', 'The dataset selects', 'Outside the definition', 'Its subject'],
+      kind: 'matrix',
+      scroll: true,
+      label: 'Citations that disagree with the definition they name',
+      rows: F.rows.map((r) => [
+        `<code class="mk-file mk-file--id">${esc(r.item)}</code>`,
+        cell(esc(r.title)),
+        esc(r.selects.join(', ')),
+        `<span class="mk-num mk-num--bad">${esc(r.outside.join(', '))}</span>`,
+        cell(esc(r.subject)),
+      ]),
+    }) +
+    cols(
+      panel(
+        `${esc(String(F.readings.length))} readings, and this record chooses neither`,
+        F.readings.map((r) => `<p class="mk-tight"><strong>${esc(r.says)}.</strong> ${esc(r.means)} <em>${esc(r.consequence)}</em></p>`).join('') +
+          `<p class="mk-tight">The second reading is only <em>possible</em> because there is no version record — which is the strongest argument this wave can make for building one, arriving from the requirement’s own last sentence rather than from an opinion.</p>`,
+      ),
+      panel(
+        'What would settle it, and what it refuses to do',
+        `<p class="mk-tight">${esc(F.settledBy)}</p>` +
+          C.card({
+            tone: 'bad',
+            head: '<span class="mk-queue__kind">Refused</span>',
+            body: `<p class="mk-tight">${esc(F.refuses)}</p>`,
+          }),
+      ),
+    ) +
+
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Creator and current owner — two roles, one name, and the name is neither</h2>' +
+    cols(
+      panel(
+        `${esc(V.roles.question)}`,
+        `<p class="mk-tight">§4.5 asks the dataset to identify <strong>its creator and its current owner</strong>. This record holds ${esc(V.roles.holds.toLowerCase())}</p>` +
+          `<p class="mk-tight"><strong>Which capacity?</strong> ${esc(V.roles.evidence)} So the strongest reading of the record is <em>who last ${esc(V.roles.capacity)}</em> — and until 3 September 2026 this screen drew it as ${esc(V.roles.drawnAs)}, which answers §4.5’s ask for free by assuming the thing it asks to be shown.</p>` +
+          `<p class="mk-tight">${esc(V.roles.consequence)}</p>` +
+          table({
+            head: ['Role', 'What the record holds', 'Drawn as'],
+            scroll: true,
+            label: 'The two roles §4.5 asks for',
+            rows: [
+              ['Creator', '<span class="mk-num mk-num--nil">— nothing</span>', cell('A field, empty, with what would fill it')],
+              ['Current owner', '<span class="mk-num mk-num--nil">— nothing</span>', cell('A field, empty, and kept apart from the one above rather than filled from it')],
+              [`Last ran it`, cell(`${esc([...new Set(V.views.map((v) => v.by))].join(', '))} — one per dataset, with a date`), cell('The <em>Last run</em> column on the register above')],
+            ],
+          }) +
+          C.card({
+            tone: 'warn',
+            head: '<span class="mk-queue__kind">What would settle it</span>',
+            body: `<p class="mk-tight">${esc(V.roles.settledBy)}</p>`,
+          }),
+      ),
+      panel(
+        'And the two axes the brief draws as one line',
+        `<p class="mk-tight">§4.5 asks a reader to understand whether a dataset is <em>draft, shared, approved or superseded</em>. Those are <strong>two questions</strong>, not four states: an approved dataset is surely also shared, and a strip that held all four would make those mutually exclusive.</p>` +
+          facts(Object.values(V.AXES).map((a) => [`${esc(a.axis)} — of ${esc(a.of)}`, `${a.states.map((x) => tag(x, 'neutral')).join(' ')}<br><span class="mk-muted">${esc(a.says)}</span>`])) +
+          `<p class="mk-tight mk-muted">The same discipline <a class="mk-ref" href="#crosstab">the grid</a> applies to the two roads that reach <em>not evaluated</em>, one requirement over: a mark that comes to mean two things has stopped being evidence.</p>`,
+      ),
+    ) +
+
     '<h2 class="mk-h2" style="margin-top:1.4rem">Three surfaces, three answers — settled 3 September 2026</h2>' +
     notice('default', 'This screen was one of the three, and it was the wrong one.',
       `Four assessments were run against the vendor requirements brief and one of them found this: <strong>${esc(String(V.was.drawnRows.length))} typed rows here, a different ${esc(String(V.was.drawnRows.length))} in the seed, and a third answer again on the figure register</strong>. ` +
@@ -3407,7 +3672,7 @@ const savedViews = () => {
         ]),
       }),
       panel(
-        'The four rows this screen drew until today',
+        'The four rows this screen drew until 3 September',
         table({
           head: ['View', 'Selects', 'Used by', 'Last run', 'Feeds'],
           scroll: true,
@@ -3417,15 +3682,16 @@ const savedViews = () => {
           ]),
         }) +
           `<p class="mk-tight"><strong>${esc(String(V.was.drawnRows.length - V.was.namesInCommon))} of the ${esc(String(V.was.drawnRows.length))} names exist on no other surface</strong> — not in the seed, not on the grid, not on the figure register. The remaining one is what both lists held, and it is the row every correction below is about.</p>` +
+          `<p class="mk-tight mk-muted">The third column is the one wave 19 needed. <strong>${esc(V.was.personHeader)}</strong> is the only header the record ever gave that field, which is why the register above pairs the name with a date rather than putting it under the title as an author.</p>` +
           ((f) => `<p class="mk-tight mk-muted">The <em>Feeds</em> column is the sharpest of them, and it was wrong ${esc(String([f.elsewhere.length, f.absent.length, f.missed.length].filter(Boolean).length))} different ways at once. It claimed <code>${esc(V.was.tsf.feeds)}</code>: <strong>${esc(f.right.join(', '))}</strong> is right, <strong>${esc(f.elsewhere.join(', '))}</strong> exists and is drawn from the statistics worker rather than from this view, and <strong>${esc(f.absent.join(', '))}</strong> does not exist — §${esc(f.section)} carries ${esc(String(f.inSection))} figures. It also missed <strong>${esc(f.missed.join(', '))}</strong>, which this view does feed.</p>`)(V.phantom),
       ),
     ) +
-    '<h2 class="mk-h2" style="margin-top:1.4rem">Every value this moved, with what it was</h2>' +
+    '<h2 class="mk-h2" style="margin-top:1.4rem">Every value these two waves moved, with what it was</h2>' +
     table({
       caption: 'Each before is written down once, in the seed; each now is counted off the record as it stands. A row whose before and now agree is here because a claim about it was checked and did not hold.',
       head: ['Value', 'Was', 'Now', 'Where', 'Why'],
       kind: 'matrix',
-      label: 'Values this settlement moved',
+      label: 'Values these settlements moved',
       rows: V.moved.map((m) => [
         esc(m.what),
         `<span class="mk-num mk-num--warn">${esc(m.was)}</span>`,
@@ -3445,7 +3711,7 @@ const savedViews = () => {
             rows: P.readings.map((r) => [
               `<strong>${esc(r.says)}</strong>`,
               `<span class="mk-num">${esc(r.quarters)}</span>`,
-              cell(`<a class="mk-ref" href="#${r.at}">${esc(r.record)}</a>`),
+              cell(`<a class="mk-ref" href="#${esc(r.at)}">${esc(r.record)}</a>`),
               cell(esc(r.restsOn)),
             ]),
           }) +
@@ -3454,18 +3720,19 @@ const savedViews = () => {
           C.card({
             tone: 'warn',
             head: '<span class="mk-queue__kind">What would settle it</span>',
-            body: `<p class="mk-tight">${esc(P.settledBy)}</p>`,
+            body: `<p class="mk-tight">${esc(P.settledBy)}</p>` +
+              '<p class="mk-tight mk-muted"><strong>And wave 19 did not settle it.</strong> The object it built is the one that field belongs on — but a field is a place to record something, not a record. A period on a definition nobody has run since is still two readings, and the version that would carry it has never been made.</p>',
           }),
       ),
       panel(
-        'The grid is on this view, edited',
+        'The grid is on this dataset, edited',
         `<p class="mk-tight">${esc(V.onCrosstab.note)}</p>` +
-          `<p class="mk-tight mk-muted">Which dimensions differ is computed on <a class="mk-ref" href="#crosstab">the grid itself</a>, where the location option is counted off the register — counting it a second time here is the defect this whole page is about.</p>` +
-          `<p class="mk-tight"><strong>And it is why the grid cannot settle the period.</strong> It is on a single quarter, which is an <em>edit</em> rather than the view’s own window. A third surface showing a third period is not a third reading.</p>`,
+          `<p class="mk-tight mk-muted">Which dimensions differ is computed on <a class="mk-ref" href="#crosstab">the grid itself</a>, where the location option is counted off the register — counting it a second time here is the defect this whole page is about. What is new since 3 September is that the edits are <strong>an act with two shapes</strong> rather than a state: a variant, or a version.</p>` +
+          `<p class="mk-tight"><strong>And it is why the grid cannot settle the period.</strong> It is on a single quarter, which is an <em>edit</em> rather than the dataset’s own window. A third surface showing a third period is not a third reading.</p>`,
       ),
     ) +
-    notice('default', 'A view is shared, not personal.',
-      'Two people asking “the compliance boundary numbers” must get the same rows, or the product has reintroduced the disagreement it exists to end. A view is a project object with an owner and an audit trail, not a browser preference. <strong>That is exactly what failed here</strong> — not between two people, but between three of this catalogue’s own surfaces.')
+    notice('default', 'A dataset is shared, not personal.',
+      'Two people asking “the compliance boundary numbers” must get the same rows, or the product has reintroduced the disagreement it exists to end. A dataset is a project object with an owner and an audit trail, not a browser preference. <strong>That is exactly what failed here</strong> — not between two people, but between three of this catalogue’s own surfaces.')
   );
 };
 
@@ -3666,11 +3933,40 @@ const reportFigures = () => {
    * a validation run, a planar fit, the statistics worker — have no record to
    * resolve to; saying so is the honest half of the same change.
    */
+  /*
+   * Wave 19 — the citation binds to a version, and the binding says how it
+   * knows.
+   *
+   * §4.5's last sentence is the one this cell answers: a dataset used by a
+   * figure "must retain lineage to the exact query definition and relevant
+   * version". The version is **derived and the derivation names its limit** —
+   * with exactly one version recorded there is no other version a citation
+   * could have been bound to, and the moment a dataset gains a second, the
+   * binding stops being derivable and becomes a fact the citation itself has
+   * to carry.
+   */
+  const CITES = SAVED_VIEWS.citations;
+  const citationFor = (item) => CITES.find((c) => c.item === item);
   const sourceCell = (item) => {
-    const view = SAVED_VIEWS.viewFor(item.source);
-    return view
-      ? `<a class="mk-ref" href="#saved-views">${esc(item.source)}</a>`
+    const c = citationFor(item);
+    return c
+      ? `<a class="mk-ref" href="#saved-views">${esc(item.source)}</a><small>dataset · bound at v${esc(String(c.bound))}${c.staleByDefinition ? ` — now v${esc(String(c.current))}` : ''}</small>`
       : `<span class="mk-muted">${esc(item.source)}</span>`;
+  };
+  /*
+   * Two channels, not one. A figure goes stale because the data under it moved
+   * — a certificate amended, a result superseded — or because the *definition*
+   * it selected moved to a later version. The first has been drawn since wave
+   * 3; the second arrives with the dataset, reads zero today, and reading zero
+   * is a measurement rather than an omission.
+   */
+  const stateCell = (item) => {
+    const c = citationFor(item);
+    const reasons = [
+      item.state !== 'current' ? item.state : null,
+      c?.staleByDefinition ? `stale — the dataset it cites is at v${c.current}` : null,
+    ].filter(Boolean);
+    return reasons.length ? reasons.map((r) => tag(r, 'warn')).join(' ') : tag('current', 'good');
   };
   const resolved = I.items.filter((x) => SAVED_VIEWS.viewFor(x.source));
   return (
@@ -3683,6 +3979,8 @@ const reportFigures = () => {
       stat(String(I.tables), 'tables'),
       stat(String(I.items.filter((x) => x.state !== 'current').length), 'stale', 'warn'),
       stat(String(I.items.reduce((n, x) => n + x.cites.length, 0)), 'cross-references'),
+      stat(`${CITES.length} / ${I.items.length}`, 'sources bound to a dataset version'),
+      stat(String(SAVED_VIEWS.citationFinding.disagreeing), `${SAVED_VIEWS.citationFinding.disagreeing === 1 ? 'disagrees' : 'disagree'} with the definition cited`, 'bad'),
     ]) +
     `<p class="sf-lede mk-tight">Numbered <code>${esc(TEMPLATE.settings[0].value)}</code>, per <a class="mk-ref" href="#report">corporate template ${esc(TEMPLATE.current)}</a>. Figures and tables number independently, so <code>Table 4.1</code> and <code>Figure 4.1</code> coexist and neither is a typo.</p>` +
     table({
@@ -3696,10 +3994,40 @@ const reportFigures = () => {
         sourceCell(x),
         x.cites.length ? `<span class="mk-muted">${esc(x.cites.join(', '))}</span>` : '<span class="mk-num mk-num--nil">— not cited</span>',
         x.prose ? C.status('authored prose', 'warn') : C.status('live', 'good'),
-        x.state === 'current' ? tag('current', 'good') : tag(x.state, 'warn'),
+        stateCell(x),
       ]),
     }) +
-    `<p class="mk-tight"><strong>${esc(String(resolved.length))} of the ${esc(String(I.items.length))} sources resolve to a record</strong> — both of them to <a class="mk-ref" href="#saved-views">a saved view</a>, and both to the same one. The rest name a run, a fit or a worker, and stay text because there is nothing to open — and <strong>${SAVED_VIEWS.orphanCitations.length === 0 ? 'none' : esc(String(SAVED_VIEWS.orphanCitations.length))}</strong> of them ${SAVED_VIEWS.orphanCitations.length === 1 ? 'cites' : 'cite'} a view no record holds, which is the failure this resolution makes visible rather than the one it assumes away. A citation that resolves is what stops a figure list being asserted from two directions at once: the view now states which items it feeds, computed from these rows, and until 3 September 2026 it stated ${esc(String(SAVED_VIEWS.phantom.claimed.length))}, ${esc(String(SAVED_VIEWS.phantom.absent.length))} of which was a figure number this document does not carry.</p>` +
+    `<p class="mk-tight"><strong>${esc(String(resolved.length))} of the ${esc(String(I.items.length))} sources resolve to a record</strong> — both of them to <a class="mk-ref" href="#saved-views">a dataset</a>, the object the source string still calls a saved view, and both to the same one. The rest name a run, a fit or a worker, and stay text because there is nothing to open — and <strong>${SAVED_VIEWS.orphanCitations.length === 0 ? 'none' : esc(String(SAVED_VIEWS.orphanCitations.length))}</strong> of them ${SAVED_VIEWS.orphanCitations.length === 1 ? 'cites' : 'cite'} a view no record holds, which is the failure this resolution makes visible rather than the one it assumes away. A citation that resolves is what stops a figure list being asserted from two directions at once: the dataset now states which items it feeds, computed from these rows, and until 3 September 2026 it stated ${esc(String(SAVED_VIEWS.phantom.claimed.length))}, ${esc(String(SAVED_VIEWS.phantom.absent.length))} of which was a figure number this document does not carry.</p>` +
+    /* ================================================================ *
+     * Wave 19 — the citation, bound and checked.
+     * ================================================================ */
+    '<h2 class="mk-h2" style="margin-top:1.4rem">A citation binds to a version — and this is the first time one has been checked</h2>' +
+    cols(
+      panel(
+        'Bound at a version, and the binding says how it knows',
+        ((S) => `<p class="mk-tight">§4.5 asks that a dataset used by a figure “retain lineage to the exact query definition and relevant version”. Both citations above are bound at <strong>v${esc(String(S.version))}</strong>, and that is <em>derived</em> rather than recorded: with exactly one version in the record there is no other version a citation could have named. <strong>The moment a dataset gains a second, the binding stops being derivable</strong> and becomes a fact the citation itself has to carry — which is the field §4.5 is asking for and the field this instance does not yet need.</p>` +
+          `<p class="mk-tight">A version freezes the dimensions <strong>as they resolved</strong>, not a pointer to the records they came from. ${esc(String(S.live.length))} of this project’s dataset dimensions move on their own — a bore joining a location group joins the dataset that reports it — and a citation that inherited that behaviour would name a definition that had changed underneath it.</p>` +
+          table({
+            head: ['Staleness', 'Items', 'What moved'],
+            scroll: true,
+            label: 'The two channels a figure goes stale through',
+            rows: S.channels.map((c) => [
+              cell(`<strong>${esc(c.channel)}</strong><small>${esc(c.newIn)}</small>`),
+              `<span class="mk-num${c.n ? ' mk-num--warn' : ' mk-num--nil'}">${esc(String(c.n))}</span>`,
+              cell(esc(c.what)),
+            ]),
+          }) +
+          `<p class="mk-tight mk-muted">Both read <strong>${esc(String(S.channels.reduce((n, c) => n + c.n, 0)))}</strong>, and that is a measurement rather than an omission: no dataset has ever moved to a second version, and of the ${esc(String(S.staleItems.length))} stale items on this register <strong>${esc(String(S.staleNotCiting.length))}</strong> resolve to no dataset at all — they are stale by evidence, on sources that name a validation run and an evaluation.</p>`)(SAVED_VIEWS.seam),
+      ),
+      panel(
+        `${esc(String(SAVED_VIEWS.citationFinding.disagreeing))} of the ${esc(String(SAVED_VIEWS.citationFinding.checked))} resolved citations disagrees with what it resolved to`,
+        ((F) => `<p class="mk-tight">Wave 18 made a source string <em>become</em> the record it names. Nothing compared the two ends of it. Both checks below are computed off the item’s own title — the location codes it names against the codes the dataset selects, and whether its subject is an analyte in the dictionary at all.</p>` +
+          F.rows.map((r) => `<p class="mk-tight"><code class="mk-file mk-file--id">${esc(r.item)}</code> <strong>${esc(r.title)}</strong> cites <em>${esc(r.dataset)}</em>, which selects ${esc(r.selects.join(', '))}. <strong class="mk-num mk-num--bad">${esc(r.outside.join(', '))}</strong> is outside that definition, and the item’s subject is ${esc(r.subject)}.</p>`).join('') +
+          `<p class="mk-tight">${esc(F.readings.length)} readings are consistent with the record — the citation is wider than the dataset, or the dataset has narrowed since the figure was made — and <strong>nothing here chooses between them</strong>. The second is only possible because there is no version record, which is the requirement arriving from its own last sentence.</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#saved-views">Both readings, and what would settle it</a></div>`)(SAVED_VIEWS.citationFinding),
+      ),
+      '1fr 1fr',
+    ) +
     cols(
       panel(
         'Two items are stale, and each says what made it stale',
@@ -4575,10 +4903,39 @@ const lineage = () => {
     `<p class="mk-tight mk-muted">The default, and it stays the default. A chain a practitioner can read aloud to a regulator is the artifact; the graph beside it is a way of seeing the same thing at once.</p>` +
     '<h3 class="mk-h3">From the bore to the bench</h3>' +
     chainList(P.upstream) +
-    '<h3 class="mk-h3">From the deliverable to the consequence</h3>' +
+    '<h3 class="mk-h3">From the deliverable to the consequence, and on to the populations that carry it</h3>' +
     chainList(P.downstream, { from: P.upstream.length }) +
     notice('default', `${P.chain.length} steps, one query.`,
-      'From the bore that was drilled in 2019 to the statutory notification this result eventually caused. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).') +
+      'From the bore that was drilled in 2019 to the statutory notification this result eventually caused, and then to the populations it is a member of. Nothing here is reconstructed after the fact — every step was recorded when it happened, because a derivation that does not carry its rule and its inputs is a number nobody can defend (PP3).') +
+    /* ================================================================ *
+     * Wave 19 — the hop this chain did not have, and why it is last.
+     * ================================================================ */
+    ((H) => cols(
+      panel(
+        `The hop this chain did not have — ${esc(H.step.toLowerCase())}`,
+        `<p class="mk-tight">Until 3 September 2026 this chain ran from the deliverable to the consequence with <strong>no query or dataset node in it at all</strong>, which is why <a class="mk-ref" href="#coverage">§9.5</a> — <em>Query → included observations/results → QA/QC state → analytical settings → output</em> — had nothing for its first link to attach to.</p>` +
+          `<p class="mk-tight"><strong>It is appended after the consequence rather than spliced before it.</strong> The TARP level and the statutory notification follow from the <em>evaluation</em>, and a hop inserted between them would draw a causal link that does not exist. What follows the consequence is the other thing this value went on to be.</p>` +
+          table({
+            caption: `Every dataset on the project, against this one value. ${esc(String(H.membership.length))} answers and ${esc(String(new Set(H.membership.map((m) => m.verdict)).size))} kinds of answer.`,
+            head: ['Dataset', 'Contains it', 'Why'],
+            scroll: true,
+            label: 'Which populations this value is a member of',
+            rows: H.membership.map((m) => [
+              `<a class="mk-ref" href="#saved-views">${esc(m.view.name)}</a>`,
+              tag(m.verdict, m.verdict === 'in' ? 'good' : m.verdict === 'unresolved' ? 'warn' : 'neutral'),
+              cell(esc(m.why)),
+            ]),
+          }),
+      ),
+      panel(
+        'Three answers, and the third is the one worth having',
+        `<p class="mk-tight">A dataset that selects the bore and names the analyte <strong>contains</strong> it. One that does not select the bore does <strong>not</strong>. And one that selects the bore and names an analyte <em>suite</em> <strong>cannot be resolved at all</strong> — the record holds a suite’s size and never its membership, so guessing which of the ${esc(String(ANALYTE_SUITES.find((x) => x.code === H.unresolved[0].view.suite).n))} they are would be inventing a population.</p>` +
+          `<p class="mk-tight">§15 requires this chain to be traversable <strong>in both directions</strong>. Forward — which results are in a dataset — is what <a class="mk-ref" href="#saved-views">the population readout</a> answers. This is the way back, and it is where the citation check found its disagreement.</p>` +
+          `<p class="mk-tight mk-muted">${esc(H.cited.length === 0 ? 'Nothing cites the one dataset that does contain this value, so the chain runs Result → Query here and stops: the next link in §15 is a figure, and no figure is drawn on this population. That is the state of the record rather than a gap in the drawing.' : `${H.cited.length} report items cite it.`)}</p>` +
+          `<div class="mk-actions"><a class="mk-btn" href="#saved-views">The dataset register</a><a class="mk-btn" href="#crosstab">The grid it selects from</a></div>`,
+      ),
+      '3fr 2fr',
+    ))(P.datasetHop) +
     '<h2 class="mk-h2" style="margin-top:1.4rem">Trace it</h2>' +
     `<p class="mk-tight">The same hops, compact, with the focused result at the centre. ${esc(P.trace.upstream.length)} upstream, the fork at the bench, ${esc(P.trace.downstream.length)} downstream.</p>` +
     traceGraph(P.trace) +
@@ -12606,10 +12963,13 @@ export const RELATED = {
   background: ['statistics', 'stygofauna', 'criteria', 'map', 'exceedances'],
   stygofauna: ['background', 'map', 'locations', 'obligations'],
   map: ['location', 'stygofauna', 'exceedances', 'report-figures'],
-  'saved-views': ['crosstab', 'hydrograph', 'report-figures'],
+  // Wave 19: the chain gained a dataset hop, so the register and the lineage
+  // page point at each other — the declared architecture matching the hrefs
+  // both screens now write.
+  'saved-views': ['crosstab', 'hydrograph', 'report-figures', 'lineage'],
 
   report: ['report-figures', 'dqa', 'narrative', 'snapshot', 'signoff'],
-  'report-figures': ['report', 'narrative', 'supersession', 'certificate'],
+  'report-figures': ['report', 'narrative', 'supersession', 'certificate', 'saved-views'],
   // And the interpretation workspace reaches the evidence it pins, which is
   // what makes the set a set rather than a list of names.
   narrative: ['report', 'lineage', 'statistics', 'hydrograph', 'hydrochem', 'background', 'map', 'qc', 'location', 'supersession'],
@@ -12640,7 +13000,7 @@ export const RELATED = {
   // Wave 17: the laboratory half of the J collision is drawn on this chain and
   // the other half is one screen away, so both the register and the boundary
   // that tells them apart are declared exits.
-  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite', 'qualifiers', 'exchange'],
+  lineage: ['certificate', 'supersession', 'audit', 'crosstab', 'result-detail', 'location', 'field-capture', 'ecoc', 'receipt', 'batches', 'composite', 'qualifiers', 'exchange', 'saved-views'],
   audit: ['lineage', 'supersession', 'roles', 'engagement'],
   supersession: ['lineage', 'certificate', 'report-figures'],
   documents: ['certificate', 'lineage', 'notification', 'submissions'],
