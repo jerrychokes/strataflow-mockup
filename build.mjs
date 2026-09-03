@@ -226,8 +226,48 @@ const SECTION_REGISTER = {
       offences.push(`population reading “${r.reading}”: names ${r.where}, which is not in this repository`);
       continue;
     }
-    if (!readFileSync(file, 'utf8').includes(r.marker)) {
+    const text = readFileSync(file, 'utf8');
+    if (!text.includes(r.marker)) {
       offences.push(`population reading “${r.reading}”: ${r.where} no longer contains ${JSON.stringify(r.marker)} — re-measure the row before the table describes something that has changed`);
+      continue;
+    }
+    /*
+     * W21-A-3. The marker proved a substring existed and nothing else, so a
+     * value could be added to or deleted from the very array a row counts and
+     * the build stayed green while the row went on declaring the old number.
+     * That is the third time a guard here has checked the cheaper half of its
+     * own claim — a whole-file match in wave 18, a nested bullet in wave 20,
+     * and now presence standing in for arithmetic.
+     *
+     * Where a row names an array literal, the elements are counted at the
+     * marker and compared with the number the row reports. `countAt` is the
+     * source of truth the row is describing; a row that names no array says
+     * so with `counts: false` and keeps the presence check alone, because a
+     * guard that pretends to measure what it cannot is worse than one that
+     * says what it does.
+     */
+    const lengthAt = (needle) => {
+      const at = text.indexOf(needle);
+      if (at < 0) return null;
+      const open = text.indexOf('[', at);
+      const close = text.indexOf(']', open);
+      if (open < 0 || close < 0) return null;
+      return text.slice(open + 1, close).split(',').filter((v) => v.trim() !== '').length;
+    };
+    /* The marker names the censored array on a figure-local reading, so it
+     * carries a number the row reports and is counted too. Both halves of the
+     * row are then measured rather than one. */
+    if (r.countAt) {
+      const detects = lengthAt(r.countAt);
+      const censored = lengthAt(r.marker);
+      if (detects === null) {
+        offences.push(`population reading “${r.reading}”: ${JSON.stringify(r.countAt)} in ${r.where} is no longer an array literal`);
+      } else if (censored === null) {
+        offences.push(`population reading “${r.reading}”: ${JSON.stringify(r.marker)} in ${r.where} is no longer an array literal`);
+      } else {
+        if (censored !== r.censored) offences.push(`population reading “${r.reading}”: the array at ${JSON.stringify(r.marker)} holds ${censored} values, the row reports ${r.censored} censored`);
+        if (detects + censored !== r.n) offences.push(`population reading “${r.reading}”: ${r.where} holds ${detects} detects and ${censored} censored, which is ${detects + censored}, and the row reports ${r.n}`);
+      }
     }
   }
   if (offences.length) {

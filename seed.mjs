@@ -13418,15 +13418,28 @@ export const ANALYSES = (() => {
       says: 'The plate takes the exported series and rewrites its first two points as non-detects at a 5 µg/L limit, inside the figure module. The substitution is a line of code in a drawing, so nothing else in the catalogue can see it.',
     },
     {
+      /*
+       * W21-A-1. This row described the defect and the defect stayed on the
+       * screen: six typed rows on months the series does not hold, captioned
+       * as the plotted values. The table is derived from the series now, so
+       * this reading is no longer a fifth answer — it is the record's own,
+       * with the plate's departure named beside it rather than reproduced.
+       * The marker moved with it, which is what stopped the build when the
+       * table changed and the row had not.
+       */
       reading: 'The table drawn under Figure 4.2',
-      where: 'screens.mjs', marker: "['2024-08-12', '<span class=\"mk-num\">&lt;5.0</span>', 'non-detect', '5.0 µg/L'",
-      n: 6, censored: 3, span: '2024-08 to 2026-05', range: '<1.0 – 28.4 µg/L',
-      is: 'a typed table',
-      says: 'Six rows, on months the series does not hold and at values it does not carry, under a caption that calls them the plotted values. Two of its six are non-detects at 5.0 and one at 1.0.',
+      where: 'screens.mjs', marker: 'Figure 4.2 — the ${series.length} values in the record',
+      n: 14, censored: 0, span: '2023-01 to 2026-04', range: '3.5 – 26.1 µg/L',
+      is: 'derived from the series',
+      was: 'Six typed rows, on months the series does not hold and at values it does not carry, under a caption that called them the plotted values — two non-detects at 5.0 and one at 1.0. Withdrawn 3 September 2026.',
+      says: 'The fourteen values the record holds, with the two rows the plate rewrites named as the plate\u2019s departure rather than restated as data. It agrees with the exported series because it is the exported series.',
     },
     {
       reading: 'Figure 4.8, the probability plot',
       where: 'figures.mjs', marker: 'const censored = [1.0, 1.0];',
+      /* W21-A-3: the array whose length this row reports, counted by the build
+       * rather than trusted. Deleting a value from it now fails. */
+      countAt: 'const detects',
       n: 14, censored: 2, span: '—', range: '1.0 – 28.4 µg/L',
       is: 'a figure-local literal',
       says: 'Fourteen values of its own — twelve detects and two non-detects at 1.0 — none of which is a value in the exported series. Its legend reads “Robust ROS · 2 of 14 censored”.',
@@ -13535,7 +13548,7 @@ export const ANALYSES = (() => {
         { measure: 'Percentiles', stat: 'Median (50th)', value: at(0.5).toFixed(2), survives: true, under: 'unchanged',
           how: `Rank ${rankOf(0.5).toFixed(1)} of ${n}, which is above the two lowest either way, so the disagreement about censoring does not reach it.` },
         { measure: 'Detection frequency', stat: 'Detected', value: `${detects} of ${n} · ${((detects / n) * 100).toFixed(1)}%`, survives: false, under: 'a different number — 12 of 14',
-          how: 'The proportion of the population the laboratory reported as a value rather than as a limit. **It appeared nowhere in this repository before this wave**, and it is the measure that makes the disagreement above impossible to ignore: on the array it is 100%, and the trend record says it is 12 of 14.' },
+          how: 'The proportion of the population the laboratory reported as a value rather than as a limit. **It appeared once in this repository before this wave, in prose and never as a measure**, and it is the measure that makes the disagreement above impossible to ignore: on the array it is 100%, and the trend record says it is 12 of 14.' },
         { measure: 'Exceedance frequency', stat: `Above ${arsenic.a} ${arsenic.unit}`, value: `${above} of ${n} · ${((above / n) * 100).toFixed(1)}%`, survives: true, under: 'unchanged',
           how: 'The proportion of the population above the criterion in force. **Not the same measure as the consecutive-run count** on the exceedance register, which asks how many rounds in a row are above it — one is a rate over a period, the other is a streak, and the licence condition turns on the second.' },
       ],
@@ -13689,6 +13702,22 @@ export const ANALYSES = (() => {
             anionMajority: rows.filter((r) => r.anionMajority).length,
             noMajority: noMajority.map((r) => r.code),
             notCalcium: notCalcium.map((r) => r.code),
+            /*
+             * W21-A-4. `4 of 6` was reported as a clean count on a screen that
+             * prints the ionic balance to two decimals as `worst +0.61%`. One
+             * of the four turns on 0.22 of a percentage point, and a count that
+             * hides its own closest call is the kind of number this catalogue
+             * spends its time removing. The margins are carried so the face can
+             * say which decisions are comfortable and which is not.
+             */
+            margins: notCalcium
+              .map((r) => {
+                const cs = r.cations;
+                const ca = (r.ion.Ca / cs) * 100;
+                const top = (r.topCation.meq / cs) * 100;
+                return { code: r.code, top: r.topCation.key, by: top - ca };
+              })
+              .sort((a, b) => a.by - b.by),
           };
         },
         refuses:
@@ -14189,7 +14218,7 @@ export const ANALYSES = (() => {
       { what: 'The promise `#result-detail` makes to `#statistics`', was: was.summaryTable, now: `kept — ${summary.rows.length} statistics over the population the trend runs on`, at: 'statistics',
         why: 'A link pointing at nothing. It is kept rather than withdrawn, because every measure it needs is an order statistic or a count over a population the record already holds.' },
       { what: '§9.4’s five measures with no surface', was: was.absentMeasures, now: `${summary.supplied.length} supplied · ${summary.percentiles.length} percentiles with the convention stated`, at: 'statistics',
-        why: 'Detection frequency appeared nowhere in the repository at all, and it is the one that makes the population disagreement impossible to read past.' },
+        why: 'Detection frequency appeared once in the repository and never as a measure, and it is the one that makes the population disagreement impossible to read past.' },
       { what: 'How `#statistics` describes its own population', was: was.statisticsPopulation, now: `${readings.length} readings drawn, giving ${new Set(readings.map((r) => r.censored)).size} answers about how many of the ${SERIES.length} are censored`, at: 'statistics',
         why: 'The sentence was rendered on the face and the array behind it holds no censored value. The screen states the disagreement rather than choosing, and runs its statistics over the exported record because §10 of the brief makes the seed the single source.' },
       { what: 'Where `#background`’s percentiles come from', was: was.percentileProvenance, now: `counted absent — ${BACKGROUND.rows.length} typed percentiles against ${summary.percentiles.length} computed on a population this catalogue holds`, at: 'background',
@@ -14386,7 +14415,7 @@ export const VENDOR_BRIEF = (() => {
     { id: '9.4', title: 'Trend and statistical analysis', items: 10, verdict: 'partially',
       asks: 'A graph without an inspectable underlying population is inconsistent with Strataflow’s defensibility proposition.',
       screens: ['statistics', 'background'],
-      note: `All {items} have a surface as of 3 September 2026. Five were already drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. The other five are supplied now: ${ANALYSES.summary.rows.length} statistics and ${ANALYSES.summary.percentiles.length} percentiles over a named population, each with the convention it is computed under, and **detection frequency, which appeared nowhere in this repository at all**. This note read *“Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all”* until that date. It stays partial on two clauses the requirement turns on. **Grouping is not exposed** — there is no control that groups a population by anything. And making the population inspectable found that it is ${ANALYSES.counts.readings} populations: five readings of *arsenic at MW05* give ${ANALYSES.counts.censoredAnswers} different answers about how many of its values are non-detects, so the mean and the minimum are drawn with the condition they hold under rather than as settled numbers.` },
+      note: `All {items} have a surface as of 3 September 2026. Five were already drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. The other five are supplied now: ${ANALYSES.summary.rows.length} statistics and ${ANALYSES.summary.percentiles.length} percentiles over a named population, each with the convention it is computed under, and **detection frequency, which appeared once in this repository and never as a measure**. This note read *“Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all”* until that date. It stays partial on two clauses the requirement turns on. **Grouping is not exposed** — there is no control that groups a population by anything. And making the population inspectable found that it is ${ANALYSES.counts.readings} populations: five readings of *arsenic at MW05* give ${ANALYSES.counts.censoredAnswers} different answers about how many of its values are non-detects, so the mean and the minimum are drawn with the condition they hold under rather than as settled numbers.` },
     { id: '9.5', title: 'Analysis lineage', verdict: 'partially',
       asks: 'Query → included observations/results → QA/QC state → analytical settings → output',
       screens: ['lineage', 'saved-views', 'report-figures'],

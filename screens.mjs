@@ -15,7 +15,7 @@
  */
 
 import {
-  ANALYTES, APPLIED_UNASKED, AUDIT, BUNDLE, COMPLETENESS, CONVERSIONS, CRITERIA, CRITERIA_LIBRARY,
+  ANALYTES, APPLIED_UNASKED, ARSENIC_MW05, AUDIT, BUNDLE, COMPLETENESS, CONVERSIONS, CRITERIA, CRITERIA_LIBRARY,
   CROSSTAB, CROSSTAB_COLUMNS, DOCUMENTS, ENTITLEMENT, EVENTS, EVENT_SAMPLES, EXCEEDANCES, FACILITY,
   FORMATS, IMPORTS, INSTANCE, LICENCE, LINEAGE, LOCATIONS, MAPPING_ENTRIES, MAPPING_PROFILES,
   MEMBERS, NOTIFICATION, OBLIGATIONS, PRINCIPAL, PROJECT, PROJECTS, QAQC, QUARANTINE, REPORT,
@@ -3245,19 +3245,40 @@ const hydrographWorkspace = () =>
       'Read it as a table',
       '<p class="mk-tight">Every plate has one, and it is not an accessibility afterthought — it is how somebody checks a value they are about to put in a report. A figure a reader has to trust is a figure they will re-derive in Excel.</p>' +
         C.segmented({ options: ['Figure', 'Table', 'Both'], value: 'Both', label: 'View' }) +
-        table({
-          caption: 'Figure 4.2 — the plotted values, censoring intact.',
-          head: ['Collected', 'Result', 'Detect', 'LOR', 'Method', 'Plotted at'],
-          rows: [
-            ['2024-08-12', '<span class="mk-num">&lt;5.0</span>', 'non-detect', '5.0 µg/L', 'ICP-MS', 'At the LOR, open triangle'],
-            ['2024-11-14', '<span class="mk-num">&lt;5.0</span>', 'non-detect', '5.0 µg/L', 'ICP-MS', 'At the LOR, open triangle'],
-            ['2025-02-11', '<span class="mk-num">6.2</span>', 'detected', '5.0 µg/L', 'ICP-MS', 'At the value'],
-            ['2025-05-13', '<span class="mk-num">&lt;1.0</span>', 'non-detect', '1.0 µg/L', 'ICP-MS/MS', 'At the LOR — the limit stepped down here'],
-            ['2025-08-19', '<span class="mk-num">11.8</span>', 'detected', '1.0 µg/L', 'ICP-MS/MS', 'At the value'],
-            ['2026-05-13', '<span class="mk-num mk-num--bad">28.4</span>', 'detected', '1.0 µg/L', 'ICP-MS/MS', 'At the value · above the DGV'],
-          ],
-        }) +
-        '<p class="mk-tight">The table carries the same censoring notation the plate does. An export that flattened <code class="mk-file">&lt;5.0</code> to <code class="mk-file">5.0</code> would make the two disagree, and the one somebody pasted into a report would be the wrong one.</p>',
+        /*
+         * W21-A-1 (P0). This was six typed rows captioned "Figure 4.2 — the
+         * plotted values", and not one of its six dates was in the series the
+         * plate draws. Wave 21 found it — its five-readings row quotes this
+         * caption — published it on `#statistics`, and left the falsehood
+         * standing here, in its own file. A table whose stated purpose is that
+         * somebody checks a value before putting it in a report is the worst
+         * place in the catalogue for one.
+         *
+         * The rows now come from the series. The censoring the plate shows is
+         * NOT in the record: `censoredSeries()` rewrites the first two points
+         * to 5 µg/L at a 5 µg/L limit and gives the rest a limit of 1, and the
+         * seed carries `censored: false` on all fourteen and no limit at all.
+         * That disagreement is the finding, so the table states it per row
+         * rather than restating the transform as though it were data.
+         */
+        ((series) => table({
+          caption: `Figure 4.2 — the ${series.length} values in the record, and where the plate departs from them.`,
+          head: ['Collected', 'In the record', 'Censored in the record', 'As the plate draws it', 'Plotted at'],
+          rows: series.map((pt, i) => {
+            const rewritten = i < 2;
+            return [
+              esc(pt.month),
+              `<span class="mk-num${pt.value > 13 ? ' mk-num--bad' : ''}">${pt.value}</span>`,
+              pt.censored ? 'yes' : '<span class="mk-muted">no</span>',
+              rewritten
+                ? '<span class="mk-was">&lt;5.0 · non-detect · LOR 5.0 µg/L</span>'
+                : '<span class="mk-muted">unchanged · LOR 1.0 µg/L</span>',
+              rewritten ? 'At the LOR, open triangle' : 'At the value',
+            ];
+          }),
+        }))(ARSENIC_MW05) +
+        `<p class="mk-tight"><strong>The plate and the record disagree about two of the ${ARSENIC_MW05.length} points, and the plate is where the disagreement lives.</strong> ${ARSENIC_MW05.filter((p) => p.censored).length} of the ${ARSENIC_MW05.length} values in the record are censored; the drawing rewrites the first two to a non-detect at a 5 µg/L limit and gives every later point a limit of 1, so the stepped limit line is drawn from a limit the series does not carry. Neither number is changed here: the plate is fenced until the print test (D13), and a table that quietly reproduced the transform would put the truth in two places. <a class="mk-ref" href="#statistics">The five readings of this series, and which one the statistics run over</a>.</p>` +
+        '<p class="mk-tight mk-muted">The point of a table beside a plate is that somebody can check a value before putting it in a report. That is exactly why a caption claiming to be the plotted values had to be either true or withdrawn, and why this one names the two rows where the drawing and the record part company rather than picking one of them to print.</p>',
     ),
     panel(
       'One finding against the approved grammar, recorded rather than fixed',
@@ -3460,10 +3481,26 @@ const hydrochem = () => {
             tone: 'warn',
             head: '<span class="mk-queue__kind">What the measurement found</span>',
             body:
-              `<p class="mk-tight"><strong>${esc(String(m.cationMajority))} of ${esc(String(m.bores))}</strong> bores holds a majority cation — ${esc(m.noMajority.join(', '))} do not. At <strong>${esc(String(m.notCalcium.length))}</strong> of the ${esc(String(m.bores))} the largest cation is not calcium: ${esc(m.notCalcium.join(', '))}. <strong>${esc(String(m.anionMajority))}</strong> hold a majority anion.</p>` +
+              `<p class="mk-tight"><strong>${esc(String(m.cationMajority))} of ${esc(String(m.bores))}</strong> bores holds a majority cation — ${esc(m.noMajority.join(', '))} do not. At <strong>${esc(String(m.notCalcium.length))}</strong> of the ${esc(String(m.bores))} the largest cation is not calcium: ${esc(m.notCalcium.join(', '))} — though <strong>${esc(m.margins[0].code)}</strong> is decided by <strong>${esc(m.margins[0].by.toFixed(2))}</strong> of a percentage point, so that count is three comfortable calls and one that a rounding would flip (W21-A-4). <strong>${esc(String(m.anionMajority))}</strong> hold a majority anion.</p>` +
               `<p class="mk-tight">So <em>${esc(ANALYSES.was.faciesClaim.toLowerCase())}</em> is not supported in either half by the table the plates are drawn from, and it has been on this screen since the first pass.</p>`,
           }) +
           `<p class="mk-tight"><strong>Refused.</strong> ${esc(f.refuses)}</p>` +
+          /*
+           * W21-A-2 (P1). The withdrawn sentence was withdrawn from the prose
+           * and left standing in the plates, whose own descriptions render on
+           * to this screen — so a reader met the refutation and the claim on
+           * one page. D13 fences the file, which governs *changing* the plate
+           * and not leaving the contradiction unnamed; the instrument for
+           * naming it was built on this same commit, for the series readings,
+           * and simply was not pointed here.
+           */
+          C.card({
+            tone: 'bad',
+            head: '<span class="mk-queue__kind">The plates still say it</span>',
+            body:
+              `<p class="mk-tight">Two of the three plates on this screen carry the withdrawn claim in their own accessible descriptions, which render here: the Piper reads <em>“separate from the Ca-HCO₃ background of every other bore”</em>, and the Stiff reads <em>“roughly four times the ionic strength of every other bore”</em>. The first is the sentence this panel withdraws. The second is refuted by the ionic-strength column above, where the closest bore is <strong>${esc(ANALYSES.ions.strengthClaim.highest.times.toFixed(2))}×</strong> and the mean of the other five is <strong>${esc(String(ANALYSES.ions.strengthClaim.meanRatio))}×</strong>, so four is true of no bore on the plate.</p>` +
+              `<p class="mk-tight">Neither is changed here. Both live in <code class="mk-file">figures.mjs</code>, which is fenced until the print test (D13) — and an approved plate's description is part of what that test is for. Named rather than corrected, so the contradiction is visible to the reader who meets both on this page.</p>`,
+          }) +
           `<p class="mk-tight mk-muted"><strong>What would settle it.</strong> ${esc(f.settledBy)}</p>`,
       ),
       '3fr 2fr',
