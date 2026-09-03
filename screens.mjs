@@ -3680,9 +3680,18 @@ const summaryStatistics = () => {
       caption: `Every place this catalogue describes “arsenic at MW05”, with what each one says about the population and where it is written. ${esc(String(A.readings.filter((r) => r.censored).length))} of the ${esc(String(A.counts.readings))} carry censoring at all, and across all ${esc(String(A.counts.readings))} there are ${esc(String(A.counts.censoredAnswers))} different answers.`,
       head: ['Reading', 'n', 'Censored', 'Span', 'Range', 'What it is', 'Where'],
       kind: 'matrix',
-      label: 'Five readings of the arsenic population at MW05',
+      label: `${A.counts.readings} readings of the arsenic population at MW05`,
       rows: A.readings.map((r) => [
-        cell(`<strong>${esc(r.reading)}</strong><small>${esc(r.says)}</small>`),
+        /*
+         * W21-A-11. `was` held the explanation of a number that visibly moved —
+         * three answers to two — and rendered nowhere, so a reader of the face
+         * had to reconcile it against the commit history. It is drawn now the
+         * way every other superseded string on this screen is drawn.
+         */
+        cell(
+          `<strong>${esc(r.reading)}</strong><small>${esc(r.says)}</small>` +
+            (r.was ? `<small><span class="sf-result__superseded">${esc(r.was)}</span></small>` : ''),
+        ),
         `<span class="mk-num">${esc(String(r.n))}</span>`,
         `<span class="mk-num${r.censored ? ' mk-num--warn' : ''}">${esc(String(r.censored))}</span>`,
         `<span class="mk-muted">${esc(r.span)}</span>`,

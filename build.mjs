@@ -277,6 +277,26 @@ const SECTION_REGISTER = {
     for (const o of offences) console.error(o);
     process.exit(1);
   }
+  /*
+   * W21-A-13. The three plate descriptions are quoted on `#hydrochem` and
+   * nothing checked the quotes against the file they are quoted from — so a
+   * description could be edited, or corrected, and the screen would go on
+   * attributing the old words to the plate. That matters more than usual
+   * because `figures.mjs` is *scheduled* to change: D13 puts the print test in
+   * front of the approved families, and correcting a `<desc>` is one of the
+   * things that test exists to prompt.
+   */
+  {
+    const figures = readFileSync(resolve(here, 'figures.mjs'), 'utf8');
+    const stale = ANALYSES.ions.plateClaims.filter((c) => !figures.includes(c.desc));
+    if (stale.length) {
+      for (const c of stale) {
+        console.error(`plate claim “${c.plate}”: figures.mjs no longer carries the description this screen quotes — “${c.desc}”`);
+      }
+      process.exit(1);
+    }
+    console.log(`plate claims: ${ANALYSES.ions.plateClaims.length} quoted verbatim from figures.mjs, ${ANALYSES.ions.plateClaimCount.refuted} refuted by the ion table`);
+  }
   console.log(`population readings: ${ANALYSES.readings.length} located, ${ANALYSES.counts.censoredAnswers} answers about the censoring`);
 }
 

@@ -13135,9 +13135,13 @@ export const EXPLORER = (() => {
      * censored, entering as tied values and never substituted`, and the array
      * it describes carries **no censored value at all**. Making the population
      * inspectable was the first time anybody counted: five readings of
-     * *arsenic at MW05* exist in this catalogue and they give three different
-     * answers about the censoring. The line states the disagreement rather
-     * than either number, and the before is on the screen that moved it.
+     * *arsenic at MW05* exist in this catalogue and they give two different
+     * answers about the censoring. It was three until W21-A-1 withdrew the
+     * typed table under Figure 4.2 on 3 September 2026 — the count is derived
+     * through a `Set` and every rendered surface follows it, so this sentence
+     * is the only place the number is written by hand. The line states the
+     * disagreement rather than either number, and the before is on the screen
+     * that moved it.
      */
     { screen: 'statistics', what: 'one analyte at one bore, across rounds',
       get line() {
@@ -13145,7 +13149,13 @@ export const EXPLORER = (() => {
         return `${ARSENIC_MW05.length} quarterly values of ${TREND.analyte} · ${ARSENIC_MW05[0].month} to ${ARSENIC_MW05.at(-1).month} · ` +
           `the exported series carries ${counted} censored and the trend record beside it says ${TREND.censored}`;
       },
-      says: 'A different population from the grid’s in every dimension: one analyte, one bore, fourteen rounds. Nothing on the screen said so until wave 20, and nothing had counted it until wave 21.' },
+      /* W21-A-14. `fourteen rounds` was typed in the same sentence as a clause
+       * deriving the same quantity, so truncating the series left one half of
+       * one sentence correcting itself and the other half asserting the old
+       * number. Sixth instance of the shape; this one landed in wave 20. */
+      get says() {
+        return `A different population from the grid’s in every dimension: one analyte, one bore, ${ARSENIC_MW05.length} rounds. Nothing on the screen said so until wave 20, and nothing had counted it until wave 21.`;
+      } },
     { screen: 'hydrograph', what: 'the water-level record this screen reads',
       get line() {
         const codes = Object.keys(WATER_LEVELS.series);
@@ -13456,7 +13466,17 @@ export const ANALYSES = (() => {
         return `${Math.min(...v)} – ${Math.max(...v)} µg/L`;
       },
       is: 'derived from the series',
-      was: 'Six typed rows, on months the series does not hold and at values it does not carry, under a caption that called them the plotted values — two non-detects at 5.0 and one at 1.0. Withdrawn 3 September 2026, which is why these five readings now give two answers about the censoring and not the three the wave first reported: one of the three was this table.',
+      /*
+       * W21-A-11 renders this field, so its two live numbers are derived and
+       * only the historical one — what the withdrawn surface said — is written
+       * down, which is the whole job of a `was`. Typing "five readings … two
+       * answers" onto a face whose other counts derive is the shape this wave
+       * has now found six times.
+       */
+      get was() {
+        const answers = new Set(readings.map((x) => x.censored)).size;
+        return `Six typed rows, on months the series does not hold and at values it does not carry, under a caption that called them the plotted values — two non-detects at 5.0 and one at 1.0. Withdrawn 3 September 2026, which is why these ${readings.length} readings now give ${answers} answers about the censoring and not the three the wave first reported: one of the three was this table.`;
+      },
       get says() {
         return `The ${ARSENIC_MW05.length} values the record holds, with the two rows the plate rewrites named as the plate\u2019s departure rather than restated as data. It agrees with the exported series because it is the exported series.`;
       },
@@ -13575,7 +13595,7 @@ export const ANALYSES = (() => {
         { measure: 'Percentiles', stat: 'Median (50th)', value: at(0.5).toFixed(2), survives: true, under: 'unchanged',
           how: `Rank ${rankOf(0.5).toFixed(1)} of ${n}, which is above the two lowest either way, so the disagreement about censoring does not reach it.` },
         { measure: 'Detection frequency', stat: 'Detected', value: `${detects} of ${n} · ${((detects / n) * 100).toFixed(1)}%`, survives: false, under: 'a different number — 12 of 14',
-          how: 'The proportion of the population the laboratory reported as a value rather than as a limit. **It appeared once in this repository before this wave, in prose and never as a measure**, and it is the measure that makes the disagreement above impossible to ignore: on the array it is 100%, and the trend record says it is 12 of 14.' },
+          how: 'The proportion of the population the laboratory reported as a value rather than as a limit. **It appeared twice in this repository before this wave and never as a measure** — once in this catalogue’s own note saying it had no surface, and once in the brief asking for it, and it is the measure that makes the disagreement above impossible to ignore: on the array it is 100%, and the trend record says it is 12 of 14.' },
         { measure: 'Exceedance frequency', stat: `Above ${arsenic.a} ${arsenic.unit}`, value: `${above} of ${n} · ${((above / n) * 100).toFixed(1)}%`, survives: true, under: 'unchanged',
           how: 'The proportion of the population above the criterion in force. **Not the same measure as the consecutive-run count** on the exceedance register, which asks how many rounds in a row are above it — one is a rate over a period, the other is a streak, and the licence condition turns on the second.' },
       ],
@@ -13776,21 +13796,39 @@ export const ANALYSES = (() => {
             desc: 'MW05 plots as a distinctly sulfate-dominated water separate from the Ca-HCO3 background of every other bore',
             claims: 'that the other five are calcium-bicarbonate waters',
             measured: `the largest cation is not calcium at ${m.notCalcium.length} of the ${m.bores}, and only ${m.anionMajority} hold a majority anion at all`,
-            refuted: true,
+            /*
+             * W21-A-12. `refuted: true` was a literal on all three, so the
+             * count filtered three hardcoded trues and could not fall — the
+             * fifth instance of the shape, and the second I wrote. The numbers
+             * were derived and the verdict they were supposed to decide was
+             * not, which is the same defect one field over.
+             *
+             * The plate's words are qualitative, so the test states the
+             * threshold it reads them at rather than hiding it: a reader can
+             * disagree with the threshold, which is the point of printing it.
+             */
+            test: 'every other bore has calcium as its largest cation and a bicarbonate majority',
+            get refuted() { return m.notCalcium.length > 0 || m.anionMajority < m.bores; },
           },
           {
             plate: 'Stiff', figure: '4.4',
             desc: 'MW05 is roughly four times the ionic strength of every other bore',
             claims: 'a factor of about four against every one of the other five',
-            measured: `the closest is ${st.highest.times.toFixed(2)}× and the widest ${st.lowest.times.toFixed(2)}×, mean ${st.meanRatio}× — four is true of none of them`,
-            refuted: true,
+            /* W21-A-16. `the mean is 2.73×` sat between the two extremes and read
+             * as their mean, which is 2.89×. It is MW05 against the mean strength
+             * of the other five — the reading the two other surfaces that use this
+             * number both name, and the only one this string did not. */
+            measured: `the closest is ${st.highest.times.toFixed(2)}× and the widest ${st.lowest.times.toFixed(2)}×; against the mean strength of the other ${st.ratios.length} it is ${st.meanRatio}× — four is true of none of them`,
+            test: 'roughly four times read as at least 3.5× against every other bore',
+            get refuted() { return st.highest.times < 3.5; },
           },
           {
             plate: 'Schoeller', figure: '4.5',
             desc: 'Every bore shares a parallel Ca-Mg-HCO3 signature except MW05, whose sulfate limb is an order of magnitude above the rest',
             claims: 'a shared calcium-magnesium-bicarbonate signature, and a sulfate limb ten times the rest',
             measured: `the signature fails on the same ${m.notCalcium.length} bores, and the sulfate limb is ${sulfateNearest.toFixed(2)}× the next bore — an order of magnitude above *the rest* requires the nearest, not the furthest`,
-            refuted: true,
+            test: 'a shared calcium signature, and an order of magnitude read as at least 10× against the nearest bore',
+            get refuted() { return m.notCalcium.length > 0 || sulfateNearest < 10; },
           },
         ];
       },
@@ -14488,7 +14526,7 @@ export const VENDOR_BRIEF = (() => {
     { id: '9.4', title: 'Trend and statistical analysis', items: 10, verdict: 'partially',
       asks: 'A graph without an inspectable underlying population is inconsistent with Strataflow’s defensibility proposition.',
       screens: ['statistics', 'background'],
-      note: `All {items} have a surface as of 3 September 2026. Five were already drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. The other five are supplied now: ${ANALYSES.summary.rows.length} statistics and ${ANALYSES.summary.percentiles.length} percentiles over a named population, each with the convention it is computed under, and **detection frequency, which appeared once in this repository and never as a measure**. This note read *“Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all”* until that date. It stays partial on two clauses the requirement turns on. **Grouping is not exposed** — there is no control that groups a population by anything. And making the population inspectable found that it is ${ANALYSES.counts.readings} populations: five readings of *arsenic at MW05* give ${ANALYSES.counts.censoredAnswers} different answers about how many of its values are non-detects, so the mean and the minimum are drawn with the condition they hold under rather than as settled numbers.` },
+      note: `All {items} have a surface as of 3 September 2026. Five were already drawn at the standard — Mann-Kendall, Sen’s slope, seasonal comparison, censored treatment and background comparison, with non-detects entering as tied values and never substituted, and both tests reported rather than the one with the smaller p-value. The other five are supplied now: ${ANALYSES.summary.rows.length} statistics and ${ANALYSES.summary.percentiles.length} percentiles over a named population, each with the convention it is computed under, and **detection frequency, which appeared twice in this repository before this wave — in this note and in the brief — and never as a measure**. This note read *“Summary statistics, percentiles, minima and maxima, detection frequency and exceedance frequency have no surface at all”* until that date. It stays partial on two clauses the requirement turns on. **Grouping is not exposed** — there is no control that groups a population by anything. And making the population inspectable found that it is ${ANALYSES.counts.readings} populations: five readings of *arsenic at MW05* give ${ANALYSES.counts.censoredAnswers} different answers about how many of its values are non-detects, so the mean and the minimum are drawn with the condition they hold under rather than as settled numbers.` },
     { id: '9.5', title: 'Analysis lineage', verdict: 'partially',
       asks: 'Query → included observations/results → QA/QC state → analytical settings → output',
       screens: ['lineage', 'saved-views', 'report-figures'],
